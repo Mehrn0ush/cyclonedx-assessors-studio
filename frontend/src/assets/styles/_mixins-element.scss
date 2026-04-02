@@ -1,0 +1,333 @@
+// Element Plus component override mixins
+
+// Button component overrides
+@mixin el-button-override {
+  // Customize Element Plus button styles to match design tokens
+  &.el-button {
+    border-radius: var(--cat-radius-md);
+    font-weight: var(--cat-font-weight-medium);
+    transition: all var(--cat-transition-base) ease;
+
+    &.is-plain {
+      &.is-dark {
+        background-color: var(--cat-bg-surface);
+        border-color: var(--cat-border-default);
+      }
+    }
+  }
+}
+
+// Input component overrides
+@mixin el-input-override {
+  .el-input {
+    &__wrapper {
+      background-color: var(--cat-bg-surface);
+      border-color: var(--cat-border-default);
+
+      &:hover {
+        border-color: var(--cat-border-light);
+      }
+    }
+
+    &.is-focus &__wrapper {
+      border-color: var(--cat-brand-secondary);
+      box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1);
+    }
+
+    &__input {
+      color: var(--cat-text-primary);
+
+      &::placeholder {
+        color: var(--cat-text-disabled);
+      }
+    }
+  }
+}
+
+// Select component overrides
+@mixin el-select-override {
+  .el-select {
+    &__wrapper {
+      background-color: var(--cat-bg-surface);
+      border-color: var(--cat-border-default);
+    }
+  }
+
+  .el-select-dropdown {
+    background-color: var(--cat-bg-elevated);
+    border-color: var(--cat-border-default);
+  }
+
+  .el-option {
+    color: var(--cat-text-primary);
+
+    &:hover {
+      background-color: var(--cat-bg-hover);
+    }
+
+    &.selected {
+      color: var(--cat-brand-secondary);
+    }
+  }
+}
+
+// Table component overrides
+@mixin el-table-override {
+  .el-table {
+    width: 100%;
+    background-color: var(--cat-bg-surface);
+    border-color: var(--cat-border-default);
+
+    th {
+      background-color: var(--cat-bg-secondary);
+      color: var(--cat-text-secondary);
+      border-color: var(--cat-border-default);
+      font-weight: var(--cat-font-weight-semibold);
+
+      .el-table__cell {
+        padding: var(--cat-spacing-3) var(--cat-spacing-4);
+      }
+    }
+
+    td {
+      border-color: var(--cat-border-muted);
+      color: var(--cat-text-primary);
+
+      .el-table__cell {
+        padding: var(--cat-spacing-3) var(--cat-spacing-4);
+      }
+    }
+
+    tbody tr {
+      &:hover > td {
+        background-color: var(--cat-bg-hover);
+      }
+    }
+  }
+
+  .el-table__row {
+    &.hover-row > td {
+      background-color: var(--cat-bg-hover);
+    }
+  }
+}
+
+// Dialog/Modal component overrides
+@mixin el-dialog-override {
+  .el-dialog {
+    background-color: var(--cat-bg-elevated);
+    border-color: var(--cat-border-default);
+    box-shadow: var(--cat-shadow-xl);
+
+    &__header {
+      border-bottom-color: var(--cat-border-default);
+    }
+
+    &__title {
+      color: var(--cat-text-primary);
+      font-weight: var(--cat-font-weight-semibold);
+    }
+
+    &__close {
+      color: var(--cat-text-secondary);
+
+      &:hover {
+        color: var(--cat-text-primary);
+      }
+    }
+  }
+
+  .el-overlay {
+    background-color: rgba(0, 0, 0, 0.7);
+  }
+}
+
+// Popover component overrides
+@mixin el-popover-override {
+  .el-popper {
+    background-color: var(--cat-bg-elevated);
+    border-color: var(--cat-border-default);
+    color: var(--cat-text-primary);
+    box-shadow: var(--cat-shadow-lg);
+  }
+}
+
+// Tooltip component overrides
+@mixin el-tooltip-override {
+  .el-tooltip__popper {
+    background-color: var(--cat-bg-elevated);
+    border-color: var(--cat-border-default);
+    color: var(--cat-text-primary);
+    box-shadow: var(--cat-shadow-md);
+  }
+}
+
+// Pagination component overrides
+@mixin el-pagination-override {
+  .el-pagination {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--cat-spacing-4);
+
+    .el-pager li {
+      color: var(--cat-text-primary);
+
+      &:hover {
+        color: var(--cat-brand-secondary);
+      }
+
+      &.active {
+        color: var(--cat-brand-secondary);
+        font-weight: var(--cat-font-weight-semibold);
+      }
+    }
+
+    .el-icon {
+      color: var(--cat-text-secondary);
+
+      &:hover {
+        color: var(--cat-brand-secondary);
+      }
+    }
+  }
+}
+
+// Form component overrides
+@mixin el-form-override {
+  .el-form-item {
+    &__label {
+      color: var(--cat-text-primary);
+      font-weight: var(--cat-font-weight-medium);
+    }
+
+    &__error {
+      color: var(--cat-danger);
+    }
+  }
+}
+
+// Tree component overrides
+@mixin el-tree-override {
+  .el-tree {
+    background-color: transparent;
+    color: var(--cat-text-primary);
+
+    .el-tree-node {
+      &:focus > .el-tree-node__content {
+        background-color: var(--cat-bg-hover);
+      }
+
+      &__content {
+        &:hover {
+          background-color: var(--cat-bg-hover);
+        }
+      }
+    }
+
+    .el-tree-node.is-expanded > .el-tree-node__content {
+      background-color: transparent;
+    }
+  }
+}
+
+// Tabs component overrides
+@mixin el-tabs-override {
+  .el-tabs {
+    &__header {
+      border-bottom-color: var(--cat-border-default);
+    }
+
+    &__nav-wrap::after {
+      background-color: var(--cat-border-default);
+    }
+
+    &__item {
+      color: var(--cat-text-secondary);
+
+      &:hover {
+        color: var(--cat-text-primary);
+      }
+
+      &.is-active {
+        color: var(--cat-brand-secondary);
+        font-weight: var(--cat-font-weight-medium);
+      }
+    }
+  }
+}
+
+// Card component overrides
+@mixin el-card-override {
+  .el-card {
+    background-color: var(--cat-bg-surface);
+    border-color: var(--cat-border-default);
+    box-shadow: none;
+
+    &__header {
+      border-bottom-color: var(--cat-border-default);
+    }
+  }
+}
+
+// Tag component overrides
+@mixin el-tag-override {
+  .el-tag {
+    background-color: var(--cat-bg-surface);
+    border-color: var(--cat-border-default);
+    color: var(--cat-text-primary);
+
+    &.is-dark {
+      background-color: var(--cat-bg-secondary);
+    }
+  }
+}
+
+// Checkbox component overrides
+@mixin el-checkbox-override {
+  .el-checkbox {
+    &__input {
+      &.is-checked {
+        .el-checkbox__inner {
+          background-color: var(--cat-brand-secondary);
+          border-color: var(--cat-brand-secondary);
+        }
+      }
+    }
+
+    &__inner {
+      background-color: var(--cat-bg-surface);
+      border-color: var(--cat-border-default);
+
+      &:hover {
+        border-color: var(--cat-brand-secondary);
+      }
+    }
+  }
+}
+
+// Radio component overrides
+@mixin el-radio-override {
+  .el-radio {
+    &__input {
+      &.is-checked {
+        .el-radio__inner {
+          background-color: var(--cat-brand-secondary);
+          border-color: var(--cat-brand-secondary);
+
+          &::after {
+            background-color: white;
+          }
+        }
+      }
+    }
+
+    &__inner {
+      background-color: var(--cat-bg-surface);
+      border-color: var(--cat-border-default);
+
+      &:hover {
+        border-color: var(--cat-brand-secondary);
+      }
+    }
+  }
+}

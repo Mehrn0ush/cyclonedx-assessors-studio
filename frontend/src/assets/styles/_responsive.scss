@@ -1,0 +1,340 @@
+// ============================================================================
+// RESPONSIVE STYLES FOR MOBILE DEVICES
+// ============================================================================
+// Optimizes the app for screens smaller than 768px (md breakpoint)
+// Desktop layout remains unchanged
+
+@use 'mixins' as mixins;
+
+// ============================================================================
+// MOBILE SIDEBAR OVERLAY MODE
+// ============================================================================
+// On mobile, the sidebar is hidden by default and shown as an overlay when
+// the hamburger menu is toggled
+
+:root {
+  // Mobile state indicator (set via JavaScript based on viewport)
+  --cat-is-mobile: 0; // 0 = desktop, 1 = mobile
+}
+
+// When mobile sidebar is open, add a backdrop/overlay to the document
+// This requires coordinating with the UIStore to set a data attribute
+body {
+  &[data-sidebar-open='true'] {
+    overflow: hidden;
+
+    &::before {
+      content: '';
+      position: fixed;
+      top: var(--cat-topbar-height);
+      left: 0;
+      right: 0;
+      bottom: var(--cat-statusbar-height);
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: calc(var(--cat-z-sticky) - 1);
+      pointer-events: all;
+    }
+  }
+}
+
+// ============================================================================
+// TOP BAR RESPONSIVE
+// ============================================================================
+
+@include mixins.respond-to('md') {
+  .top-bar {
+    padding: 0 var(--cat-spacing-2);
+  }
+
+  .top-bar-left {
+    flex: 1;
+  }
+
+  .logo-text {
+    display: none;
+  }
+
+  .logo {
+    height: 20px;
+  }
+
+  .top-bar-right {
+    gap: var(--cat-spacing-2);
+  }
+
+  .hamburger-menu {
+    display: flex !important;
+  }
+
+  .lang-selector {
+    width: 100px;
+
+    :deep(.el-input__wrapper) {
+      padding: var(--cat-spacing-1) var(--cat-spacing-1);
+    }
+
+    :deep(.el-input__inner) {
+      font-size: var(--cat-font-size-xs);
+    }
+  }
+}
+
+// ============================================================================
+// SIDEBAR RESPONSIVE
+// ============================================================================
+
+@include mixins.respond-to('md') {
+  .sidebar {
+    position: fixed;
+    top: var(--cat-topbar-height);
+    left: 0;
+    width: var(--cat-sidebar-width);
+    height: calc(100vh - var(--cat-topbar-height) - var(--cat-statusbar-height));
+    background-color: var(--cat-bg-sidebar);
+    border-right: 1px solid var(--cat-border-default);
+    display: flex;
+    flex-direction: column;
+    transition: transform 200ms ease;
+    overflow: hidden;
+    z-index: var(--cat-z-sticky);
+
+    // By default on mobile, sidebar is off-screen to the left
+    transform: translateX(-100%);
+
+    &.mobile-open {
+      transform: translateX(0);
+    }
+
+    &.collapsed {
+      // Don't collapse on mobile, show full sidebar when open
+      width: var(--cat-sidebar-width);
+
+      .nav-label,
+      .nav-badge {
+        display: block;
+      }
+
+      .nav-item {
+        justify-content: flex-start;
+        padding-left: var(--cat-spacing-3);
+        padding-right: var(--cat-spacing-3);
+      }
+
+      .sidebar-toggle {
+        justify-content: flex-end;
+      }
+    }
+  }
+
+  .sidebar-nav {
+    padding: var(--cat-spacing-2) 0;
+  }
+
+  .nav-item {
+    font-size: var(--cat-font-size-base);
+    padding: var(--cat-spacing-3) var(--cat-spacing-3);
+  }
+}
+
+// ============================================================================
+// MAIN CONTENT RESPONSIVE
+// ============================================================================
+
+@include mixins.respond-to('md') {
+  .app-main {
+    margin-left: 0;
+    transition: margin-left 200ms ease;
+
+    &.sidebar-collapsed {
+      margin-left: 0;
+    }
+  }
+}
+
+// ============================================================================
+// TABLES - HORIZONTAL SCROLLING ON MOBILE
+// ============================================================================
+
+@include mixins.respond-to('md') {
+  table {
+    width: 100%;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+    border: none;
+
+    thead {
+      display: table;
+      width: 100%;
+      background-color: var(--cat-bg-surface);
+    }
+
+    tbody {
+      display: block;
+      overflow: visible;
+    }
+
+    tr {
+      display: table;
+      width: 100%;
+      border-bottom: 1px solid var(--cat-border-muted);
+
+      &:last-child td {
+        border-bottom: none;
+      }
+    }
+
+    th,
+    td {
+      padding: var(--cat-spacing-2) var(--cat-spacing-3);
+      text-align: left;
+    }
+
+    th {
+      border-bottom: 1px solid var(--cat-border-default);
+    }
+  }
+
+  // Element Plus table specific styles
+  :deep(.el-table) {
+    width: 100%;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+
+    .el-table__header-wrapper {
+      width: 100%;
+      overflow: visible !important;
+    }
+
+    .el-table__body-wrapper {
+      width: 100%;
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .el-table__row {
+      display: table;
+      width: 100%;
+    }
+  }
+}
+
+// ============================================================================
+// GRID LAYOUTS - STACK ON MOBILE
+// ============================================================================
+
+@include mixins.respond-to('md') {
+  :deep(.el-row) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cat-spacing-4);
+
+    // Make sure columns are full-width on mobile
+    .el-col {
+      width: 100% !important;
+      max-width: 100%;
+    }
+  }
+}
+
+// ============================================================================
+// DIALOG/MODAL - FULL WIDTH ON MOBILE
+// ============================================================================
+
+@include mixins.respond-to('md') {
+  :deep(.el-dialog) {
+    width: calc(100vw - var(--cat-spacing-4)) !important;
+    margin-top: 0 !important;
+    max-height: calc(100vh - var(--cat-topbar-height) - var(--cat-statusbar-height) - var(--cat-spacing-4)) !important;
+  }
+
+  :deep(.el-dialog__body) {
+    max-height: calc(100vh - var(--cat-topbar-height) - var(--cat-statusbar-height) - 160px);
+    overflow-y: auto;
+  }
+}
+
+// ============================================================================
+// RESPONSIVE PADDING AND SPACING
+// ============================================================================
+
+@include mixins.respond-to('md') {
+  // Reduce padding on smaller screens
+  .page-container,
+  .content-wrapper {
+    padding: var(--cat-spacing-3);
+  }
+
+  // Make input fields and buttons more touch-friendly on mobile
+  button,
+  input,
+  textarea,
+  select {
+    min-height: 44px; // Apple's recommended touch target size
+  }
+
+  // Reduce margin on headings on mobile
+  h1 {
+    font-size: var(--cat-font-size-2xl);
+    margin-bottom: var(--cat-spacing-3);
+  }
+
+  h2 {
+    font-size: var(--cat-font-size-xl);
+    margin-bottom: var(--cat-spacing-2);
+  }
+
+  h3 {
+    font-size: var(--cat-font-size-lg);
+    margin-bottom: var(--cat-spacing-2);
+  }
+}
+
+// ============================================================================
+// UTILITY CLASSES
+// ============================================================================
+
+// Show hamburger only on mobile
+.hamburger-menu {
+  display: none;
+}
+
+// Hide on mobile
+.hide-on-mobile {
+  @include mixins.respond-to('md') {
+    display: none !important;
+  }
+}
+
+// Show only on mobile
+.show-on-mobile {
+  display: none;
+
+  @include mixins.respond-to('md') {
+    display: block !important;
+  }
+}
+
+// Make text smaller on mobile
+.text-mobile {
+  @include mixins.respond-to('md') {
+    font-size: var(--cat-font-size-xs);
+  }
+}
+
+// ============================================================================
+// LANDSCAPE MODE ADJUSTMENTS (mobile in landscape)
+// ============================================================================
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .sidebar {
+    max-height: calc(100vh - var(--cat-topbar-height));
+  }
+
+  .sidebar-nav {
+    max-height: calc(100vh - var(--cat-topbar-height) - 40px);
+    overflow-y: auto;
+  }
+}

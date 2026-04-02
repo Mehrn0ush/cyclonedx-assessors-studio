@@ -1,0 +1,116 @@
+# Default values for CycloneDX Assessors Studio
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/cyclonedx/assessors-studio
+  pullPolicy: IfNotPresent
+  tag: ""  # Defaults to Chart.appVersion
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 3001
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: assessors-studio.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: assessors-studio-tls
+  #    hosts:
+  #      - assessors-studio.example.com
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Application configuration
+config:
+  nodeEnv: production
+  logLevel: info
+  corsOrigin: "*"
+  jwtExpiry: "24h"
+
+# Database configuration
+database:
+  # Use "postgres" for production with an external or bundled PostgreSQL
+  # Use "pglite" for single-replica testing (data stored on local volume)
+  provider: postgres
+  # Only used when provider=postgres
+  external:
+    host: ""
+    port: 5432
+    database: assessors_studio
+    username: assessors_studio
+    # Reference a Kubernetes secret for the password
+    existingSecret: ""
+    existingSecretPasswordKey: "password"
+  # Set to true to deploy a PostgreSQL instance via this chart
+  bundled:
+    enabled: true
+    image: postgres:17-alpine
+    storage: 10Gi
+    storageClass: ""
+
+# Secrets (reference existing Kubernetes secrets rather than inlining values)
+secrets:
+  # Kubernetes secret containing JWT_SECRET key
+  jwtSecretName: ""
+  jwtSecretKey: "jwt-secret"
+
+# Persistence for PGlite mode (not recommended for production)
+persistence:
+  enabled: false
+  storageClass: ""
+  size: 5Gi
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+# Health checks
+livenessProbe:
+  httpGet:
+    path: /api/health
+    port: http
+  initialDelaySeconds: 15
+  periodSeconds: 30
+
+readinessProbe:
+  httpGet:
+    path: /api/health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

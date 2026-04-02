@@ -1,0 +1,162 @@
+// ============================================================================
+// ELEMENT PLUS THEME OVERRIDES
+// ============================================================================
+// Maps design tokens onto Element Plus CSS custom properties.
+// Dark theme is the default; matches CycloneDX BOM Studio.
+// ============================================================================
+
+@use './mixins-element';
+
+// Dark theme (default)
+:root,
+html.dark {
+  // Colors
+  --el-color-primary: #2f81f7;
+  --el-color-primary-light-3: #58a6ff;
+  --el-color-primary-light-5: #79c0ff;
+  --el-color-primary-light-7: #a5d6ff;
+  --el-color-primary-light-9: #ddf4ff;
+  --el-color-primary-dark-2: #1158a0;
+  --el-color-success: #3fb950;
+  --el-color-warning: #d29922;
+  --el-color-danger: #f85149;
+  --el-color-info: #58a6ff;
+
+  // Backgrounds
+  --el-bg-color-page: #0d1117;
+  --el-bg-color: #161b22;
+  --el-bg-color-overlay: #1c2128;
+  --el-bg-color-secondary: #131920;
+  --el-fill-color: #21262d;
+  --el-fill-color-light: #1c2128;
+  --el-fill-color-lighter: #161b22;
+  --el-fill-color-blank: #1c2128;
+
+  // Borders
+  --el-border-color: #30363d;
+  --el-border-color-light: #21262d;
+  --el-border-color-lighter: #161b22;
+  --el-border-color-dark: #3d444d;
+
+  // Text
+  --el-text-color-primary: #e6edf3;
+  --el-text-color-regular: #b1bac4;
+  --el-text-color-secondary: #8b949e;
+  --el-text-color-placeholder: #6e7681;
+  --el-text-color-disabled: #4d5562;
+
+  // Border radius
+  --el-border-radius-base: 6px;
+  --el-border-radius-small: 4px;
+  --el-border-radius-round: 9999px;
+
+  // Font
+  --el-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  --el-font-size-base: 0.875rem;
+  --el-font-size-small: 0.8125rem;
+  --el-font-size-extra-small: 0.75rem;
+
+  // Shadows
+  --el-box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --el-box-shadow-light: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --el-box-shadow-lighter: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --el-box-shadow-dark: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  // Mask
+  --el-mask-color: rgba(0, 0, 0, 0.6);
+  --el-mask-color-extra-light: rgba(0, 0, 0, 0.3);
+
+  // Component overrides
+  @include mixins-element.el-button-override;
+  @include mixins-element.el-input-override;
+  @include mixins-element.el-select-override;
+  @include mixins-element.el-table-override;
+  @include mixins-element.el-dialog-override;
+  @include mixins-element.el-popover-override;
+  @include mixins-element.el-tooltip-override;
+  @include mixins-element.el-pagination-override;
+  @include mixins-element.el-form-override;
+  @include mixins-element.el-tree-override;
+  @include mixins-element.el-tabs-override;
+  @include mixins-element.el-card-override;
+  @include mixins-element.el-tag-override;
+  @include mixins-element.el-checkbox-override;
+  @include mixins-element.el-radio-override;
+}
+
+// Default buttons: subtle outlined style for dark theme
+.el-button--default,
+.el-button:not(.el-button--primary):not(.el-button--success):not(.el-button--danger):not(.el-button--warning):not(.el-button--info) {
+  --el-button-bg-color: transparent;
+  --el-button-border-color: #30363d;
+  --el-button-text-color: #b1bac4;
+  --el-button-hover-bg-color: rgba(177, 186, 196, 0.08);
+  --el-button-hover-border-color: #8b949e;
+  --el-button-hover-text-color: #e6edf3;
+  --el-button-active-bg-color: rgba(177, 186, 196, 0.12);
+  --el-button-active-border-color: #6e7681;
+  --el-button-active-text-color: #e6edf3;
+}
+
+// Primary buttons: translucent outlined style (matches BOM Studio)
+.el-button--primary,
+.el-button--primary.is-plain {
+  --el-button-bg-color: rgba(47, 129, 247, 0.1);
+  --el-button-border-color: rgba(47, 129, 247, 0.3);
+  --el-button-text-color: #2f81f7;
+  --el-button-hover-bg-color: rgba(47, 129, 247, 0.2);
+  --el-button-hover-border-color: #2f81f7;
+  --el-button-hover-text-color: #58a6ff;
+  --el-button-active-bg-color: rgba(47, 129, 247, 0.25);
+  --el-button-active-border-color: #1a7fd4;
+  --el-button-active-text-color: #1a7fd4;
+}
+
+// Success buttons: translucent outlined style
+.el-button--success,
+.el-button--success.is-plain {
+  --el-button-bg-color: rgba(63, 185, 80, 0.1);
+  --el-button-border-color: rgba(63, 185, 80, 0.3);
+  --el-button-text-color: #3fb950;
+  --el-button-hover-bg-color: rgba(63, 185, 80, 0.2);
+  --el-button-hover-border-color: #3fb950;
+  --el-button-hover-text-color: #56d364;
+  --el-button-active-bg-color: rgba(63, 185, 80, 0.25);
+  --el-button-active-border-color: #2ea043;
+  --el-button-active-text-color: #2ea043;
+}
+
+// Danger buttons: translucent outlined style
+.el-button--danger,
+.el-button--danger.is-plain {
+  --el-button-bg-color: rgba(248, 81, 73, 0.1);
+  --el-button-border-color: rgba(248, 81, 73, 0.2);
+  --el-button-text-color: #f85149;
+  --el-button-hover-bg-color: rgba(248, 81, 73, 0.15);
+  --el-button-hover-border-color: #f85149;
+  --el-button-hover-text-color: #ff7b72;
+  --el-button-active-bg-color: rgba(248, 81, 73, 0.2);
+  --el-button-active-border-color: #da3633;
+  --el-button-active-text-color: #da3633;
+}
+
+// Warning buttons: translucent outlined style
+.el-button--warning,
+.el-button--warning.is-plain {
+  --el-button-bg-color: rgba(210, 153, 34, 0.1);
+  --el-button-border-color: rgba(210, 153, 34, 0.3);
+  --el-button-text-color: #d29922;
+  --el-button-hover-bg-color: rgba(210, 153, 34, 0.2);
+  --el-button-hover-border-color: #d29922;
+  --el-button-hover-text-color: #e3b341;
+  --el-button-active-bg-color: rgba(210, 153, 34, 0.25);
+  --el-button-active-border-color: #bb8009;
+  --el-button-active-text-color: #bb8009;
+}
+
+// Icon-only buttons: square aspect ratio
+.el-button:has(> .el-icon:only-child) {
+  aspect-ratio: 1;
+  padding-inline: 0;
+}

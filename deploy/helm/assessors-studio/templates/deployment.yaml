@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "assessors-studio.fullname" . }}
+  labels:
+    {{- include "assessors-studio.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "assessors-studio.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "assessors-studio.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "assessors-studio.serviceAccountName" . }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: {{ .Values.config.nodeEnv | quote }}
+            - name: PORT
+              value: {{ .Values.service.port | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.config.logLevel | quote }}
+            - name: CORS_ORIGIN
+              value: {{ .Values.config.corsOrigin | quote }}
+            - name: JWT_EXPIRY
+              value: {{ .Values.config.jwtExpiry | quote }}
+            - name: DATABASE_PROVIDER
+              value: {{ .Values.database.provider | quote }}
+            {{- if eq .Values.database.provider "postgres" }}
+            {{- if .Values.database.bundled.enabled }}
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.database.external.username }}:$(DB_PASSWORD)@{{ include "assessors-studio.fullname" . }}-db:5432/{{ .Values.database.external.database }}"
+            {{- else }}
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.database.external.username }}:$(DB_PASSWORD)@{{ .Values.database.external.host }}:{{ .Values.database.external.port }}/{{ .Values.database.external.database }}"
+            {{- end }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.external.existingSecret | default (printf "%s-db" (include "assessors-studio.fullname" .)) }}
+                  key: {{ .Values.database.external.existingSecretPasswordKey }}
+            {{- end }}
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.jwtSecretName | default (printf "%s-secrets" (include "assessors-studio.fullname" .)) }}
+                  key: {{ .Values.secrets.jwtSecretKey }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if and (eq .Values.database.provider "pglite") .Values.persistence.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+          {{- end }}
+      {{- if and (eq .Values.database.provider "pglite") .Values.persistence.enabled }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "assessors-studio.fullname" . }}-data
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

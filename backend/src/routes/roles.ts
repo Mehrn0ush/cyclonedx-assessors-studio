@@ -1,0 +1,308 @@
+import { Router, Response } from 'express';
+import { z } from 'zod';
+import { v4 as uuidv4 } from 'uuid';
+import { getDatabase } from '../db/connection.js';
+import { logger } from '../utils/logger.js';
+import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+
+const router = Router();
+
+const createRoleSchema = z.object({
+  key: z.string().min(1, 'Key is required'),
+  name: z.string().min(1, 'Name is required'),
+  description: z.string().optional(),
+  permissionIds: z.array(z.string().uuid()).optional(),
+});
+
+const updateRoleSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().optional(),
+  permissionIds: z.array(z.string().uuid()).optional(),
+});
+
+router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const db = getDatabase();
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const offset = Number(req.query.offset) || 0;
+
+    const total = await db
+      .selectFrom('role')
+      .select(db.fn.count<number>('id').as('count'))
+      .executeTakeFirstOrThrow()
+      .then(r => r.count);
+
+    const roles = await db
+      .selectFrom('role')
+      .selectAll()
+      .limit(limit)
+      .offset(offset)
+      .execute();
+
+    const rolesWithCounts = await Promise.all(
+      roles.map(async (role) => {
+        const permCount = await db
+          .selectFrom('role_permission')
+          .where('role_id', '=', role.id)
+          .select(db.fn.count<number>('permission_id').as('count'))
+          .executeTakeFirstOrThrow()
+          .then(r => Number(r.count));
+
+        return {
+          ...role,
+          permissionCount: permCount,
+        };
+      })
+    );
+
+    res.json({
+      data: rolesWithCounts,
+      pagination: {
+        limit,
+        offset,
+        total,
+      },
+    });
+  } catch (error) {
+    logger.error('Get roles error', { error, requestId: req.requestId });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// IMPORTANT: This route must be registered BEFORE /:id to avoid being caught by the param route
+router.get('/permissions', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const db = getDatabase();
+
+    const permissions = await db
+      .selectFrom('permission')
+      .selectAll()
+      .orderBy('category')
+      .orderBy('name')
+      .execute();
+
+    res.json({ data: permissions });
+  } catch (error) {
+    logger.error('Get permissions error', { error, requestId: req.requestId });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const db = getDatabase();
+
+    const role = await db
+      .selectFrom('role')
+      .where('id', '=', req.params.id)
+      .selectAll()
+      .executeTakeFirst();
+
+    if (!role) {
+      res.status(404).json({ error: 'Role not found' });
+      return;
+    }
+
+    const permissions = await db
+      .selectFrom('role_permission')
+      .innerJoin('permission', 'permission.id', 'role_permission.permission_id')
+      .where('role_permission.role_id', '=', req.params.id)
+      .select(['permission.id', 'permission.key', 'permission.name', 'permission.description', 'permission.category'])
+      .execute();
+
+    res.json({
+      role,
+      permissions,
+    });
+  } catch (error) {
+    logger.error('Get role error', { error, requestId: req.requestId });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post(
+  '/',
+  requireAuth,
+  requireRole('admin'),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const data = createRoleSchema.parse(req.body);
+      const db = getDatabase();
+
+      const existingRole = await db
+        .selectFrom('role')
+        .where('key', '=', data.key)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (existingRole) {
+        res.status(409).json({ error: 'Role key already exists' });
+        return;
+      }
+
+      const roleId = uuidv4();
+
+      await db
+        .insertInto('role')
+        .values({
+          id: roleId,
+          key: data.key,
+          name: data.name,
+          description: data.description,
+          is_system: false,
+        })
+        .execute();
+
+      if (data.permissionIds && data.permissionIds.length > 0) {
+        await db
+          .insertInto('role_permission')
+          .values(
+            data.permissionIds.map(permissionId => ({
+              role_id: roleId,
+              permission_id: permissionId,
+              created_at: new Date(),
+            }))
+          )
+          .execute();
+      }
+
+      logger.info('Role created', {
+        roleId,
+        key: data.key,
+        requestId: req.requestId,
+      });
+
+      res.status(201).json({
+        id: roleId,
+        key: data.key,
+        name: data.name,
+        description: data.description,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        return;
+      }
+
+      logger.error('Create role error', { error, requestId: req.requestId });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+router.put(
+  '/:id',
+  requireAuth,
+  requireRole('admin'),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const data = updateRoleSchema.parse(req.body);
+      const db = getDatabase();
+
+      const role = await db
+        .selectFrom('role')
+        .where('id', '=', req.params.id)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!role) {
+        res.status(404).json({ error: 'Role not found' });
+        return;
+      }
+
+      if (role.is_system) {
+        res.status(400).json({ error: 'Cannot modify system roles' });
+        return;
+      }
+
+      const updateData: any = {};
+
+      if (data.name !== undefined) updateData.name = data.name;
+      if (data.description !== undefined) updateData.description = data.description;
+
+      if (Object.keys(updateData).length > 0) {
+        await db
+          .updateTable('role')
+          .set(updateData)
+          .where('id', '=', req.params.id)
+          .execute();
+      }
+
+      if (data.permissionIds !== undefined) {
+        await db
+          .deleteFrom('role_permission')
+          .where('role_id', '=', req.params.id)
+          .execute();
+
+        if (data.permissionIds.length > 0) {
+          await db
+            .insertInto('role_permission')
+            .values(
+              data.permissionIds.map(permissionId => ({
+                role_id: req.params.id,
+                permission_id: permissionId,
+                created_at: new Date(),
+              }))
+            )
+            .execute();
+        }
+      }
+
+      logger.info('Role updated', {
+        roleId: req.params.id,
+        requestId: req.requestId,
+      });
+
+      res.json({ message: 'Role updated successfully' });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        return;
+      }
+
+      logger.error('Update role error', { error, requestId: req.requestId });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+router.delete(
+  '/:id',
+  requireAuth,
+  requireRole('admin'),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const db = getDatabase();
+
+      const role = await db
+        .selectFrom('role')
+        .where('id', '=', req.params.id)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!role) {
+        res.status(404).json({ error: 'Role not found' });
+        return;
+      }
+
+      if (role.is_system) {
+        res.status(400).json({ error: 'Cannot delete system roles' });
+        return;
+      }
+
+      await db.deleteFrom('role').where('id', '=', req.params.id).execute();
+
+      logger.info('Role deleted', {
+        roleId: req.params.id,
+        requestId: req.requestId,
+      });
+
+      res.json({ message: 'Role deleted successfully' });
+    } catch (error) {
+      logger.error('Delete role error', { error, requestId: req.requestId });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+export default router;

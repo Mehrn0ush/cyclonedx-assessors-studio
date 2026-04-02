@@ -1,0 +1,221 @@
+// SCSS mixins for consistent styling patterns
+
+// Flexbox utilities
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin flex-start {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+// Grid utilities
+@mixin grid($cols: 1, $gap: var(--cat-spacing-4)) {
+  display: grid;
+  grid-template-columns: repeat($cols, 1fr);
+  gap: $gap;
+}
+
+// Positioning
+@mixin absolute-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+@mixin absolute-cover {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+// Text truncation
+@mixin truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@mixin line-clamp($lines: 1) {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: $lines;
+  overflow: hidden;
+}
+
+// Button styling
+@mixin button-reset {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  cursor: pointer;
+  color: inherit;
+  font-size: inherit;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+@mixin button-base {
+  @include button-reset;
+  border-radius: var(--cat-radius-md);
+  padding: var(--cat-spacing-2) var(--cat-spacing-4);
+  font-weight: var(--cat-font-weight-medium);
+  transition: all var(--cat-transition-base) ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cat-spacing-2);
+  white-space: nowrap;
+}
+
+@mixin button-primary {
+  @include button-base;
+  background-color: var(--cat-bg-active);
+  color: white;
+
+  &:hover:not(:disabled) {
+    background-color: var(--cat-bg-focus);
+  }
+
+  &:active:not(:disabled) {
+    opacity: 0.9;
+  }
+}
+
+@mixin button-secondary {
+  @include button-base;
+  background-color: var(--cat-bg-surface);
+  color: var(--cat-text-primary);
+  border: 1px solid var(--cat-border-default);
+
+  &:hover:not(:disabled) {
+    background-color: var(--cat-bg-hover);
+    border-color: var(--cat-border-light);
+  }
+
+  &:active:not(:disabled) {
+    background-color: var(--cat-bg-active);
+    color: white;
+    border-color: var(--cat-bg-active);
+  }
+}
+
+@mixin button-ghost {
+  @include button-base;
+  background-color: transparent;
+  color: var(--cat-text-primary);
+
+  &:hover:not(:disabled) {
+    background-color: var(--cat-bg-hover);
+  }
+
+  &:active:not(:disabled) {
+    background-color: var(--cat-bg-surface);
+  }
+}
+
+// Input styling
+@mixin input-base {
+  border: 1px solid var(--cat-border-default);
+  border-radius: var(--cat-radius-md);
+  padding: var(--cat-spacing-2) var(--cat-spacing-3);
+  background-color: var(--cat-bg-surface);
+  color: var(--cat-text-primary);
+  font-family: inherit;
+  font-size: var(--cat-font-size-sm);
+  transition: border-color var(--cat-transition-base) ease;
+
+  &::placeholder {
+    color: var(--cat-text-disabled);
+  }
+
+  &:hover {
+    border-color: var(--cat-border-light);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--cat-brand-secondary);
+    box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1);
+  }
+
+  &:disabled {
+    background-color: var(--cat-bg-secondary);
+    color: var(--cat-text-disabled);
+    cursor: not-allowed;
+  }
+}
+
+// Card styling
+@mixin card-base {
+  background-color: var(--cat-bg-surface);
+  border: 1px solid var(--cat-border-default);
+  border-radius: var(--cat-radius-lg);
+  padding: var(--cat-spacing-6);
+}
+
+@mixin card-interactive {
+  @include card-base;
+  transition: all var(--cat-transition-base) ease;
+
+  &:hover {
+    border-color: var(--cat-border-light);
+    box-shadow: var(--cat-shadow-md);
+  }
+}
+
+// Shadow utilities
+@mixin shadow-sm {
+  box-shadow: var(--cat-shadow-sm);
+}
+
+@mixin shadow-md {
+  box-shadow: var(--cat-shadow-md);
+}
+
+@mixin shadow-lg {
+  box-shadow: var(--cat-shadow-lg);
+}
+
+@mixin shadow-xl {
+  box-shadow: var(--cat-shadow-xl);
+}
+
+// Responsive utilities
+@mixin respond-to($breakpoint) {
+  @if $breakpoint == 'sm' {
+    @media (max-width: 640px) {
+      @content;
+    }
+  } @else if $breakpoint == 'md' {
+    @media (max-width: 768px) {
+      @content;
+    }
+  } @else if $breakpoint == 'lg' {
+    @media (max-width: 1024px) {
+      @content;
+    }
+  } @else if $breakpoint == 'xl' {
+    @media (max-width: 1280px) {
+      @content;
+    }
+  }
+}

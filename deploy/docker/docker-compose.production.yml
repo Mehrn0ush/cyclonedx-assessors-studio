@@ -1,0 +1,60 @@
+###############################################################################
+# CycloneDX Assessors Studio - Production Deployment
+# Uses PostgreSQL as the database backend.
+#
+# Usage:
+#   cd deploy/docker && docker compose -f docker-compose.production.yml up -d
+#
+# Required environment variables (set in .env or shell):
+#   JWT_SECRET          - At least 32 characters, cryptographically random
+#
+# Optional overrides:
+#   POSTGRES_PASSWORD   - Database password (default: assessors_studio)
+#   PORT                - Host port mapping (default: 3001)
+#   CORS_ORIGIN         - Allowed CORS origin (default: *)
+#
+# TLS: For production TLS, place a reverse proxy (nginx, traefik, caddy)
+# in front of this stack. See deploy/nginx.conf.example for a sample config.
+###############################################################################
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: assessors_studio
+      POSTGRES_USER: assessors_studio
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-assessors_studio}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U assessors_studio"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    # Uncomment to expose PostgreSQL for external tooling:
+    # ports:
+    #   - "5432:5432"
+
+  app:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    ports:
+      - "${PORT:-3001}:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_PROVIDER: postgres
+      DATABASE_URL: postgresql://assessors_studio:${POSTGRES_PASSWORD:-assessors_studio}@db:5432/assessors_studio
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      JWT_EXPIRY: ${JWT_EXPIRY:-24h}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    restart: unless-stopped
+
+volumes:
+  pgdata:

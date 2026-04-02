@@ -1,0 +1,106 @@
+// ============================================================================
+// LIGHT THEME OVERRIDES
+// ============================================================================
+
+html.light {
+  // Backgrounds
+  --cat-bg-primary: #ffffff;
+  --cat-bg-secondary: #f6f8fa;
+  --cat-bg-tertiary: #f0f3f6;
+  --cat-bg-surface: #ffffff;
+  --cat-bg-elevated: #ffffff;
+  --cat-bg-input: #f6f8fa;
+  --cat-bg-sidebar: #f6f8fa;
+  --cat-bg-hover: rgba(9, 105, 218, 0.06);
+  --cat-bg-active: rgba(9, 105, 218, 0.12);
+  --cat-bg-selected: rgba(9, 105, 218, 0.08);
+
+  // Text
+  --cat-text-primary: #1f2328;
+  --cat-text-secondary: #656d76;
+  --cat-text-tertiary: #8b949e;
+  --cat-text-disabled: #b1bac4;
+  --cat-text-inverse: #e6edf3;
+
+  // Borders
+  --cat-border-default: #d0d7de;
+  --cat-border-subtle: #d8dee4;
+  --cat-border-light: #d8dee4;
+  --cat-border-muted: #e1e5ea;
+  --cat-border-focus: #0969da;
+
+  // Accent / brand
+  --cat-accent-primary: #0969da;
+  --cat-brand-primary: #0969da;
+  --cat-brand-secondary: #0969da;
+
+  // Status
+  --cat-success: #1a7f37;
+  --cat-success-light: #dafbe1;
+  --cat-warning: #9a6700;
+  --cat-warning-light: #fff8c5;
+  --cat-danger: #cf222e;
+  --cat-danger-light: #ffebe6;
+  --cat-info: #0969da;
+  --cat-info-light: #ddf4ff;
+
+  // Shadows
+  --cat-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --cat-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --cat-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --cat-shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.15);
+  --cat-shadow-glow: 0 0 20px rgba(9, 105, 218, 0.1);
+  --cat-shadow-focus: 0 0 0 3px rgba(9, 105, 218, 0.3);
+
+  // Charts
+  --cat-chart-blue: #0969da;
+  --cat-chart-green: #1a7f37;
+  --cat-chart-amber: #9a6700;
+  --cat-chart-red: #cf222e;
+  --cat-chart-purple: #8250df;
+  --cat-chart-teal: #1a7f37;
+
+  // Element Plus light overrides
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #f6f8fa;
+  --el-bg-color-overlay: #ffffff;
+  --el-bg-color-secondary: #f6f8fa;
+  --el-fill-color: #f0f3f6;
+  --el-fill-color-light: #f6f8fa;
+  --el-fill-color-lighter: #fafbfc;
+  --el-fill-color-blank: #ffffff;
+  --el-border-color: #d0d7de;
+  --el-border-color-light: #d8dee4;
+  --el-border-color-lighter: #e1e5ea;
+  --el-border-color-dark: #afb8c1;
+  --el-text-color-primary: #1f2328;
+  --el-text-color-regular: #32383f;
+  --el-text-color-secondary: #656d76;
+  --el-text-color-placeholder: #8b949e;
+  --el-text-color-disabled: #b1bac4;
+  --el-color-primary: #0969da;
+  --el-color-primary-light-3: #54aeff;
+  --el-color-primary-light-5: #79c0ff;
+  --el-color-primary-light-7: #b6e3ff;
+  --el-color-primary-light-9: #ddf4ff;
+  --el-color-primary-dark-2: #0860ca;
+  --el-color-success: #1a7f37;
+  --el-color-warning: #9a6700;
+  --el-color-danger: #cf222e;
+  --el-color-info: #0969da;
+  --el-box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --el-box-shadow-light: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --el-box-shadow-dark: 0 16px 32px rgba(0, 0, 0, 0.15);
+  --el-mask-color: rgba(0, 0, 0, 0.3);
+  --el-mask-color-extra-light: rgba(0, 0, 0, 0.1);
+
+  color-scheme: light;
+
+  ::-webkit-scrollbar-thumb {
+    background: #d0d7de;
+
+    &:hover {
+      background: #afb8c1;
+    }
+  }
+}
