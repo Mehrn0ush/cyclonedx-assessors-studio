@@ -10,6 +10,7 @@ import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
 import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
 import { logAudit } from '../utils/audit.js';
 import { createNotification } from '../utils/notifications.js';
+import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
 
@@ -191,16 +192,16 @@ router.post('/', requireAuth, requireRole('admin', 'assessor', 'assessee'), asyn
 
     await db
       .insertInto('evidence')
-      .values({
+      .values(toSnakeCase({
         id: evidenceId,
         name: data.name,
         description: data.description,
         state: data.state,
-        author_id: req.user.id,
-        expires_on: data.expiresOn ? new Date(data.expiresOn) : undefined,
-        is_counter_evidence: data.isCounterEvidence,
+        authorId: req.user.id,
+        expiresOn: data.expiresOn ? new Date(data.expiresOn) : undefined,
+        isCounterEvidence: data.isCounterEvidence,
         classification: data.classification,
-      })
+      }))
       .execute();
 
     await logAudit(db, {
@@ -232,6 +233,8 @@ router.post('/', requireAuth, requireRole('admin', 'assessor', 'assessee'), asyn
       description: data.description,
       state: data.state,
       authorId: req.user.id,
+      expiresOn: data.expiresOn ? new Date(data.expiresOn) : undefined,
+      isCounterEvidence: data.isCounterEvidence,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -280,14 +283,14 @@ router.put('/:id', requireAuth, requireRole('admin', 'assessor'), async (req: Au
     if (data.name !== undefined) updateData.name = data.name;
     if (data.description !== undefined) updateData.description = data.description;
     if (data.state !== undefined) updateData.state = data.state;
-    if (data.expiresOn !== undefined) updateData.expires_on = data.expiresOn ? new Date(data.expiresOn) : null;
+    if (data.expiresOn !== undefined) updateData.expiresOn = data.expiresOn ? new Date(data.expiresOn) : null;
     if (data.classification !== undefined) updateData.classification = data.classification;
-    if (data.reviewerId !== undefined) updateData.reviewer_id = data.reviewerId;
+    if (data.reviewerId !== undefined) updateData.reviewerId = data.reviewerId;
 
     if (Object.keys(updateData).length > 0) {
       await db
         .updateTable('evidence')
-        .set(updateData)
+        .set(toSnakeCase(updateData))
         .where('id', '=', req.params.id)
         .execute();
 
@@ -296,7 +299,7 @@ router.put('/:id', requireAuth, requireRole('admin', 'assessor'), async (req: Au
         entityId: req.params.id,
         action: 'update',
         userId: req.user!.id,
-        changes: updateData,
+        changes: toSnakeCase(updateData),
       });
     }
 
@@ -349,14 +352,14 @@ router.post(
 
       await db
         .insertInto('evidence_note')
-        .values({
+        .values(toSnakeCase({
           id: noteId,
-          evidence_id: req.params.id,
-          user_id: req.user.id,
+          evidenceId: req.params.id,
+          userId: req.user.id,
           content: data.content,
-          created_at: new Date(),
-          updated_at: new Date(),
-        })
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }))
         .execute();
 
       logger.info('Evidence note added', {
@@ -432,11 +435,11 @@ router.post(
 
       await db
         .insertInto('assessment_requirement_evidence')
-        .values({
-          assessment_requirement_id: data.assessmentRequirementId,
-          evidence_id: req.params.id,
-          created_at: new Date(),
-        })
+        .values(toSnakeCase({
+          assessmentRequirementId: data.assessmentRequirementId,
+          evidenceId: req.params.id,
+          createdAt: new Date(),
+        }))
         .execute();
 
       logger.info('Evidence linked to requirement', {
@@ -549,10 +552,10 @@ router.post(
 
       await db
         .updateTable('evidence')
-        .set({
+        .set(toSnakeCase({
           state: 'in_review',
-          reviewer_id: data.reviewerId,
-        })
+          reviewerId: data.reviewerId,
+        }))
         .where('id', '=', req.params.id)
         .execute();
 
@@ -561,7 +564,7 @@ router.post(
         entityId: req.params.id,
         action: 'state_change',
         userId: req.user.id,
-        changes: { state: 'in_review', reviewer_id: data.reviewerId },
+        changes: toSnakeCase({ state: 'in_review', reviewerId: data.reviewerId }),
       });
 
       await createNotification(db, {
@@ -705,9 +708,9 @@ router.post(
 
       await db
         .updateTable('evidence')
-        .set({
+        .set(toSnakeCase({
           state: 'in_progress',
-        })
+        }))
         .where('id', '=', req.params.id)
         .execute();
 
@@ -716,20 +719,20 @@ router.post(
         entityId: req.params.id,
         action: 'state_change',
         userId: req.user.id,
-        changes: { state: 'in_progress', rejection_reason: data.note },
+        changes: toSnakeCase({ state: 'in_progress', rejectionReason: data.note }),
       });
 
       const noteId = uuidv4();
       await db
         .insertInto('evidence_note')
-        .values({
+        .values(toSnakeCase({
           id: noteId,
-          evidence_id: req.params.id,
-          user_id: req.user.id,
+          evidenceId: req.params.id,
+          userId: req.user.id,
           content: `REJECTED: ${data.note}`,
-          created_at: new Date(),
-          updated_at: new Date(),
-        })
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }))
         .execute();
 
       await createNotification(db, {
@@ -815,24 +818,24 @@ router.post(
 
               await db
                 .insertInto('evidence_attachment')
-                .values({
+                .values(toSnakeCase({
                   id: attachmentId,
-                  evidence_id: req.params.id,
+                  evidenceId: req.params.id,
                   filename,
-                  content_type: contentType,
-                  size_bytes: sizeBytes,
-                  storage_path: storagePath,
-                  created_at: new Date(),
-                  updated_at: new Date(),
-                })
+                  contentType,
+                  sizeBytes,
+                  storagePath,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                }))
                 .execute();
 
               attachments.push({
                 id: attachmentId,
                 filename,
-                contentType,
-                sizeBytes,
-                storagePath,
+                contentType: contentType,
+                sizeBytes: sizeBytes,
+                storagePath: storagePath,
               });
 
               logger.info('Attachment uploaded', {

@@ -17,10 +17,10 @@
         <el-button @click="fetchRoles" class="retry-button">{{ t('common.retry') }}</el-button>
       </div>
 
-      <el-table v-else :data="roles" stripe border role="grid" aria-label="Roles table">
-        <el-table-column prop="name" :label="t('common.name')" min-width="150"></el-table-column>
-        <el-table-column prop="key" :label="t('admin.roleKey')" min-width="120"></el-table-column>
-        <el-table-column prop="description" :label="t('common.description')" min-width="250"></el-table-column>
+      <el-table v-else :data="paginatedRoles" stripe border role="grid" aria-label="Roles table">
+        <el-table-column prop="name" :label="t('common.name')" min-width="150" sortable></el-table-column>
+        <el-table-column prop="key" :label="t('admin.roleKey')" min-width="120" sortable></el-table-column>
+        <el-table-column prop="description" :label="t('common.description')" min-width="250" sortable></el-table-column>
         <el-table-column :label="t('admin.systemRole')" width="100">
           <template #default="{ row }">
             <el-tag :type="row.is_system ? 'info' : 'success'">
@@ -28,7 +28,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="permissionCount" :label="t('admin.permissionCount')" width="130" align="center"></el-table-column>
+        <el-table-column prop="permissionCount" :label="t('admin.permissionCount')" width="130" align="center" sortable></el-table-column>
         <el-table-column :label="t('common.actions')" width="100" fixed="right">
           <template #default="{ row }">
             <RowActions
@@ -40,6 +40,13 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <el-pagination
+        v-model:current-page="currentPage"
+        :page-size="pageSize"
+        :total="totalCount"
+        layout="total, prev, pager, next"
+      />
     </div>
 
     <el-dialog v-model="showDialog" :title="dialogTitle" width="600px" @close="closeDialog">
@@ -107,6 +114,8 @@ const saving = ref(false)
 const isEditing = ref(false)
 const dialogTitle = ref(t('admin.createRole'))
 const editingRoleId = ref('')
+const currentPage = ref(1)
+const pageSize = ref(20)
 
 const form = ref({
   name: '',
@@ -128,12 +137,21 @@ const groupedPermissions = computed(() => {
   return grouped
 })
 
+const totalCount = computed(() => roles.value.length)
+
+const paginatedRoles = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return roles.value.slice(start, end)
+})
+
 const fetchRoles = async () => {
   loading.value = true
   error.value = ''
   try {
     const response = await axios.get('/api/v1/roles')
     roles.value = response.data.data || []
+    currentPage.value = 1
   } catch (err: any) {
     error.value = err.response?.data?.message || err.message || 'Failed to fetch roles'
   } finally {

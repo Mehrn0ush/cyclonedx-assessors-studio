@@ -6,6 +6,7 @@ import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
 import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
 import { createNotification } from '../utils/notifications.js';
+import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
 
@@ -13,6 +14,8 @@ const createAssessmentSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
   projectId: z.string().uuid('Invalid project ID').nullable().optional(),
+  entityId: z.string().uuid('Invalid entity ID').nullable().optional(),
+  standardId: z.string().uuid('Invalid standard ID').nullable().optional(),
   dueDate: z.string().nullable().optional(),
   assessorIds: z.array(z.string().uuid()).optional(),
   assesseeIds: z.array(z.string().uuid()).optional(),
@@ -209,14 +212,18 @@ router.post(
 
       await db
         .insertInto('assessment')
-        .values({
-          id: assessmentId,
-          title: data.title,
-          description: data.description,
-          project_id: data.projectId || '',
-          due_date: data.dueDate ? new Date(data.dueDate) : undefined,
-          state: 'new',
-        })
+        .values(
+          toSnakeCase({
+            id: assessmentId,
+            title: data.title,
+            description: data.description,
+            projectId: data.projectId || '',
+            entityId: data.entityId || undefined,
+            standardId: data.standardId || undefined,
+            dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+            state: 'new',
+          })
+        )
         .execute();
 
       if (data.assessorIds && data.assessorIds.length > 0) {
@@ -405,7 +412,32 @@ router.post(
 
       let requirements;
 
-      if (assessment.project_id && assessment.project_id.trim() !== '') {
+      // Priority: standard_id > entity_id standards > project_id standards > bodyData.standardIds
+      if (assessment.standard_id) {
+        // Load requirements from the specific standard
+        requirements = (await db
+          .selectFrom('requirement')
+          .where('requirement.standard_id', '=', assessment.standard_id)
+          .selectAll()
+          .execute()) as any[];
+      } else if (assessment.entity_id) {
+        // Load requirements from entity's associated standards
+        requirements = (await db
+          .selectFrom('requirement')
+          .innerJoin(
+            'entity_standard',
+            (join) =>
+              join.onRef(
+                'entity_standard.standard_id' as any,
+                '=',
+                'requirement.standard_id' as any
+              )
+          )
+          .where('entity_standard.entity_id', '=', assessment.entity_id)
+          .selectAll()
+          .execute()) as any[];
+      } else if (assessment.project_id && assessment.project_id.trim() !== '') {
+        // Load requirements from project's associated standards
         requirements = (await db
           .selectFrom('requirement')
           .innerJoin(
@@ -421,6 +453,7 @@ router.post(
           .selectAll()
           .execute()) as any[];
       } else {
+        // Fallback to body data
         if (!bodyData.standardIds || bodyData.standardIds.length === 0) {
           res.status(400).json({ error: 'standardIds required for ad hoc assessments' });
           return;
@@ -531,11 +564,28 @@ router.post(
         return;
       }
 
+      // Calculate conformance score
+      let conformanceScore: number | null = null;
+      const applicableRequirements = requirements.filter(r => r.result !== 'not_applicable');
+      if (applicableRequirements.length > 0) {
+        const scoreMap = {
+          'yes': 1.0,
+          'partial': 0.5,
+          'no': 0.0,
+        };
+        let totalScore = 0;
+        for (const req of applicableRequirements) {
+          totalScore += scoreMap[req.result as keyof typeof scoreMap] || 0;
+        }
+        conformanceScore = Math.round((totalScore / applicableRequirements.length) * 100);
+      }
+
       await db
         .updateTable('assessment')
         .set({
           state: 'complete',
           end_date: new Date(),
+          conformance_score: conformanceScore,
         })
         .where('id', '=', req.params.id)
         .execute();

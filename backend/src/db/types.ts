@@ -140,7 +140,10 @@ export interface Assessment {
   id: Generated<string>;
   title: string;
   description?: string | null;
-  project_id: string;
+  project_id?: string | null;
+  entity_id?: string | null;
+  standard_id?: string | null;
+  conformance_score?: number | null;
   due_date?: Date | null;
   start_date?: Date | null;
   end_date?: Date | null;
@@ -279,6 +282,7 @@ export interface Affirmation {
   id: Generated<string>;
   statement: string;
   project_id: string;
+  entity_id?: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -369,6 +373,59 @@ export interface Session {
   user_agent?: string | null;
   expires_at: Date;
   created_at: Generated<Date>;
+}
+
+export interface Entity {
+  id: Generated<string>;
+  name: string;
+  description?: string | null;
+  entity_type: 'organization' | 'business_unit' | 'team' | 'product' | 'product_version' | 'component' | 'supplier' | 'project';
+  state: 'active' | 'inactive' | 'archived';
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface EntityRelationship {
+  id: Generated<string>;
+  source_entity_id: string;
+  target_entity_id: string;
+  relationship_type: 'owns' | 'supplies' | 'depends_on' | 'governs' | 'contains' | 'consumes';
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface EntityTag {
+  entity_id: string;
+  tag_id: string;
+  created_at: Generated<Date>;
+}
+
+export interface EntityStandard {
+  entity_id: string;
+  standard_id: string;
+  created_at: Generated<Date>;
+}
+
+export interface CompliancePolicy {
+  id: Generated<string>;
+  entity_id: string;
+  standard_id: string;
+  description?: string | null;
+  is_inherited: boolean;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface Dashboard {
+  id: Generated<string>;
+  name: string;
+  description?: string | null;
+  owner_id: string;
+  is_default: Generated<boolean>;
+  is_shared: Generated<boolean>;
+  layout: any; // JSONB: array of widget layout items
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
 }
 
 export interface Database {
@@ -510,4 +567,26 @@ export interface Database {
   session: Selectable<Session>;
   session_insert: Insertable<Session>;
   session_update: Updateable<Session>;
+
+  entity: Selectable<Entity>;
+  entity_insert: Insertable<Entity>;
+  entity_update: Updateable<Entity>;
+
+  entity_relationship: Selectable<EntityRelationship>;
+  entity_relationship_insert: Insertable<EntityRelationship>;
+  entity_relationship_update: Updateable<EntityRelationship>;
+
+  entity_tag: Selectable<EntityTag>;
+  entity_tag_insert: Insertable<EntityTag>;
+
+  entity_standard: Selectable<EntityStandard>;
+  entity_standard_insert: Insertable<EntityStandard>;
+
+  compliance_policy: Selectable<CompliancePolicy>;
+  compliance_policy_insert: Insertable<CompliancePolicy>;
+  compliance_policy_update: Updateable<CompliancePolicy>;
+
+  dashboard: Selectable<Dashboard>;
+  dashboard_insert: Insertable<Dashboard>;
+  dashboard_update: Updateable<Dashboard>;
 }

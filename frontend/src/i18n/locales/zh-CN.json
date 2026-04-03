@@ -332,5 +332,24 @@
     "ipAddress": "IP 地址",
     "browser": "浏览器",
     "logoutAllSessions": "登出所有会话"
+  },
+  "entities": {
+    "relationships": "关系",
+    "parentEntities": "父实体",
+    "childEntities": "子实体",
+    "otherRelationships": "其他关系",
+    "addRelationship": "添加关系",
+    "targetEntity": "目标实体",
+    "relationshipType": "关系类型",
+    "compliancePolicies": "合规政策",
+    "policySource": "来源",
+    "inherited": "继承的",
+    "direct": "直接的",
+    "addPolicy": "添加政策",
+    "editPolicy": "编辑政策",
+    "progress": "进度",
+    "noAssessmentHistory": "尚未完成评估。",
+    "relatedEntity": "相关实体",
+    "direction": "方向"
   }
 }

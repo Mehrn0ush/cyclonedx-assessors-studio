@@ -35,16 +35,28 @@
       <el-alert v-else-if="error" type="error" show-icon :closable="false">{{ error }}</el-alert>
       <div v-else class="content">
         <el-table :data="filteredAssessments" stripe border @row-click="navigateToAssessment" role="grid" aria-label="Assessments table">
-          <el-table-column prop="title" :label="t('assessments.titleField')" min-width="250"></el-table-column>
+          <el-table-column prop="title" :label="t('assessments.titleField')" min-width="250" sortable></el-table-column>
+          <el-table-column :label="t('assessments.entity') || 'Entity'" min-width="150">
+            <template #default="{ row }">
+              <span v-if="row.entityName">{{ row.entityName }}</span>
+              <span v-else class="text-tertiary">—</span>
+            </template>
+          </el-table-column>
+          <el-table-column :label="t('assessments.standard') || 'Standard'" min-width="150">
+            <template #default="{ row }">
+              <span v-if="row.standardName">{{ row.standardName }}{{ row.standardVersion ? ' v' + row.standardVersion : '' }}</span>
+              <span v-else class="text-tertiary">—</span>
+            </template>
+          </el-table-column>
           <el-table-column :label="t('assessments.project')" min-width="180">
             <template #default="{ row }">
               <RouterLink
-                v-if="row.project_id && row.project_name"
-                :to="`/projects/${row.project_id}`"
+                v-if="row.projectId && row.projectName"
+                :to="`/projects/${row.projectId}`"
                 class="project-link"
                 @click.stop
               >
-                {{ row.project_name }}
+                {{ row.projectName }}
               </RouterLink>
               <span v-else class="text-tertiary">{{ t('assessments.standalone') }}</span>
             </template>
@@ -56,12 +68,12 @@
           </el-table-column>
           <el-table-column :label="t('assessments.dueDate')" width="140">
             <template #default="{ row }">
-              {{ formatDate(row.due_date) }}
+              {{ formatDate(row.dueDate) }}
             </template>
           </el-table-column>
           <el-table-column :label="t('assessments.startDate')" width="140">
             <template #default="{ row }">
-              {{ formatDate(row.start_date) }}
+              {{ formatDate(row.startDate) }}
             </template>
           </el-table-column>
         </el-table>
@@ -83,7 +95,23 @@
         <el-form-item :label="t('common.description')">
           <el-input v-model="createForm.description" type="textarea" />
         </el-form-item>
-        <el-form-item :label="t('assessments.project')">
+        <div style="margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--cat-border-default);">
+          <span style="font-size: 13px; font-weight: 600; color: var(--cat-text-secondary);">Assessment Scope</span>
+          <p style="font-size: 12px; color: var(--cat-text-tertiary); margin-top: 4px;">Select what you are assessing and which standard to use.</p>
+        </div>
+        <el-form-item label="Assessment Target">
+          <el-select v-model="createForm.entityId" :placeholder="t('assessments.filterByProject')" clearable>
+            <el-option v-for="entity in entities" :key="entity.id" :label="entity.name" :value="entity.id"></el-option>
+          </el-select>
+          <div class="form-hint">The organization, team, or product being assessed</div>
+        </el-form-item>
+        <el-form-item v-if="createForm.entityId" label="Standard" required>
+          <el-select v-model="createForm.standardId" :placeholder="t('assessments.selectStandards')" style="width: 100%">
+            <el-option v-for="std in entityStandards" :key="std.id" :label="`${std.name} ${std.version ? 'v' + std.version : ''}`" :value="std.id"></el-option>
+          </el-select>
+          <div class="form-hint">The standard to assess against</div>
+        </el-form-item>
+        <el-form-item :label="t('assessments.project')" class="optional-field">
           <el-select v-model="createForm.projectId" :placeholder="t('assessments.filterByProject')" clearable>
             <el-option v-for="project in projects" :key="project.id" :label="project.name" :value="project.id"></el-option>
           </el-select>
@@ -176,11 +204,15 @@ const assessments = ref<any[]>([])
 const projects = ref<any[]>([])
 const standards = ref<any[]>([])
 const assignableUsers = ref<any[]>([])
+const entities = ref<any[]>([])
+const entityStandards = ref<any[]>([])
 
 const createForm = ref({
   title: '',
   description: '',
+  entityId: null as string | null,
   projectId: '',
+  standardId: null as string | null,
   standardIds: [] as string[],
   dueDate: null as any,
   assessorIds: [] as string[],
@@ -192,11 +224,23 @@ onMounted(() => {
   fetchAssessments()
   fetchStandards()
   fetchAssignableUsers()
+  fetchEntities()
 })
 
 watch([filterState, filterProject, myAssessmentsOnly], () => {
   currentPage.value = 1
   fetchAssessments()
+})
+
+watch(() => createForm.value.entityId, (newEntityId) => {
+  if (newEntityId) {
+    fetchEntityStandards(newEntityId)
+    // Clear standardId when entity changes
+    createForm.value.standardId = null
+  } else {
+    entityStandards.value = []
+    createForm.value.standardId = null
+  }
 })
 
 const fetchProjects = async () => {
@@ -223,6 +267,26 @@ const fetchAssignableUsers = async () => {
     assignableUsers.value = response.data.data || []
   } catch (err: any) {
     console.error('Failed to fetch assignable users:', err)
+  }
+}
+
+const fetchEntities = async () => {
+  try {
+    const response = await axios.get('/api/v1/entities')
+    entities.value = response.data.data || []
+  } catch (err: any) {
+    console.error('Failed to fetch entities:', err)
+  }
+}
+
+const fetchEntityStandards = async (entityId: string) => {
+  try {
+    const response = await axios.get(`/api/v1/entities/${entityId}`)
+    const entity = response.data.data
+    entityStandards.value = entity?.standards || []
+  } catch (err: any) {
+    console.error('Failed to fetch entity standards:', err)
+    entityStandards.value = []
   }
 }
 
@@ -255,7 +319,7 @@ const filteredAssessments = computed(() => {
   const filtered = assessments.value.filter(assessment => {
     const matchesSearch = !searchText.value ||
       assessment.title.toLowerCase().includes(searchText.value.toLowerCase()) ||
-      (assessment.project_name && assessment.project_name.toLowerCase().includes(searchText.value.toLowerCase()))
+      (assessment.projectName && assessment.projectName.toLowerCase().includes(searchText.value.toLowerCase()))
     return matchesSearch
   })
   const start = (currentPage.value - 1) * pageSize.value
@@ -267,7 +331,7 @@ const totalAssessments = computed(() => {
   return assessments.value.filter(assessment => {
     const matchesSearch = !searchText.value ||
       assessment.title.toLowerCase().includes(searchText.value.toLowerCase()) ||
-      (assessment.project_name && assessment.project_name.toLowerCase().includes(searchText.value.toLowerCase()))
+      (assessment.projectName && assessment.projectName.toLowerCase().includes(searchText.value.toLowerCase()))
     return matchesSearch
   }).length
 })
@@ -284,7 +348,13 @@ const handleCreate = async () => {
     return
   }
 
-  if (!createForm.value.projectId && createForm.value.standardIds.length === 0) {
+  // Validate that either entity+standard or project+standards (or entity+standard) is provided
+  if (createForm.value.entityId && !createForm.value.standardId) {
+    ElMessage.error('Standard is required when an entity is selected')
+    return
+  }
+
+  if (!createForm.value.entityId && !createForm.value.projectId && createForm.value.standardIds.length === 0) {
     ElMessage.error(t('assessments.selectStandards'))
     return
   }
@@ -300,7 +370,12 @@ const handleCreate = async () => {
       assesseeIds: createForm.value.assesseeIds.length > 0 ? createForm.value.assesseeIds : undefined,
     }
 
-    if (!createForm.value.projectId && createForm.value.standardIds.length > 0) {
+    // Add entity/standard scoping if entity is selected
+    if (createForm.value.entityId) {
+      payload.entityId = createForm.value.entityId
+      payload.standardId = createForm.value.standardId
+    } else if (!createForm.value.projectId && createForm.value.standardIds.length > 0) {
+      // Legacy ad-hoc assessment with multiple standards
       payload.standardIds = createForm.value.standardIds
     }
 
@@ -317,7 +392,18 @@ const handleCreate = async () => {
 }
 
 const resetCreateForm = () => {
-  createForm.value = { title: '', description: '', projectId: '', standardIds: [], dueDate: null, assessorIds: [], assesseeIds: [] }
+  createForm.value = {
+    title: '',
+    description: '',
+    entityId: null,
+    projectId: '',
+    standardId: null,
+    standardIds: [],
+    dueDate: null,
+    assessorIds: [],
+    assesseeIds: []
+  }
+  entityStandards.value = []
 }
 
 const navigateToAssessment = (row: any) => {

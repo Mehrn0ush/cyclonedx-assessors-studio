@@ -34,19 +34,19 @@
               {{ row.summary }}
             </template>
           </el-table-column>
-          <el-table-column :label="t('attestations.assessment')" width="150">
+          <el-table-column prop="assessment_id" :label="t('attestations.assessment')" width="150" sortable>
             <template #default="{ row }">
               {{ row.assessment_title || row.assessment_id }}
             </template>
           </el-table-column>
-          <el-table-column :label="t('attestations.signatory')" width="150">
+          <el-table-column prop="signatory_id" :label="t('attestations.signatory')" width="150" sortable>
             <template #default="{ row }">
               {{ row.signatory_name || row.signatory_id || '-' }}
             </template>
           </el-table-column>
-          <el-table-column :label="t('common.created')" width="150">
+          <el-table-column prop="createdAt" :label="t('common.created')" width="150" sortable>
             <template #default="{ row }">
-              {{ formatDate(row.created_at) }}
+              {{ formatDate(row.createdAt) }}
             </template>
           </el-table-column>
         </el-table>
@@ -163,8 +163,8 @@ const handleSave = async () => {
   try {
     await axios.post('/api/v1/attestations', {
       summary: form.value.summary,
-      assessment_id: form.value.assessmentId,
-      signatory_id: form.value.signatoryId || null
+      assessmentId: form.value.assessmentId,
+      signatoryId: form.value.signatoryId || null
     })
 
     ElMessage.success(t('common.success'))

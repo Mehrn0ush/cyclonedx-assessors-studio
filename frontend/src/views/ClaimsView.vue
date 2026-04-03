@@ -37,8 +37,8 @@
       </div>
 
       <el-table v-else :data="filteredClaims" stripe border role="grid" aria-label="Claims table" @row-click="handleRowClick">
-        <el-table-column prop="name" :label="t('claims.name')" min-width="250"></el-table-column>
-        <el-table-column prop="target" :label="t('claims.target')" width="200"></el-table-column>
+        <el-table-column prop="name" :label="t('claims.name')" min-width="250" sortable></el-table-column>
+        <el-table-column prop="target" :label="t('claims.target')" width="200" sortable></el-table-column>
         <el-table-column prop="predicate" width="200">
           <template #header>
             <span>{{ t('claims.predicate') }} <HelpTip :content="t('claims.predicateDescription')" /></span>
@@ -54,7 +54,7 @@
         </el-table-column>
         <el-table-column :label="t('common.created')" width="150">
           <template #default="{ row }">
-            {{ formatDate(row.created_at) }}
+            {{ formatDate(row.createdAt) }}
           </template>
         </el-table-column>
         <el-table-column :label="t('common.counter')" width="100">
@@ -62,7 +62,7 @@
             <el-tag v-if="row.is_counter_claim" type="danger">{{ t('common.counter') }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="attestation_id" :label="t('claims.attestation')" width="200"></el-table-column>
+        <el-table-column prop="attestation_id" :label="t('claims.attestation')" width="200" sortable></el-table-column>
       </el-table>
       <el-pagination
         v-model:current-page="currentPage"

@@ -55,7 +55,7 @@
             <el-col :span="12">
               <div class="info-group">
                 <label>{{ t('evidence.created') }}</label>
-                <p>{{ formatDateDisplay(evidence.created_at) }}</p>
+                <p>{{ formatDateDisplay(evidence.createdAt) }}</p>
               </div>
             </el-col>
             <el-col :span="12">
@@ -125,12 +125,12 @@
           </div>
 
           <el-table v-else :data="attachments" stripe border>
-            <el-table-column prop="filename" :label="t('evidence.filename')" min-width="250"></el-table-column>
-            <el-table-column prop="content_type" :label="t('evidence.type')" width="150"></el-table-column>
-            <el-table-column prop="size" :label="t('evidence.size')" width="100"></el-table-column>
-            <el-table-column prop="created_at" :label="t('evidence.uploaded')" width="150">
+            <el-table-column prop="filename" :label="t('evidence.filename')" min-width="250" sortable></el-table-column>
+            <el-table-column prop="content_type" :label="t('evidence.type')" width="150" sortable></el-table-column>
+            <el-table-column prop="size" :label="t('evidence.size')" width="100" sortable></el-table-column>
+            <el-table-column prop="createdAt" :label="t('evidence.uploaded')" width="150" sortable>
               <template #default="{ row }">
-                {{ formatDateDisplay(row.created_at) }}
+                {{ formatDateDisplay(row.createdAt) }}
               </template>
             </el-table-column>
             <el-table-column :label="t('common.actions')" width="100">
@@ -169,7 +169,7 @@
               <div class="timeline-content">
                 <div class="timeline-header">
                   <span class="timeline-author">{{ note.display_name || note.username || t('common.unknownUser') }}</span>
-                  <span class="timeline-date">{{ formatDateDisplay(note.created_at) }}</span>
+                  <span class="timeline-date">{{ formatDateDisplay(note.createdAt) }}</span>
                 </div>
                 <p class="timeline-text">{{ note.content }}</p>
               </div>
@@ -253,7 +253,7 @@ const evidence = ref<any>({
   classification: '',
   author_id: '',
   reviewer_id: '',
-  created_at: '',
+  createdAt: '',
   expires_on: '',
   is_counter_evidence: false
 })

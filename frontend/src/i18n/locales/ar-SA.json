@@ -332,5 +332,24 @@
     "ipAddress": "عنوان IP",
     "browser": "المتصفح",
     "logoutAllSessions": "تسجيل الخروج من جميع الجلسات"
+  },
+  "entities": {
+    "relationships": "العلاقات",
+    "parentEntities": "الكيانات الأم",
+    "childEntities": "الكيانات الفرعية",
+    "otherRelationships": "علاقات أخرى",
+    "addRelationship": "إضافة علاقة",
+    "targetEntity": "الكيان المستهدف",
+    "relationshipType": "نوع العلاقة",
+    "compliancePolicies": "سياسات الامتثال",
+    "policySource": "المصدر",
+    "inherited": "موروث",
+    "direct": "مباشر",
+    "addPolicy": "إضافة سياسة",
+    "editPolicy": "تعديل سياسة",
+    "progress": "التقدم",
+    "noAssessmentHistory": "لا توجد تقييمات مكتملة بعد.",
+    "relatedEntity": "الكيان المرتبط",
+    "direction": "الاتجاه"
   }
 }

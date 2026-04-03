@@ -74,7 +74,7 @@
           <el-col :span="6">
             <div class="info-field">
               <label id="project-workflow-label">{{ t('projects.workflowType') }} <HelpTip content="Claims Driven: You define claims first and attach evidence. Evidence Driven: You collect evidence first and then create claims from it." /></label>
-              <p aria-labelledby="project-workflow-label">{{ formatWorkflowType(project.workflow_type) }}</p>
+              <p aria-labelledby="project-workflow-label">{{ formatWorkflowType(project.workflowType) }}</p>
             </div>
           </el-col>
         </el-row>
@@ -116,7 +116,7 @@
               <span>{{ t('common.loading') }}</span>
             </div>
             <el-table v-else :data="assessments" stripe border @row-click="navigateToAssessment">
-              <el-table-column prop="title" :label="t('assessments.titleField')" min-width="200"></el-table-column>
+              <el-table-column prop="title" :label="t('assessments.titleField')" min-width="200" sortable></el-table-column>
               <el-table-column :label="t('assessments.state')" width="120">
                 <template #default="{ row }">
                   <StateBadge :state="row.state" />
@@ -124,12 +124,12 @@
               </el-table-column>
               <el-table-column :label="t('assessments.dueDate')" width="140">
                 <template #default="{ row }">
-                  {{ formatDate(row.due_date) }}
+                  {{ formatDate(row.dueDate) }}
                 </template>
               </el-table-column>
               <el-table-column :label="t('assessments.startDate')" width="140">
                 <template #default="{ row }">
-                  {{ formatDate(row.start_date) }}
+                  {{ formatDate(row.startDate) }}
                 </template>
               </el-table-column>
             </el-table>
@@ -140,9 +140,9 @@
 
           <el-tab-pane :label="t('nav.standards')" name="standards">
             <el-table :data="projectStandards" stripe border @row-click="navigateToStandard">
-              <el-table-column prop="name" :label="t('standards.name')" min-width="250"></el-table-column>
-              <el-table-column prop="version" :label="t('standards.version')" width="100"></el-table-column>
-              <el-table-column prop="owner" :label="t('standards.owner')" min-width="200"></el-table-column>
+              <el-table-column prop="name" :label="t('standards.name')" min-width="250" sortable></el-table-column>
+              <el-table-column prop="version" :label="t('standards.version')" width="100" sortable></el-table-column>
+              <el-table-column prop="owner" :label="t('standards.owner')" min-width="200" sortable></el-table-column>
             </el-table>
             <div v-if="projectStandards.length === 0" class="no-data">
               {{ t('common.noData') }}
@@ -178,7 +178,7 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="t('projects.workflowType')">
-          <el-select v-model="editForm.workflow_type">
+          <el-select v-model="editForm.workflowType">
             <el-option :label="t('projects.evidenceDriven')" value="evidence_driven" />
             <el-option :label="t('projects.claimsDriven')" value="claims_driven" />
           </el-select>
@@ -254,7 +254,7 @@ const editForm = ref({
   name: '',
   description: '',
   state: 'new',
-  workflow_type: 'evidence_driven',
+  workflowType: 'evidence_driven',
   standardIds: [] as string[],
   tags: [] as string[],
 })
@@ -287,7 +287,7 @@ const claimsDrivenSteps = [
 ]
 
 const workflowSteps = computed(() => {
-  if (project.value?.workflow_type === 'claims_driven') return claimsDrivenSteps
+  if (project.value?.workflowType === 'claims_driven') return claimsDrivenSteps
   return evidenceDrivenSteps
 })
 
@@ -296,7 +296,7 @@ const currentWorkflowStep = ref('standards')
 const computeWorkflowStep = () => {
   if (!project.value) return
   const state = project.value.state
-  const isClaims = project.value.workflow_type === 'claims_driven'
+  const isClaims = project.value.workflowType === 'claims_driven'
 
   if (state === 'new') {
     currentWorkflowStep.value = projectStandards.value.length > 0 ? 'assessment' : 'standards'
@@ -408,7 +408,7 @@ const openEditDialog = async () => {
     name: project.value.name,
     description: project.value.description || '',
     state: project.value.state,
-    workflow_type: project.value.workflow_type,
+    workflowType: project.value.workflowType,
     standardIds: projectStandards.value.map((s: any) => s.id),
     tags: projectTags.value.map((t: any) => t.name),
   }
@@ -431,7 +431,7 @@ const saveProject = async () => {
       name: editForm.value.name,
       description: editForm.value.description,
       state: editForm.value.state,
-      workflow_type: editForm.value.workflow_type,
+      workflowType: editForm.value.workflowType,
       standardIds: editForm.value.standardIds,
       tags: editForm.value.tags,
     })
@@ -447,7 +447,7 @@ const saveProject = async () => {
 }
 
 const resetEditForm = () => {
-  editForm.value = { name: '', description: '', state: 'new', workflow_type: 'evidence_driven', standardIds: [], tags: [] }
+  editForm.value = { name: '', description: '', state: 'new', workflowType: 'evidence_driven', standardIds: [], tags: [] }
 }
 
 // Create assessment

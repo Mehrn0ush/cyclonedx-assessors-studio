@@ -52,10 +52,16 @@
     "notProvided": "Not provided",
     "unknownUser": "Unknown user",
     "unknown": "Unknown",
-    "rationale": "Rationale"
+    "rationale": "Rationale",
+    "moreActions": "More Actions",
+    "archive": "Archive",
+    "date": "Date",
+    "remove": "Remove",
+    "warning": "Warning"
   },
   "nav": {
     "dashboard": "Dashboard",
+    "entities": "Entities",
     "projects": "Projects",
     "standards": "Standards",
     "assessments": "Assessments",
@@ -78,6 +84,8 @@
     "menu": "Menu"
   },
   "states": {
+    "active": "Active",
+    "inactive": "Inactive",
     "new": "New",
     "pending": "Pending",
     "in_progress": "In Progress",
@@ -230,6 +238,8 @@
     "searchPlaceholder": "Search assessments...",
     "titleField": "Title",
     "project": "Project",
+    "entity": "Entity",
+    "standard": "Standard",
     "state": "State",
     "assessors": "Assessors",
     "assessees": "Assessees",
@@ -368,6 +378,25 @@
     "noAttestations": "No attestations",
     "noAttestationsDescription": "Attestations are created after assessments are completed and signed."
   },
+  "entities": {
+    "relationships": "Relationships",
+    "parentEntities": "Parent Entities",
+    "childEntities": "Child Entities",
+    "otherRelationships": "Other Relationships",
+    "addRelationship": "Add Relationship",
+    "targetEntity": "Target Entity",
+    "relationshipType": "Relationship Type",
+    "compliancePolicies": "Compliance Policies",
+    "policySource": "Source",
+    "inherited": "Inherited",
+    "direct": "Direct",
+    "addPolicy": "Add Policy",
+    "editPolicy": "Edit Policy",
+    "progress": "Progress",
+    "noAssessmentHistory": "No completed assessments yet.",
+    "relatedEntity": "Related Entity",
+    "direction": "Direction"
+  },
   "standards": {
     "title": "Standards",
     "importStandard": "Import Standard",
@@ -375,6 +404,7 @@
     "version": "Version",
     "owner": "Owner",
     "requirements": "Requirements",
+    "requirementCount": "Requirements",
     "description": "Description",
     "levels": "Levels"
   },
@@ -440,6 +470,33 @@
     "ipAddress": "IP Address",
     "browser": "Browser",
     "logoutAllSessions": "Logout All Sessions"
+  },
+  "progress": {
+    "title": "Progress",
+    "selectEntity": "View progress for",
+    "allEntities": "All entities",
+    "totalEntitiesAssessed": "Entities Assessed",
+    "averageConformance": "Avg. Conformance",
+    "activeAssessments": "Active Assessments",
+    "completedThisQuarter": "Completed This Quarter",
+    "conformanceByStandard": "Conformance by Standard",
+    "noCompletedAssessments": "No completed assessments yet.",
+    "assessmentDate": "Date",
+    "assessmentTitle": "Assessment",
+    "entityName": "Entity",
+    "score": "Score",
+    "assessmentTimeline": "Assessment Timeline",
+    "noAssessmentsYet": "No assessments yet.",
+    "createAssessmentToStart": "Complete an assessment to see it here.",
+    "entity": "Entity",
+    "standard": "Standard",
+    "completedDate": "Completed",
+    "conformance": "Conformance",
+    "state": "State",
+    "errorLoadingEntities": "Failed to load entities.",
+    "errorLoadingStats": "Failed to load summary stats.",
+    "errorLoadingStandards": "Failed to load standards data.",
+    "errorLoadingTimeline": "Failed to load assessment timeline."
   },
   "notifications": {
     "title": "Notifications",

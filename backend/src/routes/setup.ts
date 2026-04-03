@@ -6,6 +6,7 @@ import { getDatabase } from '../db/connection.js';
 import { hashPassword } from '../utils/crypto.js';
 import { logger } from '../utils/logger.js';
 import { checkSetupComplete, markSetupComplete } from '../middleware/setup.js';
+import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
 
@@ -84,15 +85,15 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
     await db
       .insertInto('app_user')
-      .values({
+      .values(toSnakeCase({
         id: userId,
         username: data.username,
         email: data.email,
-        password_hash: passwordHash,
-        display_name: data.displayName,
+        passwordHash: passwordHash,
+        displayName: data.displayName,
         role: 'admin',
-        is_active: true,
-      })
+        isActive: true,
+      }))
       .execute();
 
     markSetupComplete();
@@ -163,7 +164,7 @@ router.get('/standards-feed', async (_req: Request, res: Response): Promise<void
       };
     });
 
-    res.json({ items });
+    res.json({ data: items });
   } catch (error) {
     logger.error('Standards feed fetch error', { error });
     res.status(502).json({ error: 'Unable to fetch standards feed. Check your internet connection.' });
@@ -387,7 +388,7 @@ router.post('/import-standard', async (req: Request, res: Response): Promise<voi
 
     res.status(201).json({
       message: 'Standard imported successfully',
-      standards: importedStandards,
+      data: importedStandards,
     });
   } catch (error) {
     logger.error('Setup standard import error', { error });

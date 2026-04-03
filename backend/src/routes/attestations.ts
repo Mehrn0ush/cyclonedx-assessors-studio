@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
 
@@ -148,12 +149,12 @@ router.post(
 
       await db
         .insertInto('attestation')
-        .values({
+        .values(toSnakeCase({
           id: attestationId,
           summary: data.summary,
-          assessment_id: data.assessmentId,
-          signatory_id: data.signatoryId,
-        })
+          assessmentId: data.assessmentId,
+          signatoryId: data.signatoryId,
+        }))
         .execute();
 
       logger.info('Attestation created', {
@@ -203,12 +204,12 @@ router.put(
       const updateData: any = {};
 
       if (data.summary !== undefined) updateData.summary = data.summary;
-      if (data.signatoryId !== undefined) updateData.signatory_id = data.signatoryId;
+      if (data.signatoryId !== undefined) updateData.signatoryId = data.signatoryId;
 
       if (Object.keys(updateData).length > 0) {
         await db
           .updateTable('attestation')
-          .set(updateData)
+          .set(toSnakeCase(updateData))
           .where('id', '=', req.params.id)
           .execute();
       }
@@ -272,27 +273,27 @@ router.post(
       if (existingReq) {
         await db
           .updateTable('attestation_requirement')
-          .set({
-            conformance_score: data.conformanceScore,
-            conformance_rationale: data.conformanceRationale,
-            confidence_score: data.confidenceScore || null,
-            confidence_rationale: data.confidenceRationale || null,
-          })
+          .set(toSnakeCase({
+            conformanceScore: data.conformanceScore,
+            conformanceRationale: data.conformanceRationale,
+            confidenceScore: data.confidenceScore || null,
+            confidenceRationale: data.confidenceRationale || null,
+          }))
           .where('attestation_id', '=', req.params.id)
           .where('requirement_id', '=', data.requirementId)
           .execute();
       } else {
         await db
           .insertInto('attestation_requirement')
-          .values({
+          .values(toSnakeCase({
             id: uuidv4(),
-            attestation_id: req.params.id,
-            requirement_id: data.requirementId,
-            conformance_score: data.conformanceScore,
-            conformance_rationale: data.conformanceRationale,
-            confidence_score: data.confidenceScore || null,
-            confidence_rationale: data.confidenceRationale || null,
-          })
+            attestationId: req.params.id,
+            requirementId: data.requirementId,
+            conformanceScore: data.conformanceScore,
+            conformanceRationale: data.conformanceRationale,
+            confidenceScore: data.confidenceScore || null,
+            confidenceRationale: data.confidenceRationale || null,
+          }))
           .execute();
       }
 
@@ -338,12 +339,12 @@ router.put(
 
       await db
         .updateTable('attestation_requirement')
-        .set({
-          conformance_score: data.conformanceScore,
-          conformance_rationale: data.conformanceRationale,
-          confidence_score: data.confidenceScore || null,
-          confidence_rationale: data.confidenceRationale || null,
-        })
+        .set(toSnakeCase({
+          conformanceScore: data.conformanceScore,
+          conformanceRationale: data.conformanceRationale,
+          confidenceScore: data.confidenceScore || null,
+          confidenceRationale: data.confidenceRationale || null,
+        }))
         .where('attestation_id', '=', req.params.id)
         .where('requirement_id', '=', req.params.requirementId)
         .execute();
@@ -433,7 +434,7 @@ router.post(
 
       await db
         .updateTable('attestation')
-        .set({ signatory_id: signatoryId })
+        .set(toSnakeCase({ signatoryId: signatoryId }))
         .where('id', '=', req.params.id)
         .execute();
 

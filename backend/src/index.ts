@@ -15,11 +15,13 @@ import { seedDefaultRolesAndPermissions } from './db/seed.js';
 import { logger } from './utils/logger.js';
 import { requestIdMiddleware } from './middleware/security.js';
 import { requireSetup } from './middleware/setup.js';
+import { camelCaseResponse } from './middleware/camelCase.js';
 import setupRoutes from './routes/setup.js';
 import authRoutes from './routes/auth.js';
 import projectRoutes from './routes/projects.js';
 import standardRoutes from './routes/standards.js';
 import assessmentRoutes from './routes/assessments.js';
+import entityRoutes from './routes/entities.js';
 import evidenceRoutes from './routes/evidence.js';
 import apikeyRoutes from './routes/apikeys.js';
 import claimRoutes from './routes/claims.js';
@@ -90,6 +92,9 @@ app.use(cookieParser());
 
 // Request middleware
 app.use(requestIdMiddleware);
+// API case transform: outgoing snake_case → camelCase for frontend
+// Incoming requests stay camelCase; route handlers convert at the DB boundary via toSnakeCase()
+app.use('/api/v1', camelCaseResponse);
 // CSRF protection: handled by CORS origin restriction + SameSite cookies.
 // Cross-origin mutation requests are blocked at the browser level by CORS
 // (only the configured origin can make credentialed requests). A custom
@@ -139,6 +144,7 @@ app.use('/api/v1/auth', authLimiter, authRoutes);
 app.use('/api/v1/projects', projectRoutes);
 app.use('/api/v1/standards', standardRoutes);
 app.use('/api/v1/assessments', assessmentRoutes);
+app.use('/api/v1/entities', entityRoutes);
 app.use('/api/v1/evidence', evidenceRoutes);
 app.use('/api/v1/apikeys', apikeyRoutes);
 app.use('/api/v1/claims', claimRoutes);

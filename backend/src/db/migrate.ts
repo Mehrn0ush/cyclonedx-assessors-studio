@@ -426,8 +426,76 @@ CREATE TABLE IF NOT EXISTS assessment_requirement_evidence (
   PRIMARY KEY (assessment_requirement_id, evidence_id)
 );
 
+-- Entity table (replaces rigid project-only hierarchy)
+CREATE TABLE IF NOT EXISTS entity (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  entity_type VARCHAR(50) NOT NULL CHECK(entity_type IN ('organization', 'business_unit', 'team', 'product', 'product_version', 'component', 'supplier', 'project')),
+  state VARCHAR(50) NOT NULL DEFAULT 'active' CHECK(state IN ('active', 'inactive', 'archived')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_entity_type ON entity(entity_type);
+CREATE INDEX IF NOT EXISTS idx_entity_state ON entity(state);
+
+-- Entity Relationship table (typed directional connections)
+CREATE TABLE IF NOT EXISTS entity_relationship (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_entity_id UUID NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+  target_entity_id UUID NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+  relationship_type VARCHAR(50) NOT NULL CHECK(relationship_type IN ('owns', 'supplies', 'depends_on', 'governs', 'contains', 'consumes')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(source_entity_id, target_entity_id, relationship_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_entity_rel_source ON entity_relationship(source_entity_id);
+CREATE INDEX IF NOT EXISTS idx_entity_rel_target ON entity_relationship(target_entity_id);
+
+-- Entity Tag junction
+CREATE TABLE IF NOT EXISTS entity_tag (
+  entity_id UUID NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+  tag_id UUID NOT NULL REFERENCES tag(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (entity_id, tag_id)
+);
+
+-- Compliance Policy table
+CREATE TABLE IF NOT EXISTS compliance_policy (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_id UUID NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+  standard_id UUID NOT NULL REFERENCES standard(id) ON DELETE CASCADE,
+  description TEXT,
+  is_inherited BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(entity_id, standard_id)
+);
+
+-- Entity Standard junction (which standards are applicable to an entity)
+CREATE TABLE IF NOT EXISTS entity_standard (
+  entity_id UUID NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+  standard_id UUID NOT NULL REFERENCES standard(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (entity_id, standard_id)
+);
+
 -- Add role_id column to app_user for new RBAC system
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS role_id UUID REFERENCES role(id) ON DELETE SET NULL;
+
+-- Assessment changes
+ALTER TABLE assessment ALTER COLUMN project_id DROP NOT NULL;
+ALTER TABLE assessment ADD COLUMN IF NOT EXISTS entity_id UUID REFERENCES entity(id) ON DELETE SET NULL;
+ALTER TABLE assessment ADD COLUMN IF NOT EXISTS standard_id UUID REFERENCES standard(id) ON DELETE SET NULL;
+ALTER TABLE assessment ADD COLUMN IF NOT EXISTS conformance_score DECIMAL(5, 2);
+
+CREATE INDEX IF NOT EXISTS idx_assessment_entity_id ON assessment(entity_id);
+CREATE INDEX IF NOT EXISTS idx_assessment_standard_id ON assessment(standard_id);
+
+-- Affirmation update
+ALTER TABLE affirmation ADD COLUMN IF NOT EXISTS entity_id UUID REFERENCES entity(id) ON DELETE SET NULL;
 
 -- Work Notes (per assessment requirement)
 CREATE TABLE IF NOT EXISTS work_note (
@@ -475,6 +543,21 @@ ALTER TABLE project ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZON
 
 -- Add onboarding flag to app_user
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS has_completed_onboarding BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Dashboard configurations (user-created dashboards with widget layouts)
+CREATE TABLE IF NOT EXISTS dashboard (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  owner_id UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  is_shared BOOLEAN NOT NULL DEFAULT FALSE,
+  layout JSONB NOT NULL DEFAULT '[]',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_dashboard_owner ON dashboard(owner_id);
 `;
 
 export async function runMigrations(): Promise<void> {

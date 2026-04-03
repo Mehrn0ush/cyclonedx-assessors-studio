@@ -1,5 +1,5 @@
 <template>
-  <el-tooltip :content="getDescription(state)" placement="top">
+  <el-tooltip :content="getDescription(state)" placement="top" :disabled="!getDescription(state)">
     <span class="state-badge" :class="[`state-badge--${getColorClass(state)}`]" role="status" :aria-label="`${type || 'Item'} status: ${getLabel(state)}`">
       {{ getLabel(state) }}
     </span>
@@ -35,7 +35,12 @@ const labelMap: Record<string, string> = {
   submitted: 'Submitted',
   reviewed: 'Reviewed',
   approved: 'Approved',
-  archived: 'Archived'
+  archived: 'Archived',
+  // Standard states
+  published: 'Published',
+  active: 'Active',
+  inactive: 'Inactive',
+  deprecated: 'Deprecated',
 }
 
 const descriptionMap: Record<string, string> = {
@@ -51,11 +56,15 @@ const descriptionMap: Record<string, string> = {
   expired: 'Past its validity date',
   operational: 'Currently in use',
   retired: 'Archived and no longer active',
-  draft: 'Draft',
-  submitted: 'Submitted',
-  reviewed: 'Reviewed',
-  approved: 'Approved',
-  archived: 'Archived'
+  draft: 'Work in progress, not yet finalized',
+  submitted: 'Submitted for review',
+  reviewed: 'Has been reviewed',
+  approved: 'Has been approved',
+  archived: 'No longer active',
+  published: 'Finalized and available for use',
+  active: 'Currently in use',
+  inactive: 'Temporarily disabled',
+  deprecated: 'Superseded by a newer version',
 }
 
 const colorClassMap: Record<string, string> = {
@@ -74,7 +83,12 @@ const colorClassMap: Record<string, string> = {
   submitted: 'amber',
   reviewed: 'blue',
   approved: 'green',
-  archived: 'gray'
+  archived: 'gray',
+  // Standard states
+  published: 'green',
+  active: 'green',
+  inactive: 'gray',
+  deprecated: 'amber',
 }
 
 const getLabel = (state: string): string => {

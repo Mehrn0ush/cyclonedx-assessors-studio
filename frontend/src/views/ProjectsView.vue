@@ -50,7 +50,7 @@
 
       <!-- Table -->
       <el-table v-else :data="filteredProjects" stripe border @row-click="navigateToProject" role="grid" aria-label="Projects table">
-        <el-table-column prop="name" :label="t('projects.name')" min-width="200"></el-table-column>
+        <el-table-column prop="name" :label="t('projects.name')" min-width="200" sortable></el-table-column>
         <el-table-column :label="t('projects.standards')" width="140">
           <template #default="{ row }">
             <el-tooltip
@@ -68,14 +68,14 @@
             <span v-else class="standards-count none">0 standards</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('projects.state')" width="120">
+        <el-table-column prop="state" :label="t('projects.state')" width="120" sortable>
           <template #default="{ row }">
             <StateBadge :state="row.state" />
           </template>
         </el-table-column>
-        <el-table-column :label="t('projects.workflow')" width="160">
+        <el-table-column prop="workflowType" :label="t('projects.workflow')" width="160" sortable>
           <template #default="{ row }">
-            <el-tag>{{ formatWorkflowType(row.workflow_type) }}</el-tag>
+            <el-tag>{{ formatWorkflowType(row.workflowType) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column :label="t('common.tags')" min-width="180">
@@ -87,9 +87,9 @@
             >{{ tag.name }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('projects.created')" width="140">
+        <el-table-column prop="createdAt" :label="t('projects.created')" width="140" sortable>
           <template #default="{ row }">
-            {{ formatDate(row.created_at) }}
+            {{ formatDate(row.createdAt) }}
           </template>
         </el-table-column>
         <el-table-column :label="t('common.actions')" width="100" fixed="right">
@@ -98,6 +98,13 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <el-pagination
+        v-model:current-page="currentPage"
+        :page-size="pageSize"
+        :total="totalCount"
+        layout="total, prev, pager, next"
+      />
     </div>
 
     <!-- Create/Edit Project Dialog -->
@@ -116,8 +123,8 @@
           <el-input v-model="dialogForm.description" type="textarea" :rows="3" :placeholder="t('projects.description')" />
         </el-form-item>
 
-        <el-form-item :label="t('projects.workflowType')" prop="workflow_type">
-          <el-select v-model="dialogForm.workflow_type">
+        <el-form-item :label="t('projects.workflowType')" prop="workflowType">
+          <el-select v-model="dialogForm.workflowType">
             <el-option :label="t('projects.evidenceDriven')" value="evidence_driven"></el-option>
             <el-option :label="t('projects.claimsDriven')" value="claims_driven"></el-option>
           </el-select>
@@ -223,25 +230,27 @@ const filterState = ref('')
 const filterTag = ref('')
 const searchText = ref('')
 const formRef = ref()
+const currentPage = ref(1)
+const pageSize = ref(20)
 
 // Form
 const dialogForm = ref({
   id: '',
   name: '',
   description: '',
-  workflow_type: 'evidence_driven',
+  workflowType: 'evidence_driven',
   standardIds: [] as string[],
   tags: [] as string[]
 })
 
 const formRules = {
   name: [{ required: true, message: 'Name is required', trigger: 'blur' }],
-  workflow_type: [{ required: true, message: 'Workflow type is required', trigger: 'change' }],
+  workflowType: [{ required: true, message: 'Workflow type is required', trigger: 'change' }],
   standardIds: [{ required: true, type: 'array', min: 1, message: 'At least one standard is required', trigger: 'change' }]
 }
 
 const filteredProjects = computed(() => {
-  return projects.value.filter(project => {
+  const filtered = projects.value.filter(project => {
     const matchesState = !filterState.value || project.state === filterState.value
     const matchesTag = !filterTag.value || (project.tags || []).some((t: any) => t.name.toLowerCase().includes(filterTag.value.toLowerCase()))
     const matchesSearch = !searchText.value ||
@@ -249,6 +258,18 @@ const filteredProjects = computed(() => {
       (project.description || '').toLowerCase().includes(searchText.value.toLowerCase())
     return matchesState && matchesTag && matchesSearch
   })
+  return filtered.slice((currentPage.value - 1) * pageSize.value, currentPage.value * pageSize.value)
+})
+
+const totalCount = computed(() => {
+  return projects.value.filter(project => {
+    const matchesState = !filterState.value || project.state === filterState.value
+    const matchesTag = !filterTag.value || (project.tags || []).some((t: any) => t.name.toLowerCase().includes(filterTag.value.toLowerCase()))
+    const matchesSearch = !searchText.value ||
+      project.name.toLowerCase().includes(searchText.value.toLowerCase()) ||
+      (project.description || '').toLowerCase().includes(searchText.value.toLowerCase())
+    return matchesState && matchesTag && matchesSearch
+  }).length
 })
 
 // Methods
@@ -300,7 +321,7 @@ const openEditDialog = async (row: any) => {
     id: row.id,
     name: row.name,
     description: row.description,
-    workflow_type: row.workflow_type,
+    workflowType: row.workflowType,
     standardIds: [],
     tags: (row.tags || []).map((t: any) => t.name)
   }
@@ -319,7 +340,7 @@ const saveProject = async () => {
       await axios.put(`/api/v1/projects/${dialogForm.value.id}`, {
         name: dialogForm.value.name,
         description: dialogForm.value.description,
-        workflow_type: dialogForm.value.workflow_type,
+        workflowType: dialogForm.value.workflowType,
         standardIds: dialogForm.value.standardIds,
         tags: dialogForm.value.tags
       })
@@ -328,7 +349,7 @@ const saveProject = async () => {
       await axios.post('/api/v1/projects', {
         name: dialogForm.value.name,
         description: dialogForm.value.description,
-        workflow_type: dialogForm.value.workflow_type,
+        workflowType: dialogForm.value.workflowType,
         standardIds: dialogForm.value.standardIds,
         tags: dialogForm.value.tags
       })
@@ -368,7 +389,7 @@ const resetForm = () => {
     id: '',
     name: '',
     description: '',
-    workflow_type: 'evidence_driven',
+    workflowType: 'evidence_driven',
     standardIds: [] as string[],
     tags: [] as string[]
   }

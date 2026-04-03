@@ -1,4 +1,6 @@
 import { Router, Response } from 'express';
+import { z } from 'zod';
+import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth } from '../middleware/auth.js';
@@ -527,6 +529,219 @@ router.get('/project-health', requireAuth, async (req: AuthRequest, res: Respons
     res.json({ data: projectHealth });
   } catch (error) {
     logger.error('Get project health error', { error, requestId: req.requestId });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// =============================================================================
+// Dashboard Configuration CRUD
+// =============================================================================
+
+const widgetLayoutSchema = z.object({
+  i: z.string(),
+  x: z.number(),
+  y: z.number(),
+  w: z.number(),
+  h: z.number(),
+  widgetType: z.string(),
+  config: z.record(z.any()).optional(),
+});
+
+const createDashboardSchema = z.object({
+  name: z.string().min(1, 'Dashboard name is required'),
+  description: z.string().nullable().optional(),
+  is_shared: z.boolean().optional(),
+  layout: z.array(widgetLayoutSchema),
+});
+
+const updateDashboardSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+  is_shared: z.boolean().optional(),
+  is_default: z.boolean().optional(),
+  layout: z.array(widgetLayoutSchema).optional(),
+});
+
+// GET /configs - List all dashboards for the current user (owned + shared)
+router.get('/configs', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const db = getDatabase();
+    const userId = req.user!.id;
+
+    const dashboards = await db
+      .selectFrom('dashboard')
+      .where((eb: any) =>
+        eb.or([
+          eb('owner_id', '=', userId),
+          eb('is_shared', '=', true),
+        ])
+      )
+      .selectAll()
+      .orderBy('is_default', 'desc')
+      .orderBy('name', 'asc')
+      .execute();
+
+    res.json({ data: dashboards });
+  } catch (error) {
+    logger.error('List dashboards error', { error, requestId: req.requestId });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /configs/:id - Get a single dashboard config
+router.get('/configs/:id', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const db = getDatabase();
+    const userId = req.user!.id;
+
+    const dashboard = await db
+      .selectFrom('dashboard')
+      .where('id', '=', req.params.id)
+      .where((eb: any) =>
+        eb.or([
+          eb('owner_id', '=', userId),
+          eb('is_shared', '=', true),
+        ])
+      )
+      .selectAll()
+      .executeTakeFirst();
+
+    if (!dashboard) {
+      res.status(404).json({ error: 'Dashboard not found' });
+      return;
+    }
+
+    res.json(dashboard);
+  } catch (error) {
+    logger.error('Get dashboard config error', { error, requestId: req.requestId });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /configs - Create a new dashboard
+router.post('/configs', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = createDashboardSchema.parse(req.body);
+    const db = getDatabase();
+    const userId = req.user!.id;
+    const dashboardId = uuidv4();
+
+    await db
+      .insertInto('dashboard' as any)
+      .values({
+        id: dashboardId,
+        name: data.name,
+        description: data.description || null,
+        owner_id: userId,
+        is_shared: data.is_shared || false,
+        is_default: false,
+        layout: JSON.stringify(data.layout),
+      })
+      .execute();
+
+    const dashboard = await db
+      .selectFrom('dashboard')
+      .where('id', '=', dashboardId)
+      .selectAll()
+      .executeTakeFirstOrThrow();
+
+    res.status(201).json(dashboard);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return;
+    }
+    logger.error('Create dashboard error', { error, requestId: req.requestId });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PUT /configs/:id - Update a dashboard (only owner can update)
+router.put('/configs/:id', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = updateDashboardSchema.parse(req.body);
+    const db = getDatabase();
+    const userId = req.user!.id;
+
+    const existing = await db
+      .selectFrom('dashboard')
+      .where('id', '=', req.params.id)
+      .where('owner_id', '=', userId)
+      .selectAll()
+      .executeTakeFirst();
+
+    if (!existing) {
+      res.status(404).json({ error: 'Dashboard not found or not owned by you' });
+      return;
+    }
+
+    const updates: any = { updated_at: new Date() };
+    if (data.name !== undefined) updates.name = data.name;
+    if (data.description !== undefined) updates.description = data.description;
+    if (data.is_shared !== undefined) updates.is_shared = data.is_shared;
+    if (data.layout !== undefined) updates.layout = JSON.stringify(data.layout);
+
+    // Handle setting as default (unset all other defaults for this user)
+    if (data.is_default === true) {
+      await db
+        .updateTable('dashboard' as any)
+        .set({ is_default: false })
+        .where('owner_id', '=', userId)
+        .execute();
+      updates.is_default = true;
+    } else if (data.is_default === false) {
+      updates.is_default = false;
+    }
+
+    await db
+      .updateTable('dashboard' as any)
+      .set(updates)
+      .where('id', '=', req.params.id)
+      .execute();
+
+    const updated = await db
+      .selectFrom('dashboard')
+      .where('id', '=', req.params.id)
+      .selectAll()
+      .executeTakeFirstOrThrow();
+
+    res.json(updated);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return;
+    }
+    logger.error('Update dashboard error', { error, requestId: req.requestId });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /configs/:id - Delete a dashboard (only owner can delete)
+router.delete('/configs/:id', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const db = getDatabase();
+    const userId = req.user!.id;
+
+    const existing = await db
+      .selectFrom('dashboard')
+      .where('id', '=', req.params.id)
+      .where('owner_id', '=', userId)
+      .selectAll()
+      .executeTakeFirst();
+
+    if (!existing) {
+      res.status(404).json({ error: 'Dashboard not found or not owned by you' });
+      return;
+    }
+
+    await db
+      .deleteFrom('dashboard' as any)
+      .where('id', '=', req.params.id)
+      .execute();
+
+    res.json({ message: 'Dashboard deleted successfully' });
+  } catch (error) {
+    logger.error('Delete dashboard error', { error, requestId: req.requestId });
     res.status(500).json({ error: 'Internal server error' });
   }
 });

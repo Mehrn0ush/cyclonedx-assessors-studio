@@ -332,5 +332,24 @@
     "ipAddress": "IP アドレス",
     "browser": "ブラウザー",
     "logoutAllSessions": "すべてのセッションからログアウト"
+  },
+  "entities": {
+    "relationships": "関係",
+    "parentEntities": "親エンティティ",
+    "childEntities": "子エンティティ",
+    "otherRelationships": "その他の関係",
+    "addRelationship": "関係を追加",
+    "targetEntity": "ターゲットエンティティ",
+    "relationshipType": "関係タイプ",
+    "compliancePolicies": "コンプライアンスポリシー",
+    "policySource": "ソース",
+    "inherited": "継承済み",
+    "direct": "直接",
+    "addPolicy": "ポリシーを追加",
+    "editPolicy": "ポリシーを編集",
+    "progress": "進度",
+    "noAssessmentHistory": "まだ評価は完了していません。",
+    "relatedEntity": "関連エンティティ",
+    "direction": "方向"
   }
 }

@@ -5,6 +5,7 @@ import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
 import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
+import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
 
@@ -14,7 +15,7 @@ const createProjectSchema = z.object({
   state: z
     .enum(['new', 'in_progress', 'on_hold', 'complete', 'operational', 'retired'])
     .default('new'),
-  workflow_type: z.enum(['claims_driven', 'evidence_driven']).default('evidence_driven'),
+  workflowType: z.enum(['claims_driven', 'evidence_driven']).default('evidence_driven'),
   standardIds: z.array(z.string()).min(1, 'At least one standard is required'),
   tags: z.array(z.string()).optional(),
 });
@@ -23,7 +24,7 @@ const updateProjectSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
   state: z.enum(['new', 'in_progress', 'on_hold', 'complete', 'operational', 'retired']).optional(),
-  workflow_type: z.enum(['claims_driven', 'evidence_driven']).optional(),
+  workflowType: z.enum(['claims_driven', 'evidence_driven']).optional(),
   standardIds: z.array(z.string()).min(1, 'At least one standard is required').optional(),
   tags: z.array(z.string()).optional(),
 });
@@ -150,13 +151,13 @@ router.post(
 
       await db
         .insertInto('project')
-        .values({
+        .values(toSnakeCase({
           id: projectId,
           name: data.name,
           description: data.description,
           state: data.state,
-          workflow_type: data.workflow_type,
-        })
+          workflowType: data.workflowType,
+        }))
         .execute();
 
       if (data.standardIds && data.standardIds.length > 0) {
@@ -187,7 +188,7 @@ router.post(
         name: data.name,
         description: data.description,
         state: data.state,
-        workflow_type: data.workflow_type,
+        workflowType: data.workflowType,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -226,12 +227,12 @@ router.put(
       if (data.name !== undefined) updateData.name = data.name;
       if (data.description !== undefined) updateData.description = data.description;
       if (data.state !== undefined) updateData.state = data.state;
-      if (data.workflow_type !== undefined) updateData.workflow_type = data.workflow_type;
+      if (data.workflowType !== undefined) updateData.workflowType = data.workflowType;
 
       if (Object.keys(updateData).length > 0) {
         await db
           .updateTable('project')
-          .set(updateData)
+          .set(toSnakeCase(updateData))
           .where('id', '=', req.params.id)
           .execute();
       }

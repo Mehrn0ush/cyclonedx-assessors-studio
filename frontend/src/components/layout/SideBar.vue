@@ -4,20 +4,20 @@
       <!-- Overview -->
       <div class="nav-group">
         <div v-if="!uiStore.sidebarCollapsed" class="nav-group-label">Overview</div>
-        <div class="nav-item-wrapper">
+        <div v-for="item in navItems.slice(0, 1)" :key="item.name" class="nav-item-wrapper">
           <RouterLink
-            to="/dashboard"
+            :to="item.path"
             class="nav-item"
-            :class="{ active: isActive('/dashboard') }"
-            :title="uiStore.sidebarCollapsed ? navItems[0].label : ''"
-            :aria-label="navItems[0].label"
+            :class="{ active: isActive(item.path) }"
+            :title="uiStore.sidebarCollapsed ? item.label : ''"
+            :aria-label="item.label"
             @click="closeMobileMenu"
           >
             <el-icon class="nav-icon">
-              <component :is="navItems[0].icon" />
+              <component :is="item.icon" />
             </el-icon>
-            <span class="nav-label">{{ navItems[0].label }}</span>
-            <span v-if="navItems[0].badge" class="nav-badge">{{ navItems[0].badge }}</span>
+            <span class="nav-label">{{ item.label }}</span>
+            <span v-if="item.badge" class="nav-badge">{{ item.badge }}</span>
           </RouterLink>
         </div>
       </div>
@@ -25,7 +25,7 @@
       <!-- Manage -->
       <div class="nav-group">
         <div v-if="!uiStore.sidebarCollapsed" class="nav-group-label">Manage</div>
-        <div v-for="item in navItems.slice(1, 3)" :key="item.name" class="nav-item-wrapper">
+        <div v-for="item in navItems.slice(1, 4)" :key="item.name" class="nav-item-wrapper">
           <RouterLink
             :to="item.path"
             class="nav-item"
@@ -46,7 +46,7 @@
       <!-- Activity -->
       <div class="nav-group">
         <div v-if="!uiStore.sidebarCollapsed" class="nav-group-label">Activity</div>
-        <div v-for="item in navItems.slice(3, 7)" :key="item.name" class="nav-item-wrapper">
+        <div v-for="item in navItems.slice(4, 8)" :key="item.name" class="nav-item-wrapper">
           <RouterLink
             :to="item.path"
             class="nav-item"
@@ -128,6 +128,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import {
   Odometer,
+  OfficeBuilding,
   FolderOpened,
   Document,
   DocumentChecked,
@@ -155,6 +156,7 @@ interface NavItem {
 
 const navItems = computed<NavItem[]>(() => [
   { name: 'dashboard', label: t('nav.dashboard'), path: '/dashboard', icon: Odometer },
+  { name: 'entities', label: t('nav.entities', 'Entities'), path: '/entities', icon: OfficeBuilding },
   { name: 'projects', label: t('nav.projects'), path: '/projects', icon: FolderOpened },
   { name: 'standards', label: t('nav.standards'), path: '/standards', icon: Document },
   { name: 'assessments', label: t('nav.assessments'), path: '/assessments', icon: DocumentChecked },

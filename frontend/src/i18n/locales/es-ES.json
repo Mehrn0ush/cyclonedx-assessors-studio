@@ -332,5 +332,24 @@
     "ipAddress": "Dirección IP",
     "browser": "Navegador",
     "logoutAllSessions": "Cerrar todas las sesiones"
+  },
+  "entities": {
+    "relationships": "Relaciones",
+    "parentEntities": "Entidades principales",
+    "childEntities": "Entidades secundarias",
+    "otherRelationships": "Otras relaciones",
+    "addRelationship": "Añadir relación",
+    "targetEntity": "Entidad objetivo",
+    "relationshipType": "Tipo de relación",
+    "compliancePolicies": "Políticas de cumplimiento",
+    "policySource": "Fuente",
+    "inherited": "Heredado",
+    "direct": "Directo",
+    "addPolicy": "Añadir política",
+    "editPolicy": "Editar política",
+    "progress": "Progreso",
+    "noAssessmentHistory": "Aún no hay evaluaciones completadas.",
+    "relatedEntity": "Entidad relacionada",
+    "direction": "Dirección"
   }
 }

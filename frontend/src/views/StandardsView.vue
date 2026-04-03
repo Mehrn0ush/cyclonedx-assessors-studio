@@ -31,22 +31,28 @@
             <el-option label="Retired" value="retired"></el-option>
           </el-select>
         </div>
-        <el-table :data="filteredStandards" stripe border @row-click="navigateToStandard" role="grid" aria-label="Standards table">
-          <el-table-column prop="name" :label="t('standards.name')" min-width="250"></el-table-column>
-          <el-table-column prop="version" :label="t('standards.version')" width="100"></el-table-column>
-          <el-table-column prop="owner" :label="t('standards.owner')" min-width="200"></el-table-column>
-          <el-table-column prop="state" :label="t('common.state')" width="120">
+        <el-table :data="paginatedData" stripe border @row-click="navigateToStandard" role="grid" aria-label="Standards table">
+          <el-table-column prop="name" :label="t('standards.name')" min-width="250" sortable></el-table-column>
+          <el-table-column prop="version" :label="t('standards.version')" width="100" sortable></el-table-column>
+          <el-table-column prop="owner" :label="t('standards.owner')" min-width="200" sortable></el-table-column>
+          <el-table-column prop="state" :label="t('common.state')" width="120" sortable>
             <template #default="{ row }">
               <StateBadge :state="row.state" />
             </template>
           </el-table-column>
-          <el-table-column prop="requirementsCount" :label="t('standards.requirements')" width="140" align="center"></el-table-column>
+          <el-table-column prop="requirementsCount" :label="t('standards.requirements')" width="140" align="center" sortable></el-table-column>
           <el-table-column :label="t('common.actions')" width="100" fixed="right">
             <template #default="{ row }">
               <RowActions :show-edit="false" :show-view="true" :show-delete="authStore.user?.role === 'admin'" @view="navigateToStandard(row)" @delete="() => {}" />
             </template>
           </el-table-column>
         </el-table>
+        <el-pagination
+          v-model:current-page="currentPage"
+          :page-size="pageSize"
+          :total="totalCount"
+          layout="total, prev, pager, next"
+        />
       </template>
     </div>
 
@@ -124,7 +130,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Loading, Upload } from '@element-plus/icons-vue'
@@ -166,6 +172,8 @@ const createStandardForm = ref({
   owner: '',
   description: '',
 })
+const currentPage = ref(1)
+const pageSize = ref(20)
 
 const fetchStandards = async () => {
   loading.value = true
@@ -212,7 +220,7 @@ const handleFileSelected = async (file: any) => {
             identifier: req['bom-ref'] || req.identifier || req.id || '',
             name: req.title || req.text || req.name || req.identifier || '',
             description: req.description || req.text || null,
-            open_cre: req.openCre || req.externalReferences?.[0]?.url || null,
+            openCre: req.openCre || req.externalReferences?.[0]?.url || null,
             parentIdentifier: req.parent || null,
           }))
         }
@@ -226,7 +234,7 @@ const handleFileSelected = async (file: any) => {
         identifier: req['bom-ref'] || req.identifier || req.id || '',
         name: req.title || req.text || req.name || '',
         description: req.description || null,
-        open_cre: req.openCre || null,
+        openCre: req.openCre || null,
         parentIdentifier: req.parent || null,
       }))
     }
@@ -244,7 +252,7 @@ const handleFileSelected = async (file: any) => {
         identifier: req['bom-ref'] || req.identifier || req.id || '',
         name: req.title || req.text || req.name || '',
         description: req.description || null,
-        open_cre: req.openCre || null,
+        openCre: req.openCre || null,
         parentIdentifier: req.parent || null,
       }))
     }
@@ -313,6 +321,18 @@ const filteredStandards = computed(() => {
     return standards.value
   }
   return standards.value.filter((standard) => standard.state === filterState.value)
+})
+
+const totalCount = computed(() => filteredStandards.value.length)
+
+const paginatedData = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return filteredStandards.value.slice(start, end)
+})
+
+watch(filterState, () => {
+  currentPage.value = 1
 })
 
 const resetCreateStandardForm = () => {

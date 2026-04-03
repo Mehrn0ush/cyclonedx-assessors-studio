@@ -100,7 +100,7 @@ router.get(
 
       const keys = await query.orderBy('created_at', 'desc').execute();
 
-      res.json({ keys });
+      res.json({ data: keys });
     } catch (error) {
       logger.error('Failed to list API keys', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });

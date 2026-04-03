@@ -107,7 +107,7 @@ a {
 }
 
 // Lists
-ul,
+ul:not(.el-pager),
 ol {
   margin-bottom: var(--cat-spacing-4);
   padding-left: var(--cat-spacing-6);

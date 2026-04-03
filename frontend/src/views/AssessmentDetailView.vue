@@ -16,8 +16,8 @@
               <h2>{{ assessment.title }}</h2>
               <p class="info-meta">
                 <RouterLink
-                  v-if="assessment.project_id"
-                  :to="`/projects/${assessment.project_id}`"
+                  v-if="assessment.projectId"
+                  :to="`/projects/${assessment.projectId}`"
                   class="project-link"
                 >
                   {{ projectName }}
@@ -47,13 +47,13 @@
             <el-col :span="6">
               <div class="info-field">
                 <label>{{ t('assessments.startDate') }}</label>
-                <p>{{ formatDate(assessment.start_date) }}</p>
+                <p>{{ formatDate(assessment.startDate) }}</p>
               </div>
             </el-col>
             <el-col :span="6">
               <div class="info-field">
                 <label>{{ t('assessments.dueDate') }}</label>
-                <p>{{ formatDate(assessment.due_date) }}</p>
+                <p>{{ formatDate(assessment.dueDate) }}</p>
               </div>
             </el-col>
             <el-col :span="6">
@@ -126,7 +126,7 @@
                 </div>
               </div>
               <el-table :data="requirements" border>
-              <el-table-column prop="identifier" :label="t('common.id')" width="120"></el-table-column>
+              <el-table-column prop="identifier" :label="t('common.id')" width="120" sortable></el-table-column>
               <el-table-column :label="t('common.name')" min-width="250">
                 <template #default="{ row }">
                   {{ row.title || row.name }}
@@ -245,7 +245,7 @@
                 <div class="attestation-requirements">
                   <h3>{{ t('attestations.requirements') }}</h3>
                   <el-table :data="attestationRequirements" stripe border>
-                    <el-table-column prop="identifier" :label="t('common.id')" min-width="100"></el-table-column>
+                    <el-table-column prop="identifier" :label="t('common.id')" min-width="100" sortable></el-table-column>
                     <el-table-column :label="t('common.name')" min-width="250">
                       <template #default="{ row }">
                         {{ row.title || row.name }}
@@ -308,7 +308,7 @@
                       <span class="note-author">{{ note.author_display_name || note.author_name || 'Unknown' }}</span>
                       <span class="note-requirement-tag">{{ getRequirementIdentifier(note.requirement_id) }}</span>
                     </div>
-                    <span class="note-date">{{ formatDate(note.created_at) }}</span>
+                    <span class="note-date">{{ formatDate(note.createdAt) }}</span>
                   </div>
                   <p class="note-content">{{ note.content }}</p>
                 </div>
@@ -377,7 +377,7 @@
     <!-- Edit Attestation Scores Dialog -->
     <el-dialog v-model="showEditScoresDialog" :title="t('assessments.editScores')" width="700px">
       <el-table :data="editScoresForm.scores" stripe border>
-        <el-table-column prop="identifier" :label="t('common.id')" min-width="100"></el-table-column>
+        <el-table-column prop="identifier" :label="t('common.id')" min-width="100" sortable></el-table-column>
         <el-table-column :label="t('assessments.conformanceScore')" min-width="150">
           <template #default="{ row }">
             <el-input-number v-model="row.conformance_score_display" :min="0" :max="100" :step="1" style="width: 100%" />
@@ -889,8 +889,8 @@ const handleSaveScores = async () => {
     const assessmentId = route.params.id as string
     const payload = editScoresForm.value.scores.map(score => ({
       id: score.id,
-      conformance_score: score.conformance_score_display / 100,
-      confidence_score: score.confidence_score_display / 100
+      conformanceScore: score.conformance_score_display / 100,
+      confidenceScore: score.confidence_score_display / 100
     }))
 
     await axios.put(`/api/v1/attestations/${attestation.value.id}/scores`, { scores: payload })

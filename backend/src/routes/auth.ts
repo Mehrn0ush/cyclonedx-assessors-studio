@@ -7,6 +7,7 @@ import { getConfig } from '../config/index.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth } from '../middleware/auth.js';
 import { hashPassword, verifyPassword, generateToken, hashToken } from '../utils/crypto.js';
+import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
 const config = getConfig();
@@ -104,7 +105,7 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
         email: user.email,
         displayName: user.display_name,
         role: user.role,
-        hasCompletedOnboarding: user.has_completed_onboarding,
+        hasCompletedOnboarding: user.has_completed_onboarding || false,
       },
     });
   } catch (error) {
@@ -146,15 +147,15 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
 
     await db
       .insertInto('app_user')
-      .values({
+      .values(toSnakeCase({
         id: userId,
         username: data.username,
         email: data.email,
-        password_hash: passwordHash,
-        display_name: data.displayName,
+        passwordHash: passwordHash,
+        displayName: data.displayName,
         role: 'assessee',
-        is_active: true,
-      })
+        isActive: true,
+      }))
       .execute();
 
     logger.info('User registered', {
@@ -280,7 +281,7 @@ router.put(
 
       await db
         .updateTable('app_user')
-        .set({ password_hash: newPasswordHash })
+        .set(toSnakeCase({ passwordHash: newPasswordHash }))
         .where('id', '=', req.user.id)
         .execute();
 
@@ -332,7 +333,7 @@ router.put(
 
       await db
         .updateTable('app_user')
-        .set({ display_name: data.displayName })
+        .set(toSnakeCase({ displayName: data.displayName }))
         .where('id', '=', req.user.id)
         .execute();
 

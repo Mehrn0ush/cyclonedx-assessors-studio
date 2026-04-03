@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
 
@@ -144,13 +145,13 @@ router.post(
 
       await db
         .insertInto('role')
-        .values({
+        .values(toSnakeCase({
           id: roleId,
           key: data.key,
           name: data.name,
           description: data.description,
-          is_system: false,
-        })
+          isSystem: false,
+        }))
         .execute();
 
       if (data.permissionIds && data.permissionIds.length > 0) {
@@ -223,7 +224,7 @@ router.put(
       if (Object.keys(updateData).length > 0) {
         await db
           .updateTable('role')
-          .set(updateData)
+          .set(toSnakeCase(updateData))
           .where('id', '=', req.params.id)
           .execute();
       }

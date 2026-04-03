@@ -33,7 +33,7 @@
                 <div class="notification-title">{{ notif.title }}</div>
                 <div class="notification-message">{{ notif.message }}</div>
               </div>
-              <div class="notification-time">{{ formatNotificationTime(notif.created_at) }}</div>
+              <div class="notification-time">{{ formatNotificationTime(notif.createdAt) }}</div>
             </div>
           </div>
         </div>

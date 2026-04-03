@@ -25,11 +25,11 @@
         <el-button @click="fetchUsers" class="retry-button">{{ t('common.retry') }}</el-button>
       </div>
 
-      <el-table v-else :data="users" stripe border role="grid" aria-label="Users table" @selection-change="handleSelectionChange">
+      <el-table v-else :data="paginatedUsers" stripe border role="grid" aria-label="Users table" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="50"></el-table-column>
-        <el-table-column prop="username" :label="t('admin.username')" width="150"></el-table-column>
-        <el-table-column prop="email" :label="t('admin.email')" min-width="200"></el-table-column>
-        <el-table-column prop="display_name" :label="t('admin.displayName')" width="150"></el-table-column>
+        <el-table-column prop="username" :label="t('admin.username')" width="150" sortable></el-table-column>
+        <el-table-column prop="email" :label="t('admin.email')" min-width="200" sortable></el-table-column>
+        <el-table-column prop="display_name" :label="t('admin.displayName')" width="150" sortable></el-table-column>
         <el-table-column :label="t('admin.role')" width="120">
           <template #default="{ row }">
             <el-tag :type="getRoleColor(row.role)">{{ row.role }}</el-tag>
@@ -40,18 +40,21 @@
             <el-tag :type="row.is_active ? 'success' : 'danger'">{{ row.is_active ? t('common.active') : t('common.inactive') }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="last_login_at" :label="t('admin.lastLogin')" width="150"></el-table-column>
+        <el-table-column prop="last_login_at" :label="t('admin.lastLogin')" width="150" sortable></el-table-column>
         <el-table-column :label="t('common.actions')" width="150" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="handleEdit(row)" :aria-label="`Edit user ${row.username}`">{{ t('common.edit') }}</el-button>
-            <el-popconfirm :title="t('common.confirmDelete')" @confirm="handleDelete(row)">
-              <template #reference>
-                <el-button link type="danger" size="small" :aria-label="`Delete user ${row.username}`">{{ t('common.delete') }}</el-button>
-              </template>
-            </el-popconfirm>
+            <IconButton :icon="EditIcon" variant="primary" :tooltip="t('common.edit')" @click="handleEdit(row)" />
+            <IconButton :icon="Delete" variant="danger" :tooltip="t('common.delete')" @click="handleDelete(row)" />
           </template>
         </el-table-column>
       </el-table>
+
+      <el-pagination
+        v-model:current-page="currentPage"
+        :page-size="pageSize"
+        :total="totalCount"
+        layout="total, prev, pager, next"
+      />
     </div>
 
     <el-dialog v-model="showDialog" :title="dialogTitle" width="500px">
@@ -116,11 +119,12 @@
 
 <script setup lang="ts">
 import axios from 'axios'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Loading, Edit as EditIcon, Delete } from '@element-plus/icons-vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
+import IconButton from '@/components/shared/IconButton.vue'
 
 const { t } = useI18n()
 
@@ -135,6 +139,8 @@ const editingUserId = ref('')
 const selectedUsers = ref<any[]>([])
 const showRoleChangeDialog = ref(false)
 const bulkRoleChange = ref('')
+const currentPage = ref(1)
+const pageSize = ref(20)
 
 const form = ref({
   username: '',
@@ -144,6 +150,16 @@ const form = ref({
   confirmPassword: '',
   role: '',
   isActive: true
+})
+
+const paginatedUsers = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return users.value.slice(start, end)
+})
+
+const totalCount = computed(() => {
+  return users.value.length
 })
 
 const fetchUsers = async () => {
@@ -191,6 +207,21 @@ const handleEdit = (row: any) => {
 }
 
 const handleDelete = async (row: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `Are you sure you want to deactivate "${row.displayName || row.username}"?`,
+      'Deactivate User',
+      {
+        confirmButtonText: 'Deactivate',
+        cancelButtonText: 'Cancel',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger',
+      }
+    )
+  } catch {
+    return
+  }
+
   saving.value = true
   try {
     await axios.put(`/api/v1/users/${row.id}/deactivate`)
@@ -226,15 +257,15 @@ const handleSave = async () => {
     if (isEditing.value) {
       await axios.put(`/api/v1/users/${editingUserId.value}`, {
         email: form.value.email,
-        display_name: form.value.displayName,
+        displayName: form.value.displayName,
         role: form.value.role,
-        is_active: form.value.isActive
+        isActive: form.value.isActive
       })
     } else {
       await axios.post('/api/v1/users', {
         username: form.value.username,
         email: form.value.email,
-        display_name: form.value.displayName,
+        displayName: form.value.displayName,
         password: form.value.password,
         role: form.value.role
       })

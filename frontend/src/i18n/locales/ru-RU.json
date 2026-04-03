@@ -332,5 +332,24 @@
     "ipAddress": "IP-адрес",
     "browser": "Браузер",
     "logoutAllSessions": "Выход из всех сеансов"
+  },
+  "entities": {
+    "relationships": "Отношения",
+    "parentEntities": "Родительские сущности",
+    "childEntities": "Дочерние сущности",
+    "otherRelationships": "Другие отношения",
+    "addRelationship": "Добавить отношение",
+    "targetEntity": "Целевая сущность",
+    "relationshipType": "Тип отношения",
+    "compliancePolicies": "Политики соответствия",
+    "policySource": "Источник",
+    "inherited": "Унаследовано",
+    "direct": "Прямой",
+    "addPolicy": "Добавить политику",
+    "editPolicy": "Редактировать политику",
+    "progress": "Прогресс",
+    "noAssessmentHistory": "Нет завершенных оценок.",
+    "relatedEntity": "Связанная сущность",
+    "direction": "Направление"
   }
 }

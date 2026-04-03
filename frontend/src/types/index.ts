@@ -62,6 +62,10 @@ export interface Assessment {
   description: string
   projectId: string
   project?: Project
+  entityId?: string | null
+  entity?: Entity
+  standardId?: string | null
+  standard?: Standard
   state: AssessmentState
   startDate: string
   endDate?: string
@@ -71,6 +75,7 @@ export interface Assessment {
   requirementCount: number
   completedCount: number
   progress: number
+  conformanceScore?: number | null
   createdAt: string
 }
 
@@ -168,6 +173,64 @@ export interface WorkNote {
   content: string
   createdAt: string
   updatedAt?: string
+}
+
+// Entity types for flexible hierarchy model
+export type EntityType = 'organization' | 'business_unit' | 'team' | 'product' | 'product_version' | 'component' | 'supplier' | 'project'
+export type EntityState = 'active' | 'inactive' | 'archived'
+export type RelationshipType = 'owns' | 'supplies' | 'depends_on' | 'governs' | 'contains' | 'consumes'
+
+export interface Entity {
+  id: string
+  name: string
+  description: string | null
+  entityType: EntityType
+  state: EntityState
+  tags?: Tag[]
+  standards?: Standard[]
+  childCount?: number
+  assessmentCount?: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface EntityRelationship {
+  id: string
+  sourceEntityId: string
+  targetEntityId: string
+  relationshipType: RelationshipType
+  sourceEntity?: Entity
+  targetEntity?: Entity
+  createdAt: string
+}
+
+export interface CompliancePolicy {
+  id: string
+  entityId: string
+  standardId: string
+  description: string | null
+  isInherited: boolean
+  standard?: Standard
+  entity?: Entity
+  createdAt: string
+}
+
+export interface Tag {
+  id: string
+  name: string
+  color: string
+}
+
+export interface AssessmentProgress {
+  standardName: string
+  standardVersion: string
+  assessments: {
+    id: string
+    title: string
+    completedAt: string
+    conformanceScore: number | null
+    state: AssessmentState
+  }[]
 }
 
 export interface APIResponse<T> {

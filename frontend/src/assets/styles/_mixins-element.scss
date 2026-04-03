@@ -96,6 +96,16 @@
       .el-table__cell {
         padding: var(--cat-spacing-3) var(--cat-spacing-4);
       }
+
+      a {
+        color: var(--cat-text-primary, #e6edf3);
+        text-decoration: none;
+        cursor: pointer;
+
+        &:hover {
+          text-decoration: underline;
+        }
+      }
     }
 
     tbody tr {
@@ -160,14 +170,23 @@
     color: var(--cat-text-primary);
     box-shadow: var(--cat-shadow-md);
   }
+
+  .el-popper__arrow {
+    display: none;
+  }
 }
 
 // Pagination component overrides
 @mixin el-pagination-override {
   .el-pagination {
-    display: flex;
     justify-content: flex-end;
     margin-top: var(--cat-spacing-4);
+
+    // Restore backgrounds stripped by the global `button { background: none }` reset
+    .btn-prev,
+    .btn-next {
+      background: var(--el-pagination-bg-color, var(--el-fill-color-blank));
+    }
 
     .el-pager li {
       color: var(--cat-text-primary);
@@ -176,7 +195,7 @@
         color: var(--cat-brand-secondary);
       }
 
-      &.active {
+      &.is-active {
         color: var(--cat-brand-secondary);
         font-weight: var(--cat-font-weight-semibold);
       }
@@ -327,6 +346,28 @@
 
       &:hover {
         border-color: var(--cat-brand-secondary);
+      }
+    }
+  }
+
+  // Segmented radio button group: translucent style using EP CSS custom properties
+  // EP sets --el-radio-button-checked-* on .el-radio-button itself, so we must
+  // override at the same level (not on .el-radio-group) to win the cascade.
+  .el-radio-button {
+    --el-radio-button-checked-bg-color: rgba(47, 129, 247, 0.15);
+    --el-radio-button-checked-border-color: rgba(47, 129, 247, 0.5);
+    --el-radio-button-checked-text-color: #58a6ff;
+
+    .el-radio-button__inner {
+      background: transparent;
+      border-color: transparent;
+      color: var(--cat-text-secondary, #8b949e);
+      transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: none;
+
+      &:hover {
+        color: var(--cat-text-primary, #e6edf3);
+        background: rgba(47, 129, 247, 0.06);
       }
     }
   }

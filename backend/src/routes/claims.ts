@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
 
@@ -123,25 +124,25 @@ router.post(
 
       await db
         .insertInto('claim')
-        .values({
+        .values(toSnakeCase({
           id: claimId,
           name: data.name,
           target: data.target,
           predicate: data.predicate,
           reasoning: data.reasoning,
-          is_counter_claim: data.isCounterClaim,
-          attestation_id: data.attestationId,
-        })
+          isCounterClaim: data.isCounterClaim,
+          attestationId: data.attestationId,
+        }))
         .execute();
 
       if (data.evidenceIds && data.evidenceIds.length > 0) {
         await db
           .insertInto('claim_evidence')
           .values(
-            data.evidenceIds.map(evidenceId => ({
-              claim_id: claimId,
-              evidence_id: evidenceId,
-              created_at: new Date(),
+            data.evidenceIds.map(evidenceId => toSnakeCase({
+              claimId,
+              evidenceId,
+              createdAt: new Date(),
             }))
           )
           .execute();
@@ -151,10 +152,10 @@ router.post(
         await db
           .insertInto('claim_counter_evidence')
           .values(
-            data.counterEvidenceIds.map(evidenceId => ({
-              claim_id: claimId,
-              evidence_id: evidenceId,
-              created_at: new Date(),
+            data.counterEvidenceIds.map(evidenceId => toSnakeCase({
+              claimId,
+              evidenceId,
+              createdAt: new Date(),
             }))
           )
           .execute();
@@ -212,13 +213,13 @@ router.put(
       if (data.target !== undefined) updateData.target = data.target;
       if (data.predicate !== undefined) updateData.predicate = data.predicate;
       if (data.reasoning !== undefined) updateData.reasoning = data.reasoning;
-      if (data.isCounterClaim !== undefined) updateData.is_counter_claim = data.isCounterClaim;
-      if (data.attestationId !== undefined) updateData.attestation_id = data.attestationId;
+      if (data.isCounterClaim !== undefined) updateData.isCounterClaim = data.isCounterClaim;
+      if (data.attestationId !== undefined) updateData.attestationId = data.attestationId;
 
       if (Object.keys(updateData).length > 0) {
         await db
           .updateTable('claim')
-          .set(updateData)
+          .set(toSnakeCase(updateData))
           .where('id', '=', req.params.id)
           .execute();
       }
@@ -230,10 +231,10 @@ router.put(
           await db
             .insertInto('claim_evidence')
             .values(
-              data.evidenceIds.map(evidenceId => ({
-                claim_id: req.params.id,
-                evidence_id: evidenceId,
-                created_at: new Date(),
+              data.evidenceIds.map(evidenceId => toSnakeCase({
+                claimId: req.params.id,
+                evidenceId,
+                createdAt: new Date(),
               }))
             )
             .execute();
@@ -250,10 +251,10 @@ router.put(
           await db
             .insertInto('claim_counter_evidence')
             .values(
-              data.counterEvidenceIds.map(evidenceId => ({
-                claim_id: req.params.id,
-                evidence_id: evidenceId,
-                created_at: new Date(),
+              data.counterEvidenceIds.map(evidenceId => toSnakeCase({
+                claimId: req.params.id,
+                evidenceId,
+                createdAt: new Date(),
               }))
             )
             .execute();

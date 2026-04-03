@@ -5,6 +5,7 @@ import { getDatabase } from '../db/connection.js';
 import { hashPassword } from '../utils/crypto.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
 
@@ -151,15 +152,15 @@ router.post(
 
       await db
         .insertInto('app_user')
-        .values({
+        .values(toSnakeCase({
           id: userId,
           username: data.username,
           email: data.email,
-          password_hash: passwordHash,
-          display_name: data.displayName,
+          passwordHash: passwordHash,
+          displayName: data.displayName,
           role: data.role,
-          is_active: true,
-        })
+          isActive: true,
+        }))
         .execute();
 
       logger.info('User created', {
@@ -224,15 +225,15 @@ router.put(
 
       const updateData: any = {};
 
-      if (data.displayName !== undefined) updateData.display_name = data.displayName;
+      if (data.displayName !== undefined) updateData.displayName = data.displayName;
       if (data.email !== undefined) updateData.email = data.email;
       if (data.role !== undefined) updateData.role = data.role;
-      if (data.isActive !== undefined) updateData.is_active = data.isActive;
+      if (data.isActive !== undefined) updateData.isActive = data.isActive;
 
       if (Object.keys(updateData).length > 0) {
         await db
           .updateTable('app_user')
-          .set(updateData)
+          .set(toSnakeCase(updateData))
           .where('id', '=', req.params.id)
           .execute();
       }

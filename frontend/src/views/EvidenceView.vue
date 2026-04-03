@@ -32,7 +32,7 @@
       </div>
       <div v-else class="content">
         <el-table :data="filteredEvidence" stripe border @row-click="navigateToEvidence" role="grid" aria-label="Evidence table">
-          <el-table-column prop="name" :label="t('evidence.name')" min-width="250"></el-table-column>
+          <el-table-column prop="name" :label="t('evidence.name')" min-width="250" sortable></el-table-column>
           <el-table-column :label="t('evidence.state')" width="120">
             <template #default="{ row }">
               <StateBadge :state="row.state" />
@@ -50,7 +50,7 @@
           </el-table-column>
           <el-table-column :label="t('evidence.created')" width="120">
             <template #default="{ row }">
-              {{ formatDate(row.created_at) }}
+              {{ formatDate(row.createdAt) }}
             </template>
           </el-table-column>
           <el-table-column :label="t('evidence.expires')" width="120">

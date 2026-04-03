@@ -332,7 +332,7 @@ const fetchAndImportStandards = async () => {
   try {
     // Fetch the standards feed
     const { data } = await axios.get('/api/v1/setup/standards-feed')
-    const items: FeedItem[] = (data.items || []).map((item: any) => ({
+    const items: FeedItem[] = (data.data || []).map((item: any) => ({
       id: item.id,
       title: item.title,
       url: item.url || item.id,
@@ -361,7 +361,7 @@ const fetchAndImportStandards = async () => {
         feedItems.value[i].status = 'success'
 
         // Sum up requirement counts from all imported standards in the response
-        const standards = result.data?.standards || []
+        const standards = result.data?.data || []
         const totalReqs = standards.reduce((sum: number, s: any) => sum + (s.requirementCount || 0), 0)
         feedItems.value[i].requirementCount = totalReqs
         importSuccessCount.value++
@@ -400,7 +400,7 @@ const retryImportItem = async (item: FeedItem) => {
     })
 
     feedItems.value[index].status = 'success'
-    const standards = result.data?.standards || []
+    const standards = result.data?.data || []
     const totalReqs = standards.reduce((sum: number, s: any) => sum + (s.requirementCount || 0), 0)
     feedItems.value[index].requirementCount = totalReqs
     importSuccessCount.value++

@@ -26,51 +26,51 @@
         </div>
         <h2 class="gs-title">Welcome to Assessors Studio</h2>
         <p class="gs-description">
-          Assessors Studio helps you evaluate projects against industry standards, collect evidence, and produce formal attestations. This walkthrough covers the key concepts you will use every day.
+          Assessors Studio helps you evaluate organizations, teams, and products against industry standards, then produce formal attestations of conformance. Here is a quick overview of how it works.
         </p>
       </div>
 
-      <!-- Step 1: Projects & Standards -->
+      <!-- Step 1: Entities & Standards -->
       <div v-if="currentStep === 1" class="gs-step">
         <div class="gs-icon">
-          <el-icon :size="48" color="var(--el-color-primary)"><FolderOpened /></el-icon>
+          <el-icon :size="48" color="var(--el-color-primary)"><OfficeBuilding /></el-icon>
         </div>
-        <h2 class="gs-title">Projects & Standards</h2>
+        <h2 class="gs-title">Entities & Standards</h2>
         <p class="gs-description">
-          A project represents something you want to assess, such as a product, service, or team. Each project is linked to one or more standards that define the requirements it will be evaluated against. You can import standards from CycloneDX files or author your own with a built in approval workflow.
+          An entity is anything you want to assess: an organization, a team, a product, or a software component. You link each entity to the standards it needs to meet, such as ASVS, BSIMM, PCI DSS, or SSDF. Entities connect to each other to form a flexible hierarchy that mirrors your org structure or supply chain.
         </p>
       </div>
 
-      <!-- Step 2: Assessments & Evidence -->
+      <!-- Step 2: Assessments -->
       <div v-if="currentStep === 2" class="gs-step">
         <div class="gs-icon">
           <el-icon :size="48" color="var(--el-color-primary)"><DocumentChecked /></el-icon>
         </div>
-        <h2 class="gs-title">Assessments & Evidence</h2>
+        <h2 class="gs-title">Assessments</h2>
         <p class="gs-description">
-          Assessments walk through each requirement in a standard and record a conformance result with a rationale. Evidence such as documents, test reports, and screenshots can be attached to back up those claims. Reviewers then approve or request changes to the evidence.
+          An assessment evaluates one entity against one standard. Assessors work through each requirement, recording a result and rationale. Evidence such as documents or test reports can be attached to support those findings. Multiple assessments can run in parallel across different standards.
         </p>
       </div>
 
-      <!-- Step 3: Attestations -->
+      <!-- Step 3: Attestations & Progress -->
       <div v-if="currentStep === 3" class="gs-step">
         <div class="gs-icon">
           <el-icon :size="48" color="var(--el-color-primary)"><Stamp /></el-icon>
         </div>
-        <h2 class="gs-title">Attestations</h2>
+        <h2 class="gs-title">Attestations & Progress</h2>
         <p class="gs-description">
-          When an assessment is complete, you can generate a formal attestation that records the results as a signed declaration. Attestations export as CycloneDX documents for machine readable transparency or as PDF reports for stakeholders.
+          When an assessment is complete, you generate a formal attestation that records the results as a signed declaration. Attestations export as CycloneDX documents or PDF reports. Over time, the Progress view shows how conformance scores trend across assessments, helping you measure improvement.
         </p>
       </div>
 
-      <!-- Step 4: Automation & GRC Engineering -->
+      <!-- Step 4: Built for Automation -->
       <div v-if="currentStep === 4" class="gs-step">
         <div class="gs-icon">
           <el-icon :size="48" color="var(--el-color-primary)"><SetUp /></el-icon>
         </div>
         <h2 class="gs-title">Built for Automation</h2>
         <p class="gs-description">
-          Assessors Studio is API first, designed to support traditional human driven workflows, fully automated pipelines, and hybrid approaches. Assessments, evidence collection, and attestation generation can all be orchestrated through the API, enabling GRC Engineering practices from the ground up.
+          Assessors Studio is API first. Assessments, evidence collection, and attestation generation can all be orchestrated through the API, supporting human driven workflows, fully automated pipelines, or a mix of both.
         </p>
       </div>
     </div>
@@ -96,12 +96,13 @@
 import { ref, watch } from 'vue'
 import {
   Promotion,
-  FolderOpened,
+  OfficeBuilding,
   DocumentChecked,
   Stamp,
   SetUp,
 } from '@element-plus/icons-vue'
 import axios from 'axios'
+import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{
   modelValue: boolean
@@ -119,16 +120,21 @@ watch(visible, (val) => { emit('update:modelValue', val) })
 
 const steps = [
   { title: 'Welcome' },
-  { title: 'Projects & Standards' },
-  { title: 'Assessments & Evidence' },
-  { title: 'Attestations' },
+  { title: 'Entities & Standards' },
+  { title: 'Assessments' },
+  { title: 'Attestations & Progress' },
   { title: 'Built for Automation' },
 ]
+
+const authStore = useAuthStore()
 
 const handleDismiss = async () => {
   visible.value = false
   try {
     await axios.post('/api/v1/auth/complete-onboarding')
+    if (authStore.user) {
+      authStore.user.hasCompletedOnboarding = true
+    }
   } catch (err) {
     console.error('Failed to mark onboarding as complete:', err)
   }

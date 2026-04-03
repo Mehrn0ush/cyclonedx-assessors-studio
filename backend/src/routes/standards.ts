@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ const importStandardSchema = z.object({
         identifier: z.string(),
         name: z.string(),
         description: z.string().optional(),
-        open_cre: z.string().optional(),
+        openCre: z.string().optional(),
         parentIdentifier: z.string().optional(),
       })
     )
@@ -174,17 +175,17 @@ router.post(
 
       await db
         .insertInto('standard')
-        .values({
+        .values(toSnakeCase({
           id: standardId,
           identifier: data.identifier,
           name: data.name,
           description: data.description,
           owner: data.owner,
           version: data.version,
-          license_id: data.licenseId,
+          licenseId: data.licenseId,
           state: 'published',
-          is_imported: true,
-        })
+          isImported: true,
+        }))
         .execute();
 
       if (data.requirements && data.requirements.length > 0) {
@@ -200,15 +201,15 @@ router.post(
 
           await db
             .insertInto('requirement')
-            .values({
+            .values(toSnakeCase({
               id: requirementId,
               identifier: req.identifier,
               name: req.name,
               description: req.description,
-              open_cre: req.open_cre,
-              parent_id: parentId,
-              standard_id: standardId,
-            })
+              openCre: req.openCre,
+              parentId: parentId,
+              standardId: standardId,
+            }))
             .execute();
 
           requirementMap.set(req.identifier, requirementId);
@@ -259,7 +260,7 @@ router.post(
 
       await db
         .insertInto('standard')
-        .values({
+        .values(toSnakeCase({
           id: standardId,
           identifier,
           name,
@@ -267,9 +268,9 @@ router.post(
           owner,
           version,
           state: 'draft',
-          authored_by: req.user!.id,
-          is_imported: false,
-        })
+          authoredBy: req.user!.id,
+          isImported: false,
+        }))
         .execute();
 
       const created = await db
@@ -547,18 +548,18 @@ router.post(
 
       await db
         .insertInto('standard')
-        .values({
+        .values(toSnakeCase({
           id: newId,
           identifier: `${original.identifier}-copy`,
           name: `${original.name} (Draft)`,
           description: original.description,
           owner: original.owner,
           version: newVersion,
-          license_id: original.license_id,
+          licenseId: original.license_id,
           state: 'draft',
-          authored_by: req.user!.id,
-          is_imported: false,
-        })
+          authoredBy: req.user!.id,
+          isImported: false,
+        }))
         .execute();
 
       // Copy all requirements from original
@@ -580,15 +581,15 @@ router.post(
 
         await db
           .insertInto('requirement')
-          .values({
+          .values(toSnakeCase({
             id: newReqId,
             identifier: req_item.identifier,
             name: req_item.name,
             description: req_item.description,
-            open_cre: req_item.open_cre,
-            parent_id: parentId,
-            standard_id: newId,
-          })
+            openCre: req_item.open_cre,
+            parentId: parentId,
+            standardId: newId,
+          }))
           .execute();
 
         requirementMap.set(req_item.id, newReqId);
@@ -719,15 +720,15 @@ router.post(
 
       await db
         .insertInto('requirement')
-        .values({
+        .values(toSnakeCase({
           id: requirementId,
           identifier,
           name,
           description,
-          open_cre,
-          parent_id: parentId,
-          standard_id: req.params.id,
-        })
+          openCre: open_cre,
+          parentId: parentId,
+          standardId: req.params.id,
+        }))
         .execute();
 
       const created = await db
@@ -786,16 +787,16 @@ router.put(
         return;
       }
 
-      const { identifier, name, description, open_cre } = req.body;
+      const { identifier, name, description, openCre } = req.body;
 
       await db
         .updateTable('requirement')
-        .set({
+        .set(toSnakeCase({
           ...(identifier && { identifier }),
           ...(name && { name }),
           ...(description !== undefined && { description }),
-          ...(open_cre !== undefined && { open_cre }),
-        })
+          ...(openCre !== undefined && { openCre }),
+        }))
         .where('id', '=', req.params.reqId)
         .execute();
 

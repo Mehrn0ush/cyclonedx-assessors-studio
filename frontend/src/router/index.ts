@@ -58,6 +58,10 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/progress',
+    redirect: '/dashboard'
+  },
+  {
     path: '/projects',
     name: 'Projects',
     component: () => import('@/views/ProjectsView.vue'),
@@ -67,6 +71,18 @@ const routes: Array<RouteRecordRaw> = [
     path: '/projects/:id',
     name: 'ProjectDetail',
     component: () => import('@/views/ProjectDetailView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/entities',
+    name: 'Entities',
+    component: () => import('@/views/EntitiesView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/entities/:id',
+    name: 'EntityDetail',
+    component: () => import('@/views/EntityDetailView.vue'),
     meta: { requiresAuth: true }
   },
   {

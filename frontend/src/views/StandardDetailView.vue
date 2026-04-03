@@ -138,18 +138,18 @@
         </template>
 
         <el-table :data="levels" stripe border>
-          <el-table-column prop="identifier" :label="t('common.id')" width="150"></el-table-column>
-          <el-table-column prop="title" :label="t('standards.name')" width="200">
+          <el-table-column prop="identifier" :label="t('common.id')" width="150" sortable></el-table-column>
+          <el-table-column prop="title" :label="t('standards.name')" width="200" sortable>
             <template #default="{ row }">
               {{ row.title || row.identifier }}
             </template>
           </el-table-column>
-          <el-table-column prop="description" :label="t('standards.description')" min-width="250">
+          <el-table-column prop="description" :label="t('standards.description')" min-width="250" sortable>
             <template #default="{ row }">
               <span class="level-description">{{ row.description || '-' }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="requirementsCount" :label="t('standards.requirements')" width="140" align="center"></el-table-column>
+          <el-table-column prop="requirementsCount" :label="t('standards.requirements')" width="140" align="center" sortable></el-table-column>
         </el-table>
       </el-card>
 
@@ -178,13 +178,13 @@
           :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
           default-expand-all
         >
-          <el-table-column prop="identifier" :label="t('common.id')" width="140"></el-table-column>
-          <el-table-column prop="name" :label="t('standards.name')" width="300">
+          <el-table-column prop="identifier" :label="t('common.id')" width="140" sortable></el-table-column>
+          <el-table-column prop="name" :label="t('standards.name')" width="300" sortable>
             <template #default="{ row }">
               {{ row.name !== row.identifier ? row.name : '' }}
             </template>
           </el-table-column>
-          <el-table-column prop="description" :label="t('standards.description')" min-width="300">
+          <el-table-column prop="description" :label="t('standards.description')" min-width="300" sortable>
             <template #default="{ row }">
               <span class="req-description">{{ row.description || '' }}</span>
             </template>
@@ -196,20 +196,18 @@
             align="center"
           >
             <template #default="{ row }">
-              <el-button
-                type="primary"
-                link
-                size="small"
+              <IconButton
                 :icon="Edit"
+                variant="primary"
+                :tooltip="t('common.edit')"
                 @click="openEditRequirementDialog(row)"
-              ></el-button>
-              <el-button
-                type="danger"
-                link
-                size="small"
+              />
+              <IconButton
                 :icon="Delete"
+                variant="danger"
+                :tooltip="t('common.delete')"
                 @click="handleDeleteRequirement(row)"
-              ></el-button>
+              />
             </template>
           </el-table-column>
         </el-table>
@@ -295,9 +293,9 @@
             placeholder="Requirement description"
           />
         </el-form-item>
-        <el-form-item label="Parent" prop="parent_id">
+        <el-form-item label="Parent" prop="parentId">
           <el-select
-            v-model="requirementForm.parent_id"
+            v-model="requirementForm.parentId"
             placeholder="Select parent requirement (optional)"
             clearable
           >
@@ -326,6 +324,7 @@ import { ArrowRight, Loading, Edit, Delete, Plus, ArrowDown } from '@element-plu
 import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
 import StateBadge from '@/components/shared/StateBadge.vue'
+import IconButton from '@/components/shared/IconButton.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
@@ -360,7 +359,7 @@ const requirementForm = ref({
   identifier: '',
   name: '',
   description: '',
-  parent_id: null,
+  parentId: null,
 })
 
 // Count total requirements (flattened from tree)
@@ -494,7 +493,7 @@ const openAddRequirementDialog = () => {
     identifier: '',
     name: '',
     description: '',
-    parent_id: null,
+    parentId: null,
   }
   requirementDialogVisible.value = true
 }
@@ -505,7 +504,7 @@ const openEditRequirementDialog = (requirement: any) => {
     identifier: requirement.identifier || '',
     name: requirement.name || '',
     description: requirement.description || '',
-    parent_id: requirement.parent_id || null,
+    parentId: requirement.parent_id || null,
   }
   requirementDialogVisible.value = true
 }
@@ -516,7 +515,7 @@ const resetRequirementForm = () => {
     identifier: '',
     name: '',
     description: '',
-    parent_id: null,
+    parentId: null,
   }
 }
 
