@@ -118,6 +118,21 @@ async function authenticateCookie(req: AuthRequest): Promise<AuthRequest['user']
   };
 }
 
+/**
+ * Attempt to authenticate the request without rejecting unauthenticated
+ * callers.  Returns the user object when credentials are present and
+ * valid, or null otherwise.
+ */
+export async function tryAuthenticate(
+  req: AuthRequest
+): Promise<AuthRequest['user'] | null> {
+  try {
+    return await authenticateApiKey(req) ?? await authenticateCookie(req);
+  } catch {
+    return null;
+  }
+}
+
 export async function requireAuth(
   req: AuthRequest,
   res: Response,

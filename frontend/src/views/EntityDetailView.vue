@@ -80,8 +80,12 @@
               <div v-else>
                 <div class="relationships-view-toggle">
                   <el-radio-group v-model="relationshipsView" size="small">
-                    <el-radio-button value="table">Table</el-radio-button>
-                    <el-radio-button value="graph">Graph</el-radio-button>
+                    <el-radio-button value="table">
+                      <el-icon><Grid /></el-icon>
+                    </el-radio-button>
+                    <el-radio-button value="graph">
+                      <el-icon><Share /></el-icon>
+                    </el-radio-button>
                   </el-radio-group>
                   <el-button v-if="isAdmin" type="primary" size="small" @click="showAddRelationshipDialog = true">
                     {{ t('entities.addRelationship') }}
@@ -98,21 +102,21 @@
                         </router-link>
                       </template>
                     </el-table-column>
-                    <el-table-column :label="t('entities.direction')" width="100">
+                    <el-table-column :label="t('entities.direction')" min-width="100">
                       <template #default="{ row }">
                         <el-tag :type="row.direction === 'parent' ? 'info' : 'success'" size="small">
                           {{ row.direction === 'parent' ? 'Inbound' : 'Outbound' }}
                         </el-tag>
                       </template>
                     </el-table-column>
-                    <el-table-column :label="t('entities.relationshipType')" width="140">
+                    <el-table-column :label="t('entities.relationshipType')" min-width="140">
                       <template #default="{ row }">
                         <el-tag size="small" :style="{ borderColor: relationshipColor(row.relationshipType), color: relationshipColor(row.relationshipType), backgroundColor: relationshipColor(row.relationshipType) + '18' }">
                           {{ formatRelationshipType(row.relationshipType) }}
                         </el-tag>
                       </template>
                     </el-table-column>
-                    <el-table-column v-if="isAdmin" width="60" align="center">
+                    <el-table-column v-if="isAdmin" min-width="60" align="center">
                       <template #default="{ row }">
                         <IconButton :icon="Delete" variant="danger" :tooltip="t('common.delete')" @click="removeRelationshipAction(row.id)" />
                       </template>
@@ -158,23 +162,23 @@
               </div>
               <el-table v-else :data="filteredAssessments" stripe border @row-click="navigateToAssessment">
                 <el-table-column prop="title" :label="t('assessments.titleField')" min-width="200" sortable></el-table-column>
-                <el-table-column prop="standardName" :label="t('standards.name')" width="150" sortable></el-table-column>
-                <el-table-column :label="t('assessments.state')" width="120">
+                <el-table-column prop="standardName" :label="t('standards.name')" min-width="150" sortable></el-table-column>
+                <el-table-column :label="t('assessments.state')" min-width="120">
                   <template #default="{ row }">
                     <StateBadge :state="row.state" />
                   </template>
                 </el-table-column>
-                <el-table-column v-if="showConformanceScore" prop="conformanceScore" :label="t('assessments.conformanceScore')" width="120" sortable>
+                <el-table-column v-if="showConformanceScore" prop="conformanceScore" :label="t('assessments.conformanceScore')" min-width="120" sortable>
                   <template #default="{ row }">
                     {{ row.conformanceScore ? `${Math.round(row.conformanceScore)}%` : '-' }}
                   </template>
                 </el-table-column>
-                <el-table-column :label="t('assessments.dueDate')" width="140">
+                <el-table-column :label="t('assessments.dueDate')" min-width="140">
                   <template #default="{ row }">
                     {{ formatDate(row.dueDate) }}
                   </template>
                 </el-table-column>
-                <el-table-column :label="t('common.created')" width="140">
+                <el-table-column :label="t('common.created')" min-width="140">
                   <template #default="{ row }">
                     {{ formatDate(row.createdAt) }}
                   </template>
@@ -201,14 +205,14 @@
                     </router-link>
                   </template>
                 </el-table-column>
-                <el-table-column :label="t('entities.policySource')" width="150">
+                <el-table-column :label="t('entities.policySource')" min-width="150">
                   <template #default="{ row }">
                     <span v-if="row.isInherited" class="inherited-badge">{{ t('entities.inherited') }}</span>
                     <span v-else>{{ t('entities.direct') }}</span>
                   </template>
                 </el-table-column>
                 <el-table-column prop="description" :label="t('common.description')" min-width="250" sortable></el-table-column>
-                <el-table-column v-if="isAdmin" width="90" align="center">
+                <el-table-column v-if="isAdmin" min-width="90" align="center">
                   <template #default="{ row }">
                     <div style="display: flex; gap: 4px; justify-content: center;">
                       <IconButton :icon="EditIcon" :tooltip="t('common.edit')" @click="openEditPolicyDialog(row)" />
@@ -244,19 +248,19 @@
                 <div v-for="standard in progressData" :key="standard.standardName" class="progress-section">
                   <h3>{{ standard.standardName }} <span class="version">v{{ standard.standardVersion }}</span></h3>
                   <el-table v-if="standard.assessments.length > 0" :data="standard.assessments" stripe border>
-                    <el-table-column :label="t('common.date')" width="140">
+                    <el-table-column :label="t('common.date')" min-width="140">
                       <template #default="{ row }">
                         {{ formatDate(row.completedAt) }}
                       </template>
                     </el-table-column>
                     <el-table-column prop="title" :label="t('assessments.titleField')" min-width="200" sortable></el-table-column>
-                    <el-table-column :label="t('assessments.conformanceScore')" width="120">
+                    <el-table-column :label="t('assessments.conformanceScore')" min-width="120">
                       <template #default="{ row }">
                         <span v-if="row.conformanceScore !== null">{{ Math.round(row.conformanceScore) }}%</span>
                         <span v-else>-</span>
                       </template>
                     </el-table-column>
-                    <el-table-column :label="t('assessments.state')" width="120">
+                    <el-table-column :label="t('assessments.state')" min-width="120">
                       <template #default="{ row }">
                         <StateBadge :state="row.state" />
                       </template>
@@ -402,7 +406,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ArrowRight, Loading, Edit as EditIcon, ArrowDown, Delete } from '@element-plus/icons-vue'
+import { ArrowRight, Loading, Edit as EditIcon, ArrowDown, Delete, Grid, Share } from '@element-plus/icons-vue'
 import IconButton from '@/components/shared/IconButton.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'

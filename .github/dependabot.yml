@@ -1,0 +1,80 @@
+# =============================================================================
+# Dependabot Configuration
+# =============================================================================
+# Strategy:
+#   - Security updates: immediate (handled automatically by GitHub)
+#   - Version updates: monthly cadence, giving packages ~30 days to stabilize
+#     before Dependabot proposes them.
+#
+# NOTE: Dependabot does not have a native "wait N days after release" feature
+# (Renovate calls this stabilityDays). The monthly schedule is the closest
+# built-in approximation.  GitHub security updates bypass this schedule and
+# fire immediately for any advisory that affects a dependency.
+#
+# GitHub Actions are also monitored and pinned to SHA in the workflows.
+# =============================================================================
+
+version: 2
+
+updates:
+
+  # --- Backend npm dependencies ---
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 10
+    reviewers:
+      - CycloneDX/assessors-studio-maintainers
+    labels:
+      - dependencies
+      - backend
+    groups:
+      # Group minor/patch updates together to reduce PR noise
+      backend-minor-patch:
+        update-types:
+          - minor
+          - patch
+      # Keep major bumps as individual PRs for careful review
+    versioning-strategy: increase
+    # Ignore pre-release versions
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-prerelease"]
+
+  # --- Frontend npm dependencies ---
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 10
+    reviewers:
+      - CycloneDX/assessors-studio-maintainers
+    labels:
+      - dependencies
+      - frontend
+    groups:
+      frontend-minor-patch:
+        update-types:
+          - minor
+          - patch
+    versioning-strategy: increase
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-prerelease"]
+
+  # --- GitHub Actions ---
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    reviewers:
+      - CycloneDX/assessors-studio-maintainers
+    labels:
+      - dependencies
+      - ci
+    groups:
+      github-actions:
+        patterns:
+          - "*"

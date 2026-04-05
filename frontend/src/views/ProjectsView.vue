@@ -51,7 +51,7 @@
       <!-- Table -->
       <el-table v-else :data="filteredProjects" stripe border @row-click="navigateToProject" role="grid" aria-label="Projects table">
         <el-table-column prop="name" :label="t('projects.name')" min-width="200" sortable></el-table-column>
-        <el-table-column :label="t('projects.standards')" width="140">
+        <el-table-column :label="t('projects.standards')" min-width="140">
           <template #default="{ row }">
             <el-tooltip
               v-if="(row.standards || []).length > 0"
@@ -68,12 +68,12 @@
             <span v-else class="standards-count none">0 standards</span>
           </template>
         </el-table-column>
-        <el-table-column prop="state" :label="t('projects.state')" width="120" sortable>
+        <el-table-column prop="state" :label="t('projects.state')" min-width="120" sortable>
           <template #default="{ row }">
             <StateBadge :state="row.state" />
           </template>
         </el-table-column>
-        <el-table-column prop="workflowType" :label="t('projects.workflow')" width="160" sortable>
+        <el-table-column prop="workflowType" :label="t('projects.workflow')" min-width="160" sortable>
           <template #default="{ row }">
             <el-tag>{{ formatWorkflowType(row.workflowType) }}</el-tag>
           </template>
@@ -87,12 +87,12 @@
             >{{ tag.name }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" :label="t('projects.created')" width="140" sortable>
+        <el-table-column prop="createdAt" :label="t('projects.created')" min-width="140" sortable>
           <template #default="{ row }">
             {{ formatDate(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.actions')" width="100" fixed="right">
+        <el-table-column :label="t('common.actions')" min-width="100">
           <template #default="{ row }">
             <RowActions @edit="openEditDialog(row)" @delete="deleteProject(row)" />
           </template>
@@ -322,7 +322,7 @@ const openEditDialog = async (row: any) => {
     name: row.name,
     description: row.description,
     workflowType: row.workflowType,
-    standardIds: [],
+    standardIds: (row.standards || []).map((s: any) => s.id),
     tags: (row.tags || []).map((t: any) => t.name)
   }
   await fetchStandards()

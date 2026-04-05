@@ -13,13 +13,17 @@ const loading = ref(false)
 const chartContainer = ref<HTMLCanvasElement | null>(null)
 let chartInstance: Chart | null = null
 
-const stateColors: Record<string, string> = {
-  new: '#58a6ff',
-  pending: '#d29922',
-  in_progress: '#3fb950',
-  on_hold: '#909399',
-  cancelled: '#f85149',
-  complete: '#2ea043'
+/**
+ * Each state gets a gradient that flows left to right (darker to brighter),
+ * matching the conformance progress bar style.
+ */
+const stateGradients: Record<string, [string, string]> = {
+  new: ['#3a6fb5', '#58a6ff'],
+  pending: ['#9e6a03', '#d29922'],
+  in_progress: ['#238636', '#3fb950'],
+  on_hold: ['#606872', '#909399'],
+  cancelled: ['#da3633', '#f85149'],
+  complete: ['#1a7f37', '#2ea043'],
 }
 
 const stateLabels: Record<string, string> = {
@@ -37,11 +41,13 @@ const fetchData = async () => {
     const response = await client.get('/dashboard/assessment-distribution')
     const data = response.data.data || []
 
-    const labels = data.map((item: PipelineData) => stateLabels[item.state] || item.state)
-    const counts = data.map((item: PipelineData) => item.count)
-    const colors = data.map((item: PipelineData) => stateColors[item.state] || '#58a6ff')
+    // Filter out states with zero counts for a cleaner chart
+    const nonZero = data.filter((item: PipelineData) => item.count > 0)
+    const labels = nonZero.map((item: PipelineData) => stateLabels[item.state] || item.state)
+    const counts = nonZero.map((item: PipelineData) => item.count)
+    const states = nonZero.map((item: PipelineData) => item.state)
 
-    renderChart(labels, counts, colors)
+    renderChart(labels, counts, states)
   } catch (error) {
     console.error('Failed to fetch assessment distribution:', error)
   } finally {
@@ -49,7 +55,7 @@ const fetchData = async () => {
   }
 }
 
-const renderChart = (labels: string[], counts: number[], colors: string[]) => {
+const renderChart = (labels: string[], counts: number[], states: string[]) => {
   if (!chartContainer.value) return
 
   if (chartInstance) {
@@ -59,6 +65,15 @@ const renderChart = (labels: string[], counts: number[], colors: string[]) => {
   const ctx = chartContainer.value.getContext('2d')
   if (!ctx) return
 
+  // Build horizontal gradients for each bar
+  const barGradients = states.map((state) => {
+    const grad = ctx.createLinearGradient(0, 0, chartContainer.value!.width, 0)
+    const [start, end] = stateGradients[state] || ['#3a6fb5', '#58a6ff']
+    grad.addColorStop(0, start)
+    grad.addColorStop(1, end)
+    return grad
+  })
+
   chartInstance = new Chart(ctx, {
     type: 'bar',
     data: {
@@ -67,9 +82,10 @@ const renderChart = (labels: string[], counts: number[], colors: string[]) => {
         {
           label: 'Assessments',
           data: counts,
-          backgroundColor: colors,
+          backgroundColor: barGradients,
           borderRadius: 4,
-          borderSkipped: false
+          borderSkipped: false,
+          barThickness: 18,
         }
       ]
     },
@@ -80,21 +96,34 @@ const renderChart = (labels: string[], counts: number[], colors: string[]) => {
       plugins: {
         legend: {
           display: false
-        }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(22, 27, 34, 0.95)',
+          titleColor: '#c9d1d9',
+          bodyColor: '#c9d1d9',
+          borderColor: 'rgba(139, 148, 158, 0.2)',
+          borderWidth: 1,
+          cornerRadius: 6,
+          padding: 10,
+        },
       },
       scales: {
         x: {
           beginAtZero: true,
           ticks: {
-            color: '#8b949e'
+            color: '#8b949e',
+            stepSize: 1,
           },
           grid: {
-            color: 'rgba(139,148,158,0.1)'
+            color: 'rgba(139,148,158,0.08)',
           }
         },
         y: {
           ticks: {
-            color: '#c9d1d9'
+            color: '#c9d1d9',
+            font: {
+              size: 12,
+            },
           },
           grid: {
             display: false

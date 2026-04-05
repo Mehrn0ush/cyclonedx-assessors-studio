@@ -35,20 +35,20 @@
       <el-alert v-else-if="error" type="error" show-icon :closable="false">{{ error }}</el-alert>
       <div v-else class="content">
         <el-table :data="filteredAssessments" stripe border @row-click="navigateToAssessment" role="grid" aria-label="Assessments table">
-          <el-table-column prop="title" :label="t('assessments.titleField')" min-width="250" sortable></el-table-column>
-          <el-table-column :label="t('assessments.entity') || 'Entity'" min-width="150">
+          <el-table-column prop="title" :label="t('assessments.titleField')" min-width="160" sortable></el-table-column>
+          <el-table-column :label="t('assessments.entity') || 'Entity'" min-width="120">
             <template #default="{ row }">
               <span v-if="row.entityName">{{ row.entityName }}</span>
               <span v-else class="text-tertiary">—</span>
             </template>
           </el-table-column>
-          <el-table-column :label="t('assessments.standard') || 'Standard'" min-width="150">
+          <el-table-column :label="t('assessments.standard') || 'Standard'" min-width="140">
             <template #default="{ row }">
               <span v-if="row.standardName">{{ row.standardName }}{{ row.standardVersion ? ' v' + row.standardVersion : '' }}</span>
               <span v-else class="text-tertiary">—</span>
             </template>
           </el-table-column>
-          <el-table-column :label="t('assessments.project')" min-width="180">
+          <el-table-column :label="t('assessments.project')" min-width="130">
             <template #default="{ row }">
               <RouterLink
                 v-if="row.projectId && row.projectName"
@@ -61,19 +61,19 @@
               <span v-else class="text-tertiary">{{ t('assessments.standalone') }}</span>
             </template>
           </el-table-column>
-          <el-table-column :label="t('assessments.state')" width="120">
+          <el-table-column :label="t('assessments.state')" min-width="100">
             <template #default="{ row }">
               <StateBadge :state="row.state" />
             </template>
           </el-table-column>
-          <el-table-column :label="t('assessments.dueDate')" width="140">
+          <el-table-column :label="t('assessments.dueDate')" min-width="120">
             <template #default="{ row }">
               {{ formatDate(row.dueDate) }}
             </template>
           </el-table-column>
-          <el-table-column :label="t('assessments.startDate')" width="140">
+          <el-table-column :label="t('common.actions')" min-width="90" align="center">
             <template #default="{ row }">
-              {{ formatDate(row.startDate) }}
+              <RowActions @delete="deleteAssessment(row)" />
             </template>
           </el-table-column>
         </el-table>
@@ -107,7 +107,7 @@
         </el-form-item>
         <el-form-item v-if="createForm.entityId" label="Standard" required>
           <el-select v-model="createForm.standardId" :placeholder="t('assessments.selectStandards')" style="width: 100%">
-            <el-option v-for="std in entityStandards" :key="std.id" :label="`${std.name} ${std.version ? 'v' + std.version : ''}`" :value="std.id"></el-option>
+            <el-option v-for="std in standards" :key="std.id" :label="`${std.name} ${std.version ? 'v' + std.version : ''}`" :value="std.id"></el-option>
           </el-select>
           <div class="form-hint">The standard to assess against</div>
         </el-form-item>
@@ -125,7 +125,7 @@
           </div>
           <div class="form-hint">Requirements will be populated from these standards when you start the assessment.</div>
         </el-form-item>
-        <el-form-item v-if="!createForm.projectId" :label="t('assessments.standardsForAdHoc')">
+        <el-form-item v-if="!createForm.entityId && !createForm.projectId" :label="t('assessments.standardsForAdHoc')">
           <el-select v-model="createForm.standardIds" multiple :placeholder="t('assessments.selectStandards')" style="width: 100%">
             <el-option v-for="std in standards" :key="std.id" :label="`${std.name} ${std.version ? 'v' + std.version : ''}`" :value="std.id"></el-option>
           </el-select>
@@ -139,10 +139,10 @@
             <el-option
               v-for="user in assignableUsers"
               :key="user.id"
-              :label="user.display_name || user.username"
+              :label="user.displayName || user.username"
               :value="user.id"
             >
-              <span>{{ user.display_name || user.username }}</span>
+              <span>{{ user.displayName || user.username }}</span>
               <span class="user-role-hint">{{ user.role }}</span>
             </el-option>
           </el-select>
@@ -153,10 +153,10 @@
             <el-option
               v-for="user in assignableUsers"
               :key="user.id"
-              :label="user.display_name || user.username"
+              :label="user.displayName || user.username"
               :value="user.id"
             >
-              <span>{{ user.display_name || user.username }}</span>
+              <span>{{ user.displayName || user.username }}</span>
               <span class="user-role-hint">{{ user.role }}</span>
             </el-option>
           </el-select>
@@ -177,11 +177,12 @@ import { RouterLink } from 'vue-router'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import TagInput from '@/components/shared/TagInput.vue'
+import RowActions from '@/components/shared/RowActions.vue'
 import { formatDate } from '@/utils/dateFormat'
 
 const { t } = useI18n()
@@ -237,6 +238,8 @@ watch(() => createForm.value.entityId, (newEntityId) => {
     fetchEntityStandards(newEntityId)
     // Clear standardId when entity changes
     createForm.value.standardId = null
+    // Clear ad-hoc standards since entity+standard takes precedence
+    createForm.value.standardIds = []
   } else {
     entityStandards.value = []
     createForm.value.standardId = null
@@ -404,6 +407,26 @@ const resetCreateForm = () => {
     assesseeIds: []
   }
   entityStandards.value = []
+}
+
+const deleteAssessment = (row: any) => {
+  ElMessageBox.confirm(t('common.confirmDelete'), t('common.warning') || 'Warning', {
+    confirmButtonText: t('common.delete'),
+    cancelButtonText: t('common.cancel'),
+    type: 'warning'
+  })
+    .then(async () => {
+      try {
+        await axios.delete(`/api/v1/assessments/${row.id}`)
+        ElMessage.success('Assessment deleted successfully')
+        await fetchAssessments()
+      } catch (err: any) {
+        ElMessage.error(err.response?.data?.error || 'Failed to delete assessment')
+      }
+    })
+    .catch(() => {
+      // cancelled
+    })
 }
 
 const navigateToAssessment = (row: any) => {

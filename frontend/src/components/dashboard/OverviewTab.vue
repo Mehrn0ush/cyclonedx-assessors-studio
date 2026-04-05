@@ -87,7 +87,7 @@
         <div v-else-if="assessmentDistribution.length === 0" class="no-data">
           No assessments yet. Create assessments to view their status distribution.
         </div>
-        <div v-else class="chart-container pipeline-chart-container">
+        <div v-else class="chart-container pipeline-chart-container" :style="{ height: pipelineChartHeight + 'px' }">
           <canvas ref="pipelineChartCanvas"></canvas>
         </div>
       </el-card>
@@ -350,6 +350,13 @@ const projectHealth = ref<any[]>([])
 
 const conformanceRaw = ref<any[]>([])
 
+const pipelineChartHeight = computed(() => {
+  const nonZero = assessmentDistribution.value.filter((d: any) => d.count > 0)
+  const barCount = Math.max(nonZero.length, 1)
+  // 8px bar + 20px gap per bar, plus 30px padding for axes
+  return barCount * 28 + 30
+})
+
 const conformanceTotal = computed(() => {
   return conformanceRaw.value.reduce((sum: number, item: any) => sum + item.count, 0)
 })
@@ -420,29 +427,63 @@ const renderConformanceChart = () => {
   const style = getComputedStyle(document.documentElement)
   const textColor = style.getPropertyValue('--cat-text-secondary').trim() || '#8b949e'
 
+  // Build radial gradients for each donut segment (lighter center to deeper edge)
+  const ctx = conformanceChartCanvas.value.getContext('2d')
+  const gradientMap: Record<string, [string, string]> = {
+    yes: ['#56d364', '#1a7f37'],
+    no: ['#ff6b6b', '#a11d2b'],
+    na: ['#b1bac4', '#606872'],
+    unassessed: ['#6e7681', '#30363d'],
+  }
+
+  const segmentGradients = conformanceData.value.map((d) => {
+    if (!ctx) return d.color
+    const centerX = conformanceChartCanvas.value!.width / 2
+    const centerY = conformanceChartCanvas.value!.height / 2
+    const outerRadius = Math.min(centerX, centerY)
+    const grad = ctx.createRadialGradient(centerX, centerY, outerRadius * 0.35, centerX, centerY, outerRadius)
+    const [inner, outer] = gradientMap[d.result] || ['#b1bac4', '#606872']
+    grad.addColorStop(0, inner)
+    grad.addColorStop(1, outer)
+    return grad
+  })
+
   conformanceChartInstance = new Chart(conformanceChartCanvas.value, {
     type: 'doughnut',
     data: {
       labels: conformanceData.value.map(d => d.label),
       datasets: [{
         data: conformanceData.value.map(d => d.count),
-        backgroundColor: conformanceData.value.map(d => d.color),
+        backgroundColor: segmentGradients,
+        borderColor: 'transparent',
         borderWidth: 0,
-        hoverOffset: 4,
+        spacing: 2,
+        hoverOffset: 0,
+        hoverBorderWidth: 0,
       }],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      cutout: '65%',
+      cutout: '72%',
+      animation: {
+        animateRotate: true,
+        animateScale: false,
+      },
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: 'rgba(0,0,0,0.8)',
-          titleColor: '#fff',
-          bodyColor: '#fff',
-          cornerRadius: 8,
+          backgroundColor: 'rgba(22, 27, 34, 0.95)',
+          titleColor: '#c9d1d9',
+          bodyColor: '#c9d1d9',
+          borderColor: 'rgba(139, 148, 158, 0.2)',
+          borderWidth: 1,
+          cornerRadius: 6,
           padding: 10,
+          displayColors: true,
+          boxWidth: 10,
+          boxHeight: 10,
+          boxPadding: 4,
           callbacks: {
             label: (context) => {
               const value = context.raw as number
@@ -460,17 +501,13 @@ const renderPipelineChart = () => {
   if (!pipelineChartCanvas.value || assessmentDistribution.value.length === 0) return
   if (pipelineChartInstance) pipelineChartInstance.destroy()
 
-  const style = getComputedStyle(document.documentElement)
-  const textColor = style.getPropertyValue('--cat-text-secondary').trim() || '#8b949e'
-  const gridColor = style.getPropertyValue('--cat-border-default').trim() || '#30363d'
-
-  const stateColors: Record<string, string> = {
-    new: '#909399',
-    pending: '#E6A23C',
-    in_progress: '#409EFF',
-    on_hold: '#F56C6C',
-    cancelled: '#6e7681',
-    complete: '#3fb950',
+  const stateGradients: Record<string, [string, string]> = {
+    new: ['#1a4a80', '#6cb6ff'],
+    pending: ['#7a5200', '#e8b931'],
+    in_progress: ['#155d27', '#56d364'],
+    on_hold: ['#40454d', '#b1bac4'],
+    cancelled: ['#a11d2b', '#ff6b6b'],
+    complete: ['#0f5323', '#3dd68c'],
   }
 
   const stateLabels: Record<string, string> = {
@@ -482,16 +519,32 @@ const renderPipelineChart = () => {
     complete: 'Complete',
   }
 
+  // Filter to non-zero states
+  const nonZero = assessmentDistribution.value.filter(d => d.count > 0)
+
+  const ctx = pipelineChartCanvas.value.getContext('2d')
+  if (!ctx) return
+
+  // Build horizontal gradients for each bar
+  const barGradients = nonZero.map((d) => {
+    const grad = ctx.createLinearGradient(0, 0, pipelineChartCanvas.value!.width, 0)
+    const [start, end] = stateGradients[d.state] || ['#3a6fb5', '#58a6ff']
+    grad.addColorStop(0, start)
+    grad.addColorStop(1, end)
+    return grad
+  })
+
   pipelineChartInstance = new Chart(pipelineChartCanvas.value, {
     type: 'bar',
     data: {
-      labels: assessmentDistribution.value.map(d => stateLabels[d.state] || d.state),
+      labels: nonZero.map(d => stateLabels[d.state] || d.state),
       datasets: [{
-        data: assessmentDistribution.value.map(d => d.count),
-        backgroundColor: assessmentDistribution.value.map(d => stateColors[d.state] || '#909399'),
+        data: nonZero.map(d => d.count),
+        backgroundColor: barGradients,
         borderRadius: 4,
-        barPercentage: 0.7,
-        categoryPercentage: 0.8,
+        borderSkipped: false,
+        barThickness: 8,
+        maxBarThickness: 8,
       }],
     },
     options: {
@@ -501,10 +554,12 @@ const renderPipelineChart = () => {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: 'rgba(0,0,0,0.8)',
-          titleColor: '#fff',
-          bodyColor: '#fff',
-          cornerRadius: 8,
+          backgroundColor: 'rgba(22, 27, 34, 0.95)',
+          titleColor: '#c9d1d9',
+          bodyColor: '#c9d1d9',
+          borderColor: 'rgba(139, 148, 158, 0.2)',
+          borderWidth: 1,
+          cornerRadius: 6,
           padding: 10,
         },
       },
@@ -512,17 +567,18 @@ const renderPipelineChart = () => {
         x: {
           beginAtZero: true,
           ticks: {
-            color: textColor,
+            color: '#8b949e',
             stepSize: 1,
             precision: 0,
           },
           grid: {
-            color: gridColor,
+            color: 'rgba(139,148,158,0.08)',
           },
         },
         y: {
           ticks: {
-            color: textColor,
+            color: '#c9d1d9',
+            font: { size: 12 },
           },
           grid: {
             display: false,
@@ -762,11 +818,9 @@ onMounted(async () => {
 }
 
 .pipeline-chart-container {
-  min-height: 200px;
-
   canvas {
     width: 100% !important;
-    height: 200px !important;
+    height: 100% !important;
   }
 }
 

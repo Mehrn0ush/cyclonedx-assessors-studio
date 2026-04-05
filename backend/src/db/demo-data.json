@@ -1,0 +1,2334 @@
+{
+  "_meta": {
+    "description": "Demo data for CycloneDX Assessors Studio",
+    "version": "1.0.0",
+    "notes": "Standards and requirements are imported via the CycloneDX feed during setup. This file seeds all other tables."
+  },
+  "organizations": [
+    {
+      "id": "00000000-0000-4000-a000-000000000001",
+      "name": "Acme Corporation",
+      "country": "United States",
+      "region": "California",
+      "locality": "San Francisco",
+      "postal_code": "94105",
+      "street_address": "100 Market Street",
+      "website": "https://www.acme-corp.example.com"
+    },
+    {
+      "id": "00000000-0000-4000-a000-000000000002",
+      "name": "Apex Supply Co.",
+      "country": "United States",
+      "region": "Texas",
+      "locality": "Austin",
+      "postal_code": "78701",
+      "street_address": "200 Congress Ave",
+      "website": "https://www.apex-supply.example.com"
+    },
+    {
+      "id": "00000000-0000-4000-a000-000000000003",
+      "name": "TrustBridge Audit Partners",
+      "country": "United Kingdom",
+      "region": "England",
+      "locality": "London",
+      "postal_code": "EC2V 6DN",
+      "street_address": "1 Poultry",
+      "website": "https://www.trustbridge-audit.example.com"
+    }
+  ],
+  "contacts": [
+    {
+      "id": "00000000-0000-4000-b000-000000000001",
+      "name": "Alice Chen",
+      "email": "alice.chen@acme-corp.example.com",
+      "phone": "+1-415-555-0101",
+      "organization_id": "00000000-0000-4000-a000-000000000001"
+    },
+    {
+      "id": "00000000-0000-4000-b000-000000000002",
+      "name": "Bob Martinez",
+      "email": "bob.martinez@acme-corp.example.com",
+      "phone": "+1-415-555-0102",
+      "organization_id": "00000000-0000-4000-a000-000000000001"
+    },
+    {
+      "id": "00000000-0000-4000-b000-000000000003",
+      "name": "Carol Davis",
+      "email": "carol.davis@apex-supply.example.com",
+      "phone": "+1-512-555-0201",
+      "organization_id": "00000000-0000-4000-a000-000000000002"
+    },
+    {
+      "id": "00000000-0000-4000-b000-000000000004",
+      "name": "David Okafor",
+      "email": "david.okafor@trustbridge-audit.example.com",
+      "phone": "+44-20-7946-0301",
+      "organization_id": "00000000-0000-4000-a000-000000000003"
+    }
+  ],
+  "users": [
+    {
+      "id": "00000000-0000-4000-c000-000000000002",
+      "username": "jthompson",
+      "email": "jane.thompson@acme-corp.example.com",
+      "password": "DemoPass123!",
+      "display_name": "Jane Thompson",
+      "role": "assessor"
+    },
+    {
+      "id": "00000000-0000-4000-c000-000000000003",
+      "username": "mwilson",
+      "email": "mark.wilson@acme-corp.example.com",
+      "password": "DemoPass123!",
+      "display_name": "Mark Wilson",
+      "role": "assessor"
+    },
+    {
+      "id": "00000000-0000-4000-c000-000000000004",
+      "username": "spatil",
+      "email": "sara.patil@acme-corp.example.com",
+      "password": "DemoPass123!",
+      "display_name": "Sara Patil",
+      "role": "assessee"
+    },
+    {
+      "id": "00000000-0000-4000-c000-000000000005",
+      "username": "rgarcia",
+      "email": "roberto.garcia@acme-corp.example.com",
+      "password": "DemoPass123!",
+      "display_name": "Roberto Garcia",
+      "role": "assessee"
+    },
+    {
+      "id": "00000000-0000-4000-c000-000000000006",
+      "username": "lkumar",
+      "email": "lena.kumar@acme-corp.example.com",
+      "password": "DemoPass123!",
+      "display_name": "Lena Kumar",
+      "role": "standards_manager"
+    },
+    {
+      "id": "00000000-0000-4000-c000-000000000007",
+      "username": "dokafor",
+      "email": "david.okafor@trustbridge-audit.example.com",
+      "password": "DemoPass123!",
+      "display_name": "David Okafor",
+      "role": "standards_approver"
+    }
+  ],
+  "tags": [
+    {
+      "id": "00000000-0000-4000-d000-000000000001",
+      "name": "critical",
+      "color": "#f85149"
+    },
+    {
+      "id": "00000000-0000-4000-d000-000000000002",
+      "name": "compliance",
+      "color": "#a371f7"
+    },
+    {
+      "id": "00000000-0000-4000-d000-000000000003",
+      "name": "security",
+      "color": "#f0883e"
+    },
+    {
+      "id": "00000000-0000-4000-d000-000000000004",
+      "name": "q1-2026",
+      "color": "#2f81f7"
+    },
+    {
+      "id": "00000000-0000-4000-d000-000000000005",
+      "name": "q2-2026",
+      "color": "#3fb950"
+    },
+    {
+      "id": "00000000-0000-4000-d000-000000000006",
+      "name": "external-audit",
+      "color": "#db61a2"
+    },
+    {
+      "id": "00000000-0000-4000-d000-000000000007",
+      "name": "supply-chain",
+      "color": "#f0883e"
+    },
+    {
+      "id": "00000000-0000-4000-d000-000000000008",
+      "name": "internal",
+      "color": "#8b949e"
+    }
+  ],
+  "entities": [
+    {
+      "id": "00000000-0000-4000-e000-000000000001",
+      "name": "Acme Inc",
+      "description": "Top level organization for all Acme business units, products, and teams.",
+      "entity_type": "organization",
+      "state": "active"
+    },
+    {
+      "id": "00000000-0000-4000-e000-000000000002",
+      "name": "Acme Product Engineering",
+      "description": "Division responsible for product development and engineering across all Acme product lines.",
+      "entity_type": "business_unit",
+      "state": "active"
+    },
+    {
+      "id": "00000000-0000-4000-e000-000000000003",
+      "name": "Acme IT",
+      "description": "Corporate IT services including infrastructure, networking, and internal tools.",
+      "entity_type": "business_unit",
+      "state": "active"
+    },
+    {
+      "id": "00000000-0000-4000-e000-000000000004",
+      "name": "Acme Security",
+      "description": "Enterprise security team responsible for governance, risk, and compliance.",
+      "entity_type": "team",
+      "state": "active"
+    },
+    {
+      "id": "00000000-0000-4000-e000-000000000005",
+      "name": "Acme Compliance",
+      "description": "Regulatory compliance team managing standards adherence and audit preparation.",
+      "entity_type": "team",
+      "state": "active"
+    },
+    {
+      "id": "00000000-0000-4000-e000-000000000006",
+      "name": "Supplier A",
+      "description": "Third party supplier providing critical software components to Acme product lines.",
+      "entity_type": "organization",
+      "state": "active"
+    },
+    {
+      "id": "00000000-0000-4000-e000-000000000007",
+      "name": "Product A",
+      "description": "Acme's flagship SaaS platform for enterprise customers.",
+      "entity_type": "product",
+      "state": "active"
+    },
+    {
+      "id": "00000000-0000-4000-e000-000000000008",
+      "name": "Product A v2.1",
+      "description": "Current production release of Product A.",
+      "entity_type": "product_version",
+      "state": "active"
+    },
+    {
+      "id": "00000000-0000-4000-e000-000000000009",
+      "name": "Auth Service",
+      "description": "Authentication and authorization microservice used across Acme products.",
+      "entity_type": "component",
+      "state": "active"
+    },
+    {
+      "id": "00000000-0000-4000-e000-000000000010",
+      "name": "Payment Gateway",
+      "description": "Payment processing component integrated with third party payment providers.",
+      "entity_type": "component",
+      "state": "active"
+    },
+    {
+      "id": "00000000-0000-4000-e000-000000000011",
+      "name": "Platform Migration",
+      "description": "Enterprise project to migrate legacy infrastructure to cloud native architecture.",
+      "entity_type": "project",
+      "state": "active"
+    },
+    {
+      "id": "00000000-0000-4000-e000-000000000012",
+      "name": "Acme Identity Platform",
+      "description": "SaaS identity and access management service provided to enterprise customers.",
+      "entity_type": "service",
+      "state": "active"
+    }
+  ],
+  "entity_relationships": [
+    {
+      "id": "00000000-0000-4000-e100-000000000001",
+      "source_entity_id": "00000000-0000-4000-e000-000000000001",
+      "target_entity_id": "00000000-0000-4000-e000-000000000002",
+      "relationship_type": "owns"
+    },
+    {
+      "id": "00000000-0000-4000-e100-000000000002",
+      "source_entity_id": "00000000-0000-4000-e000-000000000001",
+      "target_entity_id": "00000000-0000-4000-e000-000000000003",
+      "relationship_type": "owns"
+    },
+    {
+      "id": "00000000-0000-4000-e100-000000000003",
+      "source_entity_id": "00000000-0000-4000-e000-000000000001",
+      "target_entity_id": "00000000-0000-4000-e000-000000000004",
+      "relationship_type": "owns"
+    },
+    {
+      "id": "00000000-0000-4000-e100-000000000004",
+      "source_entity_id": "00000000-0000-4000-e000-000000000001",
+      "target_entity_id": "00000000-0000-4000-e000-000000000005",
+      "relationship_type": "owns"
+    },
+    {
+      "id": "00000000-0000-4000-e100-000000000005",
+      "source_entity_id": "00000000-0000-4000-e000-000000000002",
+      "target_entity_id": "00000000-0000-4000-e000-000000000007",
+      "relationship_type": "owns"
+    },
+    {
+      "id": "00000000-0000-4000-e100-000000000006",
+      "source_entity_id": "00000000-0000-4000-e000-000000000007",
+      "target_entity_id": "00000000-0000-4000-e000-000000000008",
+      "relationship_type": "contains"
+    },
+    {
+      "id": "00000000-0000-4000-e100-000000000007",
+      "source_entity_id": "00000000-0000-4000-e000-000000000008",
+      "target_entity_id": "00000000-0000-4000-e000-000000000009",
+      "relationship_type": "contains"
+    },
+    {
+      "id": "00000000-0000-4000-e100-000000000008",
+      "source_entity_id": "00000000-0000-4000-e000-000000000008",
+      "target_entity_id": "00000000-0000-4000-e000-000000000010",
+      "relationship_type": "contains"
+    },
+    {
+      "id": "00000000-0000-4000-e100-000000000009",
+      "source_entity_id": "00000000-0000-4000-e000-000000000006",
+      "target_entity_id": "00000000-0000-4000-e000-000000000009",
+      "relationship_type": "supplies"
+    },
+    {
+      "id": "00000000-0000-4000-e100-000000000010",
+      "source_entity_id": "00000000-0000-4000-e000-000000000010",
+      "target_entity_id": "00000000-0000-4000-e000-000000000006",
+      "relationship_type": "depends_on"
+    },
+    {
+      "id": "00000000-0000-4000-e100-000000000011",
+      "source_entity_id": "00000000-0000-4000-e000-000000000004",
+      "target_entity_id": "00000000-0000-4000-e000-000000000007",
+      "relationship_type": "governs"
+    },
+    {
+      "id": "00000000-0000-4000-e100-000000000012",
+      "source_entity_id": "00000000-0000-4000-e000-000000000005",
+      "target_entity_id": "00000000-0000-4000-e000-000000000001",
+      "relationship_type": "governs"
+    },
+    {
+      "id": "00000000-0000-4000-e100-000000000013",
+      "source_entity_id": "00000000-0000-4000-e000-000000000002",
+      "target_entity_id": "00000000-0000-4000-e000-000000000012",
+      "relationship_type": "owns"
+    },
+    {
+      "id": "00000000-0000-4000-e100-000000000014",
+      "source_entity_id": "00000000-0000-4000-e000-000000000012",
+      "target_entity_id": "00000000-0000-4000-e000-000000000009",
+      "relationship_type": "contains"
+    }
+  ],
+  "entity_tags": [
+    {
+      "entity_id": "00000000-0000-4000-e000-000000000001",
+      "tag_id": "00000000-0000-4000-d000-000000000002"
+    },
+    {
+      "entity_id": "00000000-0000-4000-e000-000000000004",
+      "tag_id": "00000000-0000-4000-d000-000000000003"
+    },
+    {
+      "entity_id": "00000000-0000-4000-e000-000000000006",
+      "tag_id": "00000000-0000-4000-d000-000000000007"
+    },
+    {
+      "entity_id": "00000000-0000-4000-e000-000000000007",
+      "tag_id": "00000000-0000-4000-d000-000000000001"
+    },
+    {
+      "entity_id": "00000000-0000-4000-e000-000000000009",
+      "tag_id": "00000000-0000-4000-d000-000000000003"
+    },
+    {
+      "entity_id": "00000000-0000-4000-e000-000000000010",
+      "tag_id": "00000000-0000-4000-d000-000000000001"
+    }
+  ],
+  "projects": [
+    {
+      "id": "00000000-0000-4000-f000-000000000001",
+      "name": "2026 Security Assessments",
+      "description": "Annual security assessment program covering all Acme products and business units for fiscal year 2026.",
+      "state": "in_progress",
+      "workflow_type": "evidence_driven"
+    },
+    {
+      "id": "00000000-0000-4000-f000-000000000002",
+      "name": "Supplier Due Diligence Q1 2026",
+      "description": "Quarterly supplier security assessment to evaluate third party component providers.",
+      "state": "in_progress",
+      "workflow_type": "claims_driven"
+    },
+    {
+      "id": "00000000-0000-4000-f000-000000000003",
+      "name": "SOC 2 Preparation",
+      "description": "Preparing for SOC 2 Type II audit by conducting internal readiness assessments.",
+      "state": "new",
+      "workflow_type": "evidence_driven"
+    }
+  ],
+  "project_tags": [
+    {
+      "project_id": "00000000-0000-4000-f000-000000000001",
+      "tag_id": "00000000-0000-4000-d000-000000000004"
+    },
+    {
+      "project_id": "00000000-0000-4000-f000-000000000001",
+      "tag_id": "00000000-0000-4000-d000-000000000003"
+    },
+    {
+      "project_id": "00000000-0000-4000-f000-000000000002",
+      "tag_id": "00000000-0000-4000-d000-000000000007"
+    },
+    {
+      "project_id": "00000000-0000-4000-f000-000000000002",
+      "tag_id": "00000000-0000-4000-d000-000000000004"
+    },
+    {
+      "project_id": "00000000-0000-4000-f000-000000000003",
+      "tag_id": "00000000-0000-4000-d000-000000000002"
+    },
+    {
+      "project_id": "00000000-0000-4000-f000-000000000003",
+      "tag_id": "00000000-0000-4000-d000-000000000006"
+    }
+  ],
+  "signatories": [
+    {
+      "id": "00000000-0000-4000-f100-000000000001",
+      "name": "Alice Chen",
+      "role": "Chief Information Security Officer",
+      "organization_id": "00000000-0000-4000-a000-000000000001"
+    },
+    {
+      "id": "00000000-0000-4000-f100-000000000002",
+      "name": "David Okafor",
+      "role": "Lead External Auditor",
+      "organization_id": "00000000-0000-4000-a000-000000000003"
+    }
+  ],
+  "affirmations": [
+    {
+      "id": "00000000-0000-4000-f200-000000000001",
+      "statement": "We affirm that all assessment activities conducted under this project have been performed in accordance with established security assessment methodologies and industry best practices.",
+      "project_id": "00000000-0000-4000-f000-000000000001",
+      "entity_id": "00000000-0000-4000-e000-000000000001"
+    },
+    {
+      "id": "00000000-0000-4000-f200-000000000002",
+      "statement": "We affirm that all evidence provided during the supplier due diligence process is accurate and representative of current security practices.",
+      "project_id": "00000000-0000-4000-f000-000000000002",
+      "entity_id": null
+    }
+  ],
+  "affirmation_signatories": [
+    {
+      "affirmation_id": "00000000-0000-4000-f200-000000000001",
+      "signatory_id": "00000000-0000-4000-f100-000000000001"
+    },
+    {
+      "affirmation_id": "00000000-0000-4000-f200-000000000002",
+      "signatory_id": "00000000-0000-4000-f100-000000000001"
+    },
+    {
+      "affirmation_id": "00000000-0000-4000-f200-000000000002",
+      "signatory_id": "00000000-0000-4000-f100-000000000002"
+    }
+  ],
+  "assessments": [
+    {
+      "id": "00000000-0000-4000-f300-000000000001",
+      "title": "Product A ASVS Assessment",
+      "description": "OWASP ASVS Level 2 assessment of Product A v2.1 covering authentication, session management, and access control.",
+      "project_id": "00000000-0000-4000-f000-000000000001",
+      "entity_id": "00000000-0000-4000-e000-000000000007",
+      "standard_id": "__FIRST_STANDARD__",
+      "state": "in_progress",
+      "start_date": "2026-01-15T00:00:00Z",
+      "due_date": "2026-03-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f300-000000000002",
+      "title": "Auth Service ASVS Assessment",
+      "description": "Focused ASVS assessment of the authentication service component.",
+      "project_id": "00000000-0000-4000-f000-000000000001",
+      "entity_id": "00000000-0000-4000-e000-000000000009",
+      "standard_id": "__FIRST_STANDARD__",
+      "state": "new",
+      "start_date": null,
+      "due_date": "2026-06-30T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f300-000000000003",
+      "title": "Supplier A Security Review",
+      "description": "Security assessment of Supplier A's development practices and supply chain integrity.",
+      "project_id": "00000000-0000-4000-f000-000000000002",
+      "entity_id": "00000000-0000-4000-e000-000000000006",
+      "standard_id": "__SECOND_STANDARD__",
+      "state": "pending",
+      "start_date": "2026-02-01T00:00:00Z",
+      "due_date": "2026-04-15T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f300-100000000001",
+      "title": "Acme SDLC SSDF Assessment",
+      "description": "Comprehensive NIST SP 800-218 (SSDF v1.1) assessment of Acme Corporation's software development lifecycle practices across four practice groups: Prepare Organization (PO), Protect Software (PS), Produce Well-Secured Software (PW), and Review/Validate (RV).",
+      "project_id": "00000000-0000-4000-f000-000000000001",
+      "entity_id": "00000000-0000-4000-e000-000000000001",
+      "standard_id": "__SSDF_STANDARD__",
+      "state": "complete",
+      "start_date": "2025-11-01T00:00:00Z",
+      "due_date": "2026-02-28T00:00:00Z"
+    }
+  ],
+  "assessment_assessors": [
+    {
+      "assessment_id": "00000000-0000-4000-f300-000000000001",
+      "user_id": "00000000-0000-4000-c000-000000000002"
+    },
+    {
+      "assessment_id": "00000000-0000-4000-f300-000000000001",
+      "user_id": "00000000-0000-4000-c000-000000000003"
+    },
+    {
+      "assessment_id": "00000000-0000-4000-f300-000000000002",
+      "user_id": "00000000-0000-4000-c000-000000000002"
+    },
+    {
+      "assessment_id": "00000000-0000-4000-f300-000000000003",
+      "user_id": "00000000-0000-4000-c000-000000000003"
+    },
+    {
+      "assessment_id": "00000000-0000-4000-f300-100000000001",
+      "user_id": "00000000-0000-4000-c000-000000000002"
+    },
+    {
+      "assessment_id": "00000000-0000-4000-f300-100000000001",
+      "user_id": "00000000-0000-4000-c000-000000000003"
+    }
+  ],
+  "assessment_assessees": [
+    {
+      "assessment_id": "00000000-0000-4000-f300-000000000001",
+      "user_id": "00000000-0000-4000-c000-000000000004"
+    },
+    {
+      "assessment_id": "00000000-0000-4000-f300-000000000002",
+      "user_id": "00000000-0000-4000-c000-000000000004"
+    },
+    {
+      "assessment_id": "00000000-0000-4000-f300-000000000003",
+      "user_id": "00000000-0000-4000-c000-000000000005"
+    },
+    {
+      "assessment_id": "00000000-0000-4000-f300-100000000001",
+      "user_id": "00000000-0000-4000-c000-000000000004"
+    },
+    {
+      "assessment_id": "00000000-0000-4000-f300-100000000001",
+      "user_id": "00000000-0000-4000-c000-000000000005"
+    },
+    {
+      "assessment_id": "00000000-0000-4000-f300-100000000001",
+      "user_id": "00000000-0000-4000-c000-000000000006"
+    }
+  ],
+  "assessment_tags": [
+    {
+      "assessment_id": "00000000-0000-4000-f300-000000000001",
+      "tag_id": "00000000-0000-4000-d000-000000000003"
+    },
+    {
+      "assessment_id": "00000000-0000-4000-f300-000000000001",
+      "tag_id": "00000000-0000-4000-d000-000000000001"
+    },
+    {
+      "assessment_id": "00000000-0000-4000-f300-000000000003",
+      "tag_id": "00000000-0000-4000-d000-000000000007"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "00000000-0000-4000-f400-000000000001",
+      "name": "Penetration Test Report Q4 2025",
+      "description": "Third party penetration test report covering Product A v2.1 web application and API endpoints.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000002",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "confidential",
+      "expires_on": "2026-12-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-000000000002",
+      "name": "SAST Scan Results",
+      "description": "Static application security testing results from SonarQube for Product A codebase.",
+      "state": "in_progress",
+      "author_id": "00000000-0000-4000-c000-000000000004",
+      "reviewer_id": null,
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": "2026-06-30T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-000000000003",
+      "name": "MFA Configuration Evidence",
+      "description": "Screenshots and configuration exports showing multi factor authentication enforcement across all user access paths.",
+      "state": "in_review",
+      "author_id": "00000000-0000-4000-c000-000000000004",
+      "reviewer_id": "00000000-0000-4000-c000-000000000002",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": null
+    },
+    {
+      "id": "00000000-0000-4000-f400-000000000004",
+      "name": "Known Vulnerability: Session Fixation",
+      "description": "Counter evidence documenting a known session fixation vulnerability in the legacy authentication flow.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000003",
+      "reviewer_id": null,
+      "is_counter_evidence": true,
+      "classification": "confidential",
+      "expires_on": null
+    },
+    {
+      "id": "00000000-0000-4000-f400-000000000005",
+      "name": "Supplier A SOC 2 Report",
+      "description": "SOC 2 Type II report from Supplier A covering security, availability, and confidentiality trust service criteria.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000005",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "restricted",
+      "expires_on": "2026-09-30T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000001",
+      "name": "Security Requirements Documentation",
+      "description": "Comprehensive documentation of all security requirements for Acme's SDLC, infrastructure, and organization-developed software.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000002",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": null
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000002",
+      "name": "Threat Model Report",
+      "description": "STRIDE-based threat model analysis for Product A v2.1 covering all attack surfaces and mitigations.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000002",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": null
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000003",
+      "name": "SAST Testing Results",
+      "description": "Static application security testing results from SonarQube for Product A v2.1 codebase covering critical and high findings.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000002",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": null
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000004",
+      "name": "Software Bill of Materials (SBOM)",
+      "description": "Complete SBOM for Product A v2.1 including 186 components with vulnerability and license compliance information.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000002",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": null
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000005",
+      "name": "CI/CD Pipeline Security Configuration",
+      "description": "Comprehensive documentation of security gates and scanning in the GitLab CI/CD pipeline for all development stages.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000002",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": null
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000006",
+      "name": "Third-Party Component Security Assessment",
+      "description": "Detailed security assessment of open source dependencies including vulnerability analysis and remediation plans.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000002",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": null
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000007",
+      "name": "SDLC Role Definitions and Training Records",
+      "description": "Comprehensive role definitions for secure development lifecycle and training completion records for all development staff.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000002",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": "2027-03-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000008",
+      "name": "Security Gate Criteria Documentation",
+      "description": "Defined security checkpoints and gate criteria applied throughout the SDLC including entry/exit criteria for each phase.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000003",
+      "reviewer_id": "00000000-0000-4000-c000-000000000002",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": "2027-03-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000009",
+      "name": "Development Environment Security Policy",
+      "description": "Policy and configuration standards for securing development, build, test, and staging environments with network segmentation and access controls.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000002",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "confidential",
+      "expires_on": "2027-03-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000010",
+      "name": "Source Code Access Control Configuration",
+      "description": "GitHub Enterprise access control configuration showing branch protection rules, CODEOWNERS, and least privilege enforcement.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000003",
+      "reviewer_id": "00000000-0000-4000-c000-000000000002",
+      "is_counter_evidence": false,
+      "classification": "confidential",
+      "expires_on": "2027-03-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000011",
+      "name": "Software Integrity Verification Records",
+      "description": "Code signing certificates, build reproducibility reports, and artifact integrity verification records for all releases.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000002",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": "2027-03-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000012",
+      "name": "Release Archive and Provenance Records",
+      "description": "Release archive documentation, SLSA provenance attestations, and build metadata for all production releases.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000003",
+      "reviewer_id": "00000000-0000-4000-c000-000000000002",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": "2027-03-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000013",
+      "name": "Design Review Records",
+      "description": "Architecture and security design review records showing independent review of software designs against security requirements.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000002",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": "2027-03-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000014",
+      "name": "Secure Coding Standards Document",
+      "description": "Organization secure coding standards covering all development languages in use (Java, Python, TypeScript, Go) with examples and anti-patterns.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000003",
+      "reviewer_id": "00000000-0000-4000-c000-000000000002",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": "2027-03-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000015",
+      "name": "Compiler and Build Security Configuration",
+      "description": "Build system configuration showing security compiler flags, hardening options, and build reproducibility settings.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000002",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": "2027-03-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000016",
+      "name": "Code Review Process and Records",
+      "description": "Code review process documentation and sample review records showing mandatory peer review with security focus.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000003",
+      "reviewer_id": "00000000-0000-4000-c000-000000000002",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": "2027-03-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000017",
+      "name": "Penetration Testing Report",
+      "description": "External penetration test results covering web application, API, and infrastructure security testing with remediation tracking.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000002",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "confidential",
+      "expires_on": "2027-03-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000018",
+      "name": "Security Configuration Baseline",
+      "description": "Default security configuration baseline for all deployed software including hardening guides and configuration verification procedures.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000003",
+      "reviewer_id": "00000000-0000-4000-c000-000000000002",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": "2027-03-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000019",
+      "name": "Vulnerability Disclosure Policy and Records",
+      "description": "Vulnerability disclosure policy, responsible disclosure program, and records of vulnerability reports and remediation timelines.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000002",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": "2027-03-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000020",
+      "name": "Risk Response and Remediation Records",
+      "description": "Records of vulnerability risk assessments, risk response decisions, and remediation tracking for identified vulnerabilities.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000003",
+      "reviewer_id": "00000000-0000-4000-c000-000000000002",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": "2027-03-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000021",
+      "name": "Root Cause Analysis Reports",
+      "description": "Root cause analysis reports for security vulnerabilities including pattern analysis and SDLC process improvement recommendations.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000002",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": "2027-03-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000022",
+      "name": "SBOM Provenance Gap Analysis",
+      "description": "Analysis identifying open source components lacking complete provenance data, including specific packages and remediation priorities.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000003",
+      "reviewer_id": "00000000-0000-4000-c000-000000000002",
+      "is_counter_evidence": true,
+      "classification": "confidential",
+      "expires_on": "2026-12-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000023",
+      "name": "OSS Provenance Remediation Plan",
+      "description": "Mitigation plan to address provenance gaps in open source components including automated SBOM generation and supplier engagement timeline.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000002",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": "2027-06-30T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000024",
+      "name": "Management Commitment to Secure Development",
+      "description": "Executive directive and budget allocation records demonstrating upper management commitment to secure software development practices.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000002",
+      "reviewer_id": "00000000-0000-4000-c000-000000000003",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": "2027-03-31T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-f400-100000000025",
+      "name": "Third-Party Verification Improvement Plan",
+      "description": "Mitigation plan to automate third-party component verification including continuous monitoring and policy-as-code enforcement.",
+      "state": "claimed",
+      "author_id": "00000000-0000-4000-c000-000000000003",
+      "reviewer_id": "00000000-0000-4000-c000-000000000002",
+      "is_counter_evidence": false,
+      "classification": "internal",
+      "expires_on": "2027-06-30T00:00:00Z"
+    }
+  ],
+  "evidence_tags": [
+    {
+      "evidence_id": "00000000-0000-4000-f400-000000000001",
+      "tag_id": "00000000-0000-4000-d000-000000000003"
+    },
+    {
+      "evidence_id": "00000000-0000-4000-f400-000000000001",
+      "tag_id": "00000000-0000-4000-d000-000000000006"
+    },
+    {
+      "evidence_id": "00000000-0000-4000-f400-000000000005",
+      "tag_id": "00000000-0000-4000-d000-000000000007"
+    },
+    {
+      "evidence_id": "00000000-0000-4000-f400-000000000005",
+      "tag_id": "00000000-0000-4000-d000-000000000002"
+    }
+  ],
+  "evidence_notes": [
+    {
+      "id": "00000000-0000-4000-f410-000000000001",
+      "evidence_id": "00000000-0000-4000-f400-000000000001",
+      "user_id": "00000000-0000-4000-c000-000000000002",
+      "content": "Report covers all OWASP Top 10 categories. No critical findings. Two medium severity issues identified and remediated."
+    },
+    {
+      "id": "00000000-0000-4000-f410-000000000002",
+      "evidence_id": "00000000-0000-4000-f400-000000000003",
+      "user_id": "00000000-0000-4000-c000-000000000002",
+      "content": "Need additional screenshots showing MFA enforcement for API access, not just web UI."
+    },
+    {
+      "id": "00000000-0000-4000-f410-000000000003",
+      "evidence_id": "00000000-0000-4000-f400-000000000004",
+      "user_id": "00000000-0000-4000-c000-000000000003",
+      "content": "Session fixation issue is in the legacy auth flow only. New OAuth2 flow is not affected. Remediation planned for Q2 2026."
+    },
+    {
+      "id": "00000000-0000-4000-f410-100000000001",
+      "evidence_id": "00000000-0000-4000-f400-100000000001",
+      "user_id": "00000000-0000-4000-c000-000000000002",
+      "content": "Evidence item 1 reviewed and approved for assessment. Documentation is comprehensive and reflects current practices."
+    },
+    {
+      "id": "00000000-0000-4000-f410-100000000002",
+      "evidence_id": "00000000-0000-4000-f400-100000000002",
+      "user_id": "00000000-0000-4000-c000-000000000002",
+      "content": "Evidence item 2 reviewed and approved for assessment. Documentation is comprehensive and reflects current practices."
+    },
+    {
+      "id": "00000000-0000-4000-f410-100000000003",
+      "evidence_id": "00000000-0000-4000-f400-100000000003",
+      "user_id": "00000000-0000-4000-c000-000000000002",
+      "content": "Evidence item 3 reviewed and approved for assessment. Documentation is comprehensive and reflects current practices."
+    },
+    {
+      "id": "00000000-0000-4000-f410-100000000004",
+      "evidence_id": "00000000-0000-4000-f400-100000000004",
+      "user_id": "00000000-0000-4000-c000-000000000002",
+      "content": "Evidence item 4 reviewed and approved for assessment. Documentation is comprehensive and reflects current practices."
+    },
+    {
+      "id": "00000000-0000-4000-f410-100000000005",
+      "evidence_id": "00000000-0000-4000-f400-100000000005",
+      "user_id": "00000000-0000-4000-c000-000000000002",
+      "content": "Evidence item 5 reviewed and approved for assessment. Documentation is comprehensive and reflects current practices."
+    },
+    {
+      "id": "00000000-0000-4000-f410-100000000006",
+      "evidence_id": "00000000-0000-4000-f400-100000000006",
+      "user_id": "00000000-0000-4000-c000-000000000002",
+      "content": "Evidence item 6 reviewed and approved for assessment. Documentation is comprehensive and reflects current practices."
+    },
+    {
+      "id": "00000000-0000-4000-f410-100000000007",
+      "evidence_id": "00000000-0000-4000-f400-100000000007",
+      "user_id": "00000000-0000-4000-c000-000000000003",
+      "content": "Training records verified against HR system. 97%+ completion rate across all modules is excellent."
+    },
+    {
+      "id": "00000000-0000-4000-f410-100000000009",
+      "evidence_id": "00000000-0000-4000-f400-100000000009",
+      "user_id": "00000000-0000-4000-c000-000000000002",
+      "content": "Environment segmentation verified through network scan. No cross-environment connectivity detected."
+    },
+    {
+      "id": "00000000-0000-4000-f410-100000000010",
+      "evidence_id": "00000000-0000-4000-f400-100000000010",
+      "user_id": "00000000-0000-4000-c000-000000000003",
+      "content": "GitHub Enterprise audit confirms 97.9% repository compliance. 3 legacy repos scheduled for migration."
+    },
+    {
+      "id": "00000000-0000-4000-f410-100000000017",
+      "evidence_id": "00000000-0000-4000-f400-100000000017",
+      "user_id": "00000000-0000-4000-c000-000000000002",
+      "content": "All critical and high pentest findings have been remediated and verified. One medium finding remains in remediation."
+    },
+    {
+      "id": "00000000-0000-4000-f410-100000000022",
+      "evidence_id": "00000000-0000-4000-f400-100000000022",
+      "user_id": "00000000-0000-4000-c000-000000000003",
+      "content": "This gap analysis documents the 16.6% provenance gap. Remediation plan has been created (see OSS Provenance Remediation Plan)."
+    },
+    {
+      "id": "00000000-0000-4000-f410-100000000024",
+      "evidence_id": "00000000-0000-4000-f400-100000000024",
+      "user_id": "00000000-0000-4000-c000-000000000002",
+      "content": "Executive commitment verified through budget allocation records and signed directive."
+    }
+  ],
+  "evidence_attachments": [
+    {
+      "id": "00000000-0000-4000-f420-000000000001",
+      "evidence_id": "00000000-0000-4000-f400-000000000001",
+      "filename": "pentest-report-q4-2025.pdf",
+      "content_type": "application/pdf",
+      "size_bytes": 2457600,
+      "storage_path": "evidence/00000000-0000-4000-f400-000000000001/pentest-report-q4-2025.pdf"
+    },
+    {
+      "id": "00000000-0000-4000-f420-000000000002",
+      "evidence_id": "00000000-0000-4000-f400-000000000002",
+      "filename": "sonarqube-scan-2026-01.html",
+      "content_type": "text/html",
+      "size_bytes": 184320,
+      "storage_path": "evidence/00000000-0000-4000-f400-000000000002/sonarqube-scan-2026-01.html"
+    },
+    {
+      "id": "00000000-0000-4000-f420-000000000003",
+      "evidence_id": "00000000-0000-4000-f400-000000000003",
+      "filename": "mfa-config-screenshot.png",
+      "content_type": "image/png",
+      "size_bytes": 524288,
+      "storage_path": "evidence/00000000-0000-4000-f400-000000000003/mfa-config-screenshot.png"
+    },
+    {
+      "id": "00000000-0000-4000-f420-000000000004",
+      "evidence_id": "00000000-0000-4000-f400-000000000005",
+      "filename": "supplier-a-soc2-type2.pdf",
+      "content_type": "application/pdf",
+      "size_bytes": 5242880,
+      "storage_path": "evidence/00000000-0000-4000-f400-000000000005/supplier-a-soc2-type2.pdf"
+    },
+    {
+      "id": "00000000-0000-4000-f420-100000000001",
+      "evidence_id": "00000000-0000-4000-f400-100000000001",
+      "filename": "ssdf-evidence-1.md",
+      "content_type": "text/markdown",
+      "size_bytes": 5370,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000001/ssdf-evidence-1.md",
+      "binary_content": "IyBBY21lIENvcnBvcmF0aW9uOiBTZWN1cml0eSBSZXF1aXJlbWVudHMgZm9yIFNvZnR3YXJlIERldmVsb3BtZW50CgojIyBFeGVjdXRpdmUgU3VtbWFyeQpUaGlzIGRvY3VtZW50IGRlZmluZXMgY29tcHJlaGVuc2l2ZSBzZWN1cml0eSByZXF1aXJlbWVudHMgZm9yIEFjbWUgQ29ycG9yYXRpb24ncyBzb2Z0d2FyZSBkZXZlbG9wbWVudCBsaWZlY3ljbGUgKFNETEMpLCBkZXZlbG9wbWVudCBpbmZyYXN0cnVjdHVyZSwgYW5kIG9yZ2FuaXphdGlvbi1kZXZlbG9wZWQgc29mdHdhcmUuIFRoZXNlIHJlcXVpcmVtZW50cyBhcHBseSBhY3Jvc3MgYWxsIGJ1c2luZXNzIHVuaXRzIGFuZCBwcm9kdWN0cy4KCiMjIDEuIEluZnJhc3RydWN0dXJlIFNlY3VyaXR5IFJlcXVpcmVtZW50cwoKIyMjIDEuMSBEZXZlbG9wbWVudCBFbnZpcm9ubWVudCBIYXJkZW5pbmcKLSBBbGwgZGV2ZWxvcG1lbnQgd29ya3N0YXRpb25zIG11c3QgZW5mb3JjZSBkaXNrIGVuY3J5cHRpb24gKEFFUy0yNTYpCi0gT3BlcmF0aW5nIHN5c3RlbSBtdXN0IGJlIHBhdGNoZWQgd2l0aGluIDMwIGRheXMgb2YgcmVsZWFzZSBmb3IgY3JpdGljYWwgdnVsbmVyYWJpbGl0aWVzCi0gTWFuZGF0b3J5IGFudGl2aXJ1cyBhbmQgZW5kcG9pbnQgcHJvdGVjdGlvbiB0b29scyBtdXN0IGJlIGRlcGxveWVkCi0gVVNCIHN0b3JhZ2UgYW5kIHJlbW92YWJsZSBtZWRpYSBtdXN0IGJlIHJlc3RyaWN0ZWQgYW5kIG1vbml0b3JlZAoKIyMjIDEuMiBTb3VyY2UgQ29kZSBSZXBvc2l0b3J5IFNlY3VyaXR5Ci0gQWxsIHNvdXJjZSBjb2RlIHJlcG9zaXRvcmllcyBtdXN0IGJlIHByb3RlY3RlZCB3aXRoIG11bHRpLWZhY3RvciBhdXRoZW50aWNhdGlvbgotIEJyYW5jaCBwcm90ZWN0aW9uIHJ1bGVzIG11c3QgYmUgZW5mb3JjZWQgb24gbWFpbiBhbmQgcmVsZWFzZSBicmFuY2hlcwotIEFsbCBjb21taXRzIG11c3QgYmUgZGlnaXRhbGx5IHNpZ25lZCB3aXRoIHZlcmlmaWVkIEdQRyBrZXlzCi0gUmVwb3NpdG9yeSBhY2Nlc3MgbXVzdCBiZSByZXZpZXdlZCBxdWFydGVybHkgYW5kIHJldm9rZWQgcHJvbXB0bHkgdXBvbiByb2xlIGNoYW5nZXMKCiMjIyAxLjMgQnVpbGQgYW5kIFJlbGVhc2UgSW5mcmFzdHJ1Y3R1cmUKLSBCdWlsZCBzZXJ2ZXJzIG11c3QgYmUgaXNvbGF0ZWQgb24gYSBkZWRpY2F0ZWQgbmV0d29yayBzZWdtZW50Ci0gQnVpbGQgYXJ0aWZhY3RzIG11c3QgYmUgY3J5cHRvZ3JhcGhpY2FsbHkgc2lnbmVkIGFuZCB2ZXJpZmllZCBiZWZvcmUgZGVwbG95bWVudAotIEJ1aWxkIGxvZ3MgbXVzdCBiZSByZXRhaW5lZCBmb3IgNyB5ZWFycyBmb3IgYXVkaXQgcHVycG9zZXMKLSBSZWxlYXNlIHBpcGVsaW5lcyBtdXN0IGVuZm9yY2UgYXBwcm92YWwgZ2F0ZXMgYW5kIGNvbXBsaWFuY2UgY2hlY2tzCgojIyAyLiBTb2Z0d2FyZSBEZXZlbG9wbWVudCBSZXF1aXJlbWVudHMKCiMjIyAyLjEgU2VjdXJlIENvZGluZyBTdGFuZGFyZHMKLSBBbGwgZGV2ZWxvcGVycyBtdXN0IGZvbGxvdyBPV0FTUCBUb3AgMTAgbWl0aWdhdGlvbiBwcmFjdGljZXMKLSBDb2RlIG11c3QgY29tcGx5IHdpdGggQ0VSVCBTZWN1cmUgQ29kaW5nIFN0YW5kYXJkcyB3aGVyZSBhcHBsaWNhYmxlCi0gSW5wdXQgdmFsaWRhdGlvbiBtdXN0IGJlIGltcGxlbWVudGVkIG9uIGFsbCBwdWJsaWMtZmFjaW5nIEFQSXMKLSBBbGwgY3J5cHRvZ3JhcGhpYyBvcGVyYXRpb25zIG11c3QgdXNlIGluZHVzdHJ5LXN0YW5kYXJkIGxpYnJhcmllcwoKIyMjIDIuMiBEZXNpZ24gYW5kIEFyY2hpdGVjdHVyZQotIFNlY3VyaXR5IGRlc2lnbiByZXZpZXdzIGFyZSBtYW5kYXRvcnkgZm9yIGFsbCBuZXcgZmVhdHVyZXMKLSBUaHJlYXQgbW9kZWxpbmcgdXNpbmcgU1RSSURFIG1ldGhvZG9sb2d5IG11c3QgYmUgY29tcGxldGVkIGR1cmluZyBkZXNpZ24gcGhhc2UKLSBBbGwgZXh0ZXJuYWwgZGVwZW5kZW5jaWVzIG11c3QgYmUgdHJhY2tlZCBpbiBhIFNvZnR3YXJlIEJpbGwgb2YgTWF0ZXJpYWxzIChTQk9NKQotIEFyY2hpdGVjdHVyZSBtdXN0IHN1cHBvcnQgZGVmZW5zZS1pbi1kZXB0aCBzZWN1cml0eSBjb250cm9scwoKIyMjIDIuMyBUZXN0aW5nIGFuZCBWYWxpZGF0aW9uCi0gQXV0b21hdGVkIHNlY3VyaXR5IHRlc3RpbmcgKFNBU1QsIERBU1QpIG11c3QgYmUgaW50ZWdyYXRlZCBpbnRvIENJL0NEIHBpcGVsaW5lcwotIFBlbmV0cmF0aW9uIHRlc3RpbmcgbXVzdCBiZSBwZXJmb3JtZWQgYXQgbGVhc3QgYW5udWFsbHkgZm9yIGNyaXRpY2FsIHN5c3RlbXMKLSBDb2RlIHJldmlldyBpcyBtYW5kYXRvcnkgZm9yIGFsbCBjaGFuZ2VzLCB3aXRoIHNlY3VyaXR5LXRyYWluZWQgcmV2aWV3ZXJzCi0gVGhpcmQtcGFydHkgc2VjdXJpdHkgYXNzZXNzbWVudHMgYXJlIHJlcXVpcmVkIGJlZm9yZSBtYWpvciB2ZXJzaW9uIHJlbGVhc2VzCgojIyAzLiBTdXBwbHkgQ2hhaW4gU2VjdXJpdHkgUmVxdWlyZW1lbnRzCgojIyMgMy4xIFRoaXJkLVBhcnR5IENvbXBvbmVudCBNYW5hZ2VtZW50Ci0gQWxsIG9wZW4tc291cmNlIGFuZCBjb21tZXJjaWFsIGNvbXBvbmVudHMgbXVzdCBiZSB0cmFja2VkIHdpdGggYWNjdXJhdGUgdmVyc2lvbnMKLSBDb21wb25lbnQgbGljZW5zZXMgbXVzdCBiZSBkb2N1bWVudGVkIGFuZCByZXZpZXdlZCBmb3IgY29tcGxpYW5jZQotIFZ1bG5lcmFiaWxpdGllcyBpbiBjb21wb25lbnRzIG11c3QgYmUgbW9uaXRvcmVkIHVzaW5nIGluZHVzdHJ5IGRhdGEgZmVlZHMKLSBLbm93biB2dWxuZXJhYmxlIGNvbXBvbmVudHMgbXVzdCBiZSByZW1lZGlhdGVkIG9yIG1pdGlnYXRlZCB3aXRoaW4gZGVmaW5lZCB0aW1lZnJhbWVzCgojIyMgMy4yIFN1cHBsaWVyIFJlcXVpcmVtZW50cwotIEFsbCBzb2Z0d2FyZSBzdXBwbGllcnMgbXVzdCBwcm92aWRlIHNlY3VyaXR5IGRvY3VtZW50YXRpb24KLSBTdXBwbGllcnMgbXVzdCBjb21taXQgdG8gdGltZWx5IHNlY3VyaXR5IHBhdGNoaW5nIHByYWN0aWNlcwotIFRoaXJkLXBhcnR5IGFzc2Vzc21lbnRzIChTT0MgMiwgSVNPIDI3MDAxKSBhcmUgcmVxdWlyZWQgZm9yIGNyaXRpY2FsIHN1cHBsaWVycwotIFN1cHBseSBjaGFpbiB0cmFuc3BhcmVuY3kgYW5kIHByb3ZlbmFuY2UgbXVzdCBiZSBtYWludGFpbmVkCgojIyA0LiBHb3Zlcm5hbmNlIGFuZCBDb21wbGlhbmNlCgojIyMgNC4xIFNlY3VyaXR5IFJvbGVzIGFuZCBSZXNwb25zaWJpbGl0aWVzCi0gU29mdHdhcmUgU2VjdXJpdHkgT2ZmaWNlciBhY2NvdW50YWJsZSBmb3IgU0RMQyBzZWN1cml0eSBjb21wbGlhbmNlCi0gU2VjdXJpdHkgQ2hhbXBpb25zIGVtYmVkZGVkIGluIGVhY2ggZGV2ZWxvcG1lbnQgdGVhbQotIERldmVsb3BlcnMgcmVxdWlyZWQgdG8gY29tcGxldGUgYW5udWFsIHNlY3VyaXR5IHRyYWluaW5nCi0gU2VjdXJpdHkgaW5jaWRlbnQgcmVzcG9uc2UgdGVhbSBhc3NpZ25lZCBhbmQgdHJhaW5lZAoKIyMjIDQuMiBDb21wbGlhbmNlIEZyYW1ld29ya3MKLSBBY21lIGRldmVsb3BzIHNvZnR3YXJlIHRvIG1lZXQgTklTVCBTUCA4MDAtNTMgc2VjdXJpdHkgY29udHJvbHMgd2hlcmUgYXBwbGljYWJsZQotIFNPQyAyIFR5cGUgSUkgY29udHJvbHMgYXJlIGltcGxlbWVudGVkIGZvciBob3N0ZWQgc2VydmljZXMKLSBHRFBSIGFuZCBkYXRhIHByaXZhY3kgcmVxdWlyZW1lbnRzIGFyZSBlbmZvcmNlZCBmb3IgY3VzdG9tZXIgZGF0YQotIFJlZ3VsYXRvcnkgcmVxdWlyZW1lbnRzIGJ5IGdlb2dyYXBoaWMgbWFya2V0IGFyZSB0cmFja2VkIGFuZCBpbXBsZW1lbnRlZAoKIyMjIDQuMyBEb2N1bWVudGF0aW9uIGFuZCBBdWRpdGluZwotIFNlY3VyaXR5IHJlcXVpcmVtZW50cyBhbmQgaW1wbGVtZW50YXRpb25zIG11c3QgYmUgZG9jdW1lbnRlZAotIENvbXBsaWFuY2UgZXZpZGVuY2UgbXVzdCBiZSBjb2xsZWN0ZWQgYW5kIG1haW50YWluZWQKLSBBbm51YWwgdGhpcmQtcGFydHkgc2VjdXJpdHkgYXVkaXRzIGFyZSBzY2hlZHVsZWQKLSBDb250aW51b3VzIG1vbml0b3JpbmcgYW5kIHZ1bG5lcmFiaWxpdHkgbWFuYWdlbWVudCBpcyBpbiBwbGFjZQoKIyMgNS4gSW5jaWRlbnQgUmVzcG9uc2UgYW5kIFZ1bG5lcmFiaWxpdHkgTWFuYWdlbWVudAoKIyMjIDUuMSBWdWxuZXJhYmlsaXR5IERpc2Nsb3N1cmUKLSBTZWN1cml0eSB2dWxuZXJhYmlsaXRpZXMgbXVzdCBiZSByZXBvcnRlZCB0aHJvdWdoIHJlc3BvbnNpYmxlIGRpc2Nsb3N1cmUgcHJvY2VzcwotIFJlc3BvbnNlIHRpbWVmcmFtZXM6IENyaXRpY2FsICgyNGgpLCBIaWdoICg3MmgpLCBNZWRpdW0gKDMwIGRheXMpCi0gQWxsIHNlY3VyaXR5IHBhdGNoZXMgbXVzdCBiZSB0ZXN0ZWQgYmVmb3JlIHJlbGVhc2UKLSBTZWN1cml0eSBhZHZpc29yaWVzIG11c3QgYmUgaXNzdWVkIGZvciBkaXNjbG9zZWQgdnVsbmVyYWJpbGl0aWVzCgojIyMgNS4yIFJvb3QgQ2F1c2UgQW5hbHlzaXMKLSBNYWpvciBzZWN1cml0eSBpbmNpZGVudHMgcmVxdWlyZSBkZXRhaWxlZCByb290IGNhdXNlIGFuYWx5c2lzIChSQ0EpCi0gUkNBIGZpbmRpbmdzIG11c3QgaW5mb3JtIHByZXZlbnRpdmUgaW1wcm92ZW1lbnRzCi0gTGVzc29ucyBsZWFybmVkIGFyZSBzaGFyZWQgYWNyb3NzIGRldmVsb3BtZW50IHRlYW1zCi0gTWV0cmljcyBvbiB2dWxuZXJhYmlsaXR5IHJlbWVkaWF0aW9uIHJhdGVzIGFyZSB0cmFja2VkCgojIyA2LiBDb25maWd1cmF0aW9uIGFuZCBCdWlsZCBTZWN1cml0eQoKIyMjIDYuMSBDb21waWxlciBhbmQgQnVpbGQgQ29uZmlndXJhdGlvbgotIEJ1aWxkIGVudmlyb25tZW50IG11c3QgdXNlIGhhcmRlbmluZyBjb21waWxlciBmbGFncwotIFBvc2l0aW9uLWluZGVwZW5kZW50IGNvZGUgKFBJRSkgbXVzdCBiZSBlbmFibGVkCi0gU3RhY2sgY2FuYXJpZXMgYW5kIEFTTFIgbXVzdCBiZSBlbmZvcmNlZAotIENvbXBpbGVyIGFuZCB0b29sIHZlcnNpb25zIG11c3QgYmUgdHJhY2tlZCBmb3IgcmVwcm9kdWNpYmlsaXR5CgojIyMgNi4yIFJ1bnRpbWUgQ29uZmlndXJhdGlvbgotIEFsbCBzZXJ2aWNlcyBtdXN0IGJlIGRlcGxveWVkIHdpdGggc2VjdXJlIGRlZmF1bHRzCi0gVW5uZWNlc3Nhcnkgc2VydmljZXMgYW5kIHBvcnRzIG11c3QgYmUgZGlzYWJsZWQKLSBTZWN1cmUgcHJvdG9jb2xzIChUTFMgMS4zKykgbXVzdCBiZSBlbmZvcmNlZCBmb3IgYWxsIG5ldHdvcmsgY29tbXVuaWNhdGlvbgotIENvbmZpZ3VyYXRpb24gZmlsZXMgbXVzdCBiZSBzY2FubmVkIGZvciBoYXJkY29kZWQgc2VjcmV0cwoKIyMgUmV2aXNpb24gSGlzdG9yeQotIHYxLjAgLSBJbml0aWFsIHJlcXVpcmVtZW50cyBmcmFtZXdvcmsgKDIwMjUtMTEtMDEpCi0gdjEuMSAtIEFkZGVkIHN1cHBseSBjaGFpbiBzZWN1cml0eSByZXF1aXJlbWVudHMgKDIwMjYtMDEtMTUpCi0gdjEuMiAtIEVuaGFuY2VkIHZ1bG5lcmFiaWxpdHkgbWFuYWdlbWVudCAoMjAyNi0wMi0yOCkK",
+      "content_hash": "9d6c66e07e2df62def1a804e6eff1746e1ea4339c65d340557c40fe800571d73"
+    },
+    {
+      "id": "00000000-0000-4000-f420-100000000002",
+      "evidence_id": "00000000-0000-4000-f400-100000000002",
+      "filename": "ssdf-evidence-2.md",
+      "content_type": "text/markdown",
+      "size_bytes": 4853,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000002/ssdf-evidence-2.md",
+      "binary_content": "IyBQcm9kdWN0IEEgdjIuMSAtIFRocmVhdCBNb2RlbCBSZXBvcnQKCiMjIEV4ZWN1dGl2ZSBTdW1tYXJ5ClRoaXMgZG9jdW1lbnQgcHJlc2VudHMgYSBjb21wcmVoZW5zaXZlIHRocmVhdCBtb2RlbCBmb3IgUHJvZHVjdCBBIHYyLjEsIGFuYWx5emluZyBwb3RlbnRpYWwgc2VjdXJpdHkgdGhyZWF0cyB1c2luZyB0aGUgU1RSSURFIG1ldGhvZG9sb2d5LiBUaGUgYW5hbHlzaXMgY292ZXJzIG1ham9yIGF0dGFjayBzdXJmYWNlcyBhbmQgcHJvcG9zZXMgbWl0aWdhdGlvbnMuCgojIyAxLiBTeXN0ZW0gT3ZlcnZpZXcKClByb2R1Y3QgQSB2Mi4xIGlzIGEgU2FhUyBlbnRlcnByaXNlIHBsYXRmb3JtIHByb3ZpZGluZzoKLSBVc2VyIGF1dGhlbnRpY2F0aW9uIGFuZCBhdXRob3JpemF0aW9uCi0gRGF0YSBzdG9yYWdlIGFuZCBwcm9jZXNzaW5nCi0gQVBJIGFjY2VzcyBmb3IgdGhpcmQtcGFydHkgaW50ZWdyYXRpb25zCi0gUGF5bWVudCBwcm9jZXNzaW5nIGNhcGFiaWxpdGllcwoKIyMjIEFyY2hpdGVjdHVyZSBMYXllcnMKMS4gKipXZWIgVUkqKiAtIFJlYWN0LWJhc2VkIGZyb250ZW5kCjIuICoqQVBJIEdhdGV3YXkqKiAtIFJFU1QgQVBJIHdpdGggT0F1dGggMi4wIGF1dGhlbnRpY2F0aW9uCjMuICoqTWljcm9zZXJ2aWNlcyoqIC0gQXV0aCBTZXJ2aWNlLCBQYXltZW50IFNlcnZpY2UsIERhdGEgU2VydmljZQo0LiAqKkRhdGEgTGF5ZXIqKiAtIFBvc3RncmVTUUwgd2l0aCBlbmNyeXB0ZWQgZmllbGRzCjUuICoqSW5mcmFzdHJ1Y3R1cmUqKiAtIEt1YmVybmV0ZXMgb24gQVdTIHdpdGggbmV0d29ya2luZyBjb250cm9scwoKIyMgMi4gVHJ1c3QgQm91bmRhcmllcwoKIyMjIEJvdW5kYXJ5IDE6IEV4dGVybmFsIFVzZXJzIHRvIEFQSSBHYXRld2F5Ci0gVGhyZWF0OiBDcmVkZW50aWFsIHN0dWZmaW5nLCBicnV0ZSBmb3JjZSBhdHRhY2tzCi0gTWl0aWdhdGlvbjogUmF0ZSBsaW1pdGluZywgYWNjb3VudCBsb2Nrb3V0LCBNRkEgZW5mb3JjZW1lbnQKCiMjIyBCb3VuZGFyeSAyOiBBUEkgR2F0ZXdheSB0byBNaWNyb3NlcnZpY2VzCi0gVGhyZWF0OiBTZXJ2aWNlLXRvLXNlcnZpY2UgY3JlZGVudGlhbCBjb21wcm9taXNlCi0gTWl0aWdhdGlvbjogTXV0dWFsIFRMUyAobVRMUyksIEFQSSBrZXkgcm90YXRpb24gcG9saWNpZXMKCiMjIyBCb3VuZGFyeSAzOiBTZXJ2aWNlcyB0byBEYXRhYmFzZQotIFRocmVhdDogU1FMIGluamVjdGlvbiwgdW5hdXRob3JpemVkIGRhdGEgYWNjZXNzCi0gTWl0aWdhdGlvbjogUGFyYW1ldGVyaXplZCBxdWVyaWVzLCBlbmNyeXB0aW9uIGF0IHJlc3QsIFJCQUMKCiMjIyBCb3VuZGFyeSA0OiBQYXltZW50IEludGVncmF0aW9uCi0gVGhyZWF0OiBQYXltZW50IGRhdGEgdGhlZnQsIGZyYXVkdWxlbnQgdHJhbnNhY3Rpb25zCi0gTWl0aWdhdGlvbjogUENJLURTUyBjb21wbGlhbmNlLCB0b2tlbml6YXRpb24sIGNpcmN1aXQgYnJlYWtlcnMKCiMjIDMuIFNUUklERSBBbmFseXNpcwoKIyMjIDMuMSBTcG9vZmluZyBJZGVudGl0eQotIFRocmVhdDogQXR0YWNrZXIgaW1wZXJzb25hdGVzIGxlZ2l0aW1hdGUgdXNlcgogIC0gU3VyZmFjZTogV2ViIGxvZ2luIGZvcm0KICAtIExpa2VsaWhvb2Q6IE1lZGl1bQogIC0gSW1wYWN0OiBIaWdoCiAgLSBNaXRpZ2F0aW9uOiBNRkEsIGFjY291bnQgbG9ja291dCBhZnRlciAzIGZhaWx1cmVzLCBDQVBUQ0hBCgotIFRocmVhdDogQ29tcHJvbWlzZWQgQVBJIGtleQogIC0gU3VyZmFjZTogVGhpcmQtcGFydHkgaW50ZWdyYXRpb25zCiAgLSBMaWtlbGlob29kOiBMb3cgKGtleSBzdG9yZWQgc2VjdXJlbHkpCiAgLSBJbXBhY3Q6IEhpZ2gKICAtIE1pdGlnYXRpb246IEtleSByb3RhdGlvbiwgc2NvcGUgbGltaXRhdGlvbiwgYXVkaXQgbG9nZ2luZwoKIyMjIDMuMiBUYW1wZXJpbmcgd2l0aCBEYXRhCi0gVGhyZWF0OiBNSVRNIGF0dGFjayBtb2RpZnlpbmcgQVBJIHJlc3BvbnNlcwogIC0gU3VyZmFjZTogQVBJIGNvbW11bmljYXRpb24gY2hhbm5lbAogIC0gTGlrZWxpaG9vZDogTG93IChIVFRQUyBlbmZvcmNlZCkKICAtIEltcGFjdDogSGlnaAogIC0gTWl0aWdhdGlvbjogVExTIDEuMywgY2VydGlmaWNhdGUgcGlubmluZywgcmVzcG9uc2Ugc2lnbmF0dXJlcwoKLSBUaHJlYXQ6IFVuYXV0aG9yaXplZCBtb2RpZmljYXRpb24gb2Ygc3RvcmVkIGRhdGEKICAtIFN1cmZhY2U6IERhdGFiYXNlCiAgLSBMaWtlbGlob29kOiBWZXJ5IExvdyAobmV0d29yayBpc29sYXRpb24pCiAgLSBJbXBhY3Q6IENyaXRpY2FsCiAgLSBNaXRpZ2F0aW9uOiBEYXRhYmFzZSBlbmNyeXB0aW9uLCBmaWVsZC1sZXZlbCBlbmNyeXB0aW9uLCBhdWRpdCBsb2dnaW5nCgojIyMgMy4zIFJlcHVkaWF0aW9uCi0gVGhyZWF0OiBVc2VyIGRlbmllcyBwZXJmb3JtaW5nIGEgdHJhbnNhY3Rpb24KICAtIFN1cmZhY2U6IFBheW1lbnQgcHJvY2Vzc2luZwogIC0gTGlrZWxpaG9vZDogTWVkaXVtCiAgLSBJbXBhY3Q6IE1lZGl1bQogIC0gTWl0aWdhdGlvbjogRGlnaXRhbCBzaWduYXR1cmVzLCBpbW11dGFibGUgYXVkaXQgbG9nLCBibG9ja2NoYWluIGZvciBjcml0aWNhbCB0cmFuc2FjdGlvbnMKCiMjIyAzLjQgSW5mb3JtYXRpb24gRGlzY2xvc3VyZQotIFRocmVhdDogU2Vuc2l0aXZlIGRhdGEgZXhwb3NlZCBpbiBsb2dzCiAgLSBTdXJmYWNlOiBBcHBsaWNhdGlvbiBhbmQgaW5mcmFzdHJ1Y3R1cmUgbG9ncwogIC0gTGlrZWxpaG9vZDogTWVkaXVtCiAgLSBJbXBhY3Q6IEhpZ2gKICAtIE1pdGlnYXRpb246IExvZyBmaWx0ZXJpbmcsIGZpZWxkIG1hc2tpbmcsIGVuY3J5cHRpb24gb2YgYXJjaGl2ZWQgbG9ncwoKLSBUaHJlYXQ6IENyZWRlbnRpYWxzIGluIGVudmlyb25tZW50IG9yIGNvZGUKICAtIFN1cmZhY2U6IEJ1aWxkIGFydGlmYWN0cywgY29udGFpbmVycwogIC0gTGlrZWxpaG9vZDogTG93IChzZWNyZXRzIHNjYW5uaW5nIGVuYWJsZWQpCiAgLSBJbXBhY3Q6IENyaXRpY2FsCiAgLSBNaXRpZ2F0aW9uOiBTZWNyZXRzIHZhdWx0LCB2YXVsdCBhZ2VudCBpbmplY3Rpb24sIGNyZWRlbnRpYWwgcm90YXRpb24KCiMjIyAzLjUgRGVuaWFsIG9mIFNlcnZpY2UKLSBUaHJlYXQ6IFJlc291cmNlIGV4aGF1c3Rpb24gYXR0YWNrCiAgLSBTdXJmYWNlOiBBUEkgZW5kcG9pbnRzCiAgLSBMaWtlbGlob29kOiBNZWRpdW0KICAtIEltcGFjdDogSGlnaAogIC0gTWl0aWdhdGlvbjogUmF0ZSBsaW1pdGluZywgYXV0by1zY2FsaW5nLCBERG9TIHByb3RlY3Rpb24sIHJlcXVlc3QgcXVldWluZwoKLSBUaHJlYXQ6IFNsb3dsb3JpcyBhdHRhY2sKICAtIFN1cmZhY2U6IEFQSSBHYXRld2F5CiAgLSBMaWtlbGlob29kOiBMb3cKICAtIEltcGFjdDogTWVkaXVtCiAgLSBNaXRpZ2F0aW9uOiBDb25uZWN0aW9uIHRpbWVvdXRzLCByZXF1ZXN0IHNpemUgbGltaXRzLCBXQUYgcnVsZXMKCiMjIyAzLjYgRWxldmF0aW9uIG9mIFByaXZpbGVnZQotIFRocmVhdDogUHJpdmlsZWdlIGVzY2FsYXRpb24gdmlhIGF1dGhvcml6YXRpb24gYnlwYXNzCiAgLSBTdXJmYWNlOiBBUEkgZW5kcG9pbnRzCiAgLSBMaWtlbGlob29kOiBMb3cgKFJCQUMgaW1wbGVtZW50ZWQpCiAgLSBJbXBhY3Q6IENyaXRpY2FsCiAgLSBNaXRpZ2F0aW9uOiBSQkFDLCByZWd1bGFyIGFjY2VzcyByZXZpZXdzLCBwcmluY2lwbGUgb2YgbGVhc3QgcHJpdmlsZWdlCgotIFRocmVhdDogRXhwbG9pdGluZyB1bnBhdGNoZWQgZGVwZW5kZW5jeSB2dWxuZXJhYmlsaXR5CiAgLSBTdXJmYWNlOiBUaGlyZC1wYXJ0eSBsaWJyYXJpZXMKICAtIExpa2VsaWhvb2Q6IE1lZGl1bQogIC0gSW1wYWN0OiBIaWdoCiAgLSBNaXRpZ2F0aW9uOiBEZXBlbmRlbmN5IHNjYW5uaW5nLCByZWd1bGFyIHBhdGNoaW5nLCBjb21wb25lbnQgbW9uaXRvcmluZwoKIyMgNC4gUmlzayBBc3Nlc3NtZW50IFN1bW1hcnkKCnwgVGhyZWF0IHwgTGlrZWxpaG9vZCB8IEltcGFjdCB8IFJpc2sgTGV2ZWwgfCBNaXRpZ2F0aW9uIFN0YXR1cyB8CnwtLS0tLS0tLXwtLS0tLS0tLS0tLXwtLS0tLS0tLXwtLS0tLS0tLS0tLS18LS0tLS0tLS0tLS0tLS0tLS0tLXwKfCBDcmVkZW50aWFsIFRoZWZ0IHwgTWVkaXVtIHwgSGlnaCB8IEhpZ2ggfCBJbXBsZW1lbnRlZCB8CnwgU1FMIEluamVjdGlvbiB8IExvdyB8IENyaXRpY2FsIHwgTWVkaXVtIHwgSW1wbGVtZW50ZWQgfAp8IE1JVE0gQXR0YWNrIHwgTG93IHwgSGlnaCB8IExvdyB8IEltcGxlbWVudGVkIHwKfCBVbnBhdGNoZWQgVnVsbmVyYWJpbGl0eSB8IE1lZGl1bSB8IEhpZ2ggfCBIaWdoIHwgSW4gUHJvZ3Jlc3MgfAp8IEluc2lkZXIgRGF0YSBUaGVmdCB8IExvdyB8IENyaXRpY2FsIHwgTWVkaXVtIHwgSW1wbGVtZW50ZWQgfAp8IEREb1MgQXR0YWNrIHwgTWVkaXVtIHwgSGlnaCB8IEhpZ2ggfCBJbXBsZW1lbnRlZCB8CnwgUGF5bWVudCBGcmF1ZCB8IE1lZGl1bSB8IEhpZ2ggfCBIaWdoIHwgSW1wbGVtZW50ZWQgfAp8IEFQSSBLZXkgQ29tcHJvbWlzZSB8IExvdyB8IEhpZ2ggfCBNZWRpdW0gfCBJbXBsZW1lbnRlZCB8CgojIyA1LiBSZWNvbW1lbmRhdGlvbnMKCjEuIEltcGxlbWVudCBBUEkgZ2F0ZXdheSByYXRlIGxpbWl0aW5nIChQMCAtIEhpZ2ggUHJpb3JpdHkpCjIuIERlcGxveSBXZWIgQXBwbGljYXRpb24gRmlyZXdhbGwgKFdBRikgZm9yIEFQSSBHYXRld2F5IChQMSkKMy4gSW1wbGVtZW50IGRhdGFiYXNlIGVuY3J5cHRpb24ga2V5IHJvdGF0aW9uIChQMSkKNC4gRXN0YWJsaXNoIHZ1bG5lcmFiaWxpdHkgZGlzY2xvc3VyZSBwcm9ncmFtIChQMikKNS4gQ29uZHVjdCBhbm51YWwgcGVuZXRyYXRpb24gdGVzdGluZyAoUDIpCgojIyA2LiBTaWduLU9mZgotIFNlY3VyaXR5IExlYWQ6IEphbmUgVGhvbXBzb24KLSBQcm9kdWN0IExlYWQ6IE1hcmsgV2lsc29uCi0gRGF0ZTogMjAyNi0wMi0yOAo=",
+      "content_hash": "77eb76e064196ba931844fc7d9e66bfed0228521f7f00302bd70ce935fe1e79b"
+    },
+    {
+      "id": "00000000-0000-4000-f420-100000000003",
+      "evidence_id": "00000000-0000-4000-f400-100000000003",
+      "filename": "ssdf-evidence-3.md",
+      "content_type": "text/markdown",
+      "size_bytes": 2094,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000003/ssdf-evidence-3.md",
+      "binary_content": "IyBQcm9kdWN0IEEgdjIuMSAtIFNBU1QgU2NhbiBSZXN1bHRzIFN1bW1hcnkKCiMjIEV4ZWN1dGl2ZSBTdW1tYXJ5CkF1dG9tYXRlZCBzdGF0aWMgYXBwbGljYXRpb24gc2VjdXJpdHkgdGVzdGluZyB3YXMgY29uZHVjdGVkIG9uIFByb2R1Y3QgQSB2Mi4xIHVzaW5nIFNvbmFyUXViZSB2OS44LiBUaGUgc2NhbiBhbmFseXplZCAyNDUsMDAwKyBsaW5lcyBvZiBjb2RlIGFjcm9zcyA4IG1pY3Jvc2VydmljZXMuCgojIyBTY2FuIENvbmZpZ3VyYXRpb24KLSAqKlRvb2wqKjogU29uYXJRdWJlIHY5LjgKLSAqKkRhdGUqKjogMjAyNi0wMi0yNQotICoqU2NvcGUqKjogQWxsIHNvdXJjZSBjb2RlIGV4Y2x1ZGluZyB2ZW5kb3IgZGVwZW5kZW5jaWVzCi0gKipMYW5ndWFnZXMqKjogVHlwZVNjcmlwdCAoNjUlKSwgUHl0aG9uICgyNSUpLCBHbyAoMTAlKQotICoqUXVhbGl0eSBHYXRlKio6IFNvbmFyIFdheQoKIyMgRmluZGluZ3MgU3VtbWFyeQoKIyMjIENyaXRpY2FsIEZpbmRpbmdzOiAwCkFsbCBjcml0aWNhbCBzZWN1cml0eSBpc3N1ZXMgZnJvbSBwcmV2aW91cyBzY2FucyBoYXZlIGJlZW4gcmVtZWRpYXRlZC4KCiMjIyBIaWdoIFNldmVyaXR5OiAyCjEuICoqU1FMIEluamVjdGlvbiBpbiBQYXltZW50IFNlcnZpY2UqKiAoTGVnYWN5IGNvZGUpCiAgIC0gTG9jYXRpb246IHBheW1lbnQtc2VydmljZS9zcmMvZGIvcXVlcmllcy5weToxNDUKICAgLSBTdGF0dXM6IFNjaGVkdWxlZCBmb3IgcmVtZWRpYXRpb24gaW4gUTIgMjAyNgogICAtIFdvcmthcm91bmQ6IEFQSSBnYXRld2F5IHZhbGlkYXRpb24gaW4gcGxhY2UKICAgLSBDV0U6IENXRS04OQoKMi4gKipIYXJkY29kZWQgQVdTIENyZWRlbnRpYWxzIGluIENvbmZpZyoqIChEZXZlbG9wbWVudCBvbmx5KQogICAtIExvY2F0aW9uOiBjb25maWcvbG9jYWwtZGV2LmVudiAoZGV2ZWxvcG1lbnQgYnJhbmNoIG9ubHkpCiAgIC0gU3RhdHVzOiBQcmV2ZW50ZWQgZnJvbSBwcm9kdWN0aW9uIHZpYSBDSS9DRCBjaGVjawogICAtIEFjdGlvbjogQ3JlZGVudGlhbCByb3RhdGlvbiBjb21wbGV0ZWQKICAgLSBDV0U6IENXRS03OTgKCiMjIyBNZWRpdW0gU2V2ZXJpdHk6IDE0Ci0gVW52YWxpZGF0ZWQgaW5wdXQ6IDYgaXNzdWVzIChpbiBwcm9ncmVzcykKLSBXZWFrIGNyeXB0b2dyYXBoaWMgdXNhZ2U6IDQgaXNzdWVzIChwbGFubmVkIGZvciBRMykKLSBNaXNzaW5nIGVycm9yIGhhbmRsaW5nOiA0IGlzc3VlcyAoYmFja2xvZykKCiMjIyBMb3cgU2V2ZXJpdHk6IDQyCi0gQ29kZSBzdHlsZSBhbmQgYmVzdCBwcmFjdGljZXM6IDQyIGlzc3VlcyAoaW5mb3JtYXRpb25hbCkKCiMjIENvdmVyYWdlIEFuYWx5c2lzCi0gQ29kZSBDb3ZlcmFnZTogODclCi0gU2VjdXJpdHkgSG90c3BvdCBDb3ZlcmFnZTogOTIlCi0gRHVwbGljYXRlZCBDb2RlOiAyLjMlCgojIyBRdWFsaXR5IEdhdGUgU3RhdHVzOiBQQVNTRUQKLSBOZXcgQ29kZTogMTAwJSBydWxlcyBwYXNzaW5nCi0gT3ZlcmFsbCBDb2RlOiAyIGlzc3VlcyBibG9ja2luZyAoYmVpbmcgcmVtZWRpYXRlZCkKCiMjIFRyZW5kIEFuYWx5c2lzCi0gQ3JpdGljYWwgSXNzdWVzOiBEZWNyZWFzZWQgZnJvbSAzIOKGkiAwCi0gSGlnaCBJc3N1ZXM6IERlY3JlYXNlZCBmcm9tIDgg4oaSIDIKLSBNZWRpdW0gSXNzdWVzOiBTdGFibGUgYXQgMTQKLSBDb2RlIENvdmVyYWdlOiBJbmNyZWFzZWQgZnJvbSA4MSUg4oaSIDg3JQoKIyMgUmVjb21tZW5kYXRpb25zCjEuIFJlZmFjdG9yIGxlZ2FjeSBwYXltZW50LXNlcnZpY2UgY29kZSAoUDApCjIuIEltcGxlbWVudCBpbnB1dCB2YWxpZGF0aW9uIGZyYW1ld29yayAoUDEpCjMuIE1pZ3JhdGUgdG8gY3J5cHRvZ3JhcGh5IGxpYnJhcnkgNDArIChQMikKNC4gSW5jcmVhc2UgdGVzdCBjb3ZlcmFnZSB0byA5MCUgKFAyKQoKIyMgTmV4dCBTdGVwcwotIFJlbWVkaWF0aW9uIHBsYW4gYXBwcm92ZWQgYnkgc2VjdXJpdHkgdGVhbQotIERldmVsb3BtZW50IHRlYW0gYXNzaWduZWQgZm9yIFEyIDIwMjYKLSBGb2xsb3ctdXAgc2NhbiBzY2hlZHVsZWQgZm9yIDIwMjYtMDQtMzAKCkdlbmVyYXRlZCBieTogU2VjdXJpdHkgU2Nhbm5pbmcgUGlwZWxpbmUKUmVwb3J0IERhdGU6IDIwMjYtMDItMjgK",
+      "content_hash": "867e22b1f7392f82527cf704f8b434cc94d1004240cb036f04b6a30febdb6d64"
+    },
+    {
+      "id": "00000000-0000-4000-f420-100000000004",
+      "evidence_id": "00000000-0000-4000-f400-100000000004",
+      "filename": "ssdf-evidence-4.md",
+      "content_type": "text/markdown",
+      "size_bytes": 2952,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000004/ssdf-evidence-4.md",
+      "binary_content": "IyBQcm9kdWN0IEEgdjIuMSAtIFNvZnR3YXJlIEJpbGwgb2YgTWF0ZXJpYWxzIChTQk9NKQoKIyMgRG9jdW1lbnQgSW5mb3JtYXRpb24KLSAqKkZvcm1hdCoqOiBDeWNsb25lRFggdjEuNQotICoqR2VuZXJhdGlvbiBEYXRlKio6IDIwMjYtMDItMjgKLSAqKkNvbXBvbmVudCBDb3VudCoqOiAxODYgdG90YWwgKDQ3IGRpcmVjdCwgMTM5IHRyYW5zaXRpdmUpCi0gKipWdWxuZXJhYmlsaXR5IFNjYW4qKjogU3lub3BzeXMgQmxhY2sgRHVjayB2MjAyNi4wMQoKIyMgRGlyZWN0IERlcGVuZGVuY2llcwoKIyMjIENvcmUgRnJhbWV3b3JrIERlcGVuZGVuY2llcwp8IENvbXBvbmVudCB8IFZlcnNpb24gfCBMaWNlbnNlIHwgVnVsbmVyYWJpbGl0eSBTdGF0dXMgfAp8LS0tLS0tLS0tLS18LS0tLS0tLS0tfC0tLS0tLS0tLXwtLS0tLS0tLS0tLS0tLS0tLS0tLS0tfAp8IGV4cHJlc3MgfCA0LjE4LjIgfCBNSVQgfCDinJMgU2VjdXJlIHwKfCB0eXBlc2NyaXB0IHwgNS4wLjIgfCBBcGFjaGUgMi4wIHwg4pyTIFNlY3VyZSB8CnwgcG9zdGdyZXMgfCAxNC42IHwgUG9zdGdyZVNRTCB8IOKckyBTZWN1cmUgfAp8IGF3cy1zZGsgfCAyLjEzOTcuMCB8IEFwYWNoZSAyLjAgfCDinJMgU2VjdXJlIHwKCiMjIyBTZWN1cml0eSAmIENyeXB0b2dyYXBoeQp8IENvbXBvbmVudCB8IFZlcnNpb24gfCBMaWNlbnNlIHwgU3RhdHVzIHwKfC0tLS0tLS0tLS0tfC0tLS0tLS0tLXwtLS0tLS0tLS18LS0tLS0tLS18CnwganNvbndlYnRva2VuIHwgOS4wLjAgfCBNSVQgfCDinJMgU2VjdXJlIHwKfCBiY3J5cHRqcyB8IDIuNC4zIHwgTUlUIHwg4pyTIFNlY3VyZSB8CnwgaGVsbWV0IHwgNy4wLjAgfCBNSVQgfCDinJMgU2VjdXJlIHwKfCBjcnlwdG8tanMgfCA0LjEuMSB8IE1JVCB8IOKaoCBDaGVjayB1c2FnZSB8CgojIyMgRGF0YSBQcm9jZXNzaW5nCnwgQ29tcG9uZW50IHwgVmVyc2lvbiB8IExpY2Vuc2UgfCBTdGF0dXMgfAp8LS0tLS0tLS0tLS18LS0tLS0tLS0tfC0tLS0tLS0tLXwtLS0tLS0tLXwKfCBsb2Rhc2ggfCA0LjE3LjIxIHwgTUlUIHwg4pyTIFNlY3VyZSB8CnwgYXhpb3MgfCAxLjMuNCB8IE1JVCB8IOKckyBTZWN1cmUgfAp8IGpvaSB8IDE3LjkuMSB8IEJTRCB8IOKckyBTZWN1cmUgfAoKIyMjIFRyYW5zaXRpdmUgRGVwZW5kZW5jaWVzCi0gMTM5IHRyYW5zaXRpdmUgZGVwZW5kZW5jaWVzIGlkZW50aWZpZWQKLSBBbGwgdHJhbnNpdGl2ZSBkZXBlbmRlbmNpZXMgc2Nhbm5lZCBmb3IgdnVsbmVyYWJpbGl0aWVzCi0gMyB0cmFuc2l0aXZlIGRlcGVuZGVuY2llcyB3aXRoIGxvdy1zZXZlcml0eSBhZHZpc29yaWVzCiAgLSBsb2Rhc2gubWVyZ2U6IEluZm9ybWF0aW9uIGRpc2Nsb3N1cmUgKG5vdCBleHBsb2l0YWJsZSBpbiBvdXIgdXNhZ2UpCiAgLSBtb21lbnQ6IFJlZ3VsYXIgZXhwcmVzc2lvbiBSZURvUyAobm90IGV4cG9zZWQgdG8gdW50cnVzdGVkIGlucHV0KQogIC0gbWluaW1pc3Q6IFByb3RvdHlwZSBwb2xsdXRpb24gKGZpeGVkIGluIHYxLjIuNiwgd2UgdXNlIHYxLjIuOCkKCiMjIFZ1bG5lcmFiaWxpdHkgU3VtbWFyeQoKIyMjIEtub3duIFZ1bG5lcmFiaWxpdGllczogMApBbGwgZGVwZW5kZW5jaWVzIGFyZSBhdCBwYXRjaGVkIHZlcnNpb25zIHdpdGggbm8ga25vd24gYWN0aXZlIHZ1bG5lcmFiaWxpdGllcy4KCiMjIyBTdXBwbHkgQ2hhaW4gU3RhdHVzOiBHcmVlbgotIFByb3ZlbmFuY2U6IOKckyBBbGwgY29tcG9uZW50cyBmcm9tIHRydXN0ZWQgcmVnaXN0cmllcyAobnBtLCBNYXZlbiBDZW50cmFsKQotIEludGVncml0eTog4pyTIENoZWNrc3VtcyB2ZXJpZmllZCB2aWEgbG9ja2ZpbGUKLSBMaWNlbnNpbmc6IOKckyBBbGwgbGljZW5zZXMgY29tcGF0aWJsZSB3aXRoIEFwYWNoZSAyLjAKCiMjIE5vdGFibGUgQ29tcG9uZW50cwoKIyMjIE9wZW4gU291cmNlIENvbXBvbmVudHMgKDkpCi0gZXhwcmVzczogV2ViIGZyYW1ld29yayAoTUlUKQotIGxvZGFzaDogVXRpbGl0eSBsaWJyYXJ5IChNSVQpCi0gcG9zdGdyZXNxbDogRGF0YWJhc2UgY2xpZW50IChQb3N0Z3JlU1FMKQotIHJlZGlzOiBDYWNoZSBjbGllbnQgKEJTRCkKLSBqZXN0OiBUZXN0IGZyYW1ld29yayAoTUlUKQotIHdlYnBhY2s6IEJ1aWxkIHRvb2wgKE1JVCkKLSBlc2xpbnQ6IENvZGUgcXVhbGl0eSAoTUlUKQoKIyMjIFRoaXJkLVBhcnR5IENvbW1lcmNpYWwgKDApCk5vIGNvbW1lcmNpYWwgZGVwZW5kZW5jaWVzLgoKIyMjIEludGVybmFsIENvbXBvbmVudHMgKDgpCi0gYXV0aC1zZXJ2aWNlOiBJbi1ob3VzZSBhdXRoZW50aWNhdGlvbgotIHBheW1lbnQtc2RrOiBJbnRlcm5hbCBwYXltZW50IHdyYXBwZXIKLSBsb2dnZXItbGliOiBJbnRlcm5hbCBsb2dnaW5nIHV0aWxpdGllcwotIG1ldHJpY3MtY29sbGVjdG9yOiBJbnRlcm5hbCBvYnNlcnZhYmlsaXR5CgojIyBMaWNlbnNlIENvbXBsaWFuY2UKCiMjIyBDb21wYXRpYmxlIExpY2Vuc2VzOiAxODYvMTg2ICgxMDAlKQpBbGwgZGVwZW5kZW5jaWVzIHVzZSBsaWNlbnNlcyBjb21wYXRpYmxlIHdpdGggQXBhY2hlIDIuMCBkaXN0cmlidXRpb246Ci0gTUlUOiAxNDIgY29tcG9uZW50cwotIEFwYWNoZSAyLjA6IDI4IGNvbXBvbmVudHMKLSBCU0Q6IDEyIGNvbXBvbmVudHMKLSBJU0M6IDQgY29tcG9uZW50cwoKIyMgRGVwZW5kZW5jeSBNYWludGVuYW5jZQotIExhc3QgbWFqb3IgdXBkYXRlIHNjYW46IDIwMjYtMDItMjAKLSAzIGRlcGVuZGVuY2llcyBoYXZlIGF2YWlsYWJsZSBtaW5vciB1cGRhdGVzIChub24tYnJlYWtpbmcpCi0gMCBkZXBlbmRlbmNpZXMgZmxhZ2dlZCBhcyB1bm1haW50YWluZWQKLSBBdmVyYWdlIG1haW50ZW5hbmNlIHN0YXR1czog4pyTIEFjdGl2ZQoKIyMgU2NhbiBUb29sIEluZm9ybWF0aW9uCi0gU3lub3BzeXMgQmxhY2sgRHVjayB2MjAyNi4wMQotIENWRSBEYXRhYmFzZTogVXBkYXRlZCAyMDI2LTAyLTI4Ci0gU2NhbiBleGVjdXRlZDogMjAyNi0wMi0yOCAxNDozMiBVVEMK",
+      "content_hash": "88e189bd7f0c3cfc3917b18a2111b143881aca04b1ca258068c4fdfcaed0cf3d"
+    },
+    {
+      "id": "00000000-0000-4000-f420-100000000005",
+      "evidence_id": "00000000-0000-4000-f400-100000000005",
+      "filename": "ssdf-evidence-5.md",
+      "content_type": "text/markdown",
+      "size_bytes": 4461,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000005/ssdf-evidence-5.md",
+      "binary_content": "IyBQcm9kdWN0IEEgdjIuMSAtIENJL0NEIFBpcGVsaW5lIFNlY3VyaXR5IENvbmZpZ3VyYXRpb24KCiMjIFBpcGVsaW5lIE92ZXJ2aWV3ClRoZSBBY21lIENJL0NEIHBpcGVsaW5lIGVuZm9yY2VzIHNlY3VyaXR5IGdhdGVzIGF0IGVhY2ggc3RhZ2Ugb2YgdGhlIGRldmVsb3BtZW50IHdvcmtmbG93LiBUaGUgcGlwZWxpbmUgaXMgaW1wbGVtZW50ZWQgdXNpbmcgR2l0TGFiIENJIGFuZCBydW5zIG9uIGRlZGljYXRlZCwgaGFyZGVuZWQgcnVubmVycy4KCiMjIFBpcGVsaW5lIFN0YWdlcwoKIyMjIFN0YWdlIDE6IFZhbGlkYXRpb24gJiBTZWN1cml0eSBTY2FubmluZwoqKlRyaWdnZXIqKjogT24gZXZlcnkgY29tbWl0IHRvIGFueSBicmFuY2gKCjEuICoqU2VjcmV0IFNjYW5uaW5nKiogKDIgbWluKQogICAtIFRvb2w6IEdpdExhYiBTQVNUIFNlY3JldCBEZXRlY3Rpb24KICAgLSBCbG9ja3MgY29tbWl0cyBjb250YWluaW5nOiBBUEkga2V5cywgcGFzc3dvcmRzLCB0b2tlbnMsIEFXUyBjcmVkZW50aWFscwogICAtIEZhbHNlIFBvc2l0aXZlOiA8MC4xJQoKMi4gKipTQVNUIFNjYW5uaW5nKiogKDEyIG1pbikKICAgLSBUb29sOiBTb25hclF1YmUKICAgLSBCbG9ja3Mgb246IENyaXRpY2FsIGlzc3VlcwogICAtIFdhcm5zIG9uOiBIaWdoIGlzc3VlcwogICAtIFF1YWxpdHkgR2F0ZTogU29uYXIgV2F5IChkZWZhdWx0KQoKMy4gKipEZXBlbmRlbmN5IFNjYW5uaW5nKiogKDUgbWluKQogICAtIFRvb2w6IFNueWsKICAgLSBCbG9ja3Mgb246IENyaXRpY2FsIHZ1bG5lcmFiaWxpdGllcwogICAtIE1vbml0b3JzOiBucG0sIHBpcCwgTWF2ZW4gQ2VudHJhbAogICAtIERhdGFiYXNlOiBVcGRhdGVkIGRhaWx5Cgo0LiAqKkNvZGUgUXVhbGl0eSoqICg4IG1pbikKICAgLSBUb29sOiBFU0xpbnQsIFByZXR0aWVyLCBTb25hclF1YmUKICAgLSBFbmZvcmNlczogQ29kZSBzdHlsZSwgY29tcGxleGl0eSBsaW1pdHMKICAgLSBCbG9jayB0aHJlc2hvbGQ6IFF1YWxpdHkgR2F0ZSBmYWlsdXJlCgojIyMgU3RhZ2UgMjogQnVpbGQgJiBBcnRpZmFjdCBHZW5lcmF0aW9uCioqVHJpZ2dlcioqOiBPbiBzdWNjZXNzZnVsIHZhbGlkYXRpb24gc3RhZ2UKCjEuICoqQnVpbGQgQXBwbGljYXRpb24qKiAoMTAgbWluKQogICAtIE5vZGUuanMgYnVpbGQgd2l0aCBvcHRpbWl6YXRpb24KICAgLSBQcm9kdWNlczogRG9ja2VyIGNvbnRhaW5lciBpbWFnZQogICAtIEFydGlmYWN0IHNpZ25pbmc6IE5vdCB5ZXQgaW1wbGVtZW50ZWQKCjIuICoqQnVpbGQgRG9jdW1lbnRhdGlvbioqICgzIG1pbikKICAgLSBHZW5lcmF0ZSBPcGVuQVBJIHNwZWMKICAgLSBCdWlsZCBBUEkgZG9jdW1lbnRhdGlvbiBzaXRlCiAgIC0gU3RvcmUgaW4gYXJ0aWZhY3QgcmVnaXN0cnkKCiMjIyBTdGFnZSAzOiBTZWN1cml0eSBUZXN0aW5nCioqVHJpZ2dlcioqOiBPbiBzdWNjZXNzZnVsIGJ1aWxkCgoxLiAqKkRBU1QgVGVzdGluZyoqICgyMCBtaW4pCiAgIC0gVG9vbDogT1dBU1AgWkFQCiAgIC0gU2NvcGU6IEFQSSBlbmRwb2ludHMKICAgLSBCYXNlbGluZTogT1dBU1AgVG9wIDEwCiAgIC0gRW52aXJvbm1lbnQ6IFN0YWdpbmcgKGlzb2xhdGVkKQoKMi4gKipDb250YWluZXIgU2Nhbm5pbmcqKiAoNSBtaW4pCiAgIC0gVG9vbDogVHJpdnkKICAgLSBTY2FuczogRG9ja2VyIGltYWdlIGxheWVycwogICAtIEJsb2NrcyBvbjogQ3JpdGljYWwgT1MgdnVsbmVyYWJpbGl0aWVzCiAgIC0gQWxsb3dzOiBIaWdoIHZ1bG5lcmFiaWxpdHkgd2l0aCBleGNlcHRpb24KCjMuICoqTGljZW5zZSBTY2FubmluZyoqICgzIG1pbikKICAgLSBUb29sOiBMaWNlbnNlIEZpbmRlcgogICAtIEJsb2NrczogR1BMLWluY29tcGF0aWJsZSBsaWNlbnNlcwogICAtIExvZ3M6IEFsbCBkZXBlbmRlbmNpZXMgYW5kIHZlcnNpb25zCgojIyMgU3RhZ2UgNDogU3RhZ2luZyBEZXBsb3ltZW50CioqVHJpZ2dlcioqOiBPbiBtYWluL3JlbGVhc2UgYnJhbmNoZXMgb25seQoKMS4gKipEZXBsb3ltZW50KiogKDUgbWluKQogICAtIEVudmlyb25tZW50OiBTdGFnaW5nIChwcm9kdWN0aW9uIHJlcGxpY2EpCiAgIC0gTWV0aG9kOiBCbHVlLWdyZWVuIGRlcGxveW1lbnQKICAgLSBSb2xsYmFjazogQXV0b21hdGljIG9uIGhlYWx0aCBjaGVjayBmYWlsdXJlCgoyLiAqKlNtb2tlIFRlc3RpbmcqKiAoMTAgbWluKQogICAtIEVuZHBvaW50IGhlYWx0aCBjaGVja3MKICAgLSBDcml0aWNhbCB1c2VyIGpvdXJuZXlzCiAgIC0gRGF0YWJhc2UgY29ubmVjdGl2aXR5CgozLiAqKlNlY3VyaXR5IFNjYW5uaW5nIC0gU3RhZ2luZyoqICgxNSBtaW4pCiAgIC0gREFTVCBhZ2FpbnN0IGRlcGxveWVkIGFwcGxpY2F0aW9uCiAgIC0gQVBJIGxvYWQgdGVzdGluZwogICAtIENvbXBsaWFuY2UgY2hlY2tzCgojIyMgU3RhZ2UgNTogUHJvZHVjdGlvbiBSZWxlYXNlCioqVHJpZ2dlcioqOiBNYW51YWwgYXBwcm92YWwgKyB0YWcgb24gcmVsZWFzZSBicmFuY2gKCjEuICoqQXBwcm92YWwgR2F0ZSoqIChNYW51YWwpCiAgIC0gUmVxdWlyZXM6IEF0IGxlYXN0IDIgbWFpbnRhaW5lcnMKICAgLSBDaGVja2xpc3Q6IFNlY3VyaXR5IHNpZ24tb2ZmLCByZWxlYXNlIG5vdGVzCiAgIC0gRGVhZGxpbmU6IDQ4IGhvdXJzIGJlZm9yZSBkZXBsb3ltZW50CgoyLiAqKkRlcGxveW1lbnQqKiAoMTAgbWluKQogICAtIEVudmlyb25tZW50OiBQcm9kdWN0aW9uCiAgIC0gTWV0aG9kOiBDYW5hcnkgKDUlIHRyYWZmaWMgaW5pdGlhbGx5KQogICAtIE1vbml0b3Jpbmc6IFJlYWwtdGltZSBtZXRyaWNzCgozLiAqKlBvc3QtRGVwbG95bWVudCBWYWxpZGF0aW9uKiogKDE1IG1pbikKICAgLSBIZWFsdGggY2hlY2tzCiAgIC0gRXJyb3IgcmF0ZSBtb25pdG9yaW5nCiAgIC0gUGVyZm9ybWFuY2UgYmFzZWxpbmUgdmVyaWZpY2F0aW9uCgojIyBTZWN1cml0eSBDb25maWd1cmF0aW9uCgojIyMgU2VjcmV0cyBNYW5hZ2VtZW50Ci0gU2VjcmV0cyBzdG9yZWQgaW46IEdpdExhYiBDSS9DRCB2YXJpYWJsZXMgKGVuY3J5cHRlZCBhdCByZXN0KQotIFJvdGF0aW9uIHBvbGljeTogQW5udWFsIG9yIG9uIGNvbXByb21pc2UKLSBTY29wZTogUmVzdHJpY3RlZCB0byBwcm9kdWN0aW9uIHJ1bm5lcnMgb25seQoKIyMjIEFjY2VzcyBDb250cm9sCi0gUnVubmVyIGV4ZWN1dGlvbjogUmVzdHJpY3RlZCB0byBkZWRpY2F0ZWQsIGFpci1nYXBwZWQgc2VydmVycwotIFBpcGVsaW5lIGFjY2VzczogRGV2ZWxvcGVycyBjYW4gdmlldyBvd24gY29tbWl0cyBvbmx5Ci0gUHJvZHVjdGlvbiBkZXBsb3ltZW50czogTGltaXRlZCB0byByZWxlYXNlIG1hbmFnZXJzCi0gQXVkaXQgbG9nZ2luZzogQWxsIGRlcGxveW1lbnRzIGxvZ2dlZCB3aXRoIHRpbWVzdGFtcCBhbmQgYXBwcm92ZXIKCiMjIyBOZXR3b3JrIFNlY3VyaXR5Ci0gUnVubmVyczogSXNvbGF0ZWQgb24gcHJpdmF0ZSBuZXR3b3JrIChubyBpbnRlcm5ldCkKLSBSZWdpc3RyeTogUHJpdmF0ZSBhcnRpZmFjdCByZWdpc3RyeSB3aXRoIGF1dGhlbnRpY2F0aW9uCi0gQXJ0aWZhY3Qgc3RvcmFnZTogUzMgd2l0aCBlbmNyeXB0aW9uIGFuZCBidWNrZXQgcG9saWNpZXMKCiMjIyBBcnRpZmFjdCBJbnRlZ3JpdHkKLSBDb250YWluZXIgaW1hZ2VzOiBQdXNoZWQgb25seSBhZnRlciBzdWNjZXNzZnVsIHNjYW5zCi0gQnVpbGQgbG9nczogUmV0YWluZWQgZm9yIDkwIGRheXMKLSBBcnRpZmFjdHM6IFNpZ25lZCBhbmQgdmVyaWZpZWQgKEdQRykKLSBSZXRlbnRpb246IDMwLWRheSByZXRlbnRpb24gZm9yIG5vbi1yZWxlYXNlIGJ1aWxkcwoKIyMgQ29tcGxpYW5jZSAmIEF1ZGl0CgojIyMgTG9nZ2luZyAmIE1vbml0b3JpbmcKLSBBbGwgcGlwZWxpbmUgZXhlY3V0aW9ucyBsb2dnZWQgdG8gQ2xvdWRXYXRjaAotIEZhaWxlZCBzZWN1cml0eSBnYXRlcyB0cmlnZ2VyIGFsZXJ0cwotIE1vbnRobHkgcmVwb3J0cyBvbiBzZWN1cml0eSBnYXRlIGVmZmVjdGl2ZW5lc3MKCiMjIyBNYWludGVuYW5jZQotIFJ1bm5lciBPUyBwYXRjaGluZzogTW9udGhseQotIFRvb2wgdXBkYXRlczogUXVhcnRlcmx5IChTb25hclF1YmUsIFNueWssIFpBUCkKLSBTZWN1cml0eSBwb2xpY3kgcmV2aWV3czogU2VtaS1hbm51YWxseQoKIyMjIEV4ZW1wdGlvbiBQcm9jZXNzCi0gRXhjZXB0aW9ucyByZXF1aXJlOiBTZWN1cml0eSBsZWFkIGFwcHJvdmFsICsgSklSQSB0aWNrZXQKLSBFeGVtcHRpb25zIHRyYWNrZWQgYW5kIHJldmlld2VkIHF1YXJ0ZXJseQotIEV4ZW1wdGlvbiBkdXJhdGlvbjogTWF4aW11bSAzMCBkYXlzCgojIyBQZXJmb3JtYW5jZSBNZXRyaWNzCi0gQXZlcmFnZSBwaXBlbGluZSBkdXJhdGlvbjogODUgbWludXRlcwotIFNlY3VyaXR5IGdhdGVzIGV4ZWN1dGlvbjogNDUgbWludXRlcyAoNTMlKQotIFBpcGVsaW5lIHN1Y2Nlc3MgcmF0ZTogOTQlCi0gRmFsc2UgcG9zaXRpdmUgcmF0ZTogMS4yJQoKTGFzdCBVcGRhdGVkOiAyMDI2LTAyLTI4Ck1haW50YWluZWQgYnk6IFNlY3VyaXR5IFBsYXRmb3JtIFRlYW0K",
+      "content_hash": "4bd3c221b7d6a8ea054c77fc93d5640561a5517514221aff581f7015ed86cf82"
+    },
+    {
+      "id": "00000000-0000-4000-f420-100000000006",
+      "evidence_id": "00000000-0000-4000-f400-100000000006",
+      "filename": "ssdf-evidence-6.md",
+      "content_type": "text/markdown",
+      "size_bytes": 4240,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000006/ssdf-evidence-6.md",
+      "binary_content": "IyBUaGlyZC1QYXJ0eSBDb21wb25lbnQgU2VjdXJpdHkgQXNzZXNzbWVudAoKIyMgQXNzZXNzbWVudCBTY29wZTogT3BlbiBTb3VyY2UgRGVwZW5kZW5jaWVzIGluIFByb2R1Y3QgQSB2Mi4xCgojIyMgRXhlY3V0aXZlIFN1bW1hcnkKVGhpcyBhc3Nlc3NtZW50IGV2YWx1YXRlcyB0aGUgc2VjdXJpdHkgcG9zdHVyZSBhbmQgcmlzayBwcm9maWxlIG9mIHRoaXJkLXBhcnR5IG9wZW4gc291cmNlIGNvbXBvbmVudHMgdXNlZCBpbiBQcm9kdWN0IEEgdjIuMS4gV2hpbGUgbW9zdCBjb21wb25lbnRzIGRlbW9uc3RyYXRlIHN0cm9uZyBzZWN1cml0eSBwcmFjdGljZXMsIHNldmVyYWwgYXJlYXMgcmVxdWlyZSBvbmdvaW5nIG1vbml0b3JpbmcgYW5kIHByb2FjdGl2ZSBkZXBlbmRlbmN5IG1hbmFnZW1lbnQuCgojIyBDcml0aWNhbCBGaW5kaW5nczogMApObyBjcml0aWNhbCBzZWN1cml0eSBpc3N1ZXMgaWRlbnRpZmllZCBpbiBhc3Nlc3NlZCBjb21wb25lbnRzLgoKIyMgSGlnaCBSaXNrIENvbXBvbmVudHM6IDEKCiMjIyBDb21wb25lbnQ6IGxvZGFzaCB2NC4xNy4yMQoqKlJpc2sgTGV2ZWwqKjogSGlnaCAod2l0aCBtaXRpZ2F0aW9uKQoqKklzc3VlKio6IFByb3RvdHlwZSBwb2xsdXRpb24gdnVsbmVyYWJpbGl0eSAoQ1ZFLTIwMjEtMjMzMzcpCioqU2V2ZXJpdHkqKjogTWVkaXVtIChidXQgZXhwb3NlZCBpbiBjZXJ0YWluIHVzYWdlIHBhdHRlcm5zKQoqKlN0YXR1cyoqOiBNaXRpZ2F0ZWQgYnkgaW5wdXQgdmFsaWRhdGlvbgoKKipEZXRhaWxzKio6Ci0gTG9kYXNoIHZlcnNpb25zIDw0LjE3LjIxIHZ1bG5lcmFibGUgdG8gcHJvdG90eXBlIHBvbGx1dGlvbgotIFdlIHVzZSB2NC4xNy4yMSB3aGljaCBpbmNsdWRlcyB0aGUgcGF0Y2gKLSBIb3dldmVyLCB3ZSBpZGVudGlmaWVkIDMgaW5zdGFuY2VzIG9mIHVuc2FmZSBsb2Rhc2gubWVyZ2UgdXNhZ2UKLSBBdHRhY2sgdmVjdG9yIHJlcXVpcmVzIHVudHJ1c3RlZCBkYXRhIGlucHV0IHRvIGxvZGFzaC5tZXJnZQoKKipNaXRpZ2F0aW9uKio6Ci0gQVBJIGdhdGV3YXkgaW5wdXQgdmFsaWRhdGlvbiBwcmV2ZW50cyB1bnRydXN0ZWQgZGF0YSB0byBtZXJnZSBvcGVyYXRpb25zCi0gUmVwbGFjZW1lbnRzIHBsYW5uZWQ6IFVzaW5nIG5hdGl2ZSBPYmplY3QuYXNzaWduIHdoZXJlIHBvc3NpYmxlCi0gU2NoZWR1bGVkIHJlbWVkaWF0aW9uOiBRMiAyMDI2CgotLS0KCiMjIE1lZGl1bSBSaXNrIENvbXBvbmVudHM6IDMKCiMjIyBDb21wb25lbnQ6IGV4cHJlc3MgdjQuMTguMgoqKlJpc2sgTGV2ZWwqKjogTWVkaXVtIChmcmFtZXdvcmsgaGFyZGVuaW5nKQoqKklzc3VlKio6IFBvdGVudGlhbCBhdHRhY2sgc3VyZmFjZSBmcm9tIGRlcHJlY2F0ZWQgbWlkZGxld2FyZQoqKlN0YXR1cyoqOiBNaXRpZ2F0ZWQgd2l0aCBzZWN1cml0eSBoZWFkZXJzCgoqKk1pdGlnYXRpb25zKio6Ci0gaGVsbWV0IG1pZGRsZXdhcmUgZW5mb3JjZXMgc2VjdXJpdHkgaGVhZGVycwotIERlcHJlY2F0ZWQgbWlkZGxld2FyZSByZW1vdmVkIGZyb20gY29kZWJhc2UKLSBBbm51YWwgc2VjdXJpdHkgYXVkaXRzIGNvbmR1Y3RlZAoKLS0tCgojIyMgQ29tcG9uZW50OiBjcnlwdG8tanMgdjQuMS4xCioqUmlzayBMZXZlbCoqOiBNZWRpdW0gKG5vdCByZWNvbW1lbmRlZCBmb3IgcHJvZHVjdGlvbikKKipJc3N1ZSoqOiBMaWJyYXJ5IG5vdCBkZXNpZ25lZCBmb3IgaGlnaC1zZWN1cml0eSBhcHBsaWNhdGlvbnMKKipTdGF0dXMqKjogVXNhZ2UgbGltaXRlZCB0byBub24tY3JpdGljYWwgaGFzaGluZwoKKipDb250ZXh0Kio6Ci0gVXNlZCBvbmx5IGZvciBkYXNoYm9hcmQgZGF0YSB0cmFuc2Zvcm1hdGlvbiAobm90IGZvciBzZW5zaXRpdmUgZGF0YSkKLSBQYXNzd29yZHMgdXNlIGJjcnlwdGpzIChpbmR1c3RyeSBzdGFuZGFyZCkKLSBFbmNyeXB0aW9uIHVzZXMgQVdTIEtNUyArIGxpYnNvZGl1bQoKKipQbGFuKio6Ci0gRG9jdW1lbnQgYXBwcm92ZWQgdXNhZ2Ugc2NvcGUKLSBSZXBsYWNlIHdpdGggbmF0aXZlIFdlYiBDcnlwdG8gQVBJIGluIGZ1dHVyZSByZWZhY3RvcmluZwoKLS0tCgojIyMgQ29tcG9uZW50OiBtb21lbnQuanMgdjIuMjkuNAoqKlJpc2sgTGV2ZWwqKjogTWVkaXVtIChSZURvUyB2dWxuZXJhYmlsaXR5LCBub3QgZXhwbG9pdGFibGUgaW4gb3VyIHVzYWdlKQoqKklzc3VlKio6IFJlZ3VsYXIgZXhwcmVzc2lvbiBSZURvUyBpbiBkYXRlIHBhcnNpbmcKKipTdGF0dXMqKjogTWl0aWdhdGVkIGJ5IHNlY3VyZSB1c2FnZQoKKipDb250ZXh0Kio6Ci0gVXNlZCBmb3IgaW50ZXJuYWwgdGltZXN0YW1wIGZvcm1hdHRpbmcKLSBObyB1c2VyLXN1cHBsaWVkIGlucHV0IHRvIG1vbWVudCBwYXJzaW5nCi0gRGF0ZWQgdmFsdWVzIGZyb20gZGF0YWJhc2Ugb25seQoKKipQbGFuKio6Ci0gVXBncmFkZSB0byBkYXRlLWZucyBpbiBRMyAyMDI2IChiZXR0ZXIgcGVyZm9ybWFuY2UpCgotLS0KCiMjIFN1cHBseSBDaGFpbiBBc3Nlc3NtZW50CgojIyMgQ29tcG9uZW50IFByb3ZlbmFuY2UKLSBSZWdpc3RyeTogMTAwJSBucG0gQ2VudHJhbCAodHJ1c3RlZCBzb3VyY2UpCi0gU2lnbmF0dXJlIHZlcmlmaWNhdGlvbjogTm90IHlldCBpbXBsZW1lbnRlZAotIENoZWNrc3VtIHZhbGlkYXRpb246IEVuYWJsZWQgdmlhIHBhY2thZ2UtbG9jay5qc29uCi0gKipTdGF0dXMqKjogR3JlZW4gLSBhbGwgY29tcG9uZW50cyBmcm9tIG9mZmljaWFsIHJlcG9zaXRvcmllcwoKIyMjIE1haW50ZW5hbmNlIFN0YXR1cwp8IENhdGVnb3J5IHwgQ291bnQgfCBTdGF0dXMgfAp8LS0tLS0tLS0tLXwtLS0tLS0tfC0tLS0tLS0tfAp8IEFjdGl2ZSAodXBkYXRlZCA8Nm1vKSB8IDE3OCB8IOKckyBHb29kIHwKfCBNb2RlcmF0ZSAodXBkYXRlZCA2LTEybW8pIHwgNiB8IOKaoCBNb25pdG9yIHwKfCBJbmFjdGl2ZSAobm8gdXBkYXRlID4xMm1vKSB8IDIgfCDimqAgUGxhbiByZXBsYWNlbWVudCB8CgojIyMgTm90YWJsZSBNYWludGFpbmVkIENvbXBvbmVudHMKLSAqKmV4cHJlc3MqKiAobGF0ZXN0OiA0LjE5LjApIC0gVmVyeSBhY3RpdmVseSBtYWludGFpbmVkCi0gKip0eXBlc2NyaXB0KiogKGxhdGVzdDogNS4yLjApIC0gVmVyeSBhY3RpdmVseSBtYWludGFpbmVkCi0gKipwb3N0Z3JlcyoqIChsYXRlc3Q6IDE1LjApIC0gU3RhYmxlLCBsb25nLXRlcm0gc3VwcG9ydAotICoqamVzdCoqIChsYXRlc3Q6IDI5LjcuMCkgLSBWZXJ5IGFjdGl2ZWx5IG1haW50YWluZWQKCi0tLQoKIyMgVnVsbmVyYWJpbGl0eSBNb25pdG9yaW5nCgojIyMgQ3VycmVudCBTdWJzY3JpcHRpb24KLSBTbnlrIFBybzogUmVhbC10aW1lIHZ1bG5lcmFiaWxpdHkgbm90aWZpY2F0aW9ucwotIEJsYWNrIER1Y2s6IFF1YXJ0ZXJseSBjb21wcmVoZW5zaXZlIHNjYW5zCi0gTlBNIEF1ZGl0OiBJbnRlZ3JhdGVkIGluIENJL0NEIHBpcGVsaW5lCgojIyMgSW5jaWRlbnQgUmVzcG9uc2UKLSBDcml0aWNhbCB2dWxuZXJhYmlsaXRpZXM6IFBhdGNoZWQgd2l0aGluIDI0IGhvdXJzCi0gSGlnaCB2dWxuZXJhYmlsaXRpZXM6IFBhdGNoZWQgd2l0aGluIDEgd2VlawotIE1lZGl1bSB2dWxuZXJhYmlsaXRpZXM6IFBhdGNoZWQgd2l0aGluIDEgbW9udGgKCi0tLQoKIyMgUmVjb21tZW5kYXRpb25zCgoqKlByaW9yaXR5IDEgLSBJbW1lZGlhdGUqKgoxLiBEb2N1bWVudCBsb2Rhc2gubWVyZ2UgdXNhZ2Ugc2NvcGUgKGNvbXBsZXRlIGJ5IDIwMjYtMDMtMTUpCjIuIEltcGxlbWVudCBpbnB1dCB2YWxpZGF0aW9uIGZvciBzZW5zaXRpdmUgbWVyZ2Ugb3BlcmF0aW9ucwoKKipQcmlvcml0eSAyIC0gU2hvcnQgVGVybSAoUTIgMjAyNikqKgoxLiBSZXBsYWNlIGNyeXB0by1qcyB1c2FnZSB3aXRoIG5hdGl2ZSBXZWIgQ3J5cHRvIEFQSQoyLiBVcGdyYWRlIG1vbWVudC5qcyB0byBkYXRlLWZucwozLiBJbXBsZW1lbnQgYXJ0aWZhY3Qgc2lnbmF0dXJlIHZlcmlmaWNhdGlvbgoKKipQcmlvcml0eSAzIC0gTWVkaXVtIFRlcm0gKFEzIDIwMjYpKioKMS4gRXN0YWJsaXNoIHF1YXJ0ZXJseSBkZXBlbmRlbmN5IGF1ZGl0IHByb2Nlc3MKMi4gRXZhbHVhdGUgU0JPTSBhdXRvbWF0aW9uIHRvb2xpbmcKMy4gSW1wbGVtZW50IHN1cHBseSBjaGFpbiByaXNrIHNjb3JpbmcKCi0tLQoKIyMgQXNzZXNzbWVudCBBcHByb3ZhbAotIEFzc2Vzc2VkIGJ5OiBKYW5lIFRob21wc29uIChTZWN1cml0eSBMZWFkKQotIFJldmlld2VkIGJ5OiBNYXJrIFdpbHNvbiAoQXJjaGl0ZWN0dXJlKQotIEFwcHJvdmVkOiAyMDI2LTAyLTI4Ci0gTmV4dCBBc3Nlc3NtZW50OiAyMDI2LTA1LTI4Cg==",
+      "content_hash": "1f1b3ab0f094de0b9589183e1f1bf093eae9a5af8b8b478ebbfb0ab4450bb42e"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000007",
+      "evidence_id": "00000000-0000-4000-f400-100000000007",
+      "filename": "sdlc-roles-training.md",
+      "content_type": "text/markdown",
+      "size_bytes": 2421,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000007/sdlc-roles-training.md",
+      "binary_content": "IyBTRExDIFJvbGUgRGVmaW5pdGlvbnMgYW5kIFRyYWluaW5nIFJlY29yZHMKIyMgQWNtZSBDb3Jwb3JhdGlvbiAtIFNlY3VyZSBEZXZlbG9wbWVudCBMaWZlY3ljbGUKCiMjIyBEb2N1bWVudCBDb250cm9sCi0gKipWZXJzaW9uKio6IDIuMQotICoqTGFzdCBVcGRhdGVkKio6IDIwMjYtMDEtMTUKLSAqKk93bmVyKio6IFNlY3VyaXR5IEVuZ2luZWVyaW5nIFRlYW0KLSAqKkNsYXNzaWZpY2F0aW9uKio6IEludGVybmFsCgojIyAxLiBEZWZpbmVkIFJvbGVzCgojIyMgMS4xIFNlY3VyaXR5IENoYW1waW9uCi0gKipSZXNwb25zaWJpbGl0aWVzKio6IEVtYmVkZGVkIHNlY3VyaXR5IGFkdm9jYXRlIHdpdGhpbiBlYWNoIGRldmVsb3BtZW50IHRlYW0KLSAqKlRyYWluaW5nIFJlcXVpcmVkKio6IE9XQVNQIFRvcCAxMCwgU2VjdXJlIENvZGluZyBGb3VuZGF0aW9ucywgVGhyZWF0IE1vZGVsaW5nCi0gKipDdXJyZW50IFN0YWZmKio6IDEyIHNlY3VyaXR5IGNoYW1waW9ucyBhY3Jvc3MgOCBkZXZlbG9wbWVudCB0ZWFtcwoKIyMjIDEuMiBTZWN1cml0eSBBcmNoaXRlY3QKLSAqKlJlc3BvbnNpYmlsaXRpZXMqKjogRGVzaWduIHJldmlldywgYXJjaGl0ZWN0dXJlIHJpc2sgYW5hbHlzaXMsIHNlY3VyaXR5IHBhdHRlcm4gZ3VpZGFuY2UKLSAqKlRyYWluaW5nIFJlcXVpcmVkKio6IENTU0xQLCBjbG91ZCBzZWN1cml0eSBhcmNoaXRlY3R1cmUsIHplcm8gdHJ1c3QgZGVzaWduCi0gKipDdXJyZW50IFN0YWZmKio6IDMgc2VuaW9yIHNlY3VyaXR5IGFyY2hpdGVjdHMKCiMjIyAxLjMgU29mdHdhcmUgRGV2ZWxvcGVyCi0gKipTZWN1cml0eSBSZXNwb25zaWJpbGl0aWVzKio6IFNlY3VyZSBjb2RpbmcgcHJhY3RpY2VzLCBjb2RlIHJldmlldyBwYXJ0aWNpcGF0aW9uLCB2dWxuZXJhYmlsaXR5IHJlbWVkaWF0aW9uCi0gKipUcmFpbmluZyBSZXF1aXJlZCoqOiBBbm51YWwgc2VjdXJlIGNvZGluZyB0cmFpbmluZyAobGFuZ3VhZ2Utc3BlY2lmaWMpLCBPV0FTUCBhd2FyZW5lc3MKLSAqKkN1cnJlbnQgU3RhZmYqKjogODcgZGV2ZWxvcGVycyBhY3Jvc3MgYWxsIHRlYW1zCgojIyMgMS40IFFBL1NlY3VyaXR5IFRlc3RlcgotICoqUmVzcG9uc2liaWxpdGllcyoqOiBTZWN1cml0eSB0ZXN0IGNhc2UgZGV2ZWxvcG1lbnQsIERBU1QgZXhlY3V0aW9uLCByZWdyZXNzaW9uIHRlc3RpbmcKLSAqKlRyYWluaW5nIFJlcXVpcmVkKio6IFNlY3VyaXR5IHRlc3RpbmcgZnVuZGFtZW50YWxzLCB0b29sLXNwZWNpZmljIGNlcnRpZmljYXRpb24KLSAqKkN1cnJlbnQgU3RhZmYqKjogOCBRQSBlbmdpbmVlcnMgd2l0aCBzZWN1cml0eSBmb2N1cwoKIyMjIDEuNSBEZXZPcHMvQnVpbGQgRW5naW5lZXIKLSAqKlJlc3BvbnNpYmlsaXRpZXMqKjogQ0kvQ0QgcGlwZWxpbmUgc2VjdXJpdHksIGJ1aWxkIGludGVncml0eSwgZGVwbG95bWVudCB2ZXJpZmljYXRpb24KLSAqKlRyYWluaW5nIFJlcXVpcmVkKio6IENvbnRhaW5lciBzZWN1cml0eSwgaW5mcmFzdHJ1Y3R1cmUtYXMtY29kZSBzZWN1cml0eSwgc3VwcGx5IGNoYWluIHNlY3VyaXR5Ci0gKipDdXJyZW50IFN0YWZmKio6IDYgRGV2T3BzIGVuZ2luZWVycwoKIyMgMi4gVHJhaW5pbmcgQ29tcGxldGlvbiBSZWNvcmRzCgojIyMgMi4xIEZZMjAyNSBUcmFpbmluZyBTdW1tYXJ5CnwgVHJhaW5pbmcgTW9kdWxlIHwgRWxpZ2libGUgU3RhZmYgfCBDb21wbGV0ZWQgfCBSYXRlIHwKfC0tLS0tLS0tLS0tLS0tLS18LS0tLS0tLS0tLS0tLS0tfC0tLS0tLS0tLS0tfC0tLS0tLXwKfCBTZWN1cmUgQ29kaW5nIEZvdW5kYXRpb25zIHwgODcgfCA4NSB8IDk3LjclIHwKfCBPV0FTUCBUb3AgMTAgMjAyNSB8IDExMiB8IDEwOSB8IDk3LjMlIHwKfCBUaHJlYXQgTW9kZWxpbmcgV29ya3Nob3AgfCAyNCB8IDI0IHwgMTAwJSB8CnwgQ2xvdWQgU2VjdXJpdHkgQXJjaGl0ZWN0dXJlIHwgMTUgfCAxNCB8IDkzLjMlIHwKfCBTdXBwbHkgQ2hhaW4gU2VjdXJpdHkgfCAxOCB8IDE4IHwgMTAwJSB8CnwgSW5jaWRlbnQgUmVzcG9uc2UgVGFibGV0b3AgfCAzMCB8IDI4IHwgOTMuMyUgfAoKIyMjIDIuMiBDZXJ0aWZpY2F0aW9uIFN0YXR1cwotIENTU0xQIENlcnRpZmllZDogNSBzdGFmZiBtZW1iZXJzCi0gQ0VIIENlcnRpZmllZDogMyBzdGFmZiBtZW1iZXJzCi0gQVdTIFNlY3VyaXR5IFNwZWNpYWx0eTogNCBzdGFmZiBtZW1iZXJzCi0gQ0tTIChLdWJlcm5ldGVzIFNlY3VyaXR5KTogMiBzdGFmZiBtZW1iZXJzCgojIyAzLiBSb2xlIFJldmlldyBTY2hlZHVsZQotIFF1YXJ0ZXJseSByZXZpZXcgb2Ygcm9sZSBkZWZpbml0aW9ucyBhbmQgcmVzcG9uc2liaWxpdGllcwotIEFubnVhbCBjb21wcmVoZW5zaXZlIHRyYWluaW5nIG5lZWRzIGFzc2Vzc21lbnQKLSBMYXN0IHJldmlldyBjb21wbGV0ZWQ6IDIwMjUtMTItMTUKLSBOZXh0IHJldmlldyBzY2hlZHVsZWQ6IDIwMjYtMDMtMTUK",
+      "content_hash": "e82ff2871a44702cde60272c57397447aab6b762fafe38eb2c751502dc997359"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000008",
+      "evidence_id": "00000000-0000-4000-f400-100000000008",
+      "filename": "security-gate-criteria.md",
+      "content_type": "text/markdown",
+      "size_bytes": 2486,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000008/security-gate-criteria.md",
+      "binary_content": "IyBTZWN1cml0eSBHYXRlIENyaXRlcmlhIERvY3VtZW50YXRpb24KIyMgQWNtZSBDb3Jwb3JhdGlvbiBTRExDIFNlY3VyaXR5IEdhdGVzCgojIyMgRG9jdW1lbnQgQ29udHJvbAotICoqVmVyc2lvbioqOiAzLjAKLSAqKkxhc3QgVXBkYXRlZCoqOiAyMDI2LTAxLTEwCi0gKipPd25lcioqOiBBcHBsaWNhdGlvbiBTZWN1cml0eSBUZWFtCgojIyAxLiBHYXRlIE92ZXJ2aWV3CgpUaGUgU0RMQyBpbmNsdWRlcyBmaXZlIG1hbmRhdG9yeSBzZWN1cml0eSBnYXRlczoKCnwgR2F0ZSB8IFBoYXNlIHwgQ3JpdGVyaWEgfCBBcHByb3ZlciB8CnwtLS0tLS18LS0tLS0tLXwtLS0tLS0tLS0tfC0tLS0tLS0tLS18CnwgRzEgfCBSZXF1aXJlbWVudHMgfCBUaHJlYXQgbW9kZWwgY29tcGxldGUsIHNlY3VyaXR5IHJlcXVpcmVtZW50cyBkZWZpbmVkIHwgU2VjdXJpdHkgQXJjaGl0ZWN0IHwKfCBHMiB8IERlc2lnbiB8IERlc2lnbiByZXZpZXcgcGFzc2VkLCBubyBoaWdoLXJpc2sgcGF0dGVybnMgfCBTZWN1cml0eSBDaGFtcGlvbiB8CnwgRzMgfCBJbXBsZW1lbnRhdGlvbiB8IFNBU1QgY2xlYW4gKG5vIGNyaXRpY2FsL2hpZ2gpLCBjb2RlIHJldmlldyBjb21wbGV0ZSB8IFRlY2ggTGVhZCArIFNlY3VyaXR5IHwKfCBHNCB8IFRlc3RpbmcgfCBEQVNUIGNvbXBsZXRlLCBwZW50ZXN0IGZpbmRpbmdzIHJlbWVkaWF0ZWQgfCBRQSBMZWFkICsgU2VjdXJpdHkgfAp8IEc1IHwgUmVsZWFzZSB8IFNCT00gZ2VuZXJhdGVkLCBhcnRpZmFjdHMgc2lnbmVkLCBjb25maWcgYmFzZWxpbmUgdmVyaWZpZWQgfCBSZWxlYXNlIE1hbmFnZXIgfAoKIyMgMi4gR2F0ZSBHMTogUmVxdWlyZW1lbnRzIFBoYXNlCiMjIyBFbnRyeSBDcml0ZXJpYQotIEZlYXR1cmUgcmVxdWlyZW1lbnRzIGRvY3VtZW50ZWQgaW4gSmlyYQotIEJ1c2luZXNzIHJpc2sgY2xhc3NpZmljYXRpb24gYXNzaWduZWQKCiMjIyBFeGl0IENyaXRlcmlhCi0gVGhyZWF0IG1vZGVsIGNyZWF0ZWQgdXNpbmcgU1RSSURFIG1ldGhvZG9sb2d5Ci0gU2VjdXJpdHkgcmVxdWlyZW1lbnRzIHRyYWNlYWJsZSB0byBTU0RGIHByYWN0aWNlcwotIERhdGEgY2xhc3NpZmljYXRpb24gY29tcGxldGVkIGZvciBuZXcgZGF0YSBmbG93cwotIFByaXZhY3kgaW1wYWN0IGFzc2Vzc21lbnQgKGlmIFBJSSBpbnZvbHZlZCkKCiMjIDMuIEdhdGUgRzI6IERlc2lnbiBQaGFzZQojIyMgRW50cnkgQ3JpdGVyaWEKLSBHMSBwYXNzZWQKLSBBcmNoaXRlY3R1cmUgZG9jdW1lbnRhdGlvbiBhdmFpbGFibGUKCiMjIyBFeGl0IENyaXRlcmlhCi0gSW5kZXBlbmRlbnQgc2VjdXJpdHkgZGVzaWduIHJldmlldyBjb21wbGV0ZWQKLSBObyB1bm1pdGlnYXRlZCBoaWdoLXJpc2sgZGVzaWduIHBhdHRlcm5zCi0gQXV0aGVudGljYXRpb24vYXV0aG9yaXphdGlvbiBkZXNpZ24gYXBwcm92ZWQKLSBDcnlwdG9ncmFwaGljIGRlc2lnbiByZXZpZXdlZCAoaWYgYXBwbGljYWJsZSkKCiMjIDQuIEdhdGUgRzM6IEltcGxlbWVudGF0aW9uIFBoYXNlCiMjIyBFbnRyeSBDcml0ZXJpYQotIEcyIHBhc3NlZAotIERldmVsb3BtZW50IGVudmlyb25tZW50IGNvbmZpZ3VyZWQgcGVyIHNlY3VyaXR5IGJhc2VsaW5lCgojIyMgRXhpdCBDcml0ZXJpYQotIFNBU1Qgc2NhbjogemVybyBjcml0aWNhbCwgemVybyBoaWdoIGZpbmRpbmdzCi0gQWxsIGNvZGUgY2hhbmdlcyBwZWVyLXJldmlld2VkIHdpdGggc2VjdXJpdHkgY2hlY2tsaXN0Ci0gU2VjcmV0cyBzY2FubmluZzogbm8gZW1iZWRkZWQgY3JlZGVudGlhbHMKLSBEZXBlbmRlbmN5IGNoZWNrOiBubyBrbm93biBjcml0aWNhbCB2dWxuZXJhYmlsaXRpZXMKCiMjIDUuIEdhdGUgRzQ6IFRlc3RpbmcgUGhhc2UKIyMjIEVudHJ5IENyaXRlcmlhCi0gRzMgcGFzc2VkCi0gVGVzdCBlbnZpcm9ubWVudCBtaXJyb3JzIHByb2R1Y3Rpb24gY29uZmlndXJhdGlvbgoKIyMjIEV4aXQgQ3JpdGVyaWEKLSBEQVNUIHNjYW4gY29tcGxldGVkIHdpdGggbm8gY3JpdGljYWwgZmluZGluZ3MKLSBQZW5ldHJhdGlvbiB0ZXN0IChmb3IgbWFqb3IgcmVsZWFzZXMpIGZpbmRpbmdzIHJlbWVkaWF0ZWQKLSBTZWN1cml0eSByZWdyZXNzaW9uIHRlc3RzIHBhc3NpbmcKLSBMb2FkL3N0cmVzcyB0ZXN0aW5nIHZhbGlkYXRlcyBubyBzZWN1cml0eSBkZWdyYWRhdGlvbgoKIyMgNi4gR2F0ZSBHNTogUmVsZWFzZSBQaGFzZQojIyMgRW50cnkgQ3JpdGVyaWEKLSBHNCBwYXNzZWQKLSBSZWxlYXNlIGNhbmRpZGF0ZSBidWlsdCBmcm9tIHZlcmlmaWVkIHNvdXJjZQoKIyMjIEV4aXQgQ3JpdGVyaWEKLSBTQk9NIGdlbmVyYXRlZCBhbmQgdmFsaWRhdGVkCi0gQnVpbGQgYXJ0aWZhY3RzIHNpZ25lZCB3aXRoIHJlbGVhc2Uga2V5Ci0gQ29uZmlndXJhdGlvbiBiYXNlbGluZSB2ZXJpZmllZCBhZ2FpbnN0IGhhcmRlbmluZyBndWlkZQotIFJlbGVhc2Ugbm90ZXMgaW5jbHVkZSBzZWN1cml0eS1yZWxldmFudCBjaGFuZ2VzCi0gUm9sbGJhY2sgcHJvY2VkdXJlIGRvY3VtZW50ZWQgYW5kIHRlc3RlZAo=",
+      "content_hash": "54ea533831f23197f42c3fbb081c5ae3e093aed8a4373f5cd80b8af70f1c7679"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000009",
+      "evidence_id": "00000000-0000-4000-f400-100000000009",
+      "filename": "dev-environment-security.md",
+      "content_type": "text/markdown",
+      "size_bytes": 1807,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000009/dev-environment-security.md",
+      "binary_content": "IyBEZXZlbG9wbWVudCBFbnZpcm9ubWVudCBTZWN1cml0eSBQb2xpY3kKIyMgQWNtZSBDb3Jwb3JhdGlvbgoKIyMjIERvY3VtZW50IENvbnRyb2wKLSAqKlZlcnNpb24qKjogMi4wCi0gKipFZmZlY3RpdmUgRGF0ZSoqOiAyMDI1LTA5LTAxCi0gKipDbGFzc2lmaWNhdGlvbioqOiBDb25maWRlbnRpYWwKCiMjIDEuIEVudmlyb25tZW50IFNlZ21lbnRhdGlvbgoKIyMjIDEuMSBFbnZpcm9ubWVudCBUaWVycwp8IEVudmlyb25tZW50IHwgTmV0d29yayBTZWdtZW50IHwgQWNjZXNzIExldmVsIHwgRGF0YSBBbGxvd2VkIHwKfC0tLS0tLS0tLS0tLS18LS0tLS0tLS0tLS0tLS0tLXwtLS0tLS0tLS0tLS0tLXwtLS0tLS0tLS0tLS0tLXwKfCBEZXZlbG9wbWVudCB8IDEwLjEwLjAuMC8xNiB8IERldmVsb3BlciBWUE4gfCBTeW50aGV0aWMgb25seSB8CnwgQnVpbGQvQ0kgfCAxMC4yMC4wLjAvMTYgfCBDSSBzZXJ2aWNlIGFjY291bnRzIHwgU291cmNlICsgZGVwcyB8CnwgU3RhZ2luZyB8IDEwLjMwLjAuMC8xNiB8IFFBICsgRGV2IGxlYWRzIHwgQW5vbnltaXplZCBwcm9kIHwKfCBQcm9kdWN0aW9uIHwgMTAuNDAuMC4wLzE2IHwgU1JFICsgT3BzIG9ubHkgfCBMaXZlIGRhdGEgfAoKIyMjIDEuMiBOZXR3b3JrIENvbnRyb2xzCi0gRWFjaCBlbnZpcm9ubWVudCBpc29sYXRlZCBpbiBzZXBhcmF0ZSBWUEMKLSBObyBkaXJlY3QgY29ubmVjdGl2aXR5IGJldHdlZW4gZGV2IGFuZCBwcm9kdWN0aW9uCi0gQWxsIGludGVyLWVudmlyb25tZW50IHRyYWZmaWMgdGhyb3VnaCBBUEkgZ2F0ZXdheSB3aXRoIG1UTFMKLSBFZ3Jlc3MgZmlsdGVyaW5nIGJsb2NrcyB1bmF1dGhvcml6ZWQgZXh0ZXJuYWwgYWNjZXNzCgojIyAyLiBEZXZlbG9wZXIgRW5kcG9pbnQgU2VjdXJpdHkKCiMjIyAyLjEgUmVxdWlyZWQgQ29udHJvbHMKLSBFbmRwb2ludCBEZXRlY3Rpb24gYW5kIFJlc3BvbnNlIChDcm93ZFN0cmlrZSBGYWxjb24pCi0gRnVsbCBkaXNrIGVuY3J5cHRpb24gKEZpbGVWYXVsdC9CaXRMb2NrZXIpCi0gT1MgYXV0by11cGRhdGUgZW5hYmxlZAotIFNjcmVlbiBsb2NrIGFmdGVyIDUgbWludXRlcyBpbmFjdGl2aXR5Ci0gQ29ycG9yYXRlIFZQTiBmb3IgYWxsIGRldmVsb3BtZW50IG5ldHdvcmsgYWNjZXNzCgojIyMgMi4yIFNvZnR3YXJlIEFsbG93bGlzdAotIElERTogVlMgQ29kZSwgSW50ZWxsaUogSURFQSwgUHlDaGFybSAobWFuYWdlZCB2ZXJzaW9ucykKLSBDb250YWluZXJzOiBEb2NrZXIgRGVza3RvcCB3aXRoIEt1YmVybmV0ZXMgKGNvcnAgbWFuYWdlZCkKLSBTb3VyY2UgY29udHJvbDogR2l0IENMSSwgR2l0SHViIERlc2t0b3AKLSBBbGwgb3RoZXIgc29mdHdhcmUgcmVxdWlyZXMgSVQgU2VjdXJpdHkgYXBwcm92YWwKCiMjIDMuIFNlY3JldHMgTWFuYWdlbWVudAotIEhhc2hpQ29ycCBWYXVsdCBmb3IgYWxsIGRldmVsb3BtZW50IHNlY3JldHMKLSBObyBzZWNyZXRzIGluIHNvdXJjZSBjb2RlIChlbmZvcmNlZCBieSBwcmUtY29tbWl0IGhvb2tzKQotIERldmVsb3BlciBjcmVkZW50aWFscyByb3RhdGVkIGV2ZXJ5IDkwIGRheXMKLSBTZXJ2aWNlIGFjY291bnRzIHVzZSBzaG9ydC1saXZlZCB0b2tlbnMgKDEgaG91ciBtYXgpCgojIyA0LiBBY2Nlc3MgQ29udHJvbAotIEdpdEh1YiBFbnRlcnByaXNlIHdpdGggU1NPIChPa3RhKQotIEJyYW5jaCBwcm90ZWN0aW9uIG9uIGFsbCByZXBvc2l0b3JpZXMKLSBSZXF1aXJlZCBQUiByZXZpZXdzIChtaW5pbXVtIDIsIGluY2x1ZGluZyAxIHNlY3VyaXR5IGNoYW1waW9uKQotIEFkbWluIGFjY2VzcyByZXF1aXJlcyBzZWN1cml0eSB0ZWFtIGFwcHJvdmFsCg==",
+      "content_hash": "a06617980ee1f0551258ebe63e14acdbf74ec2ca95d62a9a1158d2a7a8145bd5"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000010",
+      "evidence_id": "00000000-0000-4000-f400-100000000010",
+      "filename": "source-code-access-control.md",
+      "content_type": "text/markdown",
+      "size_bytes": 1823,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000010/source-code-access-control.md",
+      "binary_content": "IyBTb3VyY2UgQ29kZSBBY2Nlc3MgQ29udHJvbCBDb25maWd1cmF0aW9uCiMjIEFjbWUgQ29ycG9yYXRpb24gLSBHaXRIdWIgRW50ZXJwcmlzZQoKIyMjIEF1ZGl0IERhdGU6IDIwMjYtMDEtMjAKIyMjIEF1ZGl0b3I6IFNlY3VyaXR5IEVuZ2luZWVyaW5nIFRlYW0KCiMjIDEuIE9yZ2FuaXphdGlvbiBTZXR0aW5ncwoKIyMjIDEuMSBBdXRoZW50aWNhdGlvbgotIFNTTyBQcm92aWRlcjogT2t0YSAoU0FNTCAyLjApCi0gTUZBIFJlcXVpcmVtZW50OiBFbmZvcmNlZCBmb3IgYWxsIG1lbWJlcnMKLSBTU0ggS2V5IFBvbGljeTogRWQyNTUxOSBvciBSU0EtNDA5NiBtaW5pbXVtCi0gUGVyc29uYWwgQWNjZXNzIFRva2VuczogRmluZS1ncmFpbmVkIG9ubHksIDkwLWRheSBtYXggZXhwaXJ5CgojIyMgMS4yIE1lbWJlciBQcml2aWxlZ2VzCi0gRGVmYXVsdCByZXBvc2l0b3J5IHBlcm1pc3Npb246IFJlYWQKLSBSZXBvc2l0b3J5IGNyZWF0aW9uOiBBZG1pbiBvbmx5Ci0gRm9ya2luZzogRGlzYWJsZWQgZm9yIHByaXZhdGUgcmVwb3NpdG9yaWVzCi0gT3V0c2lkZSBjb2xsYWJvcmF0b3JzOiBSZXF1aXJlcyBhZG1pbiBhcHByb3ZhbAoKIyMgMi4gQnJhbmNoIFByb3RlY3Rpb24gUnVsZXMKCiMjIyAyLjEgTWFpbi9SZWxlYXNlIEJyYW5jaGVzCi0gUmVxdWlyZWQgUFIgcmV2aWV3czogMiAoaW5jbHVkaW5nIDEgQ09ERU9XTkVSUyBtYXRjaCkKLSBEaXNtaXNzIHN0YWxlIHJldmlld3Mgb24gbmV3IGNvbW1pdHM6IEVuYWJsZWQKLSBSZXF1aXJlIHJldmlldyBmcm9tIGNvZGUgb3duZXJzOiBFbmFibGVkCi0gUmVxdWlyZSBzdGF0dXMgY2hlY2tzOiBTQVNULCB1bml0IHRlc3RzLCBpbnRlZ3JhdGlvbiB0ZXN0cywgbGljZW5zZSBjaGVjawotIFJlcXVpcmUgc2lnbmVkIGNvbW1pdHM6IEVuYWJsZWQgKEdQRyBvciBTU0gpCi0gRm9yY2UgcHVzaDogRGlzYWJsZWQKLSBCcmFuY2ggZGVsZXRpb246IERpc2FibGVkCgojIyMgMi4yIERldmVsb3BtZW50IEJyYW5jaGVzCi0gUmVxdWlyZWQgUFIgcmV2aWV3czogMQotIFJlcXVpcmUgc3RhdHVzIGNoZWNrczogdW5pdCB0ZXN0cywgbGludGluZwotIEZvcmNlIHB1c2g6IEFsbG93ZWQgKG93biBicmFuY2hlcyBvbmx5KQoKIyMgMy4gQ09ERU9XTkVSUyBDb25maWd1cmF0aW9uCmBgYAojIFNlY3VyaXR5LXNlbnNpdGl2ZSBwYXRocyByZXF1aXJlIHNlY3VyaXR5IHRlYW0gcmV2aWV3Ci9zcmMvYXV0aC8qKiAgICAgIEBhY21lL3NlY3VyaXR5LWNoYW1waW9ucwovc3JjL2NyeXB0by8qKiAgICBAYWNtZS9zZWN1cml0eS1hcmNoaXRlY3RzCi9jb25maWcvc2VjdXJpdHkqIEBhY21lL3NlY3VyaXR5LWFyY2hpdGVjdHMKL0RvY2tlcmZpbGUgICAgICAgQGFjbWUvZGV2b3BzLXNlY3VyaXR5Ci8uZ2l0aHViL3dvcmtmbG93cy8qKiBAYWNtZS9kZXZvcHMtc2VjdXJpdHkKYGBgCgojIyA0LiBTZWNyZXRzIFNjYW5uaW5nCi0gR2l0SHViIEFkdmFuY2VkIFNlY3VyaXR5OiBFbmFibGVkCi0gQ3VzdG9tIHBhdHRlcm5zOiBBV1Mga2V5cywgZGF0YWJhc2UgY29ubmVjdGlvbiBzdHJpbmdzLCBBUEkgdG9rZW5zCi0gUHVzaCBwcm90ZWN0aW9uOiBFbmFibGVkIChibG9ja3MgY29tbWl0cyB3aXRoIGRldGVjdGVkIHNlY3JldHMpCi0gQWxlcnQgbm90aWZpY2F0aW9uczogU2VjdXJpdHkgdGVhbSBTbGFjayBjaGFubmVsICsgZW1haWwKCiMjIDUuIEF1ZGl0IFN1bW1hcnkKLSBUb3RhbCByZXBvc2l0b3JpZXM6IDE0MgotIENvbXBsaWFudCByZXBvc2l0b3JpZXM6IDEzOSAoOTcuOSUpCi0gTm9uLWNvbXBsaWFudDogMyAobGVnYWN5IHJlcG9zLCBtaWdyYXRpb24gc2NoZWR1bGVkIGZvciBRMiAyMDI2KQo=",
+      "content_hash": "6081e050182d25cc83828152c79e8bb103178a639347ee2ab941ce750ef8edbd"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000011",
+      "evidence_id": "00000000-0000-4000-f400-100000000011",
+      "filename": "software-integrity-verification.md",
+      "content_type": "text/markdown",
+      "size_bytes": 1639,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000011/software-integrity-verification.md",
+      "binary_content": "IyBTb2Z0d2FyZSBJbnRlZ3JpdHkgVmVyaWZpY2F0aW9uIFJlY29yZHMKIyMgQWNtZSBDb3Jwb3JhdGlvbgoKIyMjIFBlcmlvZDogRlkyMDI1LTIwMjYKIyMjIENsYXNzaWZpY2F0aW9uOiBJbnRlcm5hbAoKIyMgMS4gQ29kZSBTaWduaW5nIEluZnJhc3RydWN0dXJlCgojIyMgMS4xIFNpZ25pbmcgS2V5cwp8IEtleSBQdXJwb3NlIHwgQWxnb3JpdGhtIHwgS2V5IExlbmd0aCB8IFN0b3JhZ2UgfCBSb3RhdGlvbiB8CnwtLS0tLS0tLS0tLS0tfC0tLS0tLS0tLS0tfC0tLS0tLS0tLS0tLXwtLS0tLS0tLS18LS0tLS0tLS0tLXwKfCBSZWxlYXNlIHNpZ25pbmcgfCBSU0EgfCA0MDk2LWJpdCB8IEhTTSAoQVdTIENsb3VkSFNNKSB8IEFubnVhbCB8CnwgQ29udGFpbmVyIHNpZ25pbmcgfCBFQ0RTQSB8IFAtMzg0IHwgU2lnc3RvcmUvQ29zaWduIHwgUGVyLXJlbGVhc2UgfAp8IFNCT00gc2lnbmluZyB8IEVkMjU1MTkgfCAyNTYtYml0IHwgSFNNIHwgQW5udWFsIHwKfCBHaXQgY29tbWl0cyB8IEVkMjU1MTkgfCAyNTYtYml0IHwgRGV2ZWxvcGVyIFl1YmlLZXkgfCAyIHllYXJzIHwKCiMjIyAxLjIgU2lnbmluZyBQcm9jZXNzCjEuIEJ1aWxkIHN5c3RlbSBwcm9kdWNlcyBhcnRpZmFjdHMgaW4gaXNvbGF0ZWQgQ0kgZW52aXJvbm1lbnQKMi4gU0hBLTI1NiBkaWdlc3QgY29tcHV0ZWQgZm9yIGFsbCBhcnRpZmFjdHMKMy4gUmVsZWFzZSBtYW5hZ2VyIGluaXRpYXRlcyBzaWduaW5nIHZpYSBIU00gQVBJCjQuIFNpZ25lZCBhcnRpZmFjdHMgcHVibGlzaGVkIHRvIGludGVybmFsIHJlZ2lzdHJ5CjUuIFZlcmlmaWNhdGlvbiBwZXJmb3JtZWQgYXV0b21hdGljYWxseSBvbiBkZXBsb3ltZW50CgojIyAyLiBCdWlsZCBSZXByb2R1Y2liaWxpdHkKCiMjIyAyLjEgUmVwcm9kdWNpYmlsaXR5IFJhdGUKLSBRMyAyMDI1OiA5NC4yJSBvZiBidWlsZHMgcmVwcm9kdWNlZCBpZGVudGljYWxseQotIFE0IDIwMjU6IDk2LjglIChpbXByb3ZlZCBjb250YWluZXIgbGF5ZXIgY2FjaGluZykKLSBRMSAyMDI2OiA5Ny4xJSAocGlubmVkIGFsbCB0cmFuc2l0aXZlIGRlcGVuZGVuY2llcykKCiMjIyAyLjIgTm9uLXJlcHJvZHVjaWJsZSBSb290IENhdXNlcwotIFRpbWVzdGFtcCBlbWJlZGRpbmcgaW4gbWV0YWRhdGE6IDIuMSUKLSBGbG9hdGluZyBkZXBlbmRlbmN5IHZlcnNpb25zOiAwLjUlCi0gQnVpbGQgZW52aXJvbm1lbnQgZHJpZnQ6IDAuMyUKCiMjIDMuIEFydGlmYWN0IFZlcmlmaWNhdGlvbiBSZWNvcmRzCgojIyMgMy4xIFJlbGVhc2UgdjIuMS4wICgyMDI1LTExLTE1KQotIFNIQS0yNTY6IGEzZjhiMmMxZDRlNWY2Li4uCi0gU2lnbmF0dXJlIHZlcmlmaWVkOiBQQVNTCi0gU0JPTSBzaWduYXR1cmUgdmVyaWZpZWQ6IFBBU1MKLSBDb250YWluZXIgaW1hZ2Ugc2lnbmVkOiBQQVNTIChDb3NpZ24gKyBGdWxjaW8pCi0gU0xTQSBQcm92ZW5hbmNlIExldmVsOiAzCgojIyMgMy4yIFJlbGVhc2UgdjIuMi4wICgyMDI2LTAxLTIwKQotIFNIQS0yNTY6IGI3YzlkM2U0ZjVhNmI3Li4uCi0gU2lnbmF0dXJlIHZlcmlmaWVkOiBQQVNTCi0gU0JPTSBzaWduYXR1cmUgdmVyaWZpZWQ6IFBBU1MKLSBDb250YWluZXIgaW1hZ2Ugc2lnbmVkOiBQQVNTIChDb3NpZ24gKyBGdWxjaW8pCi0gU0xTQSBQcm92ZW5hbmNlIExldmVsOiAzCg==",
+      "content_hash": "0531f74f68f52cbe3ff42f8040ba974d811837a05885b9cf45891567e2246fec"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000012",
+      "evidence_id": "00000000-0000-4000-f400-100000000012",
+      "filename": "release-archive-provenance.md",
+      "content_type": "text/markdown",
+      "size_bytes": 1409,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000012/release-archive-provenance.md",
+      "binary_content": "IyBSZWxlYXNlIEFyY2hpdmUgYW5kIFByb3ZlbmFuY2UgUmVjb3JkcwojIyBBY21lIENvcnBvcmF0aW9uCgojIyMgUGVyaW9kOiBGWTIwMjUtMjAyNgoKIyMgMS4gUmVsZWFzZSBBcmNoaXZlIFBvbGljeQotIEFsbCByZWxlYXNlcyBhcmNoaXZlZCBpbiBpbW11dGFibGUgc3RvcmFnZSAoQVdTIFMzIEdsYWNpZXIpCi0gUmV0ZW50aW9uIHBlcmlvZDogNyB5ZWFycyBtaW5pbXVtCi0gQXJjaGl2ZSBpbmNsdWRlczogc291cmNlIGNvZGUgc25hcHNob3QsIGJ1aWxkIGFydGlmYWN0cywgU0JPTXMsIHRlc3QgcmVzdWx0cywgcHJvdmVuYW5jZSBhdHRlc3RhdGlvbnMKCiMjIDIuIFByb3ZlbmFuY2UgRGF0YQoKIyMjIDIuMSBTTFNBIFByb3ZlbmFuY2UgU3VtbWFyeQp8IFJlbGVhc2UgfCBTTFNBIExldmVsIHwgQnVpbGRlciB8IFNvdXJjZSB8IEJ1aWxkIENvbmZpZyB8CnwtLS0tLS0tLS18LS0tLS0tLS0tLS18LS0tLS0tLS0tfC0tLS0tLS0tfC0tLS0tLS0tLS0tLS18CnwgdjIuMC4wIHwgTGV2ZWwgMiB8IEdpdEh1YiBBY3Rpb25zIHwgR2l0SHViIHwgVmVyaWZpZWQgfAp8IHYyLjEuMCB8IExldmVsIDMgfCBHaXRIdWIgQWN0aW9ucyB8IEdpdEh1YiB8IFZlcmlmaWVkICsgSGVybWV0aWMgfAp8IHYyLjIuMCB8IExldmVsIDMgfCBHaXRIdWIgQWN0aW9ucyB8IEdpdEh1YiB8IFZlcmlmaWVkICsgSGVybWV0aWMgfAoKIyMjIDIuMiBTQk9NIENvdmVyYWdlCnwgUmVsZWFzZSB8IFRvdGFsIENvbXBvbmVudHMgfCBXaXRoIFByb3ZlbmFuY2UgfCBDb3ZlcmFnZSB8CnwtLS0tLS0tLS18LS0tLS0tLS0tLS0tLS0tLS18LS0tLS0tLS0tLS0tLS0tLS18LS0tLS0tLS0tLXwKfCB2Mi4xLjAgfCAxODYgfCAxNTIgfCA4MS43JSB8CnwgdjIuMi4wIHwgMTkzIHwgMTYxIHwgODMuNCUgfAoKKipOb3RlKio6IENvdmVyYWdlIGdhcCBwcmltYXJpbHkgaW4gdHJhbnNpdGl2ZSBvcGVuIHNvdXJjZSBkZXBlbmRlbmNpZXMgd2hlcmUgdXBzdHJlYW0gcHJvamVjdHMgZG8gbm90IHlldCBwcm92aWRlIHByb3ZlbmFuY2UgYXR0ZXN0YXRpb25zLgoKIyMgMy4gSWRlbnRpZmllZCBHYXBzCi0gMzIgT1NTIGNvbXBvbmVudHMgbGFjayB2ZXJpZmlhYmxlIHByb3ZlbmFuY2UgZGF0YQotIDggY29tcG9uZW50cyBzb3VyY2VkIGZyb20gbWlycm9ycyB3aXRob3V0IG9yaWdpbiB2ZXJpZmljYXRpb24KLSBTdXBwbHkgY2hhaW4gZm9yIDMgY3JpdGljYWwgZGVwZW5kZW5jaWVzIG5vdCBmdWxseSBtYXBwZWQKCiMjIDQuIEFyY2hpdmUgVmVyaWZpY2F0aW9uCi0gTW9udGhseSBpbnRlZ3JpdHkgY2hlY2tzIG9uIGFyY2hpdmVkIHJlbGVhc2VzCi0gTGFzdCB2ZXJpZmljYXRpb246IDIwMjYtMDEtMTUgKGFsbCBjaGVja3N1bXMgdmFsaWQpCi0gQ3Jvc3MtcmVnaW9uIHJlcGxpY2F0aW9uOiBVUy1FYXN0LTEsIEVVLVdlc3QtMQo=",
+      "content_hash": "62acc13cf1cba5313a8335e1b91c2d1190f62fc0970aa4d0a73046b1c3d9a622"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000013",
+      "evidence_id": "00000000-0000-4000-f400-100000000013",
+      "filename": "design-review-records.md",
+      "content_type": "text/markdown",
+      "size_bytes": 1419,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000013/design-review-records.md",
+      "binary_content": "IyBTZWN1cml0eSBEZXNpZ24gUmV2aWV3IFJlY29yZHMKIyMgQWNtZSBDb3Jwb3JhdGlvbgoKIyMjIFBlcmlvZDogUTMgMjAyNSAtIFExIDIwMjYKCiMjIDEuIERlc2lnbiBSZXZpZXcgUHJvY2VzcwotIEFsbCBuZXcgZmVhdHVyZXMgdW5kZXJnbyBzZWN1cml0eSBkZXNpZ24gcmV2aWV3IGJlZm9yZSBpbXBsZW1lbnRhdGlvbgotIFJldmlld3MgY29uZHVjdGVkIGJ5IHNlY3VyaXR5IGFyY2hpdGVjdHMgaW5kZXBlbmRlbnQgb2YgZGV2ZWxvcG1lbnQgdGVhbQotIFJldmlldyBjaGVja2xpc3QgY292ZXJzOiBhdXRoZW50aWNhdGlvbiwgYXV0aG9yaXphdGlvbiwgZGF0YSBwcm90ZWN0aW9uLCBpbnB1dCB2YWxpZGF0aW9uLCBjcnlwdG9ncmFwaHksIGxvZ2dpbmcsIGVycm9yIGhhbmRsaW5nCgojIyAyLiBSZXZpZXcgU3VtbWFyeQoKIyMjIDIuMSBSZXZpZXdzIENvbmR1Y3RlZAp8IFF1YXJ0ZXIgfCBSZXZpZXdzIFJlcXVlc3RlZCB8IENvbXBsZXRlZCB8IEZpbmRpbmdzIHwgUmVtZWRpYXRlZCB8CnwtLS0tLS0tLS18LS0tLS0tLS0tLS0tLS0tLS0tfC0tLS0tLS0tLS0tfC0tLS0tLS0tLS18LS0tLS0tLS0tLS0tfAp8IFEzIDIwMjUgfCAxMiB8IDEyIHwgOCB8IDggfAp8IFE0IDIwMjUgfCAxNSB8IDE1IHwgMTEgfCAxMCB8CnwgUTEgMjAyNiB8IDkgfCA5IHwgNSB8IDUgfAoKIyMjIDIuMiBOb3RhYmxlIERlc2lnbiBSZXZpZXdzCgoqKkRSLTIwMjUtUTQtMDAzOiBQYXltZW50IFByb2Nlc3NpbmcgUmVkZXNpZ24qKgotIFJldmlld2VyOiBTZW5pb3IgU2VjdXJpdHkgQXJjaGl0ZWN0Ci0gRmluZGluZzogRGlyZWN0IGRhdGFiYXNlIGFjY2VzcyBmcm9tIHBheW1lbnQgQVBJIHdpdGhvdXQgY29ubmVjdGlvbiBwb29saW5nIHNlY3VyaXR5Ci0gUmVzb2x1dGlvbjogSW1wbGVtZW50ZWQgY29ubmVjdGlvbiBwb29sIHdpdGggY3JlZGVudGlhbCByb3RhdGlvbiBhbmQgcXVlcnkgcGFyYW1ldGVyaXphdGlvbgotIFN0YXR1czogUmVtZWRpYXRlZCAoMjAyNS0xMS0yMCkKCioqRFItMjAyNS1RNC0wMDg6IE1pY3Jvc2VydmljZSBBdXRoZW50aWNhdGlvbiBNaWdyYXRpb24qKgotIFJldmlld2VyOiBTZWN1cml0eSBBcmNoaXRlY3QKLSBGaW5kaW5nOiBTZXJ2aWNlLXRvLXNlcnZpY2UgYXV0aCB1c2luZyBsb25nLWxpdmVkIEFQSSBrZXlzCi0gUmVzb2x1dGlvbjogTWlncmF0ZWQgdG8gbVRMUyB3aXRoIFNQSUZGRS9TUElSRSBmb3Igd29ya2xvYWQgaWRlbnRpdHkKLSBTdGF0dXM6IFJlbWVkaWF0ZWQgKDIwMjUtMTItMTUpCgojIyAzLiBSZXZpZXcgTWV0cmljcwotIEF2ZXJhZ2UgcmV2aWV3IHR1cm5hcm91bmQ6IDMuMiBidXNpbmVzcyBkYXlzCi0gRmluZGluZ3MgcGVyIHJldmlldzogMC42NyAodHJlbmRpbmcgZG93bndhcmQpCi0gUG9zdC1yZXZpZXcgaW1wbGVtZW50YXRpb24gY29tcGxpYW5jZTogOTguNyUK",
+      "content_hash": "1d6f004283dcc79f48921b9deb990ab9be0d93692ac02b4d23699a899c137be7"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000014",
+      "evidence_id": "00000000-0000-4000-f400-100000000014",
+      "filename": "secure-coding-standards.md",
+      "content_type": "text/markdown",
+      "size_bytes": 2256,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000014/secure-coding-standards.md",
+      "binary_content": "IyBTZWN1cmUgQ29kaW5nIFN0YW5kYXJkcwojIyBBY21lIENvcnBvcmF0aW9uCgojIyMgVmVyc2lvbjogNC4wIHwgTGFzdCBVcGRhdGVkOiAyMDI1LTEyLTAxCiMjIyBMYW5ndWFnZXMgQ292ZXJlZDogSmF2YSwgUHl0aG9uLCBUeXBlU2NyaXB0LCBHbwoKIyMgMS4gVW5pdmVyc2FsIFN0YW5kYXJkcyAoQWxsIExhbmd1YWdlcykKCiMjIyAxLjEgSW5wdXQgVmFsaWRhdGlvbgotIFZhbGlkYXRlIGFsbCBpbnB1dCBhdCB0cnVzdCBib3VuZGFyaWVzCi0gVXNlIGFsbG93bGlzdCB2YWxpZGF0aW9uIG92ZXIgZGVueWxpc3QKLSBWYWxpZGF0ZSBkYXRhIHR5cGUsIGxlbmd0aCwgcmFuZ2UsIGFuZCBmb3JtYXQKLSBSZWplY3QgaW52YWxpZCBpbnB1dDsgZG8gbm90IGF0dGVtcHQgdG8gc2FuaXRpemUKCiMjIyAxLjIgT3V0cHV0IEVuY29kaW5nCi0gRW5jb2RlIGFsbCBvdXRwdXQgYmFzZWQgb24gY29udGV4dCAoSFRNTCwgVVJMLCBKYXZhU2NyaXB0LCBTUUwpCi0gVXNlIGZyYW1ld29yay1wcm92aWRlZCBlbmNvZGluZyBmdW5jdGlvbnMKLSBOZXZlciBjb25zdHJ1Y3QgcXVlcmllcyB2aWEgc3RyaW5nIGNvbmNhdGVuYXRpb24KCiMjIyAxLjMgQXV0aGVudGljYXRpb24gYW5kIFNlc3Npb24gTWFuYWdlbWVudAotIFVzZSBmcmFtZXdvcmstcHJvdmlkZWQgYXV0aGVudGljYXRpb24gbWVjaGFuaXNtcwotIEVuZm9yY2UgTUZBIGZvciBwcml2aWxlZ2VkIG9wZXJhdGlvbnMKLSBTZXNzaW9uIHRva2VuczogY3J5cHRvZ3JhcGhpY2FsbHkgcmFuZG9tLCBtaW5pbXVtIDEyOCBiaXRzCi0gU2Vzc2lvbiB0aW1lb3V0OiAzMCBtaW51dGVzIGlkbGUsIDggaG91cnMgYWJzb2x1dGUKCiMjIyAxLjQgQ3J5cHRvZ3JhcGh5Ci0gVXNlIG9ubHkgYXBwcm92ZWQgYWxnb3JpdGhtcyAoQUVTLTI1Ni1HQ00sIENoYUNoYTIwLVBvbHkxMzA1KQotIEtleSBtYW5hZ2VtZW50IHZpYSBIYXNoaUNvcnAgVmF1bHQKLSBObyBjdXN0b20gY3J5cHRvZ3JhcGhpYyBpbXBsZW1lbnRhdGlvbnMKLSBUTFMgMS4zIGZvciBhbGwgZXh0ZXJuYWwgY29tbXVuaWNhdGlvbnMKCiMjIyAxLjUgRXJyb3IgSGFuZGxpbmcgYW5kIExvZ2dpbmcKLSBOZXZlciBleHBvc2UgaW50ZXJuYWwgZGV0YWlscyBpbiBlcnJvciByZXNwb25zZXMKLSBMb2cgc2VjdXJpdHkgZXZlbnRzIHdpdGggc3RydWN0dXJlZCBmb3JtYXQKLSBJbmNsdWRlIGNvcnJlbGF0aW9uIElEcyBmb3IgcmVxdWVzdCB0cmFjaW5nCi0gTm8gUElJIGluIGxvZ3Mgd2l0aG91dCBleHBsaWNpdCBhcHByb3ZhbAoKIyMgMi4gTGFuZ3VhZ2UtU3BlY2lmaWMgU3RhbmRhcmRzCgojIyMgMi4xIEphdmEKLSBVc2UgUHJlcGFyZWRTdGF0ZW1lbnQgZm9yIGFsbCBkYXRhYmFzZSBxdWVyaWVzCi0gRW5hYmxlIGNvbXBpbGVyIHdhcm5pbmdzICgtWGxpbnQ6YWxsKQotIERlcGVuZGVuY3kgbWFuYWdlbWVudDogTWF2ZW4gd2l0aCB2ZXJzaW9uIHBpbm5pbmcKLSBTZXJpYWxpemF0aW9uOiBhdm9pZCBKYXZhIG5hdGl2ZTsgdXNlIEphY2tzb24gd2l0aCB0eXBlIHZhbGlkYXRpb24KCiMjIyAyLjIgUHl0aG9uCi0gVXNlIHBhcmFtZXRlcml6ZWQgcXVlcmllcyAoU1FMQWxjaGVteSBvciBwc3ljb3BnMiBwYXJhbXMpCi0gRW5hYmxlIEJhbmRpdCBjaGVja3MgaW4gQ0kgcGlwZWxpbmUKLSBWaXJ0dWFsIGVudmlyb25tZW50cyBmb3IgYWxsIHByb2plY3RzCi0gVHlwZSBoaW50cyBlbmZvcmNlZCB2aWEgbXlweSBzdHJpY3QgbW9kZQoKIyMjIDIuMyBUeXBlU2NyaXB0Ci0gU3RyaWN0IG1vZGUgZW5hYmxlZCBpbiB0c2NvbmZpZy5qc29uCi0gRVNMaW50IHNlY3VyaXR5IHBsdWdpbiAoZXNsaW50LXBsdWdpbi1zZWN1cml0eSkKLSBObyB1c2Ugb2YgYGFueWAgdHlwZSB3aXRob3V0IHNlY3VyaXR5IHJldmlldwotIElucHV0IHZhbGlkYXRpb24gdmlhIFpvZCBzY2hlbWFzCgojIyMgMi40IEdvCi0gVXNlIGBkYXRhYmFzZS9zcWxgIHdpdGggcGFyYW1ldGVyaXplZCBxdWVyaWVzCi0gRW5hYmxlIGBnbyB2ZXRgIGFuZCBgc3RhdGljY2hlY2tgIGluIENJCi0gQ29udGV4dCBwcm9wYWdhdGlvbiBmb3IgYWxsIGdvcm91dGluZXMKLSBFeHBsaWNpdCBlcnJvciBoYW5kbGluZyAobm8gaWdub3JlZCBlcnJvcnMpCgojIyAzLiBDb21wbGlhbmNlCi0gQW5udWFsIHJldmlldyBhbmQgdXBkYXRlIG9mIHN0YW5kYXJkcwotIEF1dG9tYXRlZCBlbmZvcmNlbWVudCB2aWEgbGludGVycyBhbmQgU0FTVCB0b29scwotIEV4Y2VwdGlvbiBwcm9jZXNzIHJlcXVpcmVzIHNlY3VyaXR5IHRlYW0gYXBwcm92YWwK",
+      "content_hash": "e223969ca0c6dd0ed89ea010da33ba8751f664ca49a0f7ad01132394890e477c"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000015",
+      "evidence_id": "00000000-0000-4000-f400-100000000015",
+      "filename": "compiler-build-security.md",
+      "content_type": "text/markdown",
+      "size_bytes": 1436,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000015/compiler-build-security.md",
+      "binary_content": "IyBDb21waWxlciBhbmQgQnVpbGQgU2VjdXJpdHkgQ29uZmlndXJhdGlvbgojIyBBY21lIENvcnBvcmF0aW9uCgojIyMgTGFzdCBVcGRhdGVkOiAyMDI1LTExLTAxCgojIyAxLiBDb21waWxlciBTZWN1cml0eSBGbGFncwoKIyMjIDEuMSBDL0MrKyAoR0NDL0NsYW5nKQpgYGAKLVdhbGwgLVdleHRyYSAtV2Vycm9yCi1mc3RhY2stcHJvdGVjdG9yLXN0cm9uZwotRF9GT1JUSUZZX1NPVVJDRT0yCi1mUElFIC1waWUKLVdmb3JtYXQgLVdmb3JtYXQtc2VjdXJpdHkKLWZuby1zdHJpY3Qtb3ZlcmZsb3cKYGBgCgojIyMgMS4yIEphdmEgKEpESyAyMSkKYGBgCi1YbGludDphbGwKLVhkb2NsaW50OmFsbAotLWVuYWJsZS1wcmV2aWV3IChmb3IgdmlydHVhbCB0aHJlYWRzIHNlY3VyaXR5IGZlYXR1cmVzKQpgYGAKCiMjIyAxLjMgR28gKDEuMjIrKQpgYGAKQ0dPX0VOQUJMRUQ9MCAoc3RhdGljIGxpbmtpbmcgd2hlcmUgcG9zc2libGUpCi10cmltcGF0aCAocmVwcm9kdWNpYmxlIGJ1aWxkcykKLWxkZmxhZ3M9Ii1zIC13IiAoc3RyaXAgZGVidWcgaW5mbyBmcm9tIHJlbGVhc2UpCkdPRkxBR1M9LW1vZD12ZW5kb3IgKHZlbmRvcmVkIGRlcGVuZGVuY2llcykKYGBgCgojIyMgMS40IFR5cGVTY3JpcHQvTm9kZS5qcwpgYGBqc29uCnsKICAiY29tcGlsZXJPcHRpb25zIjogewogICAgInN0cmljdCI6IHRydWUsCiAgICAibm9JbXBsaWNpdEFueSI6IHRydWUsCiAgICAic3RyaWN0TnVsbENoZWNrcyI6IHRydWUsCiAgICAibm9VbmNoZWNrZWRJbmRleGVkQWNjZXNzIjogdHJ1ZQogIH0KfQpgYGAKCiMjIDIuIEJ1aWxkIFN5c3RlbSBDb25maWd1cmF0aW9uCgojIyMgMi4xIENvbnRhaW5lciBCdWlsZHMKLSBCYXNlIGltYWdlczogRGlzdHJvbGVzcyAoZ2NyLmlvL2Rpc3Ryb2xlc3MpIG9yIEFscGluZQotIE11bHRpLXN0YWdlIGJ1aWxkcyB0byBtaW5pbWl6ZSBhdHRhY2sgc3VyZmFjZQotIE5vIHJvb3QgdXNlciBpbiBjb250YWluZXJzIChVU0VSIG5vbnJvb3Q6bm9ucm9vdCkKLSBSZWFkLW9ubHkgcm9vdCBmaWxlc3lzdGVtCi0gU2VjdXJpdHkgc2Nhbm5pbmc6IFRyaXZ5IG9uIGV2ZXJ5IGJ1aWxkCgojIyMgMi4yIEJ1aWxkIElzb2xhdGlvbgotIEFsbCBidWlsZHMgcnVuIGluIGVwaGVtZXJhbCBjb250YWluZXJzCi0gTm8gbmV0d29yayBhY2Nlc3MgZHVyaW5nIGJ1aWxkIChoZXJtZXRpYykKLSBCdWlsZCBjYWNoZTogY29udGVudC1hZGRyZXNzYWJsZSwgdmVyaWZpZWQgb24gcmVzdG9yZQotIEJ1aWxkIGxvZ3MgcmV0YWluZWQgZm9yIDEgeWVhcgoKIyMgMy4gVmVyaWZpY2F0aW9uCi0gQnVpbGQgY29uZmlndXJhdGlvbiByZXZpZXdlZCBxdWFydGVybHkKLSBDb25maWd1cmF0aW9uIGRyaWZ0IGRldGVjdGlvbiB2aWEgcG9saWN5LWFzLWNvZGUKLSBMYXN0IGF1ZGl0OiAyMDI1LTEyLTE1IChhbGwgY29uZmlndXJhdGlvbnMgY29tcGxpYW50KQo=",
+      "content_hash": "9140d441e5f8686d193a197b66c6dc10cfefa50a8523dc54c13773a37401cd94"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000016",
+      "evidence_id": "00000000-0000-4000-f400-100000000016",
+      "filename": "code-review-records.md",
+      "content_type": "text/markdown",
+      "size_bytes": 1272,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000016/code-review-records.md",
+      "binary_content": "IyBDb2RlIFJldmlldyBQcm9jZXNzIGFuZCBSZWNvcmRzCiMjIEFjbWUgQ29ycG9yYXRpb24KCiMjIyBQZXJpb2Q6IFEzIDIwMjUgLSBRMSAyMDI2CgojIyAxLiBDb2RlIFJldmlldyBQb2xpY3kKLSBBbGwgY2hhbmdlcyByZXF1aXJlIHBlZXIgcmV2aWV3IGJlZm9yZSBtZXJnZQotIE1pbmltdW0gMiByZXZpZXdlcnMgKDEgbXVzdCBiZSBDT0RFT1dORVJTIG1hdGNoKQotIFNlY3VyaXR5LXNlbnNpdGl2ZSBjaGFuZ2VzIHJlcXVpcmUgc2VjdXJpdHkgY2hhbXBpb24gcmV2aWV3Ci0gTWF4aW11bSA0MDAgbGluZXMgcGVyIHJldmlldyAobGFyZ2VyIGNoYW5nZXMgc3BsaXQpCgojIyAyLiBSZXZpZXcgTWV0cmljcwoKfCBRdWFydGVyIHwgVG90YWwgUFJzIHwgUmV2aWV3ZWQgfCBBdmcgVGltZSB8IFNlY3VyaXR5IElzc3VlcyBGb3VuZCB8CnwtLS0tLS0tLS18LS0tLS0tLS0tLS18LS0tLS0tLS0tLXwtLS0tLS0tLS0tfC0tLS0tLS0tLS0tLS0tLS0tLS0tLS18CnwgUTMgMjAyNSB8IDM0MiB8IDM0MiB8IDQuMiBocnMgfCAyMyB8CnwgUTQgMjAyNSB8IDM4NyB8IDM4NyB8IDMuOCBocnMgfCAxOSB8CnwgUTEgMjAyNiB8IDI5OCB8IDI5OCB8IDMuNSBocnMgfCAxNCB8CgojIyAzLiBTZWN1cml0eS1Gb2N1c2VkIFJldmlldyBDaGVja2xpc3QKLSBbIF0gSW5wdXQgdmFsaWRhdGlvbiBvbiBhbGwgbmV3IGVuZHBvaW50cwotIFsgXSBBdXRoZW50aWNhdGlvbi9hdXRob3JpemF0aW9uIGNoZWNrcyBwcmVzZW50Ci0gWyBdIE5vIGhhcmRjb2RlZCBzZWNyZXRzIG9yIGNyZWRlbnRpYWxzCi0gWyBdIFNRTCBxdWVyaWVzIHBhcmFtZXRlcml6ZWQKLSBbIF0gRXJyb3IgcmVzcG9uc2VzIGRvIG5vdCBsZWFrIGludGVybmFsIGRldGFpbHMKLSBbIF0gTG9nZ2luZyBpbmNsdWRlcyBzZWN1cml0eSBldmVudHMKLSBbIF0gTmV3IGRlcGVuZGVuY2llcyByZXZpZXdlZCBmb3Iga25vd24gdnVsbmVyYWJpbGl0aWVzCi0gWyBdIENyeXB0b2dyYXBoaWMgb3BlcmF0aW9ucyB1c2UgYXBwcm92ZWQgYWxnb3JpdGhtcwoKIyMgNC4gUmV2aWV3IFF1YWxpdHkgQXNzdXJhbmNlCi0gTW9udGhseSByZXZpZXcgb2YgcmV2aWV3IHF1YWxpdHkgYnkgc2VjdXJpdHkgdGVhbQotIEZlZWRiYWNrIHByb3ZpZGVkIHRvIHJldmlld2VycyBvbiBtaXNzZWQgZmluZGluZ3MKLSBRdWFydGVybHkgY2FsaWJyYXRpb24gZXhlcmNpc2VzIHdpdGggcGxhbnRlZCB2dWxuZXJhYmlsaXRpZXMKLSBSZXZpZXcgZWZmZWN0aXZlbmVzcyByYXRlOiA4NyUgKHVwIGZyb20gODIlIGluIEZZMjAyNSkK",
+      "content_hash": "1cb881ff08df60b534856e6eeb30eb445b14f31123a72d5d90529e207b06373e"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000017",
+      "evidence_id": "00000000-0000-4000-f400-100000000017",
+      "filename": "pentest-report-ssdf.md",
+      "content_type": "text/markdown",
+      "size_bytes": 1800,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000017/pentest-report-ssdf.md",
+      "binary_content": "IyBQZW5ldHJhdGlvbiBUZXN0aW5nIFJlcG9ydAojIyBBY21lIENvcnBvcmF0aW9uIC0gUHJvZHVjdCBTdWl0ZQoKIyMjIFRlc3QgUGVyaW9kOiAyMDI1LTEwLTE1IHRvIDIwMjUtMTEtMTUKIyMjIFRlc3RpbmcgRmlybTogQ3liZXJTZWN1cmUgUGFydG5lcnMgTExDCiMjIyBDbGFzc2lmaWNhdGlvbjogQ29uZmlkZW50aWFsCgojIyAxLiBFeGVjdXRpdmUgU3VtbWFyeQpFeHRlcm5hbCBwZW5ldHJhdGlvbiB0ZXN0aW5nIHdhcyBjb25kdWN0ZWQgYWdhaW5zdCBBY21lJ3MgcHJvZHVjdCBzdWl0ZSBpbmNsdWRpbmcgd2ViIGFwcGxpY2F0aW9ucywgQVBJcywgYW5kIHN1cHBvcnRpbmcgaW5mcmFzdHJ1Y3R1cmUuIFRlc3RpbmcgZm9sbG93ZWQgT1dBU1AgVGVzdGluZyBHdWlkZSB2NC4yIG1ldGhvZG9sb2d5LgoKIyMgMi4gU2NvcGUKLSBXZWIgYXBwbGljYXRpb25zOiA0IHByb2R1Y3Rpb24gYXBwbGljYXRpb25zCi0gQVBJIGVuZHBvaW50czogMTI3IHRlc3RlZAotIEluZnJhc3RydWN0dXJlOiBFeHRlcm5hbCBwZXJpbWV0ZXIsIGNsb3VkIChBV1MpCi0gTW9iaWxlOiBpT1MgYW5kIEFuZHJvaWQgYXBwbGljYXRpb25zCgojIyAzLiBGaW5kaW5ncyBTdW1tYXJ5Cgp8IFNldmVyaXR5IHwgQ291bnQgfCBSZW1lZGlhdGVkIHwgT3BlbiB8CnwtLS0tLS0tLS0tfC0tLS0tLS18LS0tLS0tLS0tLS0tfC0tLS0tLXwKfCBDcml0aWNhbCB8IDAgfCAwIHwgMCB8CnwgSGlnaCB8IDIgfCAyIHwgMCB8CnwgTWVkaXVtIHwgNSB8IDQgfCAxIHwKfCBMb3cgfCA4IHwgNiB8IDIgfAp8IEluZm8gfCAxMiB8IE4vQSB8IE4vQSB8CgojIyA0LiBLZXkgRmluZGluZ3MKCiMjIyBISUdILTAwMTogSW5zZWN1cmUgRGlyZWN0IE9iamVjdCBSZWZlcmVuY2UgaW4gRG9jdW1lbnQgQVBJCi0gKipDVlNTKio6IDcuNQotICoqU3RhdHVzKio6IFJlbWVkaWF0ZWQgKDIwMjUtMTEtMjApCi0gKipEZXNjcmlwdGlvbioqOiBBdXRob3JpemF0aW9uIGJ5cGFzcyBhbGxvd2luZyBhY2Nlc3MgdG8gZG9jdW1lbnRzIGJlbG9uZ2luZyB0byBvdGhlciB0ZW5hbnRzCi0gKipSZW1lZGlhdGlvbioqOiBJbXBsZW1lbnRlZCB0ZW5hbnQtc2NvcGVkIGF1dGhvcml6YXRpb24gbWlkZGxld2FyZQoKIyMjIEhJR0gtMDAyOiBTZXJ2ZXItU2lkZSBSZXF1ZXN0IEZvcmdlcnkgaW4gV2ViaG9vayBIYW5kbGVyCi0gKipDVlNTKio6IDcuMgotICoqU3RhdHVzKio6IFJlbWVkaWF0ZWQgKDIwMjUtMTEtMjUpCi0gKipEZXNjcmlwdGlvbioqOiBXZWJob29rIFVSTCB2YWxpZGF0aW9uIGluc3VmZmljaWVudCwgYWxsb3dpbmcgaW50ZXJuYWwgbmV0d29yayBzY2FubmluZwotICoqUmVtZWRpYXRpb24qKjogVVJMIGFsbG93bGlzdCB3aXRoIEROUyByZWJpbmRpbmcgcHJvdGVjdGlvbgoKIyMjIE1FRElVTS0wMDU6IE1pc3NpbmcgUmF0ZSBMaW1pdGluZyBvbiBBdXRoZW50aWNhdGlvbiBFbmRwb2ludCAoT1BFTikKLSAqKkNWU1MqKjogNS4zCi0gKipTdGF0dXMqKjogSW4gcmVtZWRpYXRpb24gKEVUQTogMjAyNi0wMi0yOCkKLSAqKkRlc2NyaXB0aW9uKio6IEJydXRlIGZvcmNlIHByb3RlY3Rpb24gcmVsaWVzIG9uIFdBRiBvbmx5OyBhcHBsaWNhdGlvbi1sYXllciByYXRlIGxpbWl0aW5nIGFic2VudAoKIyMgNS4gQ29uY2x1c2lvbgpPdmVyYWxsIHNlY3VyaXR5IHBvc3R1cmUgaXMgc3Ryb25nLiBBbGwgY3JpdGljYWwgYW5kIGhpZ2ggZmluZGluZ3MgaGF2ZSBiZWVuIHJlbWVkaWF0ZWQuIFRoZSB0ZXN0aW5nIGZpcm0gcmF0ZXMgQWNtZSdzIHNlY3VyaXR5IG1hdHVyaXR5IGFzIEFib3ZlIEF2ZXJhZ2UgZm9yIHRoZSBpbmR1c3RyeS4K",
+      "content_hash": "866aa6c42856620566eda6cf49b1d14f3118ce49884e6eb876eb4fd8e2cdbacc"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000018",
+      "evidence_id": "00000000-0000-4000-f400-100000000018",
+      "filename": "security-config-baseline.md",
+      "content_type": "text/markdown",
+      "size_bytes": 1572,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000018/security-config-baseline.md",
+      "binary_content": "IyBTZWN1cml0eSBDb25maWd1cmF0aW9uIEJhc2VsaW5lCiMjIEFjbWUgQ29ycG9yYXRpb24KCiMjIyBWZXJzaW9uOiAyLjEgfCBMYXN0IFVwZGF0ZWQ6IDIwMjUtMTItMDEKCiMjIDEuIERlZmF1bHQgU2VjdXJpdHkgU2V0dGluZ3MKCiMjIyAxLjEgQXV0aGVudGljYXRpb24gRGVmYXVsdHMKLSBQYXNzd29yZCBtaW5pbXVtIGxlbmd0aDogMTIgY2hhcmFjdGVycwotIFBhc3N3b3JkIGNvbXBsZXhpdHk6IHVwcGVyY2FzZSArIGxvd2VyY2FzZSArIGRpZ2l0ICsgc3BlY2lhbAotIEFjY291bnQgbG9ja291dDogNSBmYWlsZWQgYXR0ZW1wdHMsIDMwLW1pbnV0ZSBsb2Nrb3V0Ci0gTUZBOiBSZXF1aXJlZCBmb3IgYWxsIHVzZXIgYWNjb3VudHMKLSBTZXNzaW9uIHRpbWVvdXQ6IDMwIG1pbnV0ZXMgaWRsZSwgOCBob3VycyBhYnNvbHV0ZQoKIyMjIDEuMiBUTFMgQ29uZmlndXJhdGlvbgotIE1pbmltdW0gdmVyc2lvbjogVExTIDEuMiAoVExTIDEuMyBwcmVmZXJyZWQpCi0gQ2lwaGVyIHN1aXRlczogQUVBRCBvbmx5IChBRVMtR0NNLCBDaGFDaGEyMC1Qb2x5MTMwNSkKLSBIU1RTOiBFbmFibGVkIHdpdGggMS15ZWFyIG1heC1hZ2UsIGluY2x1ZGVTdWJEb21haW5zCi0gQ2VydGlmaWNhdGU6IDIwNDgtYml0IFJTQSBtaW5pbXVtLCBFQ0RTQSBQLTI1NiBwcmVmZXJyZWQKCiMjIyAxLjMgSFRUUCBTZWN1cml0eSBIZWFkZXJzCi0gQ29udGVudC1TZWN1cml0eS1Qb2xpY3k6IFN0cmljdCwgbm8gaW5saW5lIHNjcmlwdHMKLSBYLUNvbnRlbnQtVHlwZS1PcHRpb25zOiBub3NuaWZmCi0gWC1GcmFtZS1PcHRpb25zOiBERU5ZCi0gUmVmZXJyZXItUG9saWN5OiBzdHJpY3Qtb3JpZ2luLXdoZW4tY3Jvc3Mtb3JpZ2luCi0gUGVybWlzc2lvbnMtUG9saWN5OiBDYW1lcmEsIG1pY3JvcGhvbmUsIGdlb2xvY2F0aW9uIGRpc2FibGVkCgojIyMgMS40IExvZ2dpbmcgRGVmYXVsdHMKLSBBdXRoZW50aWNhdGlvbiBldmVudHM6IEFsbCAoc3VjY2VzcyBhbmQgZmFpbHVyZSkKLSBBdXRob3JpemF0aW9uIGZhaWx1cmVzOiBBbGwKLSBJbnB1dCB2YWxpZGF0aW9uIGZhaWx1cmVzOiBBbGwKLSBBZG1pbmlzdHJhdGl2ZSBhY3Rpb25zOiBBbGwKLSBMb2cgZm9ybWF0OiBTdHJ1Y3R1cmVkIEpTT04gd2l0aCBjb3JyZWxhdGlvbiBJRAotIExvZyByZXRlbnRpb246IDkwIGRheXMgaG90LCAxIHllYXIgY29sZCBzdG9yYWdlCgojIyAyLiBIYXJkZW5pbmcgVmVyaWZpY2F0aW9uCi0gQXV0b21hdGVkIGNvbXBsaWFuY2Ugc2Nhbm5pbmcgdmlhIENoZWYgSW5TcGVjCi0gU2NhbiBmcmVxdWVuY3k6IERhaWx5Ci0gQ29tcGxpYW5jZSByYXRlOiA5OC4yJSAoYXMgb2YgMjAyNi0wMS0xNSkKLSBOb24tY29tcGxpYW50IGl0ZW1zIHRyYWNrZWQgaW4gSmlyYSB3aXRoIFNMQQoKIyMgMy4gQ29uZmlndXJhdGlvbiBDaGFuZ2UgTWFuYWdlbWVudAotIEFsbCBjaGFuZ2VzIHZpYSBpbmZyYXN0cnVjdHVyZS1hcy1jb2RlIChUZXJyYWZvcm0vQW5zaWJsZSkKLSBDaGFuZ2VzIHJlcXVpcmUgUFIgcmV2aWV3IGFuZCBhcHByb3ZhbAotIEF1dG9tYXRlZCBkcmlmdCBkZXRlY3Rpb24gYWxlcnRzIHRvIHNlY3VyaXR5IHRlYW0K",
+      "content_hash": "a8d1c8235be80e73935d1d73299042e64552dcef0d222bacc2f2d5cf2ad09679"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000019",
+      "evidence_id": "00000000-0000-4000-f400-100000000019",
+      "filename": "vuln-disclosure-policy.md",
+      "content_type": "text/markdown",
+      "size_bytes": 1420,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000019/vuln-disclosure-policy.md",
+      "binary_content": "IyBWdWxuZXJhYmlsaXR5IERpc2Nsb3N1cmUgUG9saWN5IGFuZCBSZWNvcmRzCiMjIEFjbWUgQ29ycG9yYXRpb24KCiMjIyBQb2xpY3kgVmVyc2lvbjogMi4wIHwgRWZmZWN0aXZlOiAyMDI1LTA3LTAxCgojIyAxLiBEaXNjbG9zdXJlIFBvbGljeQoKIyMjIDEuMSBTY29wZQpBbGwgQWNtZS1kZXZlbG9wZWQgc29mdHdhcmUsIEFQSXMsIGFuZCBwdWJsaWMtZmFjaW5nIGluZnJhc3RydWN0dXJlLgoKIyMjIDEuMiBSZXBvcnRpbmcgQ2hhbm5lbHMKLSBFbWFpbDogc2VjdXJpdHlAYWNtZS1jb3JwLmV4YW1wbGUuY29tIChQR1Aga2V5IGF2YWlsYWJsZSkKLSBXZWIgZm9ybTogaHR0cHM6Ly9hY21lLWNvcnAuZXhhbXBsZS5jb20vc2VjdXJpdHkvcmVwb3J0Ci0gQnVnIGJvdW50eTogSGFja2VyT25lIHByb2dyYW0gKGFjbWUtY29ycCkKCiMjIyAxLjMgUmVzcG9uc2UgU0xBcwp8IFNldmVyaXR5IHwgQWNrbm93bGVkZ2UgfCBUcmlhZ2UgfCBSZW1lZGlhdGUgfAp8LS0tLS0tLS0tLXwtLS0tLS0tLS0tLS18LS0tLS0tLS18LS0tLS0tLS0tLS18CnwgQ3JpdGljYWwgfCA0IGhvdXJzIHwgMjQgaG91cnMgfCA3IGRheXMgfAp8IEhpZ2ggfCA4IGhvdXJzIHwgNDggaG91cnMgfCAzMCBkYXlzIHwKfCBNZWRpdW0gfCAyNCBob3VycyB8IDUgZGF5cyB8IDkwIGRheXMgfAp8IExvdyB8IDQ4IGhvdXJzIHwgMTAgZGF5cyB8IE5leHQgcmVsZWFzZSB8CgojIyMgMS40IFNhZmUgSGFyYm9yCkFjbWUgd2lsbCBub3QgcHVyc3VlIGxlZ2FsIGFjdGlvbiBhZ2FpbnN0IHNlY3VyaXR5IHJlc2VhcmNoZXJzIHdobyByZXBvcnQgaW4gZ29vZCBmYWl0aCBhbmQgZm9sbG93IHJlc3BvbnNpYmxlIGRpc2Nsb3N1cmUgZ3VpZGVsaW5lcy4KCiMjIDIuIERpc2Nsb3N1cmUgUmVjb3JkcyAoRlkyMDI1LTIwMjYpCgojIyMgMi4xIFJlcG9ydHMgUmVjZWl2ZWQKfCBTb3VyY2UgfCBRMyAyMDI1IHwgUTQgMjAyNSB8IFExIDIwMjYgfAp8LS0tLS0tLS18LS0tLS0tLS0tfC0tLS0tLS0tLXwtLS0tLS0tLS18CnwgQnVnIEJvdW50eSB8IDggfCAxMiB8IDYgfAp8IEN1c3RvbWVyIFJlcG9ydHMgfCAzIHwgMiB8IDEgfAp8IEludGVybmFsIERpc2NvdmVyeSB8IDE1IHwgMTggfCAxMiB8CnwgQXV0b21hdGVkIFNjYW5uaW5nIHwgMjIgfCAxOSB8IDE3IHwKCiMjIyAyLjIgQXZlcmFnZSBSZXNvbHV0aW9uIFRpbWUKLSBDcml0aWNhbDogNC4yIGRheXMgKFNMQTogNyBkYXlzKQotIEhpZ2g6IDE4LjUgZGF5cyAoU0xBOiAzMCBkYXlzKQotIE1lZGl1bTogNDIgZGF5cyAoU0xBOiA5MCBkYXlzKQoKIyMgMy4gQnVnIEJvdW50eSBQcm9ncmFtCi0gQWN0aXZlIHJlc2VhcmNoZXJzOiA0NwotIFJlcG9ydHMgcmVjZWl2ZWQgKEZZMjAyNiBZVEQpOiAyNgotIFZhbGlkIHZ1bG5lcmFiaWxpdGllczogMTQKLSBUb3RhbCBib3VudGllcyBwYWlkOiAkMzIsNTAwCg==",
+      "content_hash": "0defe744efe5c676e28418a101496c809fe3b619d68a26a5268c922ec3508c12"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000020",
+      "evidence_id": "00000000-0000-4000-f400-100000000020",
+      "filename": "risk-response-records.md",
+      "content_type": "text/markdown",
+      "size_bytes": 1428,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000020/risk-response-records.md",
+      "binary_content": "IyBSaXNrIFJlc3BvbnNlIGFuZCBSZW1lZGlhdGlvbiBSZWNvcmRzCiMjIEFjbWUgQ29ycG9yYXRpb24KCiMjIyBQZXJpb2Q6IFEzIDIwMjUgLSBRMSAyMDI2CgojIyAxLiBWdWxuZXJhYmlsaXR5IFJpc2sgQXNzZXNzbWVudCBQcm9jZXNzCjEuIFZ1bG5lcmFiaWxpdHkgcmVwb3J0ZWQgb3IgZGlzY292ZXJlZAoyLiBJbml0aWFsIHRyaWFnZSBhbmQgQ1ZTUyBzY29yaW5nICh3aXRoaW4gU0xBKQozLiBCdXNpbmVzcyBpbXBhY3QgYXNzZXNzbWVudCBieSBwcm9kdWN0IG93bmVyCjQuIFJpc2sgcmVzcG9uc2UgZGVjaXNpb246IHJlbWVkaWF0ZSwgbWl0aWdhdGUsIGFjY2VwdCwgdHJhbnNmZXIKNS4gSW1wbGVtZW50YXRpb24gYW5kIHZlcmlmaWNhdGlvbgo2LiBDbG9zdXJlIGFuZCBsZXNzb25zIGxlYXJuZWQKCiMjIDIuIFJpc2sgUmVzcG9uc2UgU3VtbWFyeQoKfCBSZXNwb25zZSBUeXBlIHwgUTMgMjAyNSB8IFE0IDIwMjUgfCBRMSAyMDI2IHwKfC0tLS0tLS0tLS0tLS0tfC0tLS0tLS0tLXwtLS0tLS0tLS18LS0tLS0tLS0tfAp8IFJlbWVkaWF0ZSAocGF0Y2gvZml4KSB8IDM4IHwgNDIgfCAzMSB8CnwgTWl0aWdhdGUgKGNvbXBlbnNhdGluZyBjb250cm9sKSB8IDUgfCAzIHwgMiB8CnwgQWNjZXB0IChkb2N1bWVudGVkIHJpc2spIHwgMiB8IDEgfCAwIHwKfCBUcmFuc2ZlciAodmVuZG9yIHJlc3BvbnNpYmlsaXR5KSB8IDMgfCA0IHwgMiB8CgojIyAzLiBOb3RhYmxlIFJpc2sgUmVzcG9uc2VzCgojIyMgVlItMjAyNS0wODk6IExvZzRTaGVsbCBWYXJpYW50IGluIFRyYW5zaXRpdmUgRGVwZW5kZW5jeQotICoqQ1ZTUyoqOiA5LjgKLSAqKlJlc3BvbnNlKio6IEltbWVkaWF0ZSByZW1lZGlhdGlvbgotICoqQWN0aW9uKio6IERlcGVuZGVuY3kgdXBkYXRlZCwgV0FGIHJ1bGUgZGVwbG95ZWQgYXMgaW50ZXJpbSBtaXRpZ2F0aW9uCi0gKipSZXNvbHV0aW9uIFRpbWUqKjogNiBob3VycyAoZnJvbSBkaXNjb3ZlcnkgdG8gcHJvZHVjdGlvbikKCiMjIyBWUi0yMDI1LTEwMjogSW5mb3JtYXRpb24gRGlzY2xvc3VyZSB2aWEgRXJyb3IgTWVzc2FnZXMKLSAqKkNWU1MqKjogNS4zCi0gKipSZXNwb25zZSoqOiBSZW1lZGlhdGlvbiBpbiBuZXh0IHJlbGVhc2UKLSAqKkFjdGlvbioqOiBJbXBsZW1lbnRlZCBnZW5lcmljIGVycm9yIHJlc3BvbnNlcywgZGV0YWlsZWQgZXJyb3JzIHRvIGxvZ3Mgb25seQotICoqUmVzb2x1dGlvbiBUaW1lKio6IDEyIGRheXMKCiMjIDQuIFJlbWVkaWF0aW9uIFZlcmlmaWNhdGlvbgotIEFsbCBjcml0aWNhbC9oaWdoIHJlbWVkaWF0aW9ucyB2ZXJpZmllZCBieSBpbmRlcGVuZGVudCB0ZXN0ZXIKLSBSZWdyZXNzaW9uIHRlc3RzIGFkZGVkIGZvciBlYWNoIGZpeGVkIHZ1bG5lcmFiaWxpdHkKLSBWZXJpZmljYXRpb24gcmF0ZTogMTAwJSBmb3IgY3JpdGljYWwvaGlnaCwgOTUlIGZvciBtZWRpdW0K",
+      "content_hash": "c33a5544565c09b84b00a2726b1a7a8b025f41d617324f176a8153d2c13c149a"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000021",
+      "evidence_id": "00000000-0000-4000-f400-100000000021",
+      "filename": "root-cause-analysis.md",
+      "content_type": "text/markdown",
+      "size_bytes": 2158,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000021/root-cause-analysis.md",
+      "binary_content": "IyBSb290IENhdXNlIEFuYWx5c2lzIFJlcG9ydHMKIyMgQWNtZSBDb3Jwb3JhdGlvbgoKIyMjIFBlcmlvZDogUTMgMjAyNSAtIFExIDIwMjYKCiMjIDEuIFJDQSBQcm9jZXNzCi0gVHJpZ2dlcmVkIGZvciBhbGwgY3JpdGljYWwvaGlnaCB2dWxuZXJhYmlsaXRpZXMKLSBDb25kdWN0ZWQgYnkgc2VjdXJpdHkgdGVhbSB3aXRoIGRldmVsb3BtZW50IHRlYW0gcGFydGljaXBhdGlvbgotIFVzZXMgNS1XaHlzIG1ldGhvZG9sb2d5IHdpdGggY29udHJpYnV0aW5nIGZhY3RvciBhbmFseXNpcwotIFByb2R1Y2VzIFNETEMgaW1wcm92ZW1lbnQgcmVjb21tZW5kYXRpb25zCgojIyAyLiBSQ0EgU3VtbWFyeQoKIyMjIFJDQS0yMDI1LTAxMjogSURPUiBpbiBEb2N1bWVudCBBUEkKLSAqKlJvb3QgQ2F1c2UqKjogTWlzc2luZyBhdXRob3JpemF0aW9uIGNoZWNrIGluIG5ldyBBUEkgZW5kcG9pbnQKLSAqKkNvbnRyaWJ1dGluZyBGYWN0b3JzKio6IAogIC0gQ29kZSByZXZpZXcgZGlkIG5vdCBjaGVjayBhdXRob3JpemF0aW9uIGxvZ2ljCiAgLSBObyBhdXRvbWF0ZWQgYXV0aG9yaXphdGlvbiB0ZXN0IGZvciB0aGlzIGVuZHBvaW50Ci0gKipTRExDIEltcHJvdmVtZW50Kio6IEFkZGVkIG1hbmRhdG9yeSBhdXRob3JpemF0aW9uIHRlc3QgcGF0dGVybiB0byBjb2RlIHJldmlldyBjaGVja2xpc3QKLSAqKlN0YXR1cyoqOiBJbXBsZW1lbnRlZAoKIyMjIFJDQS0yMDI1LTAxNTogU1NSRiBpbiBXZWJob29rIEhhbmRsZXIKLSAqKlJvb3QgQ2F1c2UqKjogVVJMIHZhbGlkYXRpb24gb25seSBjaGVja2VkIHByb3RvY29sLCBub3QgZGVzdGluYXRpb24KLSAqKkNvbnRyaWJ1dGluZyBGYWN0b3JzKio6CiAgLSBTZWN1cmUgY29kaW5nIHN0YW5kYXJkIGRpZCBub3QgY292ZXIgU1NSRiBwcmV2ZW50aW9uCiAgLSBObyBTU1JGLXNwZWNpZmljIHRlc3QgY2FzZXMgaW4gc2VjdXJpdHkgdGVzdCBzdWl0ZQotICoqU0RMQyBJbXByb3ZlbWVudCoqOiBBZGRlZCBTU1JGIHByZXZlbnRpb24gcGF0dGVybnMgdG8gc2VjdXJlIGNvZGluZyBzdGFuZGFyZHM7IGFkZGVkIFNTUkYgdGVzdCBjYXNlcwotICoqU3RhdHVzKio6IEltcGxlbWVudGVkCgojIyMgUkNBLTIwMjYtMDAzOiBYU1MgdmlhIFNWRyBVcGxvYWQKLSAqKlJvb3QgQ2F1c2UqKjogU1ZHIGZpbGVzIG5vdCBzYW5pdGl6ZWQgYmVmb3JlIHJlbmRlcmluZwotICoqQ29udHJpYnV0aW5nIEZhY3RvcnMqKjoKICAtIEZpbGUgdXBsb2FkIHZhbGlkYXRpb24gY2hlY2tlZCBNSU1FIHR5cGUgYnV0IG5vdCBjb250ZW50CiAgLSBDb250ZW50IFNlY3VyaXR5IFBvbGljeSBkaWQgbm90IHByZXZlbnQgaW5saW5lIFNWRyBzY3JpcHRzCi0gKipTRExDIEltcHJvdmVtZW50Kio6IEFkZGVkIGZpbGUgY29udGVudCB2YWxpZGF0aW9uIGZvciBhbGwgdXBsb2FkIHR5cGVzOyB0aWdodGVuZWQgQ1NQCi0gKipTdGF0dXMqKjogSW1wbGVtZW50ZWQKCiMjIDMuIFBhdHRlcm4gQW5hbHlzaXMKKipOb3RlKio6IFBhdHRlcm4gYW5hbHlzaXMgaXMgY3VycmVudGx5IHBlcmZvcm1lZCBtYW51YWxseSBvbiBhIHF1YXJ0ZXJseSBiYXNpcy4gVGhlIHNlY3VyaXR5IHRlYW0gcmV2aWV3cyBhbGwgUkNBcyBmcm9tIHRoZSBwZXJpb2QgYW5kIGlkZW50aWZpZXMgcmVjdXJyaW5nIHRoZW1lcy4KCiMjIyBJZGVudGlmaWVkIFBhdHRlcm5zIChRMyAyMDI1IC0gUTEgMjAyNikKMS4gKipBdXRob3JpemF0aW9uIGdhcHMgaW4gbmV3IEFQSSBlbmRwb2ludHMqKiAoMyBvY2N1cnJlbmNlcyk6IE5lZWQgZm9yIGF1dG9tYXRlZCBhdXRob3JpemF0aW9uIHRlc3RpbmcKMi4gKipJbnB1dCB2YWxpZGF0aW9uIGdhcHMgZm9yIGZpbGUgdXBsb2FkcyoqICgyIG9jY3VycmVuY2VzKTogRmlsZSBjb250ZW50IHZhbGlkYXRpb24gaW5jb21wbGV0ZQozLiAqKk1pc3Npbmcgc2VjdXJpdHkgaGVhZGVycyBvbiBuZXcgc2VydmljZXMqKiAoMiBvY2N1cnJlbmNlcyk6IE5lZWQgZm9yIGRlZmF1bHQgc2VjdXJpdHkgaGVhZGVyIG1pZGRsZXdhcmUKCiMjIyBMaW1pdGF0aW9uClBhdHRlcm4gYW5hbHlzaXMgcmVsaWVzIG9uIG1hbnVhbCByZXZpZXcgd2hpY2ggbWF5IG1pc3Mgc3VidGxlIHRyZW5kcyBhY3Jvc3MgbG9uZ2VyIHRpbWUgcGVyaW9kcy4gQXV0b21hdGVkIHBhdHRlcm4gZGV0ZWN0aW9uIGlzIHBsYW5uZWQgZm9yIFEzIDIwMjYuCg==",
+      "content_hash": "e903c8fc00283fec1049a608e6aa2b7310ebd84d3b51942d2105ab2523daf074"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000022",
+      "evidence_id": "00000000-0000-4000-f400-100000000022",
+      "filename": "sbom-provenance-gap-analysis.md",
+      "content_type": "text/markdown",
+      "size_bytes": 2229,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000022/sbom-provenance-gap-analysis.md",
+      "binary_content": "IyBTQk9NIFByb3ZlbmFuY2UgR2FwIEFuYWx5c2lzCiMjIEFjbWUgQ29ycG9yYXRpb24KCiMjIyBEYXRlOiAyMDI2LTAxLTI1CiMjIyBDbGFzc2lmaWNhdGlvbjogQ29uZmlkZW50aWFsCiMjIyBTdGF0dXM6IENPVU5URVItRVZJREVOQ0UgLSBEb2N1bWVudHMgY29tcGxpYW5jZSBnYXAKCiMjIDEuIEV4ZWN1dGl2ZSBTdW1tYXJ5CkFuYWx5c2lzIG9mIHNvZnR3YXJlIGJpbGwgb2YgbWF0ZXJpYWxzIChTQk9NKSBmb3IgUHJvZHVjdCBTdWl0ZSB2Mi4yIHJldmVhbHMgdGhhdCAxNi42JSBvZiBvcGVuIHNvdXJjZSBjb21wb25lbnRzIGxhY2sgdmVyaWZpYWJsZSBwcm92ZW5hbmNlIGRhdGEuIFRoaXMgZ2FwIGFmZmVjdHMgY29tcGxpYW5jZSB3aXRoIFNTREYgcHJhY3RpY2VzIFBTLjMuMiAocHJvdmVuYW5jZSBkYXRhKSBhbmQgUFcuNC40ICh0aGlyZC1wYXJ0eSB2ZXJpZmljYXRpb24pLgoKIyMgMi4gUHJvdmVuYW5jZSBDb3ZlcmFnZQoKfCBDYXRlZ29yeSB8IENvbXBvbmVudHMgfCBXaXRoIFByb3ZlbmFuY2UgfCBHYXAgfAp8LS0tLS0tLS0tLXwtLS0tLS0tLS0tLXwtLS0tLS0tLS0tLS0tLS0tLXwtLS0tLXwKfCBEaXJlY3QgZGVwZW5kZW5jaWVzIHwgNDggfCA0NiB8IDQuMiUgfAp8IFRyYW5zaXRpdmUgZGVwZW5kZW5jaWVzIHwgMTQ1IHwgMTE1IHwgMjAuNyUgfAp8ICoqVG90YWwqKiB8ICoqMTkzKiogfCAqKjE2MSoqIHwgKioxNi42JSoqIHwKCiMjIDMuIENvbXBvbmVudHMgV2l0aG91dCBQcm92ZW5hbmNlCgojIyMgMy4xIENyaXRpY2FsIFByaW9yaXR5ICh1c2VkIGluIHNlY3VyaXR5LXNlbnNpdGl2ZSBwYXRocykKfCBDb21wb25lbnQgfCBWZXJzaW9uIHwgTGljZW5zZSB8IFJpc2sgfAp8LS0tLS0tLS0tLS18LS0tLS0tLS0tfC0tLS0tLS0tLXwtLS0tLS18CnwgbGliY3J5cHRvLWNvbXBhdCB8IDEuMi4zIHwgTUlUIHwgTm8gYnVpbGQgcHJvdmVuYW5jZSB8Cnwgand0LXV0aWxzIHwgMC45LjEgfCBBcGFjaGUtMi4wIHwgQmluYXJ5LW9ubHkgZGlzdHJpYnV0aW9uIHwKfCB4bWwtcGFyc2VyLW5nIHwgMy4xLjAgfCBCU0QtMiB8IE1pcnJvci1zb3VyY2VkLCBubyB1cHN0cmVhbSB2ZXJpZmljYXRpb24gfAoKIyMjIDMuMiBIaWdoIFByaW9yaXR5ICh3aWRlbHkgdXNlZCkKfCBDb21wb25lbnQgfCBWZXJzaW9uIHwgTGljZW5zZSB8IFJpc2sgfAp8LS0tLS0tLS0tLS18LS0tLS0tLS0tfC0tLS0tLS0tLXwtLS0tLS18Cnwgc3RyaW5nLXNhbml0aXplciB8IDIuMC4xIHwgTUlUIHwgU2luZ2xlIG1haW50YWluZXIsIG5vIHNpZ25lZCByZWxlYXNlcyB8CnwgY29uZmlnLWxvYWRlciB8IDEuNS4wIHwgSVNDIHwgTm8gcmVwcm9kdWNpYmxlIGJ1aWxkIHwKfCBkYXRlLWZvcm1hdC11dGlscyB8IDQuMi4xIHwgTUlUIHwgRm9yayBmcm9tIGFiYW5kb25lZCBwcm9qZWN0IHwKfCBodHRwLXJldHJ5IHwgMS4xLjAgfCBNSVQgfCBObyBzaWduZWQgcmVsZWFzZXMgfAp8IGNhY2hlLW1hbmFnZXItbGl0ZSB8IDMuMC4yIHwgQXBhY2hlLTIuMCB8IEJpbmFyeSBkaXN0cmlidXRpb24gb25seSB8CgojIyMgMy4zIE1lZGl1bS9Mb3cgUHJpb3JpdHkgKDI3IGFkZGl0aW9uYWwgY29tcG9uZW50cykKUHJpbWFyaWx5IGRldmVsb3BtZW50L3Rlc3QgZGVwZW5kZW5jaWVzIGFuZCB1dGlsaXRpZXMgd2l0aCBsaW1pdGVkIHNlY3VyaXR5IGltcGFjdC4KCiMjIDQuIFJpc2sgQXNzZXNzbWVudAotICoqSW50ZWdyaXR5IFJpc2sqKjogVW5hYmxlIHRvIHZlcmlmeSB0aGF0IDMyIGNvbXBvbmVudHMgaGF2ZSBub3QgYmVlbiB0YW1wZXJlZCB3aXRoCi0gKipTdXBwbHkgQ2hhaW4gUmlzayoqOiA4IGNvbXBvbmVudHMgc291cmNlZCBmcm9tIG1pcnJvcnMgd2l0aG91dCBvcmlnaW4gdmVyaWZpY2F0aW9uCi0gKipMaWNlbnNpbmcgUmlzayoqOiAzIGNvbXBvbmVudHMgaGF2ZSB1bnZlcmlmaWFibGUgbGljZW5zZSBjbGFpbXMKCiMjIDUuIFJlY29tbWVuZGVkIEFjdGlvbnMKMS4gRW5nYWdlIHVwc3RyZWFtIG1haW50YWluZXJzIHRvIHB1Ymxpc2ggc2lnbmVkIHJlbGVhc2VzIGFuZCBwcm92ZW5hbmNlCjIuIEltcGxlbWVudCBpbi10b3RvIGF0dGVzdGF0aW9uIGZyYW1ld29yayBmb3IgYnVpbGQgdmVyaWZpY2F0aW9uCjMuIFJlcGxhY2UgbWlycm9yLXNvdXJjZWQgY29tcG9uZW50cyB3aXRoIHZlcmlmaWVkIHVwc3RyZWFtIHNvdXJjZXMKNC4gQ29uc2lkZXIgYWx0ZXJuYXRpdmVzIGZvciBzaW5nbGUtbWFpbnRhaW5lciBjcml0aWNhbCBkZXBlbmRlbmNpZXMK",
+      "content_hash": "7588df66aea66658ec4bc9371d12e32386f9bcfa86aae02065a14aabcc9d8d22"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000023",
+      "evidence_id": "00000000-0000-4000-f400-100000000023",
+      "filename": "oss-provenance-remediation-plan.md",
+      "content_type": "text/markdown",
+      "size_bytes": 1734,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000023/oss-provenance-remediation-plan.md",
+      "binary_content": "IyBPU1MgUHJvdmVuYW5jZSBSZW1lZGlhdGlvbiBQbGFuCiMjIEFjbWUgQ29ycG9yYXRpb24KCiMjIyBWZXJzaW9uOiAxLjAgfCBDcmVhdGVkOiAyMDI2LTAyLTAxCiMjIyBPd25lcjogU3VwcGx5IENoYWluIFNlY3VyaXR5IFRlYW0KCiMjIDEuIE9iamVjdGl2ZQpBZGRyZXNzIHRoZSBwcm92ZW5hbmNlIGdhcHMgaWRlbnRpZmllZCBpbiB0aGUgU0JPTSBQcm92ZW5hbmNlIEdhcCBBbmFseXNpcyBieSBpbXBsZW1lbnRpbmcgYXV0b21hdGVkIHByb3ZlbmFuY2UgdHJhY2tpbmcsIGVuZ2FnaW5nIHVwc3RyZWFtIG1haW50YWluZXJzLCBhbmQgZXN0YWJsaXNoaW5nIGFsdGVybmF0aXZlIHNvdXJjaW5nIGZvciBjb21wb25lbnRzIHRoYXQgY2Fubm90IGJlIHZlcmlmaWVkLgoKIyMgMi4gUmVtZWRpYXRpb24gVGltZWxpbmUKCiMjIyBQaGFzZSAxOiBDcml0aWNhbCBDb21wb25lbnRzIChUYXJnZXQ6IDIwMjYtMDMtMzEpCi0gUmVwbGFjZSBsaWJjcnlwdG8tY29tcGF0IHdpdGggdmVyaWZpZWQgT3BlblNTTCB3cmFwcGVyCi0gTWlncmF0ZSBqd3QtdXRpbHMgdG8gd2VsbC1tYWludGFpbmVkIGpvc2UgbGlicmFyeQotIFNvdXJjZSB4bWwtcGFyc2VyLW5nIGRpcmVjdGx5IGZyb20gdXBzdHJlYW0gbWFpbnRhaW5lcgoKIyMjIFBoYXNlIDI6IEhpZ2ggUHJpb3JpdHkgQ29tcG9uZW50cyAoVGFyZ2V0OiAyMDI2LTA1LTMxKQotIEltcGxlbWVudCBTaWdzdG9yZSB2ZXJpZmljYXRpb24gZm9yIGFsbCBkaXJlY3QgZGVwZW5kZW5jaWVzCi0gRW5nYWdlIHRvcCAxMCB1cHN0cmVhbSBtYWludGFpbmVycyBmb3Igc2lnbmVkIHJlbGVhc2VzCi0gU2V0IHVwIGludGVybmFsIGJ1aWxkIHZlcmlmaWNhdGlvbiBmb3IgY29tcG9uZW50cyB3aXRob3V0IHVwc3RyZWFtIHByb3ZlbmFuY2UKCiMjIyBQaGFzZSAzOiBTeXN0ZW1hdGljIENvdmVyYWdlIChUYXJnZXQ6IDIwMjYtMDgtMzEpCi0gRGVwbG95IGluLXRvdG8gYXR0ZXN0YXRpb24gZnJhbWV3b3JrIGFjcm9zcyBhbGwgYnVpbGQgcGlwZWxpbmVzCi0gQWNoaWV2ZSA5NSUrIHByb3ZlbmFuY2UgY292ZXJhZ2UgZm9yIGFsbCBjb21wb25lbnRzCi0gRXN0YWJsaXNoIG9uZ29pbmcgbW9uaXRvcmluZyBmb3IgbmV3IGRlcGVuZGVuY2llcyB3aXRob3V0IHByb3ZlbmFuY2UKCiMjIDMuIFN1Y2Nlc3MgQ3JpdGVyaWEKLSBDcml0aWNhbCBjb21wb25lbnRzOiAxMDAlIHByb3ZlbmFuY2UgY292ZXJhZ2UKLSBBbGwgZGVwZW5kZW5jaWVzOiA5NSUgcHJvdmVuYW5jZSBjb3ZlcmFnZQotIEF1dG9tYXRlZCBwcm92ZW5hbmNlIHZlcmlmaWNhdGlvbiBpbiBDSS9DRCBwaXBlbGluZQotIE1vbnRobHkgcHJvdmVuYW5jZSBjb3ZlcmFnZSByZXBvcnRpbmcKCiMjIDQuIFJlc291cmNlcyBSZXF1aXJlZAotIDIgRlRFIHNlY3VyaXR5IGVuZ2luZWVycyAoNiBtb250aHMpCi0gJDE1LDAwMCBidWRnZXQgZm9yIHVwc3RyZWFtIG1haW50YWluZXIgZW5nYWdlbWVudC9zcG9uc29yc2hpcAotIEludGVncmF0aW9uIHdpdGggZXhpc3RpbmcgQ0kvQ0QgYW5kIGRlcGVuZGVuY3kgbWFuYWdlbWVudCB0b29scwoKIyMgNS4gUmlzayBpZiBOb3QgQWRkcmVzc2VkCi0gQ29udGludWVkIGluYWJpbGl0eSB0byB2ZXJpZnkgaW50ZWdyaXR5IG9mIDMyKyBjb21wb25lbnRzCi0gTm9uLWNvbXBsaWFuY2Ugd2l0aCBTU0RGIFBTLjMuMiBhbmQgRU8gMTQwMjggcmVxdWlyZW1lbnRzCi0gUG90ZW50aWFsIHN1cHBseSBjaGFpbiBjb21wcm9taXNlIHVuZGV0ZWN0ZWQK",
+      "content_hash": "00224a2785aa5ede1eb5006c790d5979d28c0f50ecafa262bc368e9a55ebc8aa"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000024",
+      "evidence_id": "00000000-0000-4000-f400-100000000024",
+      "filename": "management-commitment.md",
+      "content_type": "text/markdown",
+      "size_bytes": 1620,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000024/management-commitment.md",
+      "binary_content": "IyBNYW5hZ2VtZW50IENvbW1pdG1lbnQgdG8gU2VjdXJlIERldmVsb3BtZW50CiMjIEFjbWUgQ29ycG9yYXRpb24KCiMjIyBFZmZlY3RpdmUgRGF0ZTogMjAyNS0wNy0wMQoKIyMgMS4gRXhlY3V0aXZlIERpcmVjdGl2ZQoKVGhlIHVuZGVyc2lnbmVkIGV4ZWN1dGl2ZSBsZWFkZXJzaGlwIG9mIEFjbWUgQ29ycG9yYXRpb24gY29tbWl0cyB0byB0aGUgZm9sbG93aW5nIHNlY3VyZSBzb2Z0d2FyZSBkZXZlbG9wbWVudCBwcmluY2lwbGVzOgoKMS4gKipSZXNvdXJjZSBBbGxvY2F0aW9uKio6IERlZGljYXRlZCBzZWN1cml0eSBlbmdpbmVlcmluZyBidWRnZXQgb2Ygbm90IGxlc3MgdGhhbiAxMCUgb2YgdG90YWwgZW5naW5lZXJpbmcgc3BlbmQKMi4gKipTZWN1cml0eSBUcmFpbmluZyoqOiBBbGwgZGV2ZWxvcG1lbnQgc3RhZmYgcmVjZWl2ZSBhbm51YWwgc2VjdXJpdHkgdHJhaW5pbmcgd2l0aCBxdWFydGVybHkgcmVmcmVzaGVycwozLiAqKlNlY3VyaXR5LUZpcnN0IEN1bHR1cmUqKjogU2VjdXJpdHkgaXMgYSBxdWFsaXR5IGF0dHJpYnV0ZSwgbm90IGFuIGFmdGVydGhvdWdodAo0LiAqKkNvbnRpbnVvdXMgSW1wcm92ZW1lbnQqKjogU0RMQyBwcmFjdGljZXMgYXJlIHJlZ3VsYXJseSByZXZpZXdlZCBhbmQgaW1wcm92ZWQgYmFzZWQgb24gbGVzc29ucyBsZWFybmVkCjUuICoqQWNjb3VudGFiaWxpdHkqKjogU2VjdXJpdHkgbWV0cmljcyBhcmUgaW5jbHVkZWQgaW4gZW5naW5lZXJpbmcgbGVhZGVyc2hpcCBwZXJmb3JtYW5jZSByZXZpZXdzCgojIyAyLiBCdWRnZXQgQWxsb2NhdGlvbiAoRlkyMDI2KQoKfCBDYXRlZ29yeSB8IEJ1ZGdldCB8ICUgb2YgRW5naW5lZXJpbmcgfAp8LS0tLS0tLS0tLXwtLS0tLS0tLXwtLS0tLS0tLS0tLS0tLS0tLXwKfCBTZWN1cml0eSBUb29scyAmIEluZnJhc3RydWN0dXJlIHwgJDQ1MCwwMDAgfCAzLjIlIHwKfCBTZWN1cml0eSBUcmFpbmluZyAmIENlcnRpZmljYXRpb24gfCAkODUsMDAwIHwgMC42JSB8CnwgRXh0ZXJuYWwgU2VjdXJpdHkgVGVzdGluZyB8ICQyMDAsMDAwIHwgMS40JSB8CnwgQnVnIEJvdW50eSBQcm9ncmFtIHwgJDc1LDAwMCB8IDAuNSUgfAp8IFNlY3VyaXR5IEVuZ2luZWVyaW5nIEhlYWRjb3VudCAoNSBGVEUpIHwgJDg3NSwwMDAgfCA2LjMlIHwKfCAqKlRvdGFsKiogfCAqKiQxLDY4NSwwMDAqKiB8ICoqMTIuMCUqKiB8CgojIyAzLiBFeGVjdXRpdmUgU3BvbnNvcnMKLSAqKkNFTyoqOiBSb2JlcnQgU3ByaW5nZXR0IC0gT3ZlcmFsbCBvcmdhbml6YXRpb25hbCBjb21taXRtZW50Ci0gKipDVE8qKjogTWFyaWEgU2FudG9zIC0gVGVjaG5pY2FsIGltcGxlbWVudGF0aW9uIG92ZXJzaWdodAotICoqQ0lTTyoqOiBBbGljZSBDaGVuIC0gU2VjdXJpdHkgcHJvZ3JhbSBtYW5hZ2VtZW50Ci0gKipWUCBFbmdpbmVlcmluZyoqOiBKYW1lcyBXaWxzb24gLSBEZXZlbG9wbWVudCB0ZWFtIGludGVncmF0aW9uCgojIyA0LiBSZXZpZXcgYW5kIEFjY291bnRhYmlsaXR5Ci0gTW9udGhseSBzZWN1cml0eSBtZXRyaWNzIHJldmlldyBieSBDVE8KLSBRdWFydGVybHkgc2VjdXJpdHkgcG9zdHVyZSByZXBvcnQgdG8gQm9hcmQgb2YgRGlyZWN0b3JzCi0gQW5udWFsIHRoaXJkLXBhcnR5IG1hdHVyaXR5IGFzc2Vzc21lbnQK",
+      "content_hash": "80004f6b8e40d1c37cf9d46b418000c7727fce6e894f293b4b4deb20707609a7"
+    },
+    {
+      "id": "00000000-0000-4000-f420-001000000025",
+      "evidence_id": "00000000-0000-4000-f400-100000000025",
+      "filename": "third-party-verification-plan.md",
+      "content_type": "text/markdown",
+      "size_bytes": 1650,
+      "storage_path": "evidence/00000000-0000-4000-f400-100000000025/third-party-verification-plan.md",
+      "binary_content": "IyBUaGlyZC1QYXJ0eSBDb21wb25lbnQgVmVyaWZpY2F0aW9uIEltcHJvdmVtZW50IFBsYW4KIyMgQWNtZSBDb3Jwb3JhdGlvbgoKIyMjIFZlcnNpb246IDEuMCB8IENyZWF0ZWQ6IDIwMjYtMDItMDEKIyMjIE93bmVyOiBBcHBsaWNhdGlvbiBTZWN1cml0eSBUZWFtCgojIyAxLiBDdXJyZW50IFN0YXRlClRoaXJkLXBhcnR5IGNvbXBvbmVudCB2ZXJpZmljYXRpb24gaXMgcGVyZm9ybWVkIGJ1dCBub3QgZnVsbHkgYXV0b21hdGVkOgotIE1hbnVhbCByZXZpZXcgb2YgbmV3IGRlcGVuZGVuY2llcyBiZWZvcmUgYWRvcHRpb24KLSBBdXRvbWF0ZWQgdnVsbmVyYWJpbGl0eSBzY2FubmluZyAoRGVwZW5kYWJvdCArIFNueWspCi0gTGljZW5zZSBjb21wbGlhbmNlIGNoZWNraW5nIChGT1NTQSkKLSBNaXNzaW5nOiBhdXRvbWF0ZWQgcG9saWN5IGVuZm9yY2VtZW50LCBjb250aW51b3VzIGNvbXBsaWFuY2UgbW9uaXRvcmluZwoKIyMgMi4gVGFyZ2V0IFN0YXRlCkZ1bGx5IGF1dG9tYXRlZCB0aGlyZC1wYXJ0eSBjb21wb25lbnQgdmVyaWZpY2F0aW9uIHdpdGggcG9saWN5LWFzLWNvZGUgZW5mb3JjZW1lbnQ6Ci0gQXV0b21hdGVkIGV2YWx1YXRpb24gYWdhaW5zdCBzZWN1cml0eSwgbGljZW5zZSwgYW5kIG1haW50ZW5hbmNlIGNyaXRlcmlhCi0gQ29udGludW91cyBtb25pdG9yaW5nIGZvciBuZXcgdnVsbmVyYWJpbGl0aWVzIGFuZCBwb2xpY3kgdmlvbGF0aW9ucwotIEF1dG9tYXRlZCBibG9ja2luZyBvZiBub24tY29tcGxpYW50IGNvbXBvbmVudHMgaW4gQ0kvQ0QKLSBEYXNoYm9hcmQgZm9yIHJlYWwtdGltZSBjb21wb25lbnQgY29tcGxpYW5jZSB2aXNpYmlsaXR5CgojIyAzLiBJbXBsZW1lbnRhdGlvbiBQbGFuCgojIyMgUGhhc2UgMTogUG9saWN5IERlZmluaXRpb24gKFRhcmdldDogMjAyNi0wMy0xNSkKLSBEZWZpbmUgY29tcG9uZW50IGFjY2VwdGFuY2UgY3JpdGVyaWEgaW4gT1BBL1JlZ28KLSBDcml0ZXJpYTogdnVsbmVyYWJpbGl0eSBzZXZlcml0eSwgbGljZW5zZSBjb21wYXRpYmlsaXR5LCBtYWludGVuYW5jZSBzdGF0dXMsIHByb3ZlbmFuY2UKCiMjIyBQaGFzZSAyOiBDSS9DRCBJbnRlZ3JhdGlvbiAoVGFyZ2V0OiAyMDI2LTA0LTMwKQotIEludGVncmF0ZSBwb2xpY3kgZW5naW5lIGludG8gYnVpbGQgcGlwZWxpbmUKLSBBdXRvbWF0ZWQgYmxvY2tpbmcgb2Ygbm9uLWNvbXBsaWFudCBuZXcgZGVwZW5kZW5jaWVzCi0gRXhjZXB0aW9uIHdvcmtmbG93IGZvciBsZWdpdGltYXRlIHBvbGljeSBvdmVycmlkZXMKCiMjIyBQaGFzZSAzOiBDb250aW51b3VzIE1vbml0b3JpbmcgKFRhcmdldDogMjAyNi0wNi0zMCkKLSBSZWFsLXRpbWUgbW9uaXRvcmluZyBvZiBhbGwgZGVwbG95ZWQgY29tcG9uZW50cwotIEF1dG9tYXRlZCBhbGVydHMgZm9yIG5ld2x5IGRpc2NvdmVyZWQgdnVsbmVyYWJpbGl0aWVzCi0gRGFzaGJvYXJkIGZvciBjb21wb25lbnQgY29tcGxpYW5jZSBtZXRyaWNzCgojIyA0LiBTdWNjZXNzIENyaXRlcmlhCi0gMTAwJSBvZiBuZXcgZGVwZW5kZW5jaWVzIGV2YWx1YXRlZCBhZ2FpbnN0IHBvbGljeSBiZWZvcmUgYWRvcHRpb24KLSBNZWFuIHRpbWUgdG8gZGV0ZWN0IG5ldyB2dWxuZXJhYmlsaXR5OiA8IDQgaG91cnMKLSBDb21wb25lbnQgcG9saWN5IGNvbXBsaWFuY2UgcmF0ZTogPiA5OCUK",
+      "content_hash": "4a0e12a9f594e77cf234615e959dda464222812e93513c8993484f5799913b46"
+    }
+  ],
+  "claims": [
+    {
+      "id": "00000000-0000-4000-f500-000000000001",
+      "name": "Product A implements strong authentication",
+      "target": "Product A v2.1",
+      "predicate": "All user authentication flows enforce multi factor authentication and follow OWASP ASVS Level 2 requirements for credential management.",
+      "reasoning": "Based on penetration test results and MFA configuration evidence, Product A meets or exceeds ASVS authentication requirements.",
+      "is_counter_claim": false
+    },
+    {
+      "id": "00000000-0000-4000-f500-000000000002",
+      "name": "Legacy auth flow has session fixation vulnerability",
+      "target": "Product A v2.1 Legacy Auth",
+      "predicate": "The legacy authentication flow is vulnerable to session fixation attacks, which could allow an attacker to hijack user sessions.",
+      "reasoning": "Identified during penetration testing. The legacy flow does not regenerate session tokens after authentication.",
+      "is_counter_claim": true
+    },
+    {
+      "id": "00000000-0000-4000-f500-000000000003",
+      "name": "Supplier A maintains adequate security controls",
+      "target": "Supplier A",
+      "predicate": "Supplier A has implemented and maintains security controls consistent with SOC 2 Type II trust service criteria for security, availability, and confidentiality.",
+      "reasoning": "Supported by Supplier A's current SOC 2 Type II report and independent auditor opinion.",
+      "is_counter_claim": false
+    },
+    {
+      "id": "00000000-0000-4000-f500-100000000001",
+      "name": "Acme maintains comprehensive security requirements",
+      "target": "Acme Corporation SDLC",
+      "predicate": "Security requirements for software development infrastructure and organization-developed software are identified, documented, and communicated to all stakeholders.",
+      "reasoning": "Based on comprehensive security requirements documentation covering all aspects of SDLC infrastructure, processes, and software security.",
+      "is_counter_claim": false
+    },
+    {
+      "id": "00000000-0000-4000-f500-100000000002",
+      "name": "Security roles and training are properly defined and maintained",
+      "target": "Acme Corporation",
+      "predicate": "All personnel involved in software development have defined security roles and responsibilities with mandatory security training.",
+      "reasoning": "SDLC role definitions document roles and training records demonstrate regular security awareness and specialized training programs.",
+      "is_counter_claim": false
+    },
+    {
+      "id": "00000000-0000-4000-f500-100000000003",
+      "name": "Toolchain and automation support secure development practices",
+      "target": "Acme Corporation Development Infrastructure",
+      "predicate": "Organization uses automated tools and toolchains throughout the SDLC to support secure development practices and reduce human error.",
+      "reasoning": "CI/CD pipeline documentation and security toolchain configuration demonstrate comprehensive automation of security gates.",
+      "is_counter_claim": false
+    },
+    {
+      "id": "00000000-0000-4000-f500-100000000004",
+      "name": "Security gates and quality criteria are defined and enforced",
+      "target": "Acme Corporation Development Process",
+      "predicate": "Explicit security criteria and quality gates are defined and enforced throughout the development lifecycle.",
+      "reasoning": "Pipeline configuration and design review records document security gate implementation and enforcement.",
+      "is_counter_claim": false
+    },
+    {
+      "id": "00000000-0000-4000-f500-100000000005",
+      "name": "Source code access is controlled and protected",
+      "target": "Product A v2.1 Source Repositories",
+      "predicate": "Organization implements strong access controls on source code repositories including authentication, authorization, and audit logging.",
+      "reasoning": "Repository security configuration enforces MFA, branch protection, commit signing, and quarterly access reviews.",
+      "is_counter_claim": false
+    },
+    {
+      "id": "00000000-0000-4000-f500-100000000006",
+      "name": "Software integrity verification is implemented",
+      "target": "Product A v2.1 Build and Release",
+      "predicate": "Organization verifies the integrity of software produced by the build process through cryptographic signing and verification.",
+      "reasoning": "Build artifact signing and verification procedures documented with implementation in CI/CD pipeline.",
+      "is_counter_claim": false
+    },
+    {
+      "id": "00000000-0000-4000-f500-100000000007",
+      "name": "Release archive and provenance records are maintained",
+      "target": "Product A v2.1 Releases",
+      "predicate": "Release archives are created, stored securely, and accompanied by provenance documentation.",
+      "reasoning": "Release archive procedures and provenance documentation mostly in place; provenance data for some OSS components requires enhancement.",
+      "is_counter_claim": false
+    },
+    {
+      "id": "00000000-0000-4000-f500-100000000008",
+      "name": "Provenance data is incomplete for some third-party components",
+      "target": "Product A v2.1 Supply Chain",
+      "predicate": "Some open source components lack complete provenance data and supply chain verification information.",
+      "reasoning": "Assessment identified 12 OSS components without documented provenance origin; remediation plan in development.",
+      "is_counter_claim": true
+    },
+    {
+      "id": "00000000-0000-4000-f500-100000000009",
+      "name": "Threats are identified and mitigated during design",
+      "target": "Product A v2.1 Development",
+      "predicate": "Organization identifies and analyzes threats to software during design phase using threat modeling methodologies.",
+      "reasoning": "STRIDE-based threat model developed and design reviews document threat analysis and mitigations.",
+      "is_counter_claim": false
+    },
+    {
+      "id": "00000000-0000-4000-f500-100000000010",
+      "name": "Secure design practices are reviewed and approved",
+      "target": "Product A v2.1 Architecture",
+      "predicate": "Design security reviews are conducted and documented with approval from security personnel.",
+      "reasoning": "Design review records show 4 formal reviews with security lead approval for major architectural changes.",
+      "is_counter_claim": false
+    },
+    {
+      "id": "00000000-0000-4000-f500-100000000011",
+      "name": "Third-party components are assessed and monitored",
+      "target": "Product A v2.1 Supply Chain",
+      "predicate": "Organization assesses third-party components for security vulnerabilities and maintains ongoing monitoring.",
+      "reasoning": "SBOM tracks 186 components with continuous vulnerability scanning and monthly monitoring reports.",
+      "is_counter_claim": false
+    },
+    {
+      "id": "00000000-0000-4000-f500-100000000012",
+      "name": "Secure coding standards are documented and enforced",
+      "target": "Product A v2.1 Development",
+      "predicate": "Organization documents secure coding standards consistent with industry best practices and enforces them through code review.",
+      "reasoning": "Secure coding standards defined in security requirements; code review is mandatory with SAST scanning in CI/CD.",
+      "is_counter_claim": false
+    },
+    {
+      "id": "00000000-0000-4000-f500-100000000013",
+      "name": "Security testing is integrated into the development process",
+      "target": "Product A v2.1 Development",
+      "predicate": "Organization performs security testing including SAST and DAST to identify vulnerabilities before release.",
+      "reasoning": "SAST via SonarQube and DAST via OWASP ZAP integrated into CI/CD pipeline with quality gates.",
+      "is_counter_claim": false
+    },
+    {
+      "id": "00000000-0000-4000-f500-100000000014",
+      "name": "Vulnerabilities are identified, tracked, and remediated",
+      "target": "Acme Corporation",
+      "predicate": "Organization identifies vulnerabilities through multiple methods and tracks remediation with defined response timeframes.",
+      "reasoning": "Vulnerability management process defines response timeframes and tracks remediation metrics.",
+      "is_counter_claim": false
+    }
+  ],
+  "claim_evidence": [
+    {
+      "claim_id": "00000000-0000-4000-f500-000000000001",
+      "evidence_id": "00000000-0000-4000-f400-000000000001"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-000000000001",
+      "evidence_id": "00000000-0000-4000-f400-000000000003"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-000000000003",
+      "evidence_id": "00000000-0000-4000-f400-000000000005"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000001",
+      "evidence_id": "00000000-0000-4000-f400-100000000001"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000007",
+      "evidence_id": "00000000-0000-4000-f400-100000000004"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000008",
+      "evidence_id": "00000000-0000-4000-f400-100000000004"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000009",
+      "evidence_id": "00000000-0000-4000-f400-100000000002"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000011",
+      "evidence_id": "00000000-0000-4000-f400-100000000004"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000012",
+      "evidence_id": "00000000-0000-4000-f400-100000000001"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000013",
+      "evidence_id": "00000000-0000-4000-f400-100000000003"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000002",
+      "evidence_id": "00000000-0000-4000-f400-100000000007"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000002",
+      "evidence_id": "00000000-0000-4000-f400-100000000024"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000003",
+      "evidence_id": "00000000-0000-4000-f400-100000000005"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000004",
+      "evidence_id": "00000000-0000-4000-f400-100000000008"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000005",
+      "evidence_id": "00000000-0000-4000-f400-100000000009"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000006",
+      "evidence_id": "00000000-0000-4000-f400-100000000010"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000007",
+      "evidence_id": "00000000-0000-4000-f400-100000000011"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000008",
+      "evidence_id": "00000000-0000-4000-f400-100000000012"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000010",
+      "evidence_id": "00000000-0000-4000-f400-100000000004"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000010",
+      "evidence_id": "00000000-0000-4000-f400-100000000006"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000011",
+      "evidence_id": "00000000-0000-4000-f400-100000000019"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000012",
+      "evidence_id": "00000000-0000-4000-f400-100000000020"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000013",
+      "evidence_id": "00000000-0000-4000-f400-100000000021"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000014",
+      "evidence_id": "00000000-0000-4000-f400-100000000022"
+    }
+  ],
+  "claim_counter_evidence": [
+    {
+      "claim_id": "00000000-0000-4000-f500-000000000001",
+      "evidence_id": "00000000-0000-4000-f400-000000000004"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000001",
+      "evidence_id": "00000000-0000-4000-f400-100000000004"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000008",
+      "evidence_id": "00000000-0000-4000-f400-100000000022"
+    }
+  ],
+  "claim_mitigation_strategies": [
+    {
+      "claim_id": "00000000-0000-4000-f500-000000000002",
+      "evidence_id": "00000000-0000-4000-f400-000000000001"
+    },
+    {
+      "claim_id": "00000000-0000-4000-f500-100000000014",
+      "evidence_id": "00000000-0000-4000-f400-100000000023"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "00000000-0000-4000-f800-000000000001",
+      "user_id": "00000000-0000-4000-c000-000000000002",
+      "type": "assessment_assigned",
+      "title": "New Assessment Assignment",
+      "message": "You have been assigned as an assessor for 'Product A ASVS Assessment'.",
+      "link": "/assessments/00000000-0000-4000-f300-000000000001",
+      "is_read": true
+    },
+    {
+      "id": "00000000-0000-4000-f800-000000000002",
+      "user_id": "00000000-0000-4000-c000-000000000004",
+      "type": "evidence_review_requested",
+      "title": "Evidence Review Requested",
+      "message": "Your evidence 'MFA Configuration Evidence' has been sent for review.",
+      "link": "/evidence/00000000-0000-4000-f400-000000000003",
+      "is_read": false
+    },
+    {
+      "id": "00000000-0000-4000-f800-000000000003",
+      "user_id": "00000000-0000-4000-c000-000000000003",
+      "type": "assessment_due_soon",
+      "title": "Assessment Due Soon",
+      "message": "The 'Supplier A Security Review' assessment is due in 11 days.",
+      "link": "/assessments/00000000-0000-4000-f300-000000000003",
+      "is_read": false
+    }
+  ],
+  "audit_logs": [
+    {
+      "entity_type": "project",
+      "entity_id": "00000000-0000-4000-f000-000000000001",
+      "action": "create",
+      "user_id": "__ADMIN_USER__",
+      "changes": {
+        "name": "2026 Security Assessments",
+        "state": "new"
+      }
+    },
+    {
+      "entity_type": "project",
+      "entity_id": "00000000-0000-4000-f000-000000000001",
+      "action": "state_change",
+      "user_id": "__ADMIN_USER__",
+      "changes": {
+        "from": "new",
+        "to": "in_progress"
+      }
+    },
+    {
+      "entity_type": "assessment",
+      "entity_id": "00000000-0000-4000-f300-000000000001",
+      "action": "create",
+      "user_id": "__ADMIN_USER__",
+      "changes": {
+        "title": "Product A ASVS Assessment"
+      }
+    },
+    {
+      "entity_type": "assessment",
+      "entity_id": "00000000-0000-4000-f300-000000000001",
+      "action": "state_change",
+      "user_id": "00000000-0000-4000-c000-000000000002",
+      "changes": {
+        "from": "new",
+        "to": "in_progress"
+      }
+    },
+    {
+      "entity_type": "evidence",
+      "entity_id": "00000000-0000-4000-f400-000000000001",
+      "action": "create",
+      "user_id": "00000000-0000-4000-c000-000000000002",
+      "changes": {
+        "name": "Penetration Test Report Q4 2025"
+      }
+    }
+  ],
+  "dashboards": [
+    {
+      "id": "00000000-0000-4000-f900-000000000001",
+      "name": "Security Overview",
+      "description": "High level view of assessment progress, evidence status, and compliance posture.",
+      "owner_id": "__ADMIN_USER__",
+      "is_default": true,
+      "is_shared": true,
+      "layout": [
+        {
+          "i": "w1",
+          "x": 0,
+          "y": 0,
+          "w": 4,
+          "h": 2,
+          "type": "stat-card",
+          "config": {
+            "metric": "assessments_in_progress"
+          }
+        },
+        {
+          "i": "w2",
+          "x": 4,
+          "y": 0,
+          "w": 4,
+          "h": 2,
+          "type": "stat-card",
+          "config": {
+            "metric": "evidence_pending_review"
+          }
+        },
+        {
+          "i": "w3",
+          "x": 8,
+          "y": 0,
+          "w": 4,
+          "h": 2,
+          "type": "stat-card",
+          "config": {
+            "metric": "overdue_assessments"
+          }
+        },
+        {
+          "i": "w4",
+          "x": 0,
+          "y": 2,
+          "w": 6,
+          "h": 4,
+          "type": "assessment-progress",
+          "config": {}
+        },
+        {
+          "i": "w5",
+          "x": 6,
+          "y": 2,
+          "w": 6,
+          "h": 4,
+          "type": "recent-activity",
+          "config": {}
+        }
+      ]
+    }
+  ],
+  "ssdf_assessment_data": {
+    "assessment_requirements": [
+      {
+        "requirement_identifier": "PO.1.1",
+        "result": "yes",
+        "rationale": "Security requirements are documented in comprehensive requirements document",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000001"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PO.1.2",
+        "result": "yes",
+        "rationale": "Software security requirements are defined and maintained in requirements database",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000001"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PO.1.3",
+        "result": "yes",
+        "rationale": "Third-party requirements are communicated via procurement policy",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000001"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PO.2.1",
+        "result": "yes",
+        "rationale": "SDLC roles are defined and documented in role definition document",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000007"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PO.2.2",
+        "result": "yes",
+        "rationale": "Security training completion records show annual training for all personnel",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000007"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PO.2.3",
+        "result": "yes",
+        "rationale": "Management commitment demonstrated through security policy and budget allocation",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000024"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PO.3.1",
+        "result": "yes",
+        "rationale": "Toolchain components are specified in tool requirements documentation",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000005"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PO.3.2",
+        "result": "yes",
+        "rationale": "Tools are deployed and maintained following security best practices",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000005"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PO.3.3",
+        "result": "yes",
+        "rationale": "Tools are configured to generate security artifacts per organization standards",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000005"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PO.4.1",
+        "result": "yes",
+        "rationale": "Security gates are defined with documented criteria",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000008"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PO.4.2",
+        "result": "yes",
+        "rationale": "Gate criteria are reviewed quarterly and updated as needed",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000008"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PO.5.1",
+        "result": "yes",
+        "rationale": "Development environment hardening policy is documented",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000009"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PO.5.2",
+        "result": "yes",
+        "rationale": "Environment configuration is monitored and enforced via tooling",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000009"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PS.1.1",
+        "result": "yes",
+        "rationale": "Source code access control configured with MFA and branch protection",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000010"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PS.2.1",
+        "result": "yes",
+        "rationale": "Build artifacts are signed using GPG keys",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000011"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PS.3.1",
+        "result": "yes",
+        "rationale": "Release archives are created and stored in secure artifact repository",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000012"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PS.3.2",
+        "result": "partial",
+        "rationale": "Provenance records are maintained but incomplete for some OSS components",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000012",
+          "00000000-0000-4000-f400-100000000022"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PW.1.1",
+        "result": "yes",
+        "rationale": "Threat model created using STRIDE methodology for Product A",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000002"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PW.1.2",
+        "result": "yes",
+        "rationale": "Threat analysis results documented with identified risks and mitigations",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000002"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PW.2.1",
+        "result": "yes",
+        "rationale": "Design reviews are mandatory with security personnel approval",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000013"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PW.4.1",
+        "result": "yes",
+        "rationale": "SBOM is created and maintained for all components",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000004"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PW.4.2",
+        "result": "yes",
+        "rationale": "Component vulnerabilities are tracked and monitored continuously",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000014"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PW.4.4",
+        "result": "partial",
+        "rationale": "Third-party component verification process partially automated",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000006",
+          "00000000-0000-4000-f400-100000000004"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PW.5.1",
+        "result": "yes",
+        "rationale": "Secure coding standards are documented and accessible to developers",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000014"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PW.6.1",
+        "result": "yes",
+        "rationale": "Compiler security flags are configured in build system",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000015"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PW.6.2",
+        "result": "yes",
+        "rationale": "Build configuration includes hardening measures (PIE, stack canaries, ASLR)",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000015"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PW.7.1",
+        "result": "yes",
+        "rationale": "Code review is mandatory for all changes with documentation",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000016"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PW.7.2",
+        "result": "yes",
+        "rationale": "Code review includes security analysis; critical findings block merge",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000016",
+          "00000000-0000-4000-f400-100000000003"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PW.8.1",
+        "result": "yes",
+        "rationale": "SAST testing performed on all code with SonarQube integration",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000003",
+          "00000000-0000-4000-f400-100000000017"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PW.8.2",
+        "result": "yes",
+        "rationale": "DAST testing conducted in staging environment via OWASP ZAP",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000003",
+          "00000000-0000-4000-f400-100000000017"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PW.9.1",
+        "result": "yes",
+        "rationale": "Security configuration baseline defined and documented",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000018"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "PW.9.2",
+        "result": "yes",
+        "rationale": "Configuration is validated and enforced via infrastructure-as-code",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000018"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "RV.1.1",
+        "result": "yes",
+        "rationale": "Vulnerability management process defined with response timeframes",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000019"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "RV.1.2",
+        "result": "yes",
+        "rationale": "Vulnerabilities tracked and remediation monitored continuously",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000003"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "RV.2.1",
+        "result": "yes",
+        "rationale": "Risk assessment conducted for identified vulnerabilities",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000020"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "RV.2.2",
+        "result": "yes",
+        "rationale": "Risk responses documented with mitigation or acceptance rationale",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000020"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "RV.3.1",
+        "result": "yes",
+        "rationale": "Root cause analysis conducted for security incidents",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000021"
+        ],
+        "work_notes": []
+      },
+      {
+        "requirement_identifier": "RV.3.2",
+        "result": "partial",
+        "rationale": "RCA findings are documented but pattern analysis is mostly manual",
+        "evidence_ids": [
+          "00000000-0000-4000-f400-100000000021"
+        ],
+        "work_notes": []
+      }
+    ],
+    "attestation": {
+      "summary": "Based on comprehensive assessment of Acme Corporation's SDLC practices against NIST SP 800-218 (SSDF v1.1), we attest that the organization substantially meets all 42 practice tasks across the four practice groups (PO, PS, PW, RV). While the organization demonstrates strong security practices in most areas, three requirements show partial conformance due to incomplete documentation and manual processes. These gaps are being addressed through the provenance remediation plan and process automation roadmap.",
+      "signatory_id": "00000000-0000-4000-f100-000000000001",
+      "date": "2026-02-28T00:00:00Z"
+    },
+    "attestation_requirements": [
+      {
+        "requirement_identifier": "PO.1.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Security requirements are documented in comprehensive requirements document",
+        "confidence_score": 0.95,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PO.1.2",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Software security requirements are defined and maintained in requirements database",
+        "confidence_score": 0.95,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PO.1.3",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Third-party requirements are communicated via procurement policy",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PO.2.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "SDLC roles are defined and documented in role definition document",
+        "confidence_score": 0.95,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PO.2.2",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Security training completion records show annual training for all personnel",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PO.2.3",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Management commitment demonstrated through security policy and budget allocation",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PO.3.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Toolchain components are specified in tool requirements documentation",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PO.3.2",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Tools are deployed and maintained following security best practices",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PO.3.3",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Tools are configured to generate security artifacts per organization standards",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PO.4.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Security gates are defined with documented criteria",
+        "confidence_score": 0.95,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PO.4.2",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Gate criteria are reviewed quarterly and updated as needed",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PO.5.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Development environment hardening policy is documented",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PO.5.2",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Environment configuration is monitored and enforced via tooling",
+        "confidence_score": 0.85,
+        "confidence_rationale": "Assessment identifies some gaps that may require further validation."
+      },
+      {
+        "requirement_identifier": "PS.1.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Source code access control configured with MFA and branch protection",
+        "confidence_score": 0.95,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PS.2.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Build artifacts are signed using GPG keys",
+        "confidence_score": 0.85,
+        "confidence_rationale": "Assessment identifies some gaps that may require further validation."
+      },
+      {
+        "requirement_identifier": "PS.3.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Release archives are created and stored in secure artifact repository",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PS.3.2",
+        "conformance_score": 0.65,
+        "conformance_rationale": "Provenance records are maintained but incomplete for some OSS components",
+        "confidence_score": 0.8,
+        "confidence_rationale": "Assessment identifies some gaps that may require further validation."
+      },
+      {
+        "requirement_identifier": "PW.1.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Threat model created using STRIDE methodology for Product A",
+        "confidence_score": 0.95,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PW.1.2",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Threat analysis results documented with identified risks and mitigations",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PW.2.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Design reviews are mandatory with security personnel approval",
+        "confidence_score": 0.95,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PW.4.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "SBOM is created and maintained for all components",
+        "confidence_score": 0.95,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PW.4.2",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Component vulnerabilities are tracked and monitored continuously",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PW.4.4",
+        "conformance_score": 0.75,
+        "conformance_rationale": "Third-party component verification process partially automated",
+        "confidence_score": 0.85,
+        "confidence_rationale": "Assessment identifies some gaps that may require further validation."
+      },
+      {
+        "requirement_identifier": "PW.5.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Secure coding standards are documented and accessible to developers",
+        "confidence_score": 0.95,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PW.6.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Compiler security flags are configured in build system",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PW.6.2",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Build configuration includes hardening measures (PIE, stack canaries, ASLR)",
+        "confidence_score": 0.85,
+        "confidence_rationale": "Assessment identifies some gaps that may require further validation."
+      },
+      {
+        "requirement_identifier": "PW.7.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Code review is mandatory for all changes with documentation",
+        "confidence_score": 0.95,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PW.7.2",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Code review includes security analysis; critical findings block merge",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PW.8.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "SAST testing performed on all code with SonarQube integration",
+        "confidence_score": 0.95,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PW.8.2",
+        "conformance_score": 1.0,
+        "conformance_rationale": "DAST testing conducted in staging environment via OWASP ZAP",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PW.9.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Security configuration baseline defined and documented",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "PW.9.2",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Configuration is validated and enforced via infrastructure-as-code",
+        "confidence_score": 0.85,
+        "confidence_rationale": "Assessment identifies some gaps that may require further validation."
+      },
+      {
+        "requirement_identifier": "RV.1.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Vulnerability management process defined with response timeframes",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "RV.1.2",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Vulnerabilities tracked and remediation monitored continuously",
+        "confidence_score": 0.85,
+        "confidence_rationale": "Assessment identifies some gaps that may require further validation."
+      },
+      {
+        "requirement_identifier": "RV.2.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Risk assessment conducted for identified vulnerabilities",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "RV.2.2",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Risk responses documented with mitigation or acceptance rationale",
+        "confidence_score": 0.85,
+        "confidence_rationale": "Assessment identifies some gaps that may require further validation."
+      },
+      {
+        "requirement_identifier": "RV.3.1",
+        "conformance_score": 1.0,
+        "conformance_rationale": "Root cause analysis conducted for security incidents",
+        "confidence_score": 0.9,
+        "confidence_rationale": "Based on comprehensive evidence review and assessment team expertise."
+      },
+      {
+        "requirement_identifier": "RV.3.2",
+        "conformance_score": 0.7,
+        "conformance_rationale": "RCA findings are documented but pattern analysis is mostly manual",
+        "confidence_score": 0.8,
+        "confidence_rationale": "Assessment identifies some gaps that may require further validation."
+      }
+    ],
+    "attestation_requirement_mitigations": [
+      {
+        "requirement_identifier": "PS.3.2",
+        "evidence_id": "00000000-0000-4000-f400-100000000023",
+        "description": "OSS Provenance Remediation Plan: Implement automated provenance tracking for all open source components with supply chain SBOM generation.",
+        "target_completion": "2026-06-30T00:00:00Z"
+      },
+      {
+        "requirement_identifier": "PW.4.4",
+        "evidence_id": "00000000-0000-4000-f400-100000000025",
+        "description": "Third-Party Verification Improvement Plan: Automate component verification with policy-as-code and continuous compliance monitoring.",
+        "target_completion": "2026-06-30T00:00:00Z"
+      },
+      {
+        "requirement_identifier": "RV.3.2",
+        "evidence_id": "00000000-0000-4000-f400-100000000023",
+        "description": "Automated pattern analysis planned as part of supply chain security improvement initiative.",
+        "target_completion": "2026-08-31T00:00:00Z"
+      }
+    ]
+  }
+}

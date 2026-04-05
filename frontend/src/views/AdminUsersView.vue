@@ -27,21 +27,21 @@
 
       <el-table v-else :data="paginatedUsers" stripe border role="grid" aria-label="Users table" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="50"></el-table-column>
-        <el-table-column prop="username" :label="t('admin.username')" width="150" sortable></el-table-column>
+        <el-table-column prop="username" :label="t('admin.username')" min-width="150" sortable></el-table-column>
         <el-table-column prop="email" :label="t('admin.email')" min-width="200" sortable></el-table-column>
-        <el-table-column prop="display_name" :label="t('admin.displayName')" width="150" sortable></el-table-column>
-        <el-table-column :label="t('admin.role')" width="120">
+        <el-table-column prop="displayName" :label="t('admin.displayName')" min-width="150" sortable></el-table-column>
+        <el-table-column :label="t('admin.role')" min-width="160" sortable prop="role">
           <template #default="{ row }">
-            <el-tag :type="getRoleColor(row.role)">{{ row.role }}</el-tag>
+            <span class="role-badge" :class="`role-badge--${row.role}`">{{ formatRole(row.role) }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('admin.status')" width="100">
+        <el-table-column :label="t('admin.status')" min-width="100" sortable prop="isActive">
           <template #default="{ row }">
-            <el-tag :type="row.is_active ? 'success' : 'danger'">{{ row.is_active ? t('common.active') : t('common.inactive') }}</el-tag>
+            <span class="status-badge" :class="row.isActive ? 'status-badge--active' : 'status-badge--inactive'">{{ row.isActive ? t('common.active') : t('common.inactive') }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="last_login_at" :label="t('admin.lastLogin')" width="150" sortable></el-table-column>
-        <el-table-column :label="t('common.actions')" width="150" fixed="right">
+        <el-table-column prop="lastLoginAt" :label="t('admin.lastLogin')" min-width="150" sortable></el-table-column>
+        <el-table-column :label="t('common.actions')" min-width="150">
           <template #default="{ row }">
             <IconButton :icon="EditIcon" variant="primary" :tooltip="t('common.edit')" @click="handleEdit(row)" />
             <IconButton :icon="Delete" variant="danger" :tooltip="t('common.delete')" @click="handleDelete(row)" />
@@ -84,6 +84,8 @@
             <el-option label="Admin" value="admin" />
             <el-option label="Assessor" value="assessor" />
             <el-option label="Assessee" value="assessee" />
+            <el-option label="Standards Manager" value="standards_manager" />
+            <el-option label="Standards Approver" value="standards_approver" />
           </el-select>
         </el-form-item>
 
@@ -105,6 +107,8 @@
             <el-option label="Admin" value="admin" />
             <el-option label="Assessor" value="assessor" />
             <el-option label="Assessee" value="assessee" />
+            <el-option label="Standards Manager" value="standards_manager" />
+            <el-option label="Standards Approver" value="standards_approver" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -194,11 +198,11 @@ const handleEdit = (row: any) => {
   form.value = {
     username: row.username,
     email: row.email,
-    displayName: row.display_name,
+    displayName: row.displayName,
     password: '',
     confirmPassword: '',
     role: row.role,
-    isActive: row.is_active
+    isActive: row.isActive
   }
   isEditing.value = true
   editingUserId.value = row.id
@@ -281,17 +285,15 @@ const handleSave = async () => {
   }
 }
 
-const getRoleColor = (role: string): string => {
-  switch (role) {
-    case 'admin':
-      return 'danger'
-    case 'assessor':
-      return 'success'
-    case 'assessee':
-      return 'warning'
-    default:
-      return 'info'
+const formatRole = (role: string): string => {
+  const map: Record<string, string> = {
+    admin: 'Admin',
+    assessor: 'Assessor',
+    assessee: 'Assessee',
+    standards_manager: 'Standards Manager',
+    standards_approver: 'Standards Approver',
   }
+  return map[role] || role
 }
 
 const handleSelectionChange = (selection: any[]) => {
@@ -391,6 +393,65 @@ onMounted(() => {
   .bulk-actions-buttons {
     display: flex;
     gap: var(--cat-spacing-3);
+  }
+}
+
+.role-badge,
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: var(--cat-font-size-xs);
+  font-weight: var(--cat-font-weight-medium);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.role-badge {
+  &--admin {
+    background-color: rgba(248, 81, 73, 0.15);
+    color: #f85149;
+  }
+
+  &--assessor {
+    background-color: rgba(47, 129, 247, 0.15);
+    color: #2f81f7;
+  }
+
+  &--assessee {
+    background-color: rgba(210, 153, 34, 0.15);
+    color: #d29922;
+  }
+
+  &--standards_manager {
+    background-color: rgba(163, 113, 247, 0.15);
+    color: #a371f7;
+  }
+
+  &--standards_approver {
+    background-color: rgba(219, 97, 162, 0.15);
+    color: #db61a2;
+  }
+}
+
+.status-badge {
+  &--active {
+    background-color: rgba(57, 211, 83, 0.15);
+    color: #39d353;
+  }
+
+  &--inactive {
+    background-color: rgba(139, 148, 158, 0.15);
+    color: #8b949e;
+  }
+}
+
+:deep(.el-table tbody tr) {
+  cursor: pointer;
+
+  &:hover > td {
+    background-color: var(--cat-bg-hover) !important;
   }
 }
 </style>

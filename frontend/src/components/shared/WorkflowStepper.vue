@@ -106,7 +106,7 @@ const isStepUpcoming = (index: number) => {
     transition: background-color 0.3s ease;
 
     &.filled {
-      background-color: var(--cat-chart-green);
+      background-color: rgba(63, 185, 80, 0.4);
     }
   }
 }
@@ -131,16 +131,16 @@ const isStepUpcoming = (index: number) => {
   margin-bottom: var(--cat-spacing-2);
 
   .is-complete & {
-    background-color: var(--cat-chart-green);
-    color: #fff;
-    border: 2px solid var(--cat-chart-green);
+    background-color: rgba(63, 185, 80, 0.15);
+    color: #3fb950;
+    border: 2px solid rgba(63, 185, 80, 0.4);
   }
 
   .is-active & {
-    background-color: var(--cat-accent-primary);
-    color: #fff;
-    border: 2px solid var(--cat-accent-primary);
-    box-shadow: 0 0 0 4px rgba(var(--cat-accent-primary-rgb, 64, 158, 255), 0.2);
+    background-color: rgba(88, 166, 255, 0.15);
+    color: #58a6ff;
+    border: 2px solid rgba(88, 166, 255, 0.4);
+    box-shadow: 0 0 0 4px rgba(88, 166, 255, 0.1);
   }
 
   .is-upcoming & {

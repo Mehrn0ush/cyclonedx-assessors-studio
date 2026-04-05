@@ -182,8 +182,59 @@
         </div>
       </div>
 
-      <!-- Step 3: Complete -->
+      <!-- Step 3: Demo Data -->
       <div v-if="step === 3" class="setup-step">
+        <div class="setup-header">
+          <h2 class="step-title">Load Demo Data</h2>
+          <p class="setup-description">
+            Would you like to populate the application with sample data? This includes demo organizations, entities, projects, assessments, evidence, and more. Recommended for evaluation and learning.
+          </p>
+        </div>
+
+        <el-alert v-if="demoError" type="error" :closable="true" show-icon class="setup-error" @close="demoError = ''">
+          {{ demoError }}
+        </el-alert>
+
+        <el-alert v-if="demoSuccess" type="success" show-icon :closable="false" class="setup-error">
+          Demo data loaded successfully. The application is ready to explore.
+        </el-alert>
+
+        <div v-if="!demoSuccess" class="demo-data-options">
+          <div class="demo-option" :class="{ selected: demoChoice === 'yes' }" @click="demoChoice = 'yes'">
+            <div class="demo-option-radio">
+              <div class="radio-outer"><div v-if="demoChoice === 'yes'" class="radio-inner" /></div>
+            </div>
+            <div class="demo-option-content">
+              <div class="demo-option-title">Yes, load demo data</div>
+              <div class="demo-option-desc">Includes sample entities, projects, assessments, evidence, claims, and attestations.</div>
+            </div>
+          </div>
+          <div class="demo-option" :class="{ selected: demoChoice === 'no' }" @click="demoChoice = 'no'">
+            <div class="demo-option-radio">
+              <div class="radio-outer"><div v-if="demoChoice === 'no'" class="radio-inner" /></div>
+            </div>
+            <div class="demo-option-content">
+              <div class="demo-option-title">No, start with a clean slate</div>
+              <div class="demo-option-desc">Only the imported standards and your admin account will be present.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="setup-actions">
+          <el-button size="large" @click="step = 2" :disabled="demoLoading">{{ t('common.back') }}</el-button>
+          <el-button
+            type="primary"
+            size="large"
+            :loading="demoLoading"
+            @click="handleDemoChoice"
+          >
+            {{ demoSuccess ? t('common.continue') : t('common.continue') }}
+          </el-button>
+        </div>
+      </div>
+
+      <!-- Step 4: Complete -->
+      <div v-if="step === 4" class="setup-step">
         <div class="setup-header">
           <div class="success-icon">
             <el-icon :size="48" color="var(--el-color-success)"><CircleCheckFilled /></el-icon>
@@ -247,7 +298,12 @@ const feedItems = ref<FeedItem[]>([])
 const importComplete = ref(false)
 const importSuccessCount = ref(0)
 
-const steps = ['Welcome', 'Account', 'Standards', 'Complete']
+const demoChoice = ref<'yes' | 'no'>('yes')
+const demoLoading = ref(false)
+const demoError = ref('')
+const demoSuccess = ref(false)
+
+const steps = ['Welcome', 'Account', 'Standards', 'Demo Data', 'Complete']
 
 const form = reactive({
   username: '',
@@ -407,6 +463,26 @@ const retryImportItem = async (item: FeedItem) => {
   } catch (err: any) {
     feedItems.value[index].status = 'error'
     feedItems.value[index].errorMessage = err.response?.data?.error || 'Import failed'
+  }
+}
+
+const handleDemoChoice = async () => {
+  if (demoSuccess.value || demoChoice.value === 'no') {
+    step.value = 4
+    return
+  }
+
+  demoLoading.value = true
+  demoError.value = ''
+
+  try {
+    await axios.post('/api/v1/setup/seed-demo')
+    demoSuccess.value = true
+    step.value = 4
+  } catch (err: any) {
+    demoError.value = err.response?.data?.error || 'Failed to load demo data. You can skip this step and continue.'
+  } finally {
+    demoLoading.value = false
   }
 }
 
@@ -648,6 +724,79 @@ const goToLogin = () => {
 .retry-item-btn {
   flex-shrink: 0;
   margin-left: auto;
+}
+
+// Demo data option styles
+.demo-data-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.demo-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--cat-border-default);
+  border-radius: 8px;
+  background-color: var(--cat-bg-tertiary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: var(--cat-border-emphasis);
+  }
+
+  &.selected {
+    border-color: var(--cat-brand-primary);
+    background-color: rgba(47, 129, 247, 0.05);
+  }
+}
+
+.demo-option-radio {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.radio-outer {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--cat-border-emphasis);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s ease;
+
+  .selected & {
+    border-color: var(--cat-brand-primary);
+  }
+}
+
+.radio-inner {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--cat-brand-primary);
+}
+
+.demo-option-content {
+  flex: 1;
+}
+
+.demo-option-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--cat-text-primary);
+  margin-bottom: 4px;
+}
+
+.demo-option-desc {
+  font-size: 13px;
+  color: var(--cat-text-tertiary);
+  line-height: 1.4;
 }
 
 .standard-item {

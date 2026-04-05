@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS standard (
 CREATE TABLE IF NOT EXISTS requirement (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   identifier VARCHAR(255) NOT NULL,
-  name VARCHAR(255) NOT NULL,
+  name TEXT NOT NULL,
   parent_id UUID REFERENCES requirement(id) ON DELETE CASCADE,
   description TEXT,
   open_cre TEXT,
@@ -238,6 +238,8 @@ CREATE TABLE IF NOT EXISTS evidence_attachment (
   content_type VARCHAR(255) NOT NULL,
   size_bytes INTEGER NOT NULL,
   storage_path VARCHAR(255) NOT NULL,
+  binary_content TEXT,
+  content_hash VARCHAR(64),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -318,6 +320,8 @@ CREATE TABLE IF NOT EXISTS attestation_requirement (
 CREATE TABLE IF NOT EXISTS attestation_requirement_mitigation (
   attestation_requirement_id UUID NOT NULL REFERENCES attestation_requirement(id) ON DELETE CASCADE,
   evidence_id UUID NOT NULL REFERENCES evidence(id) ON DELETE CASCADE,
+  description TEXT,
+  target_completion TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (attestation_requirement_id, evidence_id)
 );
@@ -431,7 +435,7 @@ CREATE TABLE IF NOT EXISTS entity (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(255) NOT NULL,
   description TEXT,
-  entity_type VARCHAR(50) NOT NULL CHECK(entity_type IN ('organization', 'business_unit', 'team', 'product', 'product_version', 'component', 'supplier', 'project')),
+  entity_type VARCHAR(50) NOT NULL CHECK(entity_type IN ('organization', 'business_unit', 'team', 'product', 'product_version', 'component', 'service', 'project')),
   state VARCHAR(50) NOT NULL DEFAULT 'active' CHECK(state IN ('active', 'inactive', 'archived')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -558,6 +562,10 @@ CREATE TABLE IF NOT EXISTS dashboard (
 );
 
 CREATE INDEX IF NOT EXISTS idx_dashboard_owner ON dashboard(owner_id);
+
+-- Update entity_type CHECK constraint to include 'service' (for existing databases)
+ALTER TABLE entity DROP CONSTRAINT IF EXISTS entity_entity_type_check;
+ALTER TABLE entity ADD CONSTRAINT entity_entity_type_check CHECK(entity_type IN ('organization', 'business_unit', 'team', 'product', 'product_version', 'component', 'service', 'project'));
 `;
 
 export async function runMigrations(): Promise<void> {

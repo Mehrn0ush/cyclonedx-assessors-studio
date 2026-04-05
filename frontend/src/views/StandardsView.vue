@@ -33,15 +33,15 @@
         </div>
         <el-table :data="paginatedData" stripe border @row-click="navigateToStandard" role="grid" aria-label="Standards table">
           <el-table-column prop="name" :label="t('standards.name')" min-width="250" sortable></el-table-column>
-          <el-table-column prop="version" :label="t('standards.version')" width="100" sortable></el-table-column>
+          <el-table-column prop="version" :label="t('standards.version')" min-width="100" sortable></el-table-column>
           <el-table-column prop="owner" :label="t('standards.owner')" min-width="200" sortable></el-table-column>
-          <el-table-column prop="state" :label="t('common.state')" width="120" sortable>
+          <el-table-column prop="state" :label="t('common.state')" min-width="120" sortable>
             <template #default="{ row }">
               <StateBadge :state="row.state" />
             </template>
           </el-table-column>
-          <el-table-column prop="requirementsCount" :label="t('standards.requirements')" width="140" align="center" sortable></el-table-column>
-          <el-table-column :label="t('common.actions')" width="100" fixed="right">
+          <el-table-column prop="requirementsCount" :label="t('standards.requirements')" min-width="140" align="center" sortable></el-table-column>
+          <el-table-column :label="t('common.actions')" min-width="100">
             <template #default="{ row }">
               <RowActions :show-edit="false" :show-view="true" :show-delete="authStore.user?.role === 'admin'" @view="navigateToStandard(row)" @delete="() => {}" />
             </template>
@@ -161,6 +161,7 @@ const importPreview = ref<{
   description: string
   requirementCount: number
   requirements: any[]
+  levels: any[]
 } | null>(null)
 const showCreateDialog = ref(false)
 const creatingStandard = ref(false)
@@ -202,6 +203,22 @@ const handleFileSelected = async (file: any) => {
     const json = JSON.parse(text)
     let stdMeta: any = {}
     let requirements: any[] = []
+    let levels: any[] = []
+
+    const parseRequirements = (reqs: any[]) => reqs.map((req: any) => ({
+      identifier: req['bom-ref'] || req.identifier || req.id || '',
+      name: req.title || req.text || req.name || req.identifier || '',
+      description: req.description || req.text || null,
+      openCre: req.openCre || req['open-cre'] || null,
+      parentIdentifier: req.parent || null,
+    }))
+
+    const parseLevels = (lvls: any[]) => lvls.map((lvl: any) => ({
+      identifier: lvl['bom-ref'] || lvl.identifier || '',
+      title: lvl.title || null,
+      description: lvl.description || null,
+      requirements: lvl.requirements || [],
+    }))
 
     // CycloneDX definitions.standards format
     if (json.definitions?.standards) {
@@ -216,13 +233,10 @@ const handleFileSelected = async (file: any) => {
           description: std.description || '',
         }
         if (std.requirements && Array.isArray(std.requirements)) {
-          requirements = std.requirements.map((req: any) => ({
-            identifier: req['bom-ref'] || req.identifier || req.id || '',
-            name: req.title || req.text || req.name || req.identifier || '',
-            description: req.description || req.text || null,
-            openCre: req.openCre || req.externalReferences?.[0]?.url || null,
-            parentIdentifier: req.parent || null,
-          }))
+          requirements = parseRequirements(std.requirements)
+        }
+        if (std.levels && Array.isArray(std.levels)) {
+          levels = parseLevels(std.levels)
         }
       }
     }
@@ -230,13 +244,7 @@ const handleFileSelected = async (file: any) => {
     // Flat array of requirements (no standard metadata available)
     if (!stdMeta.name && Array.isArray(json)) {
       stdMeta = { name: file.name.replace(/\.(cdx\.)?json$/, ''), identifier: '', version: '', owner: '', description: '' }
-      requirements = json.map((req: any) => ({
-        identifier: req['bom-ref'] || req.identifier || req.id || '',
-        name: req.title || req.text || req.name || '',
-        description: req.description || null,
-        openCre: req.openCre || null,
-        parentIdentifier: req.parent || null,
-      }))
+      requirements = parseRequirements(json)
     }
 
     // { requirements: [...] } format
@@ -248,13 +256,10 @@ const handleFileSelected = async (file: any) => {
         owner: json.owner || '',
         description: json.description || '',
       }
-      requirements = json.requirements.map((req: any) => ({
-        identifier: req['bom-ref'] || req.identifier || req.id || '',
-        name: req.title || req.text || req.name || '',
-        description: req.description || null,
-        openCre: req.openCre || null,
-        parentIdentifier: req.parent || null,
-      }))
+      requirements = parseRequirements(json.requirements)
+      if (json.levels && Array.isArray(json.levels)) {
+        levels = parseLevels(json.levels)
+      }
     }
 
     if (!stdMeta.name && !stdMeta.identifier) {
@@ -267,6 +272,7 @@ const handleFileSelected = async (file: any) => {
       ...stdMeta,
       requirementCount: requirements.length,
       requirements,
+      levels,
     }
   } catch (err: any) {
     importParseError.value = `Failed to parse file: ${err.message}`
@@ -292,6 +298,7 @@ const handleImport = async () => {
       owner: importPreview.value.owner || undefined,
       description: importPreview.value.description || undefined,
       requirements: importPreview.value.requirements,
+      levels: importPreview.value.levels.length > 0 ? importPreview.value.levels : undefined,
     })
 
     const count = importPreview.value.requirementCount

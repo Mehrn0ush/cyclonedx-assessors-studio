@@ -15,6 +15,7 @@ import { seedDefaultRolesAndPermissions } from './db/seed.js';
 import { logger } from './utils/logger.js';
 import { requestIdMiddleware } from './middleware/security.js';
 import { requireSetup } from './middleware/setup.js';
+import healthRoutes from './routes/health.js';
 import { camelCaseResponse } from './middleware/camelCase.js';
 import setupRoutes from './routes/setup.js';
 import authRoutes from './routes/auth.js';
@@ -120,13 +121,8 @@ app.use((req: any, res: Response, next: NextFunction) => {
   next();
 });
 
-// Health check
-app.get('/api/health', (req: Request, res: Response) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-  });
-});
+// Health check (unauthenticated: simple status; authenticated: detailed metrics)
+app.use('/api/health', healthRoutes);
 
 // OpenAPI specification
 app.get('/api/openapi.json', (req: Request, res: Response) => {

@@ -112,7 +112,9 @@ const buildGraph = () => {
 
   // Build nodes and links
   const nodeMap = new Map<string, GraphNode>()
-  nodeMap.set(props.entityId, { id: props.entityId, label: props.entityName, isCurrent: true })
+  if (props.entityId) {
+    nodeMap.set(props.entityId, { id: props.entityId, label: props.entityName, isCurrent: true })
+  }
 
   const links: GraphLink[] = []
 

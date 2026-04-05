@@ -117,17 +117,17 @@
             </div>
             <el-table v-else :data="assessments" stripe border @row-click="navigateToAssessment">
               <el-table-column prop="title" :label="t('assessments.titleField')" min-width="200" sortable></el-table-column>
-              <el-table-column :label="t('assessments.state')" width="120">
+              <el-table-column :label="t('assessments.state')" min-width="120">
                 <template #default="{ row }">
                   <StateBadge :state="row.state" />
                 </template>
               </el-table-column>
-              <el-table-column :label="t('assessments.dueDate')" width="140">
+              <el-table-column :label="t('assessments.dueDate')" min-width="140">
                 <template #default="{ row }">
                   {{ formatDate(row.dueDate) }}
                 </template>
               </el-table-column>
-              <el-table-column :label="t('assessments.startDate')" width="140">
+              <el-table-column :label="t('assessments.startDate')" min-width="140">
                 <template #default="{ row }">
                   {{ formatDate(row.startDate) }}
                 </template>
@@ -141,7 +141,7 @@
           <el-tab-pane :label="t('nav.standards')" name="standards">
             <el-table :data="projectStandards" stripe border @row-click="navigateToStandard">
               <el-table-column prop="name" :label="t('standards.name')" min-width="250" sortable></el-table-column>
-              <el-table-column prop="version" :label="t('standards.version')" width="100" sortable></el-table-column>
+              <el-table-column prop="version" :label="t('standards.version')" min-width="100" sortable></el-table-column>
               <el-table-column prop="owner" :label="t('standards.owner')" min-width="200" sortable></el-table-column>
             </el-table>
             <div v-if="projectStandards.length === 0" class="no-data">

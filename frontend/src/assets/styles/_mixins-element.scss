@@ -120,6 +120,17 @@
       background-color: var(--cat-bg-hover);
     }
   }
+
+  // Ensure fixed columns (e.g. Actions) match the rest of the table
+  .el-table__fixed,
+  .el-table__fixed-right {
+    background-color: var(--cat-bg-surface);
+  }
+
+  .el-table th.el-table-fixed-column--right,
+  .el-table td.el-table-fixed-column--right {
+    background-color: inherit;
+  }
 }
 
 // Dialog/Modal component overrides

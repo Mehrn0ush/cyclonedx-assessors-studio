@@ -138,8 +138,8 @@
         </template>
 
         <el-table :data="levels" stripe border>
-          <el-table-column prop="identifier" :label="t('common.id')" width="150" sortable></el-table-column>
-          <el-table-column prop="title" :label="t('standards.name')" width="200" sortable>
+          <el-table-column prop="identifier" :label="t('common.id')" min-width="150" sortable></el-table-column>
+          <el-table-column prop="title" :label="t('standards.name')" min-width="200" sortable>
             <template #default="{ row }">
               {{ row.title || row.identifier }}
             </template>
@@ -149,7 +149,7 @@
               <span class="level-description">{{ row.description || '-' }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="requirementsCount" :label="t('standards.requirements')" width="140" align="center" sortable></el-table-column>
+          <el-table-column prop="requirementsCount" :label="t('standards.requirements')" min-width="140" align="center" sortable></el-table-column>
         </el-table>
       </el-card>
 
@@ -178,8 +178,8 @@
           :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
           default-expand-all
         >
-          <el-table-column prop="identifier" :label="t('common.id')" width="140" sortable></el-table-column>
-          <el-table-column prop="name" :label="t('standards.name')" width="300" sortable>
+          <el-table-column prop="identifier" :label="t('common.id')" min-width="140" sortable></el-table-column>
+          <el-table-column prop="name" :label="t('standards.name')" min-width="300" sortable>
             <template #default="{ row }">
               {{ row.name !== row.identifier ? row.name : '' }}
             </template>
@@ -192,7 +192,7 @@
           <el-table-column
             v-if="canEditRequirements"
             :label="t('common.actions')"
-            width="120"
+            min-width="120"
             align="center"
           >
             <template #default="{ row }">

@@ -5,24 +5,35 @@ import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
+import { importStandard } from '../services/standard-import.js';
 
 const router = Router();
 
 const importStandardSchema = z.object({
   identifier: z.string(),
   name: z.string(),
-  description: z.string().optional(),
-  owner: z.string().optional(),
-  version: z.string().optional(),
-  licenseId: z.string().optional(),
+  description: z.string().nullish(),
+  owner: z.string().nullish(),
+  version: z.string().nullish(),
+  licenseId: z.string().nullish(),
   requirements: z
     .array(
       z.object({
         identifier: z.string(),
         name: z.string(),
-        description: z.string().optional(),
-        openCre: z.string().optional(),
-        parentIdentifier: z.string().optional(),
+        description: z.string().nullish(),
+        openCre: z.union([z.string(), z.array(z.string())]).nullish(),
+        parentIdentifier: z.string().nullish(),
+      })
+    )
+    .optional(),
+  levels: z
+    .array(
+      z.object({
+        identifier: z.string(),
+        title: z.string().nullish(),
+        description: z.string().nullish(),
+        requirements: z.array(z.string()).optional(),
       })
     )
     .optional(),
@@ -170,63 +181,49 @@ router.post(
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = importStandardSchema.parse(req.body);
-      const db = getDatabase();
-      const standardId = uuidv4();
 
-      await db
-        .insertInto('standard')
-        .values(toSnakeCase({
-          id: standardId,
-          identifier: data.identifier,
-          name: data.name,
-          description: data.description,
-          owner: data.owner,
-          version: data.version,
-          licenseId: data.licenseId,
-          state: 'published',
-          isImported: true,
-        }))
-        .execute();
+      // Build a raw standard object compatible with the shared import service.
+      // The frontend pre-normalizes fields (identifier, name, parentIdentifier)
+      // so we map them back to the format importStandard expects.
+      const rawStandard = {
+        'bom-ref': data.identifier,
+        name: data.name,
+        description: data.description || undefined,
+        owner: data.owner || undefined,
+        version: data.version || undefined,
+        requirements: data.requirements?.map((r) => ({
+          'bom-ref': r.identifier,
+          identifier: r.identifier,
+          title: r.name,
+          description: r.description || undefined,
+          openCre: r.openCre || undefined,
+          parent: r.parentIdentifier || undefined,
+        })),
+        levels: data.levels?.map((l) => ({
+          'bom-ref': l.identifier,
+          identifier: l.identifier,
+          title: l.title || undefined,
+          description: l.description || undefined,
+          requirements: l.requirements || [],
+        })),
+      };
 
-      if (data.requirements && data.requirements.length > 0) {
-        const requirementMap = new Map<string, string>();
+      const result = await importStandard(rawStandard);
 
-        for (const req of data.requirements) {
-          const requirementId = uuidv4();
-
-          const parentId =
-            req.parentIdentifier && requirementMap.has(req.parentIdentifier)
-              ? requirementMap.get(req.parentIdentifier)
-              : null;
-
-          await db
-            .insertInto('requirement')
-            .values(toSnakeCase({
-              id: requirementId,
-              identifier: req.identifier,
-              name: req.name,
-              description: req.description,
-              openCre: req.openCre,
-              parentId: parentId,
-              standardId: standardId,
-            }))
-            .execute();
-
-          requirementMap.set(req.identifier, requirementId);
-        }
+      if (result.skipped) {
+        res.status(409).json({
+          error: 'Standard already exists',
+          id: result.id,
+          identifier: result.identifier,
+        });
+        return;
       }
 
-      logger.info('Standard imported', {
-        standardId,
-        identifier: data.identifier,
-        name: data.name,
-        requestId: req.requestId,
-      });
-
       res.status(201).json({
-        id: standardId,
-        identifier: data.identifier,
-        name: data.name,
+        id: result.id,
+        identifier: result.identifier,
+        name: result.name,
+        requirementCount: result.requirementCount,
         message: 'Standard imported successfully',
       });
     } catch (error) {

@@ -175,8 +175,8 @@ button {
   padding: 0;
 }
 
-// Tables
-table {
+// Tables — exclude Element Plus tables which manage their own styling
+table:not(.el-table__body):not(.el-table__header):not(.el-table__footer) {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: var(--cat-spacing-4);

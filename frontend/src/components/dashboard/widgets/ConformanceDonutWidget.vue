@@ -7,7 +7,13 @@
       <p>No conformance data yet. Start assessments to track compliance.</p>
     </div>
     <div v-else class="chart-wrapper">
-      <canvas ref="chartCanvas"></canvas>
+      <div class="chart-container">
+        <canvas ref="chartCanvas"></canvas>
+        <div class="chart-center-label">
+          <span class="center-value">{{ total }}</span>
+          <span class="center-text">total</span>
+        </div>
+      </div>
       <div class="legend">
         <div v-for="item in chartData" :key="item.result" class="legend-item">
           <span class="legend-dot" :style="{ backgroundColor: item.color }"></span>
@@ -81,15 +87,44 @@ function drawChart() {
       datasets: [{
         data: chartData.value.map(d => d.count),
         backgroundColor: chartData.value.map(d => d.color),
-        borderColor: '#0d1117',
-        borderWidth: 2,
+        borderColor: 'transparent',
+        borderWidth: 0,
+        spacing: 2,
+        hoverOffset: 0,
+        hoverBorderWidth: 0,
       }],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      cutout: '60%',
-      plugins: { legend: { display: false } },
+      cutout: '72%',
+      animation: {
+        animateRotate: true,
+        animateScale: false,
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(22, 27, 34, 0.95)',
+          titleColor: '#c9d1d9',
+          bodyColor: '#c9d1d9',
+          borderColor: 'rgba(139, 148, 158, 0.2)',
+          borderWidth: 1,
+          cornerRadius: 6,
+          padding: 10,
+          displayColors: true,
+          boxWidth: 10,
+          boxHeight: 10,
+          boxPadding: 4,
+          callbacks: {
+            label: (ctx: any) => {
+              const value = ctx.parsed
+              const pct = total.value > 0 ? Math.round((value / total.value) * 100) : 0
+              return ` ${ctx.label}: ${value} (${pct}%)`
+            },
+          },
+        },
+      },
     },
   })
 }
@@ -119,7 +154,41 @@ function drawChart() {
   min-height: 0;
   align-items: center;
 }
-canvas { flex: 1; min-width: 0; max-height: 100%; }
+.chart-container {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  max-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+.chart-center-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+.center-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--cat-text-primary);
+  line-height: 1;
+}
+.center-text {
+  font-size: 11px;
+  color: var(--cat-text-tertiary);
+  text-transform: lowercase;
+  margin-top: 2px;
+}
 .legend {
   display: flex;
   flex-direction: column;

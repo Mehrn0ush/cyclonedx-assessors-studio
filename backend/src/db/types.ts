@@ -207,6 +207,8 @@ export interface EvidenceAttachment {
   content_type: string;
   size_bytes: number;
   storage_path: string;
+  binary_content?: string | null;
+  content_hash?: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -266,6 +268,8 @@ export interface AttestationRequirement {
 export interface AttestationRequirementMitigation {
   attestation_requirement_id: string;
   evidence_id: string;
+  description?: string | null;
+  target_completion?: Date | string | null;
   created_at: Generated<Date>;
 }
 
@@ -379,7 +383,7 @@ export interface Entity {
   id: Generated<string>;
   name: string;
   description?: string | null;
-  entity_type: 'organization' | 'business_unit' | 'team' | 'product' | 'product_version' | 'component' | 'supplier' | 'project';
+  entity_type: 'organization' | 'business_unit' | 'team' | 'product' | 'product_version' | 'component' | 'service' | 'project';
   state: 'active' | 'inactive' | 'archived';
   created_at: Generated<Date>;
   updated_at: Generated<Date>;

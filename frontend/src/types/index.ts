@@ -176,7 +176,7 @@ export interface WorkNote {
 }
 
 // Entity types for flexible hierarchy model
-export type EntityType = 'organization' | 'business_unit' | 'team' | 'product' | 'product_version' | 'component' | 'supplier' | 'project'
+export type EntityType = 'organization' | 'business_unit' | 'team' | 'product' | 'product_version' | 'component' | 'service' | 'project'
 export type EntityState = 'active' | 'inactive' | 'archived'
 export type RelationshipType = 'owns' | 'supplies' | 'depends_on' | 'governs' | 'contains' | 'consumes'
 

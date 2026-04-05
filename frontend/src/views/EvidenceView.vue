@@ -33,29 +33,29 @@
       <div v-else class="content">
         <el-table :data="filteredEvidence" stripe border @row-click="navigateToEvidence" role="grid" aria-label="Evidence table">
           <el-table-column prop="name" :label="t('evidence.name')" min-width="250" sortable></el-table-column>
-          <el-table-column :label="t('evidence.state')" width="120">
+          <el-table-column :label="t('evidence.state')" min-width="120">
             <template #default="{ row }">
               <StateBadge :state="row.state" />
             </template>
           </el-table-column>
-          <el-table-column :label="t('evidence.author')" width="120">
+          <el-table-column :label="t('evidence.author')" min-width="120">
             <template #default="{ row }">
-              {{ row.author_name || row.author_id }}
+              {{ row.authorName || row.authorId }}
             </template>
           </el-table-column>
-          <el-table-column :label="t('evidence.reviewer')" width="120">
+          <el-table-column :label="t('evidence.reviewer')" min-width="120">
             <template #default="{ row }">
-              {{ row.reviewer_name || row.reviewer_id }}
+              {{ row.reviewerName || row.reviewerId }}
             </template>
           </el-table-column>
-          <el-table-column :label="t('evidence.created')" width="120">
+          <el-table-column :label="t('evidence.created')" min-width="120">
             <template #default="{ row }">
               {{ formatDate(row.createdAt) }}
             </template>
           </el-table-column>
-          <el-table-column :label="t('evidence.expires')" width="120">
+          <el-table-column :label="t('evidence.expires')" min-width="120">
             <template #default="{ row }">
-              {{ formatDate(row.expires_on) }}
+              {{ formatDate(row.expiresOn) }}
             </template>
           </el-table-column>
           <el-table-column :label="t('common.counter')">
@@ -63,12 +63,12 @@
               <span>{{ t('common.counter') }} <HelpTip :content="t('evidence.counterEvidenceDescription')" /></span>
             </template>
             <template #default="{ row }">
-              <el-tag v-if="row.is_counter_evidence" type="danger">{{ t('common.counter') }}</el-tag>
+              <el-tag v-if="row.isCounterEvidence" type="danger">{{ t('common.counter') }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column :label="'Linked Assessments'" width="140">
+          <el-table-column :label="'Linked Assessments'" min-width="140">
             <template #default="{ row }">
-              <el-badge v-if="row.assessment_count > 0" :value="row.assessment_count" type="primary" />
+              <el-badge v-if="row.assessmentCount > 0" :value="row.assessmentCount" type="primary" />
               <span v-else style="color: var(--cat-text-tertiary);">0</span>
             </template>
           </el-table-column>

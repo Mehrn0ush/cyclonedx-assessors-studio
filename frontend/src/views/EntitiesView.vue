@@ -15,15 +15,8 @@
         {{ error }}
       </el-alert>
 
-      <!-- View Toggle and Filters -->
+      <!-- Filters and View Toggle -->
       <div class="filter-section">
-        <div class="view-toggle">
-          <el-radio-group v-model="viewPerspective" class="perspective-toggle">
-            <el-radio-button value="producer">Producer View</el-radio-button>
-            <el-radio-button value="consumer">Consumer View</el-radio-button>
-          </el-radio-group>
-        </div>
-
         <div class="filter-bar" role="search">
           <el-select
             v-model="filterEntityType"
@@ -33,9 +26,24 @@
             aria-label="Filter by entity type"
           >
             <el-option label="All Types" value=""></el-option>
-            <template v-for="type in availableEntityTypes" :key="type">
-              <el-option :label="formatEntityType(type)" :value="type"></el-option>
-            </template>
+            <el-option
+              v-for="type in allEntityTypes"
+              :key="type"
+              :label="formatEntityType(type)"
+              :value="type"
+            ></el-option>
+          </el-select>
+
+          <el-select
+            v-model="filterPerspective"
+            :placeholder="'All Relationships'"
+            style="width: 180px"
+            clearable
+            aria-label="Filter by relationship perspective"
+          >
+            <el-option label="All Relationships" value=""></el-option>
+            <el-option label="Producer" value="producer"></el-option>
+            <el-option label="Consumer" value="consumer"></el-option>
           </el-select>
 
           <el-select
@@ -58,6 +66,17 @@
             clearable
             aria-label="Search entities"
           />
+
+          <div class="view-mode-toggle">
+            <el-radio-group v-model="viewMode" size="small">
+              <el-radio-button value="table">
+                <el-icon><Grid /></el-icon>
+              </el-radio-button>
+              <el-radio-button value="graph">
+                <el-icon><Share /></el-icon>
+              </el-radio-button>
+            </el-radio-group>
+          </div>
         </div>
       </div>
 
@@ -68,7 +87,7 @@
       </div>
 
       <!-- Empty State -->
-      <div v-if="!loading && totalCount === 0" class="empty-state-contextual">
+      <div v-else-if="totalCount === 0 && viewMode === 'table'" class="empty-state-contextual">
         <el-icon :size="48"><FolderOpened /></el-icon>
         <h3>No Entities Found</h3>
         <p>{{ getEmptyStateMessage() }}</p>
@@ -77,76 +96,99 @@
         </el-button>
       </div>
 
-      <!-- Table -->
-      <el-table
-        v-else
-        :data="paginatedEntities"
-        stripe
-        border
-        @row-click="navigateToEntity"
-        role="grid"
-        aria-label="Entities table"
-      >
-        <el-table-column prop="name" label="Name" min-width="200" sortable></el-table-column>
+      <!-- Table View -->
+      <template v-else-if="viewMode === 'table'">
+        <el-table
+          :data="paginatedEntities"
+          stripe
+          border
+          @row-click="navigateToEntity"
+          role="grid"
+          aria-label="Entities table"
+        >
+          <el-table-column prop="name" label="Name" min-width="200" sortable></el-table-column>
 
-        <el-table-column label="Type" width="140">
-          <template #default="{ row }">
-            <span class="entity-type-badge" :class="`entity-type-badge--${row.entityType}`">
-              {{ formatEntityType(row.entityType) }}
-            </span>
-          </template>
-        </el-table-column>
+          <el-table-column prop="entityType" label="Type" min-width="100" sortable>
+            <template #default="{ row }">
+              <span class="entity-type-badge" :class="`entity-type-badge--${row.entityType}`">
+                {{ formatEntityType(row.entityType) }}
+              </span>
+            </template>
+          </el-table-column>
 
-        <el-table-column label="Standards" width="120">
-          <template #default="{ row }">
-            <el-tooltip
-              v-if="(row.standards || []).length > 0"
-              placement="top"
-              :show-after="100"
-            >
-              <template #content>
-                <div v-for="std in row.standards" :key="std.id" style="white-space: nowrap;">
-                  {{ std.name }}{{ std.version ? ` v${std.version}` : '' }}
-                </div>
-              </template>
-              <span class="standards-count">{{ (row.standards || []).length }}</span>
-            </el-tooltip>
-            <span v-else class="standards-count none">0</span>
-          </template>
-        </el-table-column>
+          <el-table-column label="Standards" min-width="100">
+            <template #default="{ row }">
+              <el-tooltip
+                v-if="(row.standards || []).length > 0"
+                placement="top"
+                :show-after="100"
+              >
+                <template #content>
+                  <div v-for="std in row.standards" :key="std.id" style="white-space: nowrap;">
+                    {{ std.name }}{{ std.version ? ` v${std.version}` : '' }}
+                  </div>
+                </template>
+                <span class="standards-count">{{ (row.standards || []).length }}</span>
+              </el-tooltip>
+              <span v-else class="standards-count none">0</span>
+            </template>
+          </el-table-column>
 
-        <el-table-column label="Assessments" width="120">
-          <template #default="{ row }">
-            <span class="assessment-count">{{ row.assessmentCount || 0 }}</span>
-          </template>
-        </el-table-column>
+          <el-table-column label="Assessments" min-width="100">
+            <template #default="{ row }">
+              <span class="assessment-count">{{ row.assessmentCount || 0 }}</span>
+            </template>
+          </el-table-column>
 
-        <el-table-column label="State" width="100" sortable>
-          <template #default="{ row }">
-            <StateBadge :state="row.state" />
-          </template>
-        </el-table-column>
+          <el-table-column label="State" min-width="90" sortable>
+            <template #default="{ row }">
+              <StateBadge :state="row.state" />
+            </template>
+          </el-table-column>
 
-        <el-table-column label="Created" width="140" sortable>
-          <template #default="{ row }">
-            {{ formatDate(row.createdAt) }}
-          </template>
-        </el-table-column>
+          <el-table-column label="Created" min-width="120" sortable>
+            <template #default="{ row }">
+              {{ formatDate(row.createdAt) }}
+            </template>
+          </el-table-column>
 
-        <el-table-column v-if="authStore.user?.role === 'admin'" label="Actions" width="100" fixed="right">
-          <template #default="{ row }">
-            <RowActions @edit="openEditDialog(row)" @delete="deleteEntity(row)" />
-          </template>
-        </el-table-column>
-      </el-table>
+          <el-table-column v-if="authStore.user?.role === 'admin'" label="Actions" min-width="90">
+            <template #default="{ row }">
+              <RowActions @edit="openEditDialog(row)" @delete="deleteEntity(row)" />
+            </template>
+          </el-table-column>
+        </el-table>
 
-      <!-- Pagination -->
-      <el-pagination
-        v-model:current-page="currentPage"
-        :page-size="pageSize"
-        :total="totalCount"
-        layout="total, prev, pager, next"
-      />
+        <!-- Pagination -->
+        <el-pagination
+          v-model:current-page="currentPage"
+          :page-size="pageSize"
+          :total="totalCount"
+          layout="total, prev, pager, next"
+        />
+      </template>
+
+      <!-- Graph View -->
+      <template v-else-if="viewMode === 'graph'">
+        <div v-if="graphLoading" class="loading-container">
+          <el-icon class="is-loading"><Loading /></el-icon>
+          <p>Loading relationship graph...</p>
+        </div>
+        <div v-else-if="graphEntities.length === 0" class="empty-state-contextual">
+          <el-icon :size="48"><Share /></el-icon>
+          <h3>No Relationships Found</h3>
+          <p>Create relationships between entities to see the graph visualization.</p>
+        </div>
+        <RelationshipGraph
+          v-else
+          entity-id=""
+          entity-name=""
+          :relationships="[]"
+          :graph-edges="graphEdges"
+          :graph-entities="graphEntities"
+          @navigate="navigateToEntityById"
+        />
+      </template>
     </div>
 
     <!-- Create/Edit Entity Dialog -->
@@ -173,7 +215,7 @@
         <el-form-item label="Entity Type" prop="entityType">
           <el-select v-model="dialogForm.entityType" placeholder="Choose a type" style="width: 100%;">
             <el-option
-              v-for="type in availableEntityTypes"
+              v-for="type in allEntityTypes"
               :key="type"
               :label="formatEntityType(type)"
               :value="type"
@@ -197,46 +239,34 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, FolderOpened, Plus } from '@element-plus/icons-vue'
+import { Loading, FolderOpened, Plus, Grid, Share } from '@element-plus/icons-vue'
+import axios from 'axios'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import RowActions from '@/components/shared/RowActions.vue'
 import TagInput from '@/components/shared/TagInput.vue'
+import RelationshipGraph from '@/components/shared/RelationshipGraph.vue'
 import { getEntities, createEntity, updateEntity, deleteEntity as deleteEntityAPI } from '@/api/entities'
 import type { Entity, EntityType } from '@/types'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
-// Entity type color mapping
-const entityTypeColors: Record<EntityType, string> = {
-  organization: '#2f81f7',
-  business_unit: '#a371f7',
-  team: '#39d353',
-  product: '#d29922',
-  product_version: '#f0883e',
-  component: '#3fb8af',
-  supplier: '#f778ba',
-  project: '#8b949e',
-}
-
-// Producer view entity types
-const producerTypes: EntityType[] = [
+// All entity types (no supplier, that's a relationship type)
+const allEntityTypes: EntityType[] = [
   'organization',
   'business_unit',
   'team',
   'product',
   'product_version',
   'component',
+  'service',
   'project',
 ]
-
-// Consumer view entity types
-const consumerTypes: EntityType[] = ['supplier', 'product', 'product_version']
 
 // State
 const loading = ref(true)
@@ -245,13 +275,19 @@ const entities = ref<Entity[]>([])
 const showDialog = ref(false)
 const saving = ref(false)
 const isEditMode = ref(false)
-const viewPerspective = ref<'producer' | 'consumer'>('producer')
+const viewMode = ref<'table' | 'graph'>('table')
+const filterPerspective = ref('')
 const filterEntityType = ref('')
 const filterState = ref('')
 const searchText = ref('')
 const formRef = ref()
 const currentPage = ref(1)
 const pageSize = 20
+
+// Graph state
+const graphLoading = ref(false)
+const graphEntities = ref<Array<{ id: string; name: string }>>([])
+const graphEdges = ref<any[]>([])
 
 // Form
 const dialogForm = ref({
@@ -268,15 +304,8 @@ const formRules = {
 }
 
 // Computed
-const availableEntityTypes = computed(() => {
-  return viewPerspective.value === 'producer' ? producerTypes : consumerTypes
-})
-
 const filteredEntities = computed(() => {
   const filtered = entities.value.filter(entity => {
-    // Filter by view perspective
-    const matchesView = availableEntityTypes.value.includes(entity.entityType)
-
     // Filter by entity type
     const matchesType = !filterEntityType.value || entity.entityType === filterEntityType.value
 
@@ -291,12 +320,18 @@ const filteredEntities = computed(() => {
       entity.name.toLowerCase().includes(searchText.value.toLowerCase()) ||
       (entity.description || '').toLowerCase().includes(searchText.value.toLowerCase())
 
-    return matchesView && matchesType && matchesState && matchesSearch
+    // Filter by perspective (relationship-based)
+    const matchesPerspective = !filterPerspective.value || perspectiveEntityIds.value.has(entity.id)
+
+    return matchesType && matchesState && matchesSearch && matchesPerspective
   })
   // Reset to first page when filters change
   currentPage.value = 1
   return filtered
 })
+
+// Entities that match the current perspective filter
+const perspectiveEntityIds = ref<Set<string>>(new Set())
 
 const totalCount = computed(() => {
   return filteredEntities.value.length
@@ -314,29 +349,24 @@ const formatDate = (dateString: string) => {
 }
 
 const formatEntityType = (type: EntityType): string => {
-  const map: Record<EntityType, string> = {
+  const map: Record<string, string> = {
     organization: 'Organization',
     business_unit: 'Business Unit',
     team: 'Team',
     product: 'Product',
     product_version: 'Product Version',
     component: 'Component',
-    supplier: 'Supplier',
+    service: 'Service',
     project: 'Project',
   }
   return map[type] || type
 }
 
 const getEmptyStateMessage = (): string => {
-  if (searchText.value || filterEntityType.value || filterState.value) {
+  if (searchText.value || filterEntityType.value || filterState.value || filterPerspective.value) {
     return 'No entities match these filters. Try broadening your search.'
   }
-  const perspective = viewPerspective.value === 'producer' ? 'producer' : 'consumer'
-  if (perspective === 'producer') {
-    return 'Create your first entity to start organizing what you assess.'
-  } else {
-    return 'Add your first supplier or product to track their compliance.'
-  }
+  return 'Create your first entity to start organizing what you assess.'
 }
 
 const fetchEntities = async () => {
@@ -351,6 +381,57 @@ const fetchEntities = async () => {
     loading.value = false
   }
 }
+
+const fetchRelationshipGraph = async () => {
+  graphLoading.value = true
+  try {
+    const params: any = {}
+    if (filterPerspective.value) {
+      params.perspective = filterPerspective.value
+    }
+    const response = await axios.get('/api/v1/entities/relationship-graph', { params })
+    graphEntities.value = response.data.entities || []
+    graphEdges.value = response.data.edges || []
+  } catch (err: any) {
+    console.error('Failed to fetch relationship graph:', err)
+    graphEntities.value = []
+    graphEdges.value = []
+  } finally {
+    graphLoading.value = false
+  }
+}
+
+const fetchPerspectiveFilter = async () => {
+  if (!filterPerspective.value) {
+    perspectiveEntityIds.value = new Set()
+    return
+  }
+  try {
+    const response = await axios.get('/api/v1/entities/relationship-graph', {
+      params: { perspective: filterPerspective.value }
+    })
+    const entityIds = (response.data.entities || []).map((e: any) => e.id)
+    perspectiveEntityIds.value = new Set(entityIds)
+  } catch (err: any) {
+    console.error('Failed to fetch perspective filter:', err)
+    perspectiveEntityIds.value = new Set()
+  }
+}
+
+// Watch perspective filter to update both table filtering and graph
+watch(filterPerspective, async () => {
+  await fetchPerspectiveFilter()
+  if (viewMode.value === 'graph') {
+    await fetchRelationshipGraph()
+  }
+})
+
+// Watch view mode to fetch graph data when switching to graph
+watch(viewMode, async (newMode) => {
+  if (newMode === 'graph') {
+    await fetchRelationshipGraph()
+  }
+})
 
 const showCreateDialog = () => {
   isEditMode.value = false
@@ -442,6 +523,10 @@ const navigateToEntity = (row: Entity) => {
   router.push(`/entities/${row.id}`)
 }
 
+const navigateToEntityById = (entityId: string) => {
+  router.push(`/entities/${entityId}`)
+}
+
 onMounted(fetchEntities)
 </script>
 
@@ -457,43 +542,17 @@ onMounted(fetchEntities)
 }
 
 .filter-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cat-spacing-4);
   margin-bottom: var(--cat-spacing-4);
-}
-
-.view-toggle {
-  display: flex;
-  align-items: center;
-}
-
-:deep(.perspective-toggle) {
-  background-color: var(--cat-bg-secondary);
-  border-radius: var(--cat-radius-md);
-  padding: 2px;
-
-  .el-radio-button__inner {
-    background-color: transparent;
-    border-color: var(--cat-border-subtle);
-    color: var(--cat-text-secondary);
-
-    &:hover {
-      color: var(--cat-text-primary);
-    }
-  }
-
-  .el-radio-button__orig-radio:checked + .el-radio-button__inner {
-    background-color: var(--cat-bg-elevated);
-    border-color: var(--cat-border-default);
-    color: var(--cat-text-primary);
-    box-shadow: none;
-  }
 }
 
 .filter-bar {
   display: flex;
   gap: var(--cat-spacing-4);
+  align-items: center;
+}
+
+.view-mode-toggle {
+  margin-left: auto;
 }
 
 :deep(.el-table tbody tr) {
@@ -507,10 +566,11 @@ onMounted(fetchEntities)
 .entity-type-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 8px;
+  padding: 2px 10px;
   border-radius: 4px;
   font-size: var(--cat-font-size-xs);
   font-weight: var(--cat-font-weight-medium);
+  line-height: 1.6;
   white-space: nowrap;
 
   &--organization {
@@ -543,9 +603,9 @@ onMounted(fetchEntities)
     color: #3fb8af;
   }
 
-  &--supplier {
-    background-color: rgba(247, 120, 186, 0.15);
-    color: #f778ba;
+  &--service {
+    background-color: rgba(219, 97, 162, 0.15);
+    color: #db61a2;
   }
 
   &--project {

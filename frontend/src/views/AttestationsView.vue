@@ -34,17 +34,17 @@
               {{ row.summary }}
             </template>
           </el-table-column>
-          <el-table-column prop="assessment_id" :label="t('attestations.assessment')" width="150" sortable>
+          <el-table-column prop="assessmentId" :label="t('attestations.assessment')" min-width="150" sortable>
             <template #default="{ row }">
-              {{ row.assessment_title || row.assessment_id }}
+              {{ row.assessmentTitle || row.assessmentId }}
             </template>
           </el-table-column>
-          <el-table-column prop="signatory_id" :label="t('attestations.signatory')" width="150" sortable>
+          <el-table-column prop="signatoryId" :label="t('attestations.signatory')" min-width="150" sortable>
             <template #default="{ row }">
-              {{ row.signatory_name || row.signatory_id || '-' }}
+              {{ row.signatoryName || row.signatoryId || '-' }}
             </template>
           </el-table-column>
-          <el-table-column prop="createdAt" :label="t('common.created')" width="150" sortable>
+          <el-table-column prop="createdAt" :label="t('common.created')" min-width="150" sortable>
             <template #default="{ row }">
               {{ formatDate(row.createdAt) }}
             </template>
@@ -199,6 +199,14 @@ onMounted(() => {
     display: flex;
     justify-content: flex-end;
     margin-top: var(--cat-spacing-4);
+  }
+}
+
+:deep(.el-table tbody tr) {
+  cursor: pointer;
+
+  &:hover > td {
+    background-color: var(--cat-bg-hover) !important;
   }
 }
 

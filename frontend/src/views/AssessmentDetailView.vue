@@ -15,15 +15,30 @@
             <div>
               <h2>{{ assessment.title }}</h2>
               <p class="info-meta">
-                <RouterLink
-                  v-if="assessment.projectId"
-                  :to="`/projects/${assessment.projectId}`"
-                  class="project-link"
-                >
-                  {{ projectName }}
-                </RouterLink>
-                <span v-else>{{ projectName }}</span>
-                •
+                <template v-if="projectName">
+                  <RouterLink
+                    v-if="assessment.projectId"
+                    :to="`/projects/${assessment.projectId}`"
+                    class="context-link"
+                  >
+                    {{ projectName }}
+                  </RouterLink>
+                </template>
+                <template v-if="entityName">
+                  <span v-if="projectName" class="meta-sep">/</span>
+                  <RouterLink
+                    v-if="assessment.entityId"
+                    :to="`/entities/${assessment.entityId}`"
+                    class="context-link"
+                  >
+                    {{ entityName }}
+                  </RouterLink>
+                </template>
+                <template v-if="standardName">
+                  <span v-if="projectName || entityName" class="meta-sep">/</span>
+                  <span class="standard-label">{{ standardName }}</span>
+                </template>
+                <span v-if="projectName || entityName || standardName" class="meta-sep">•</span>
                 <StateBadge :state="assessment.state" />
               </p>
               <p v-if="assessment.description" class="info-description">{{ assessment.description }}</p>
@@ -74,6 +89,32 @@
           <p>{{ t('common.errorLoading') }}</p>
         </div>
       </el-card>
+
+      <!-- Assessment Workflow Stepper -->
+      <div v-if="assessment" class="assessment-workflow-stepper">
+        <button
+          v-for="(step, index) in workflowSteps"
+          :key="step.key"
+          type="button"
+          class="workflow-step-btn"
+          :class="{
+            'is-complete': step.complete,
+            'is-active': step.tabName === activeTab,
+            'is-disabled': !step.tabName,
+          }"
+          @click="step.tabName && (activeTab = step.tabName)"
+        >
+          <div v-if="index > 0" class="step-connector-line" :class="{ filled: step.complete }"></div>
+          <div class="step-node-compact">
+            <div class="step-icon-compact">
+              <el-icon v-if="step.complete" :size="14"><Check /></el-icon>
+              <span v-else>{{ index + 1 }}</span>
+            </div>
+            <span class="step-label-compact">{{ step.label }}</span>
+            <span v-if="step.detail" class="step-detail-compact">{{ step.detail }}</span>
+          </div>
+        </button>
+      </div>
 
       <el-card v-if="assessment" class="assessment-tabs-card">
         <el-tabs v-model="activeTab">
@@ -126,13 +167,13 @@
                 </div>
               </div>
               <el-table :data="requirements" border>
-              <el-table-column prop="identifier" :label="t('common.id')" width="120" sortable></el-table-column>
+              <el-table-column prop="identifier" :label="t('common.id')" min-width="120" sortable></el-table-column>
               <el-table-column :label="t('common.name')" min-width="250">
                 <template #default="{ row }">
                   {{ row.title || row.name }}
                 </template>
               </el-table-column>
-              <el-table-column :label="t('assessments.result')" width="130">
+              <el-table-column :label="t('assessments.result')" min-width="130">
                 <template #default="{ row }">
                   <el-select v-model="row.result" size="small" placeholder="Select" style="width: 100%" @change="handleResultChange(row)">
                     <el-option :label="t('common.yes')" value="yes"></el-option>
@@ -147,7 +188,7 @@
                   <span>{{ t('common.rationale') }} <HelpTip content="A written explanation of how the requirement is implemented for this specific assessment. Minimum 15 words required." /></span>
                 </template>
                 <template #default="{ row }">
-                  <div v-if="editingRationale === row.requirement_id" class="rationale-edit">
+                  <div v-if="editingRationale === row.requirementId" class="rationale-edit">
                     <el-input
                       v-model="rationaleEditValue"
                       type="textarea"
@@ -167,7 +208,7 @@
                   </div>
                 </template>
               </el-table-column>
-              <el-table-column :label="t('assessments.linkedEvidence')" width="120" align="center">
+              <el-table-column :label="t('assessments.linkedEvidence')" min-width="120" align="center">
                 <template #default="{ row }">
                   <el-button
                     type="primary"
@@ -195,30 +236,86 @@
               <div v-else-if="evidence.length === 0" class="empty-state">
                 <p>{{ t('common.noEvidence') }}</p>
               </div>
-              <el-table v-else :data="evidence" stripe border>
+              <el-table v-else :data="evidence" stripe border class="clickable-table" @row-click="handleEvidenceRowClick">
                 <el-table-column :label="t('evidence.name')" min-width="250">
                   <template #default="{ row }">
-                    {{ row.name }}
+                    <span class="evidence-link">{{ row.name }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column :label="t('evidence.state')" width="120">
+                <el-table-column :label="t('evidence.state')" min-width="120">
                   <template #default="{ row }">
                     <StateBadge :state="row.state" />
                   </template>
                 </el-table-column>
-                <el-table-column :label="t('evidence.author')" width="150">
+                <el-table-column :label="t('evidence.author')" min-width="150">
                   <template #default="{ row }">
-                    {{ row.author_name || '-' }}
+                    {{ row.authorName || '-' }}
                   </template>
                 </el-table-column>
-                <el-table-column :label="t('evidence.created')" width="120">
+                <el-table-column :label="t('evidence.created')" min-width="120">
                   <template #default="{ row }">
-                    {{ formatDate(row.created_at) }}
+                    {{ formatDate(row.createdAt) }}
                   </template>
                 </el-table-column>
                 <el-table-column :label="t('evidence.linkedToRequirement')" min-width="200">
                   <template #default="{ row }">
-                    <span>{{ getRequirementIdentifierForEvidence(row.requirement_id) || '-' }}</span>
+                    <div class="requirement-tags" @click.stop>
+                      <template v-if="row.requirementIds && row.requirementIds.length > 0">
+                        <span
+                          v-for="rid in row.requirementIds"
+                          :key="rid"
+                          class="requirement-tag-link"
+                          @click="openRequirementPopup(rid)"
+                        >{{ getRequirementIdentifierForEvidence(rid) || '-' }}</span>
+                      </template>
+                      <span v-else-if="row.requirementId" class="requirement-tag-link" @click="openRequirementPopup(row.requirementId)">
+                        {{ getRequirementIdentifierForEvidence(row.requirementId) || '-' }}
+                      </span>
+                      <span v-else>-</span>
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </el-tab-pane>
+
+          <el-tab-pane label="Claims" name="claims">
+            <div class="claims-section">
+              <div v-if="isLoadingClaims" class="loading-state">
+                <el-skeleton :rows="3" animated />
+              </div>
+              <div v-else-if="assessmentClaims.length === 0" class="empty-state">
+                <p>No claims associated with this assessment yet.</p>
+                <p v-if="!attestation" style="margin-top: 8px; font-size: var(--cat-font-size-sm); color: var(--cat-text-tertiary);">
+                  Claims are linked through attestations. Create an attestation first.
+                </p>
+              </div>
+              <el-table v-else :data="assessmentClaims" stripe border class="clickable-table" @row-click="handleClaimRowClick">
+                <el-table-column prop="name" label="Claim" min-width="250" sortable>
+                  <template #default="{ row }">
+                    <span class="evidence-link">{{ row.name }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="target" label="Target" min-width="180" sortable></el-table-column>
+                <el-table-column label="Type" min-width="100">
+                  <template #default="{ row }">
+                    <el-tag v-if="row.isCounterClaim" type="warning" size="small">Counter</el-tag>
+                    <el-tag v-else type="success" size="small">Claim</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Evidence" min-width="120" align="center">
+                  <template #default="{ row }">
+                    <span class="evidence-count-display">
+                      <span v-if="row.evidenceCount > 0" class="count-supporting">{{ row.evidenceCount }}</span>
+                      <span v-if="row.counterEvidenceCount > 0" class="count-counter">{{ row.counterEvidenceCount }}</span>
+                      <span v-if="row.mitigationCount > 0" class="count-mitigation">{{ row.mitigationCount }}</span>
+                      <span v-if="row.evidenceCount === 0 && row.counterEvidenceCount === 0 && row.mitigationCount === 0" style="color: var(--cat-text-tertiary);">0</span>
+                    </span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Predicate" min-width="300">
+                  <template #default="{ row }">
+                    <span class="claim-predicate">{{ row.predicate }}</span>
                   </template>
                 </el-table-column>
               </el-table>
@@ -251,20 +348,20 @@
                         {{ row.title || row.name }}
                       </template>
                     </el-table-column>
-                    <el-table-column width="120">
+                    <el-table-column min-width="120">
                       <template #header>
                         <span>{{ t('assessments.conformanceScore') }} <HelpTip content="How well the requirement has been met, from 0% (not met) to 100% (fully met)." /></span>
                       </template>
                       <template #default="{ row }">
-                        {{ row.conformance_score ? (row.conformance_score * 100).toFixed(0) + '%' : '-' }}
+                        {{ row.conformanceScore ? (row.conformanceScore * 100).toFixed(0) + '%' : '-' }}
                       </template>
                     </el-table-column>
-                    <el-table-column width="120">
+                    <el-table-column min-width="120">
                       <template #header>
                         <span>{{ t('assessments.confidenceScore') }} <HelpTip content="How confident the assessor is in the conformance determination, from 0% (uncertain) to 100% (certain)." /></span>
                       </template>
                       <template #default="{ row }">
-                        {{ row.confidence_score ? (row.confidence_score * 100).toFixed(0) + '%' : '-' }}
+                        {{ row.confidenceScore ? (row.confidenceScore * 100).toFixed(0) + '%' : '-' }}
                       </template>
                     </el-table-column>
                   </el-table>
@@ -305,8 +402,8 @@
                 <div v-for="note in workNotes" :key="note.id" class="work-note-item">
                   <div class="note-header">
                     <div>
-                      <span class="note-author">{{ note.author_display_name || note.author_name || 'Unknown' }}</span>
-                      <span class="note-requirement-tag">{{ getRequirementIdentifier(note.requirement_id) }}</span>
+                      <span class="note-author">{{ note.authorDisplayName || note.authorName || 'Unknown' }}</span>
+                      <span class="note-requirement-tag">{{ getRequirementIdentifier(note.requirementId) }}</span>
                     </div>
                     <span class="note-date">{{ formatDate(note.createdAt) }}</span>
                   </div>
@@ -346,10 +443,10 @@
             <el-option
               v-for="user in assignableUsers"
               :key="user.id"
-              :label="user.display_name || user.username"
+              :label="user.displayName || user.username"
               :value="user.id"
             >
-              <span>{{ user.display_name || user.username }}</span>
+              <span>{{ user.displayName || user.username }}</span>
               <span class="user-role-hint">{{ user.role }}</span>
             </el-option>
           </el-select>
@@ -359,10 +456,10 @@
             <el-option
               v-for="user in assignableUsers"
               :key="user.id"
-              :label="user.display_name || user.username"
+              :label="user.displayName || user.username"
               :value="user.id"
             >
-              <span>{{ user.display_name || user.username }}</span>
+              <span>{{ user.displayName || user.username }}</span>
               <span class="user-role-hint">{{ user.role }}</span>
             </el-option>
           </el-select>
@@ -457,8 +554,8 @@
               <StateBadge :state="ev.state" type="evidence" />
             </div>
             <div class="evidence-item-details">
-              <span class="detail-item">{{ t('evidence.author') }}: {{ ev.author_name || '-' }}</span>
-              <span class="detail-item">{{ t('evidence.expires') }}: {{ formatDate(ev.expiration_date) }}</span>
+              <span class="detail-item">{{ t('evidence.author') }}: {{ ev.authorName || '-' }}</span>
+              <span class="detail-item">{{ t('evidence.expires') }}: {{ formatDate(ev.expiresOn) }}</span>
             </div>
           </div>
           <el-checkbox
@@ -524,6 +621,58 @@
         <el-button type="primary" :loading="exportingCycloneDX || exportingPDF" @click="proceedWithExport">{{ t('common.proceed') }}</el-button>
       </template>
     </el-dialog>
+    <!-- Requirement Detail Popup -->
+    <el-dialog
+      v-model="showRequirementPopup"
+      :title="requirementPopupData?.identifier || 'Requirement'"
+      width="600px"
+      class="requirement-popup-dialog"
+    >
+      <div v-if="requirementPopupData" class="requirement-popup-content">
+        <div class="req-popup-field">
+          <label>Identifier</label>
+          <p>{{ requirementPopupData.identifier }}</p>
+        </div>
+        <div class="req-popup-field">
+          <label>Name</label>
+          <p>{{ requirementPopupData.name }}</p>
+        </div>
+        <div v-if="requirementPopupData.description && requirementPopupData.description !== requirementPopupData.name" class="req-popup-field">
+          <label>Description</label>
+          <p class="req-description">{{ requirementPopupData.description }}</p>
+        </div>
+        <div v-if="requirementPopupHierarchy.length > 0" class="req-popup-field">
+          <label>Hierarchy</label>
+          <div class="req-hierarchy">
+            <span
+              v-for="(ancestor, idx) in requirementPopupHierarchy"
+              :key="ancestor.id"
+              class="hierarchy-item"
+            >
+              <span class="hierarchy-identifier">{{ ancestor.identifier }}</span>
+              <span class="hierarchy-name">{{ ancestor.name }}</span>
+              <span v-if="idx < requirementPopupHierarchy.length - 1" class="hierarchy-separator">&rsaquo;</span>
+            </span>
+          </div>
+        </div>
+        <div v-if="requirementPopupLevels.length > 0" class="req-popup-field">
+          <label>Levels</label>
+          <div class="req-levels">
+            <el-tag v-for="level in requirementPopupLevels" :key="level.id" size="small" type="info">
+              {{ level.identifier }}{{ level.title ? ': ' + level.title : '' }}
+            </el-tag>
+          </div>
+        </div>
+        <div v-if="requirementPopupData.openCre" class="req-popup-field">
+          <label>OpenCRE</label>
+          <p>{{ requirementPopupData.openCre }}</p>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="showRequirementPopup = false">{{ t('common.close') }}</el-button>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 
@@ -532,7 +681,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight } from '@element-plus/icons-vue'
+import { ArrowRight, Check } from '@element-plus/icons-vue'
 import axios from 'axios'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import HelpTip from '@/components/shared/HelpTip.vue'
@@ -566,6 +715,8 @@ const evidence = ref<any[]>([])
 const assessors = ref<any[]>([])
 const assessees = ref<any[]>([])
 const projectName = ref<string>('')
+const entityName = ref<string>('')
+const standardName = ref<string>('')
 const availableEvidence = ref<any[]>([])
 const evidenceCountByRequirement = ref<Map<string, number>>(new Map())
 const selectedRequirementForEvidencePicker = ref<any>(null)
@@ -606,6 +757,18 @@ const createEvidenceForm = ref({
   expiresOn: null as any,
 })
 
+// Claims tab state
+const assessmentClaims = ref<any[]>([])
+const isLoadingClaims = ref(false)
+
+// Requirement popup state
+const showRequirementPopup = ref(false)
+const requirementPopupData = ref<any>(null)
+const requirementPopupHierarchy = ref<any[]>([])
+const requirementPopupLevels = ref<any[]>([])
+const allRequirementsForStandard = ref<any[]>([])
+const levelsForStandard = ref<any[]>([])
+
 const assignableUsers = ref<any[]>([])
 
 const editForm = ref({
@@ -628,7 +791,7 @@ const editScoresForm = ref({
 
 const formatUsersList = (users: any[]): string => {
   if (!Array.isArray(users) || users.length === 0) return '-'
-  return users.map(u => u.display_name || u.username || u.email || 'Unknown').join(', ')
+  return users.map(u => u.displayName || u.username || u.email || 'Unknown').join(', ')
 }
 
 const getScoreColor = (score: number): string => {
@@ -648,7 +811,7 @@ const resultCounts = computed(() => ({
 }))
 
 const startEditRationale = (row: any) => {
-  editingRationale.value = row.requirement_id
+  editingRationale.value = row.requirementId
   rationaleEditValue.value = row.rationale || ''
 }
 
@@ -660,7 +823,7 @@ const saveRationale = async (row: any) => {
   }
   try {
     const assessmentId = route.params.id as string
-    await axios.put(`/api/v1/assessments/${assessmentId}/requirements/${row.requirement_id}`, {
+    await axios.put(`/api/v1/assessments/${assessmentId}/requirements/${row.requirementId}`, {
       rationale: rationaleEditValue.value
     })
     row.rationale = rationaleEditValue.value
@@ -674,7 +837,7 @@ const saveRationale = async (row: any) => {
 const handleResultChange = async (row: any) => {
   try {
     const assessmentId = route.params.id as string
-    await axios.put(`/api/v1/assessments/${assessmentId}/requirements/${row.requirement_id}`, {
+    await axios.put(`/api/v1/assessments/${assessmentId}/requirements/${row.requirementId}`, {
       result: row.result
     })
   } catch (err: any) {
@@ -684,7 +847,7 @@ const handleResultChange = async (row: any) => {
 
 const getRequirementRowClass = ({ row }: any) => {
   const classes: string[] = []
-  if (incompleteRequirements.value.has(row.requirement_id)) {
+  if (incompleteRequirements.value.has(row.requirementId)) {
     classes.push('incomplete-requirement')
   }
   if (!row.result) {
@@ -712,9 +875,12 @@ const fetchAssessmentData = async () => {
     assessors.value = assrs || []
     assessees.value = asses || []
 
-    if (assessmentData.project_id) {
-      await fetchProjectName(assessmentData.project_id)
-    }
+    // Use inline names from the joined response
+    projectName.value = assessmentData.projectName || ''
+    entityName.value = assessmentData.entityName || ''
+    const stdName = assessmentData.standardName || ''
+    const stdVersion = assessmentData.standardVersion || ''
+    standardName.value = stdVersion ? `${stdName} v${stdVersion}` : stdName
   } catch (error) {
     loadError.value = t('common.errorLoading')
     ElMessage.error(t('common.errorLoading'))
@@ -724,22 +890,12 @@ const fetchAssessmentData = async () => {
   }
 }
 
-const fetchProjectName = async (projectId: string) => {
-  try {
-    const response = await axios.get(`/api/v1/projects/${projectId}`)
-    projectName.value = response.data.project?.name || response.data.name || 'Unknown Project'
-  } catch (error) {
-    console.error('Failed to fetch project:', error)
-    projectName.value = 'Unknown Project'
-  }
-}
-
 const fetchEvidence = async () => {
   isLoadingEvidence.value = true
   try {
     const assessmentId = route.params.id as string
     const response = await axios.get(`/api/v1/assessments/${assessmentId}/evidence`)
-    evidence.value = Array.isArray(response.data) ? response.data : response.data.evidence || []
+    evidence.value = Array.isArray(response.data) ? response.data : response.data.data || response.data.evidence || []
 
     // Build evidence count map by requirement
     buildEvidenceCountMap()
@@ -755,7 +911,7 @@ const fetchAvailableEvidence = async () => {
   isLoadingAvailableEvidence.value = true
   try {
     const response = await axios.get('/api/v1/evidence')
-    availableEvidence.value = Array.isArray(response.data) ? response.data : response.data.evidence || []
+    availableEvidence.value = Array.isArray(response.data) ? response.data : response.data.data || response.data.evidence || []
   } catch (error) {
     console.error('Failed to fetch available evidence:', error)
     availableEvidence.value = []
@@ -767,8 +923,9 @@ const fetchAvailableEvidence = async () => {
 const buildEvidenceCountMap = () => {
   const countMap = new Map<string, number>()
   evidence.value.forEach(ev => {
-    if (ev.requirement_id) {
-      countMap.set(ev.requirement_id, (countMap.get(ev.requirement_id) || 0) + 1)
+    const reqIds = ev.requirementIds || (ev.requirementId ? [ev.requirementId] : [])
+    for (const rid of reqIds) {
+      countMap.set(rid, (countMap.get(rid) || 0) + 1)
     }
   })
   evidenceCountByRequirement.value = countMap
@@ -1035,7 +1192,7 @@ const handleCompleteAssessment = async () => {
         incompleteRequirements.value = new Set(
           requirements.value
             .filter(r => !r.result || !r.rationale)
-            .map(r => r.requirement_id)
+            .map(r => r.requirementId)
         )
         const msgs: string[] = []
         if (unassessedCount > 0) {
@@ -1057,7 +1214,7 @@ const openEditDialog = () => {
   editForm.value = {
     title: assessment.value.title || '',
     description: assessment.value.description || '',
-    dueDate: assessment.value.due_date ? new Date(assessment.value.due_date) : null,
+    dueDate: assessment.value.dueDate ? new Date(assessment.value.dueDate) : null,
     state: assessment.value.state || 'new',
     assessorIds: assessors.value.map((a: any) => a.id || a.user_id),
     assesseeIds: assessees.value.map((a: any) => a.id || a.user_id),
@@ -1116,14 +1273,14 @@ const filteredAvailableEvidence = computed(() => {
   const query = evidenceSearchQuery.value.toLowerCase()
   return availableEvidence.value.filter(ev =>
     ev.name.toLowerCase().includes(query) ||
-    (ev.author_name && ev.author_name.toLowerCase().includes(query))
+    (ev.authorName && ev.authorName.toLowerCase().includes(query))
   )
 })
 
 const isEvidenceLinkedToRequirement = (evidenceId: string): boolean => {
   if (!selectedRequirementForEvidencePicker.value) return false
   return evidence.value.some(
-    ev => ev.id === evidenceId && ev.requirement_id === selectedRequirementForEvidencePicker.value.id
+    ev => ev.id === evidenceId && (ev.requirementIds || []).includes(selectedRequirementForEvidencePicker.value.id)
   )
 }
 
@@ -1203,10 +1360,165 @@ const fetchAssignableUsers = async () => {
   }
 }
 
+// --- Workflow Stepper ---
+const workflowSteps = computed(() => {
+  const reqCount = requirements.value.length
+  const assessedCount_ = requirements.value.filter((r: any) => r.result).length
+  const evidenceCount = evidence.value.length
+  const hasAttestation = !!attestation.value
+  const isComplete = assessment.value?.state === 'complete' || assessment.value?.state === 'completed'
+  const hasStandard = !!assessment.value?.standardId
+
+  return [
+    {
+      key: 'standard',
+      label: 'Standard',
+      tabName: null as string | null,
+      complete: hasStandard,
+      detail: hasStandard ? 'Linked' : 'Not linked',
+    },
+    {
+      key: 'assessment',
+      label: 'Assessment',
+      tabName: 'requirements',
+      complete: reqCount > 0 && assessedCount_ === reqCount,
+      detail: reqCount > 0 ? `${assessedCount_}/${reqCount}` : 'No requirements',
+    },
+    {
+      key: 'evidence',
+      label: 'Evidence',
+      tabName: 'evidence',
+      complete: evidenceCount > 0,
+      detail: evidenceCount > 0 ? `${evidenceCount} item${evidenceCount !== 1 ? 's' : ''}` : 'None linked',
+    },
+    {
+      key: 'claims',
+      label: 'Claims',
+      tabName: 'claims',
+      complete: assessmentClaims.value.length > 0,
+      detail: assessmentClaims.value.length > 0
+        ? `${assessmentClaims.value.length} claim${assessmentClaims.value.length !== 1 ? 's' : ''}`
+        : 'None',
+    },
+    {
+      key: 'attestation',
+      label: 'Attestation',
+      tabName: 'attestation',
+      complete: hasAttestation,
+      detail: hasAttestation ? 'Created' : 'Not started',
+    },
+    {
+      key: 'export',
+      label: 'Export',
+      tabName: null as string | null,
+      complete: isComplete,
+      detail: isComplete ? 'Ready' : 'Pending',
+    },
+  ]
+})
+
+// --- Claims ---
+const fetchClaims = async () => {
+  isLoadingClaims.value = true
+  try {
+    const assessmentId = route.params.id as string
+    const response = await axios.get(`/api/v1/assessments/${assessmentId}/claims`)
+    assessmentClaims.value = Array.isArray(response.data) ? response.data : response.data.data || []
+  } catch (error) {
+    console.error('Failed to fetch claims:', error)
+    assessmentClaims.value = []
+  } finally {
+    isLoadingClaims.value = false
+  }
+}
+
+const handleClaimRowClick = (row: any) => {
+  router.push(`/claims/${row.id}`)
+}
+
+// --- Evidence Row Click ---
+const handleEvidenceRowClick = (row: any) => {
+  router.push(`/evidence/${row.id}`)
+}
+
+// --- Requirement Popup ---
+
+// Flatten a nested requirement tree into a flat array
+const flattenRequirementTree = (tree: any[]): any[] => {
+  const flat: any[] = []
+  const walk = (nodes: any[]) => {
+    for (const node of nodes) {
+      flat.push(node)
+      if (node.children && node.children.length > 0) {
+        walk(node.children)
+      }
+    }
+  }
+  walk(tree)
+  return flat
+}
+
+// Load standard data (requirements + levels) once and cache
+const ensureStandardDataLoaded = async () => {
+  if (allRequirementsForStandard.value.length > 0) return
+  try {
+    const standardId = assessment.value?.standardId
+    if (!standardId) return
+    const response = await axios.get(`/api/v1/standards/${standardId}`)
+    const data = response.data
+    // The requirements come back as a tree; flatten for parent lookups
+    const tree = data.requirements || []
+    allRequirementsForStandard.value = flattenRequirementTree(tree)
+    // Levels include requirementIds arrays
+    levelsForStandard.value = data.levels || []
+  } catch {
+    allRequirementsForStandard.value = []
+    levelsForStandard.value = []
+  }
+}
+
+const openRequirementPopup = async (requirementId: string) => {
+  // Find the requirement from already-loaded assessment requirements
+  const req = requirements.value.find((r: any) => r.id === requirementId)
+  if (!req) return
+
+  requirementPopupData.value = req
+  requirementPopupHierarchy.value = []
+  requirementPopupLevels.value = []
+  showRequirementPopup.value = true
+
+  // Load full standard data (requirements tree + levels) if not cached
+  await ensureStandardDataLoaded()
+
+  // Build hierarchy by walking up parentId chain
+  if (req.parentId) {
+    const hierarchy: any[] = []
+    let currentId = req.parentId
+    const visited = new Set<string>()
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId)
+      const parent = allRequirementsForStandard.value.find((r: any) => r.id === currentId)
+      if (parent) {
+        hierarchy.unshift(parent)
+        currentId = parent.parentId
+      } else {
+        break
+      }
+    }
+    requirementPopupHierarchy.value = hierarchy
+  }
+
+  // Find all levels that include this requirement
+  requirementPopupLevels.value = levelsForStandard.value.filter(
+    (level: any) => level.requirementIds && level.requirementIds.includes(requirementId)
+  )
+}
+
 onMounted(() => {
   fetchAssessmentData()
   fetchEvidence()
   fetchAvailableEvidence()
+  fetchClaims()
   fetchWorkNotes()
   fetchAttestation()
   fetchAssignableUsers()
@@ -1245,6 +1557,10 @@ onMounted(() => {
     margin: var(--cat-spacing-2) 0 0;
     font-size: var(--cat-font-size-sm);
     color: var(--cat-text-secondary);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0;
   }
 
   .info-description {
@@ -1282,6 +1598,14 @@ onMounted(() => {
 .attestation-section,
 .work-notes-section {
   padding: var(--cat-spacing-4) 0;
+}
+
+.evidence-link {
+  color: var(--cat-color-primary);
+  text-decoration: none;
+  &:hover {
+    text-decoration: underline;
+  }
 }
 
 .empty-state,
@@ -1655,7 +1979,7 @@ onMounted(() => {
   }
 }
 
-.project-link {
+.context-link {
   color: var(--cat-brand-primary);
   text-decoration: none;
   transition: color 0.2s ease;
@@ -1664,6 +1988,15 @@ onMounted(() => {
     color: var(--cat-brand-primary-hover);
     text-decoration: underline;
   }
+}
+
+.meta-sep {
+  margin: 0 6px;
+  color: var(--cat-text-tertiary);
+}
+
+.standard-label {
+  color: var(--cat-text-secondary);
 }
 
 .export-preview-content {
@@ -1708,5 +2041,279 @@ onMounted(() => {
   font-size: var(--cat-font-size-xs);
   color: var(--cat-text-tertiary);
   text-transform: capitalize;
+}
+
+// --- Claims Section ---
+.claims-section {
+  padding: var(--cat-spacing-4) 0;
+}
+
+.evidence-count-display {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.count-supporting {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: var(--cat-font-weight-semibold);
+  background-color: rgba(63, 185, 80, 0.15);
+  color: #3fb950;
+}
+
+.count-counter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: var(--cat-font-weight-semibold);
+  background-color: rgba(210, 153, 34, 0.15);
+  color: #d29922;
+}
+
+.count-mitigation {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: var(--cat-font-weight-semibold);
+  background-color: rgba(88, 166, 255, 0.15);
+  color: #58a6ff;
+}
+
+.claim-predicate {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--cat-text-secondary);
+  font-size: var(--cat-font-size-sm);
+}
+
+// --- Clickable Evidence Table ---
+.clickable-table {
+  :deep(.el-table__body tr) {
+    cursor: pointer;
+
+    &:hover > td {
+      background-color: var(--cat-bg-hover) !important;
+    }
+  }
+}
+
+// --- Requirement Tag Links ---
+.requirement-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.requirement-tag-link {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: var(--cat-font-size-xs);
+  font-weight: var(--cat-font-weight-medium);
+  color: var(--cat-color-primary);
+  background-color: rgba(88, 166, 255, 0.1);
+  border: 1px solid rgba(88, 166, 255, 0.25);
+  border-radius: var(--cat-radius-sm, 4px);
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background-color: rgba(88, 166, 255, 0.2);
+    border-color: var(--cat-color-primary);
+  }
+}
+
+// --- Requirement Popup Dialog ---
+.requirement-popup-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cat-spacing-5);
+}
+
+.req-popup-field {
+  label {
+    display: block;
+    font-size: var(--cat-font-size-xs);
+    font-weight: var(--cat-font-weight-semibold);
+    color: var(--cat-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--cat-spacing-1);
+  }
+
+  p {
+    margin: 0;
+    color: var(--cat-text-primary);
+    line-height: var(--cat-line-height-base);
+  }
+
+  .req-description {
+    white-space: pre-wrap;
+  }
+}
+
+.req-hierarchy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cat-spacing-2);
+}
+
+.hierarchy-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cat-spacing-2);
+}
+
+.hierarchy-identifier {
+  font-weight: var(--cat-font-weight-semibold);
+  color: var(--cat-color-primary);
+}
+
+.hierarchy-name {
+  color: var(--cat-text-secondary);
+  font-size: var(--cat-font-size-sm);
+}
+
+.hierarchy-separator {
+  color: var(--cat-text-tertiary);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.req-levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cat-spacing-2);
+}
+
+// --- Workflow Stepper ---
+.assessment-workflow-stepper {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: var(--cat-spacing-4) var(--cat-spacing-6);
+  margin: var(--cat-spacing-4) 0;
+  background-color: var(--cat-bg-primary);
+  border: 1px solid var(--cat-border-default);
+  border-radius: var(--cat-radius-lg, 8px);
+}
+
+.workflow-step-btn {
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+  position: relative;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+
+  &:first-child {
+    flex: 0 0 auto;
+  }
+
+  &:hover:not(.is-disabled) {
+    .step-icon-compact {
+      filter: brightness(1.3);
+    }
+    .step-label-compact {
+      filter: brightness(1.3);
+    }
+  }
+
+  &.is-disabled {
+    cursor: default;
+  }
+}
+
+.step-connector-line {
+  flex: 1;
+  height: 2px;
+  min-width: 20px;
+  margin-top: 14px;
+  background-color: var(--cat-border-default);
+  transition: background-color 0.3s ease;
+
+  &.filled {
+    background-color: rgba(63, 185, 80, 0.4);
+  }
+}
+
+.step-node-compact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 72px;
+}
+
+.step-icon-compact {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: var(--cat-font-weight-semibold);
+  margin-bottom: 4px;
+  transition: all 0.3s ease;
+  background-color: var(--cat-bg-secondary);
+  color: var(--cat-text-tertiary);
+  border: 2px solid var(--cat-border-default);
+
+  .is-complete & {
+    background-color: rgba(63, 185, 80, 0.15);
+    color: #3fb950;
+    border-color: rgba(63, 185, 80, 0.4);
+  }
+
+  .is-active & {
+    background-color: rgba(88, 166, 255, 0.15);
+    color: #58a6ff;
+    border-color: rgba(88, 166, 255, 0.4);
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
+  }
+}
+
+.step-label-compact {
+  font-size: 11px;
+  font-weight: var(--cat-font-weight-semibold);
+  text-align: center;
+  color: var(--cat-text-tertiary);
+
+  .is-complete & {
+    color: var(--cat-chart-green);
+  }
+
+  .is-active & {
+    color: var(--cat-accent-primary, var(--cat-color-primary));
+  }
+}
+
+.step-detail-compact {
+  font-size: 10px;
+  color: var(--cat-text-tertiary);
+  text-align: center;
+  margin-top: 1px;
 }
 </style>

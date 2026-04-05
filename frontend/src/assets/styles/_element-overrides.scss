@@ -160,3 +160,13 @@ html.dark {
   aspect-ratio: 1;
   padding-inline: 0;
 }
+
+// Progress bar gradient
+.el-progress-bar__inner {
+  background: linear-gradient(90deg, #2f81f7, #58a6ff, #79c0ff) !important;
+  transition: width 0.4s ease;
+}
+
+.el-progress--success .el-progress-bar__inner {
+  background: linear-gradient(90deg, #238636, #3fb950, #56d364) !important;
+}

@@ -46,6 +46,8 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
     let query = db
       .selectFrom('assessment')
       .leftJoin('project', 'project.id', 'assessment.project_id')
+      .leftJoin('entity', 'entity.id', 'assessment.entity_id')
+      .leftJoin('standard', 'standard.id', 'assessment.standard_id')
       .select([
         'assessment.id',
         'assessment.title',
@@ -53,6 +55,11 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
         'assessment.state',
         'assessment.project_id',
         'project.name as project_name',
+        'assessment.entity_id',
+        'entity.name as entity_name',
+        'assessment.standard_id',
+        'standard.name as standard_name',
+        'standard.version as standard_version',
         'assessment.due_date',
         'assessment.start_date',
         'assessment.end_date',
@@ -121,8 +128,30 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 
     const assessment = await db
       .selectFrom('assessment')
-      .where('id', '=', req.params.id)
-      .selectAll()
+      .leftJoin('entity', 'entity.id', 'assessment.entity_id')
+      .leftJoin('standard', 'standard.id', 'assessment.standard_id')
+      .leftJoin('project', 'project.id', 'assessment.project_id')
+      .where('assessment.id', '=', req.params.id)
+      .select([
+        'assessment.id',
+        'assessment.title',
+        'assessment.description',
+        'assessment.project_id',
+        'assessment.entity_id',
+        'assessment.standard_id',
+        'assessment.conformance_score',
+        'assessment.due_date',
+        'assessment.start_date',
+        'assessment.end_date',
+        'assessment.state',
+        'assessment.created_at',
+        'assessment.updated_at',
+        'entity.name as entity_name',
+        'entity.entity_type as entity_type',
+        'standard.name as standard_name',
+        'standard.version as standard_version',
+        'project.name as project_name',
+      ])
       .executeTakeFirst();
 
     if (!assessment) {
@@ -217,7 +246,7 @@ router.post(
             id: assessmentId,
             title: data.title,
             description: data.description,
-            projectId: data.projectId || '',
+            projectId: data.projectId || undefined,
             entityId: data.entityId || undefined,
             standardId: data.standardId || undefined,
             dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
@@ -795,40 +824,45 @@ router.get(
 
       const evidence = (await db
         .selectFrom('assessment_requirement_evidence')
-        .innerJoin(
-          'evidence',
-          (join) =>
-            join.onRef(
-              'evidence.id' as any,
-              '=',
-              'assessment_requirement_evidence.evidence_id' as any
-            )
+        .innerJoin('evidence', (join) =>
+          join.onRef('evidence.id' as any, '=', 'assessment_requirement_evidence.evidence_id' as any)
         )
-        .innerJoin(
-          'assessment_requirement',
-          (join) =>
-            join.onRef(
-              'assessment_requirement.id' as any,
-              '=',
-              'assessment_requirement_evidence.assessment_requirement_id' as any
-            )
+        .innerJoin('assessment_requirement', (join) =>
+          join.onRef('assessment_requirement.id' as any, '=', 'assessment_requirement_evidence.assessment_requirement_id' as any)
         )
-        .innerJoin(
-          'app_user',
-          (join) =>
-            join.onRef(
-              'app_user.id' as any,
-              '=',
-              'evidence.author_id' as any
-            )
+        .leftJoin('app_user as author', (join) =>
+          join.onRef('author.id' as any, '=', 'evidence.author_id' as any)
         )
         .where('assessment_requirement.assessment_id', '=', req.params.id)
-        .selectAll()
+        .select([
+          'evidence.id',
+          'evidence.name',
+          'evidence.description',
+          'evidence.state',
+          'evidence.author_id',
+          'evidence.is_counter_evidence',
+          'evidence.classification',
+          'evidence.created_at',
+          'evidence.expires_on',
+          'author.display_name as author_name',
+          'assessment_requirement.requirement_id',
+        ] as any[])
         .execute()) as any[];
 
-      const evidenceIds = evidence.map((e: any) => e.id);
+      // Deduplicate evidence (one item can be linked to multiple requirements)
+      const evidenceMap = new Map<string, any>();
+      for (const e of evidence) {
+        if (!evidenceMap.has(e.id)) {
+          evidenceMap.set(e.id, { ...e, requirement_ids: [e.requirement_id] });
+        } else {
+          evidenceMap.get(e.id).requirement_ids.push(e.requirement_id);
+        }
+      }
+      const uniqueEvidence = Array.from(evidenceMap.values());
+
+      const evidenceIds = uniqueEvidence.map((e: any) => e.id);
       const tagsByEvidence = await fetchTagsForEntities(db, 'evidence_tag', 'evidence_id', evidenceIds);
-      const evidenceWithTags = evidence.map((e: any) => ({
+      const evidenceWithTags = uniqueEvidence.map((e: any) => ({
         ...e,
         tags: tagsByEvidence[e.id] || [],
       }));
@@ -838,6 +872,110 @@ router.get(
       });
     } catch (error) {
       logger.error('Get assessment evidence error', { error, requestId: req.requestId });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// Get all claims for an assessment (via its attestation(s))
+router.get(
+  '/:id/claims',
+  requireAuth,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const db = getDatabase();
+
+      const assessment = await db
+        .selectFrom('assessment')
+        .where('id', '=', req.params.id)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!assessment) {
+        res.status(404).json({ error: 'Assessment not found' });
+        return;
+      }
+
+      // Find all attestations for this assessment
+      const attestations = await db
+        .selectFrom('attestation')
+        .where('assessment_id', '=', req.params.id)
+        .select(['id'])
+        .execute();
+
+      if (attestations.length === 0) {
+        res.json({ data: [] });
+        return;
+      }
+
+      const attestationIds = attestations.map(a => a.id);
+
+      // Fetch claims linked to these attestations
+      const claims = (await db
+        .selectFrom('claim')
+        .where('attestation_id', 'in', attestationIds)
+        .selectAll()
+        .orderBy('created_at', 'asc')
+        .execute()) as any[];
+
+      // For each claim, get evidence counts
+      const claimIds = claims.map(c => c.id);
+
+      let evidenceCounts = new Map<string, number>();
+      let counterEvidenceCounts = new Map<string, number>();
+      let mitigationCounts = new Map<string, number>();
+
+      if (claimIds.length > 0) {
+        const evCounts = await db
+          .selectFrom('claim_evidence')
+          .where('claim_id', 'in', claimIds)
+          .select((eb) => [
+            'claim_id',
+            eb.fn.countAll().as('count'),
+          ])
+          .groupBy('claim_id')
+          .execute();
+        for (const row of evCounts) {
+          evidenceCounts.set(row.claim_id, Number(row.count));
+        }
+
+        const ceCounts = await db
+          .selectFrom('claim_counter_evidence')
+          .where('claim_id', 'in', claimIds)
+          .select((eb) => [
+            'claim_id',
+            eb.fn.countAll().as('count'),
+          ])
+          .groupBy('claim_id')
+          .execute();
+        for (const row of ceCounts) {
+          counterEvidenceCounts.set(row.claim_id, Number(row.count));
+        }
+
+        const mitCounts = await db
+          .selectFrom('claim_mitigation_strategy')
+          .where('claim_id', 'in', claimIds)
+          .select((eb) => [
+            'claim_id',
+            eb.fn.countAll().as('count'),
+          ])
+          .groupBy('claim_id')
+          .execute();
+        for (const row of mitCounts) {
+          mitigationCounts.set(row.claim_id, Number(row.count));
+        }
+      }
+
+      const claimsWithCounts = claims.map(c => ({
+        ...c,
+        evidence_count: evidenceCounts.get(c.id) || 0,
+        counter_evidence_count: counterEvidenceCounts.get(c.id) || 0,
+        mitigation_count: mitigationCounts.get(c.id) || 0,
+      }));
+
+      res.json({ data: claimsWithCounts });
+    } catch (error) {
+      logger.error('Get assessment claims error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -1035,6 +1173,67 @@ router.get(
       res.json({ data: notes });
     } catch (error) {
       logger.error('Get assessment notes error', { error, requestId: req.requestId });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+router.delete(
+  '/:id',
+  requireAuth,
+  requireRole('admin'),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const db = getDatabase();
+      const assessment = await db
+        .selectFrom('assessment')
+        .where('id', '=', req.params.id)
+        .select(['id', 'title', 'state'])
+        .executeTakeFirst();
+
+      if (!assessment) {
+        res.status(404).json({ error: 'Assessment not found' });
+        return;
+      }
+
+      // Delete related records first
+      await db.deleteFrom('work_note')
+        .where('assessment_requirement_id', 'in',
+          db.selectFrom('assessment_requirement')
+            .select('id')
+            .where('assessment_id', '=', req.params.id)
+        )
+        .execute();
+
+      await db.deleteFrom('assessment_requirement')
+        .where('assessment_id', '=', req.params.id)
+        .execute();
+
+      await db.deleteFrom('assessment_assessor')
+        .where('assessment_id', '=', req.params.id)
+        .execute();
+
+      await db.deleteFrom('assessment_assessee')
+        .where('assessment_id', '=', req.params.id)
+        .execute();
+
+      await db.deleteFrom('assessment_tag')
+        .where('assessment_id', '=', req.params.id)
+        .execute();
+
+      await db.deleteFrom('assessment')
+        .where('id', '=', req.params.id)
+        .execute();
+
+      logger.info('Assessment deleted', {
+        assessmentId: req.params.id,
+        title: assessment.title,
+        requestId: req.requestId,
+      });
+
+      res.json({ message: 'Assessment deleted' });
+    } catch (error) {
+      logger.error('Delete assessment error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
   }

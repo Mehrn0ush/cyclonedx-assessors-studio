@@ -14,7 +14,7 @@
         :placeholder="t('progress.allEntities')"
         clearable
         filterable
-        :loading="entitiesLoading"
+        :loading="loading"
         aria-label="Select entity to view progress"
         @change="onEntityChange"
       >
@@ -32,7 +32,7 @@
     </div>
 
     <!-- Summary Stats Row -->
-    <div v-if="!statsLoading" class="summary-grid">
+    <div v-if="!loading" class="summary-grid">
       <StatCard
         :title="t('progress.totalEntitiesAssessed')"
         :value="summaryStats.totalEntitiesAssessed"
@@ -69,7 +69,7 @@
     <div class="section-container">
       <h2 class="section-title">{{ t('progress.conformanceByStandard') }}</h2>
 
-      <div v-if="standardsLoading" class="card-loading">
+      <div v-if="loading" class="card-loading">
         <el-icon class="is-loading"><Loading /></el-icon>
       </div>
       <div v-else-if="standardsData.length === 0" class="empty-state">
@@ -91,10 +91,8 @@
             <div class="conformance-bar-wrapper">
               <div
                 class="conformance-bar-fill"
-                :style="{
-                  width: standard.latestScore + '%',
-                  backgroundColor: getScoreColor(standard.latestScore),
-                }"
+                :class="`conformance-bar-fill--${getScoreLevel(standard.latestScore)}`"
+                :style="{ width: standard.latestScore + '%' }"
                 role="progressbar"
                 :aria-valuenow="standard.latestScore"
                 aria-valuemin="0"
@@ -102,7 +100,7 @@
               />
             </div>
             <div class="conformance-bar-label">
-              <span class="score-text">{{ standard.latestScore }}%</span>
+              <span class="score-text" :style="{ color: getScoreColor(standard.latestScore) }">{{ standard.latestScore }}%</span>
             </div>
           </div>
 
@@ -129,7 +127,7 @@
                   </td>
                   <td class="entity-cell">{{ assessment.entityName }}</td>
                   <td class="score-cell">
-                    <span class="score-badge" :style="{ backgroundColor: getScoreColor(assessment.score) }">
+                    <span class="score-badge" :style="{ backgroundColor: getScoreColorTranslucent(assessment.score), color: getScoreColor(assessment.score) }">
                       {{ assessment.score }}%
                     </span>
                   </td>
@@ -145,7 +143,7 @@
     <div class="section-container">
       <h2 class="section-title">{{ t('progress.assessmentTimeline') }}</h2>
 
-      <div v-if="timelineLoading" class="card-loading">
+      <div v-if="loading" class="card-loading">
         <el-icon class="is-loading"><Loading /></el-icon>
       </div>
       <div v-else-if="timelineAssessments.length === 0" class="empty-state">
@@ -178,18 +176,14 @@
                 {{ formatDate(assessment.completedDate) }}
               </td>
               <td class="score-cell">
-                <span class="score-badge" :style="{ backgroundColor: getScoreColor(assessment.score) }">
+                <span class="score-badge" :style="{ backgroundColor: getScoreColorTranslucent(assessment.score), color: getScoreColor(assessment.score) }">
                   {{ assessment.score }}%
                 </span>
               </td>
               <td class="state-cell">
-                <el-tag
-                  :type="getStateTagType(assessment.state)"
-                  effect="light"
-                  disable-transitions
-                >
-                  {{ t('assessment.state.' + assessment.state) }}
-                </el-tag>
+                <span class="state-badge" :class="`state-badge--${assessment.state}`">
+                  {{ formatState(assessment.state) }}
+                </span>
               </td>
             </tr>
           </tbody>
@@ -200,6 +194,7 @@
 </template>
 
 <script setup lang="ts">
+import axios from 'axios'
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Loading, FolderOpened, DocumentChecked, CircleCheck, Document, Odometer } from '@element-plus/icons-vue'
@@ -213,12 +208,7 @@ const { t } = useI18n()
 
 const selectedEntityId = ref<string | null>(null)
 const error = ref('')
-
-// Loading states
-const entitiesLoading = ref(false)
-const statsLoading = ref(false)
-const standardsLoading = ref(false)
-const timelineLoading = ref(false)
+const loading = ref(false)
 
 // Data
 const entities = ref<Array<{ id: string; name: string }>>([])
@@ -238,156 +228,43 @@ const summaryStats = ref({
 // ============================================================================
 
 onMounted(() => {
-  loadEntities()
-  loadSummaryStats()
-  loadStandardsData()
-  loadTimelineAssessments()
+  loadProgressData()
 })
 
 // ============================================================================
 // Methods
 // ============================================================================
 
-async function loadEntities() {
-  entitiesLoading.value = true
+async function loadProgressData() {
+  loading.value = true
+  error.value = ''
   try {
-    // TODO: Replace with actual API call to fetch entities
-    entities.value = [
-      { id: '1', name: 'Entity A' },
-      { id: '2', name: 'Entity B' },
-      { id: '3', name: 'Entity C' },
-    ]
-  } catch (err: any) {
-    error.value = err.message || t('progress.errorLoadingEntities')
-  } finally {
-    entitiesLoading.value = false
-  }
-}
-
-async function loadSummaryStats() {
-  statsLoading.value = true
-  try {
+    const params: Record<string, string> = {}
     if (selectedEntityId.value) {
-      // TODO: Replace with actual API call
-      summaryStats.value = {
-        totalEntitiesAssessed: 1,
-        averageConformance: 78,
-        activeAssessments: 2,
-        completedThisQuarter: 5,
-      }
-    } else {
-      // TODO: Replace with actual API call
-      summaryStats.value = {
-        totalEntitiesAssessed: 3,
-        averageConformance: 75,
-        activeAssessments: 5,
-        completedThisQuarter: 12,
-      }
+      params.entityId = selectedEntityId.value
     }
-  } catch (err: any) {
-    error.value = err.message || t('progress.errorLoadingStats')
-  } finally {
-    statsLoading.value = false
-  }
-}
+    const response = await axios.get('/api/v1/dashboard/progress', { params })
+    const data = response.data
 
-async function loadStandardsData() {
-  standardsLoading.value = true
-  try {
-    // TODO: Replace with actual API call
-    standardsData.value = [
-      {
-        id: '1',
-        name: 'NIST SP 800-53',
-        version: 'Rev. 5',
-        latestScore: 82,
-        assessments: [
-          {
-            id: '1-1',
-            title: 'Initial Security Assessment',
-            entityName: 'Entity A',
-            score: 82,
-            completedDate: new Date('2026-03-15'),
-          },
-          {
-            id: '1-2',
-            title: 'Follow-up Assessment',
-            entityName: 'Entity A',
-            score: 75,
-            completedDate: new Date('2026-02-20'),
-          },
-        ],
-      },
-      {
-        id: '2',
-        name: 'ISO/IEC 27001',
-        version: '2022',
-        latestScore: 68,
-        assessments: [
-          {
-            id: '2-1',
-            title: 'Information Security Assessment',
-            entityName: 'Entity B',
-            score: 68,
-            completedDate: new Date('2026-03-10'),
-          },
-        ],
-      },
-    ]
+    entities.value = data.entities || []
+    summaryStats.value = data.summaryStats || {
+      totalEntitiesAssessed: 0,
+      averageConformance: 0,
+      activeAssessments: 0,
+      completedThisQuarter: 0,
+    }
+    standardsData.value = data.standardsData || []
+    timelineAssessments.value = data.timelineAssessments || []
   } catch (err: any) {
-    error.value = err.message || t('progress.errorLoadingStandards')
+    error.value = err.response?.data?.error || err.message || 'Failed to load progress data'
   } finally {
-    standardsLoading.value = false
-  }
-}
-
-async function loadTimelineAssessments() {
-  timelineLoading.value = true
-  try {
-    // TODO: Replace with actual API call
-    timelineAssessments.value = [
-      {
-        id: '1-1',
-        title: 'Initial Security Assessment',
-        entityName: 'Entity A',
-        standardName: 'NIST SP 800-53 Rev. 5',
-        score: 82,
-        state: 'complete',
-        completedDate: new Date('2026-03-15'),
-      },
-      {
-        id: '2-1',
-        title: 'Information Security Assessment',
-        entityName: 'Entity B',
-        standardName: 'ISO/IEC 27001:2022',
-        score: 68,
-        state: 'complete',
-        completedDate: new Date('2026-03-10'),
-      },
-      {
-        id: '3-1',
-        title: 'Compliance Review',
-        entityName: 'Entity C',
-        standardName: 'CIS Controls v8',
-        score: 71,
-        state: 'complete',
-        completedDate: new Date('2026-03-05'),
-      },
-    ]
-  } catch (err: any) {
-    error.value = err.message || t('progress.errorLoadingTimeline')
-  } finally {
-    timelineLoading.value = false
+    loading.value = false
   }
 }
 
 async function onEntityChange() {
   error.value = ''
-  await Promise.all([
-    loadSummaryStats(),
-    loadStandardsData(),
-    loadTimelineAssessments(),
-  ])
+  await loadProgressData()
 }
 
 // ============================================================================
@@ -395,26 +272,41 @@ async function onEntityChange() {
 // ============================================================================
 
 function getScoreColor(score: number): string {
-  if (score >= 80) return 'var(--cat-success)'
-  if (score >= 60) return 'var(--cat-warning)'
-  return 'var(--cat-danger)'
+  if (score >= 80) return '#39d353'
+  if (score >= 60) return '#d29922'
+  return '#f85149'
+}
+
+function getScoreColorTranslucent(score: number): string {
+  if (score >= 80) return 'rgba(57, 211, 83, 0.2)'
+  if (score >= 60) return 'rgba(210, 153, 34, 0.2)'
+  return 'rgba(248, 81, 73, 0.2)'
+}
+
+function getScoreLevel(score: number): string {
+  if (score >= 80) return 'good'
+  if (score >= 60) return 'warning'
+  return 'danger'
 }
 
 function getConformanceColor(score: number): string {
   return getScoreColor(score)
 }
 
-function getStateTagType(state: string): string {
-  const stateTypeMap: Record<string, string> = {
-    complete: 'success',
-    active: 'warning',
-    pending: 'info',
-    failed: 'danger',
+function formatState(state: string): string {
+  const map: Record<string, string> = {
+    new: 'New',
+    pending: 'Pending',
+    in_progress: 'In Progress',
+    on_hold: 'On Hold',
+    complete: 'Complete',
+    cancelled: 'Cancelled',
   }
-  return stateTypeMap[state] || 'info'
+  return map[state] || state
 }
 
 function formatDate(date: Date | string): string {
+  if (!date) return ''
   const d = typeof date === 'string' ? new Date(date) : date
   return d.toLocaleDateString(undefined, {
     year: 'numeric',
@@ -550,23 +442,27 @@ function formatDate(date: Date | string): string {
 
 .conformance-bar-wrapper {
   flex: 1;
-  height: 24px;
+  height: 6px;
   background-color: var(--cat-bg-input);
-  border-radius: var(--cat-radius-md);
+  border-radius: var(--cat-radius-full);
   overflow: hidden;
-  border: 1px solid var(--cat-border-default);
 }
 
 .conformance-bar-fill {
   height: 100%;
-  transition: width var(--cat-transition-base), background-color var(--cat-transition-base);
-  border-radius: var(--cat-radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  transition: width 0.6s ease;
+  border-radius: var(--cat-radius-full);
 
-  &:empty {
-    background-color: var(--cat-bg-input);
+  &--good {
+    background: linear-gradient(90deg, #238636, #39d353);
+  }
+
+  &--warning {
+    background: linear-gradient(90deg, #9e6a03, #d29922);
+  }
+
+  &--danger {
+    background: linear-gradient(90deg, #da3633, #f85149);
   }
 }
 
@@ -577,7 +473,6 @@ function formatDate(date: Date | string): string {
   .score-text {
     font-size: var(--cat-font-size-base);
     font-weight: var(--cat-font-weight-semibold);
-    color: var(--cat-text-primary);
   }
 }
 
@@ -706,18 +601,58 @@ function formatDate(date: Date | string): string {
 }
 
 // ============================================================================
-// Score Badge
+// Score Badge (translucent background, colored text)
 // ============================================================================
 
 .score-badge {
   display: inline-block;
-  padding: var(--cat-spacing-2) var(--cat-spacing-3);
+  padding: var(--cat-spacing-1) var(--cat-spacing-3);
   border-radius: var(--cat-radius-md);
-  color: white;
   font-weight: var(--cat-font-weight-semibold);
   font-size: var(--cat-font-size-xs);
   text-align: center;
-  min-width: 60px;
+  min-width: 50px;
+}
+
+// ============================================================================
+// State Badge
+// ============================================================================
+
+.state-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: var(--cat-font-size-xs);
+  font-weight: var(--cat-font-weight-medium);
+  line-height: 1.6;
+  white-space: nowrap;
+
+  &--complete {
+    background-color: rgba(57, 211, 83, 0.15);
+    color: #39d353;
+  }
+
+  &--in_progress {
+    background-color: rgba(47, 129, 247, 0.15);
+    color: #2f81f7;
+  }
+
+  &--pending,
+  &--new {
+    background-color: rgba(210, 153, 34, 0.15);
+    color: #d29922;
+  }
+
+  &--on_hold {
+    background-color: rgba(139, 148, 158, 0.15);
+    color: #8b949e;
+  }
+
+  &--cancelled {
+    background-color: rgba(248, 81, 73, 0.15);
+    color: #f85149;
+  }
 }
 
 // ============================================================================

@@ -7,6 +7,7 @@ import { hashPassword } from '../utils/crypto.js';
 import { logger } from '../utils/logger.js';
 import { checkSetupComplete, markSetupComplete } from '../middleware/setup.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
+import { importStandard } from '../services/standard-import.js';
 
 const router = Router();
 
@@ -213,176 +214,15 @@ router.post('/import-standard', async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const db = getDatabase();
     const importedStandards: Array<{ id: string; identifier: string; name: string; requirementCount: number }> = [];
 
     for (const standard of standards) {
-      const bomRef = standard['bom-ref'] || standard.bomRef || uuidv4();
-      const standardName = standard.name || title || 'Unknown Standard';
-      const standardDesc = standard.description || '';
-      const standardVersion = standard.version || '';
-      const standardOwner = standard.owner || '';
-
-      // Use bom-ref as identifier, fallback to name
-      const identifier = bomRef;
-
-      // Check if already imported (idempotent)
-      const existing = await db
-        .selectFrom('standard')
-        .where('identifier', '=', identifier)
-        .select('id')
-        .executeTakeFirst();
-
-      if (existing) {
-        importedStandards.push({
-          id: existing.id,
-          identifier,
-          name: standardName,
-          requirementCount: 0,
-        });
-        continue;
-      }
-
-      const standardId = uuidv4();
-
-      await db
-        .insertInto('standard')
-        .values({
-          id: standardId,
-          identifier,
-          name: standardName,
-          description: standardDesc,
-          owner: standardOwner,
-          version: standardVersion,
-          license_id: null,
-        })
-        .execute();
-
-      // Import requirements
-      let requirementCount = 0;
-      const requirements = standard.requirements || [];
-      // Maps bom-ref to generated UUID for parent resolution and level associations
-      const requirementMap = new Map<string, string>();
-
-      // Sort requirements so parents come before children
-      const sortedRequirements = [...requirements].sort((a: any, b: any) => {
-        const aId = a['bom-ref'] || a.bomRef || a.identifier || '';
-        const bId = b['bom-ref'] || b.bomRef || b.identifier || '';
-        return aId.localeCompare(bId);
-      });
-
-      for (const req of sortedRequirements) {
-        const reqBomRef = req['bom-ref'] || req.bomRef || '';
-        const reqIdentifier = req.identifier || reqBomRef;
-        const reqTitle = req.title || req.name || reqIdentifier;
-        const reqDescription = req.text || req.description || null;
-        const reqParent = req.parent || null;
-
-        // Collect OpenCRE identifiers as comma separated string
-        const openCreArr: string[] = req.openCre || req['open-cre'] || [];
-        const openCre = openCreArr.length > 0 ? openCreArr.join(', ') : null;
-
-        const requirementId = uuidv4();
-
-        // Resolve parent
-        let parentId: string | null = null;
-        if (reqParent && requirementMap.has(reqParent)) {
-          parentId = requirementMap.get(reqParent) || null;
-        }
-
-        try {
-          await db
-            .insertInto('requirement')
-            .values({
-              id: requirementId,
-              identifier: reqIdentifier,
-              name: reqTitle,
-              description: reqDescription,
-              open_cre: openCre,
-              parent_id: parentId,
-              standard_id: standardId,
-            })
-            .execute();
-
-          requirementMap.set(reqBomRef, requirementId);
-          requirementCount++;
-        } catch (insertError: any) {
-          // Skip duplicates
-          if (insertError?.message?.includes('duplicate') || insertError?.message?.includes('unique')) {
-            continue;
-          }
-          throw insertError;
-        }
-      }
-
-      // Import levels and their requirement associations
-      const levels = standard.levels || [];
-      let levelCount = 0;
-      for (const lvl of levels) {
-        const lvlBomRef = lvl['bom-ref'] || lvl.bomRef || '';
-        const lvlIdentifier = lvl.identifier || lvlBomRef;
-        const lvlTitle = lvl.title || null;
-        const lvlDescription = lvl.description || null;
-
-        const levelId = uuidv4();
-
-        try {
-          await db
-            .insertInto('level')
-            .values({
-              id: levelId,
-              identifier: lvlIdentifier,
-              title: lvlTitle,
-              description: lvlDescription,
-              standard_id: standardId,
-            })
-            .execute();
-
-          // Associate requirements with this level
-          const lvlRequirements: string[] = lvl.requirements || [];
-          for (const reqRef of lvlRequirements) {
-            const reqUuid = requirementMap.get(reqRef);
-            if (reqUuid) {
-              try {
-                await db
-                  .insertInto('level_requirement')
-                  .values({
-                    level_id: levelId,
-                    requirement_id: reqUuid,
-                  })
-                  .execute();
-              } catch (junctionError: any) {
-                // Skip duplicates
-                if (junctionError?.message?.includes('duplicate') || junctionError?.message?.includes('unique')) {
-                  continue;
-                }
-                throw junctionError;
-              }
-            }
-          }
-
-          levelCount++;
-        } catch (insertError: any) {
-          if (insertError?.message?.includes('duplicate') || insertError?.message?.includes('unique')) {
-            continue;
-          }
-          throw insertError;
-        }
-      }
-
-      logger.info('Standard imported during setup', {
-        standardId,
-        identifier,
-        name: standardName,
-        requirementCount,
-        levelCount,
-      });
-
+      const result = await importStandard(standard, { fallbackName: title || 'Unknown Standard' });
       importedStandards.push({
-        id: standardId,
-        identifier,
-        name: standardName,
-        requirementCount,
+        id: result.id,
+        identifier: result.identifier,
+        name: result.name,
+        requirementCount: result.requirementCount,
       });
     }
 
@@ -393,6 +233,28 @@ router.post('/import-standard', async (req: Request, res: Response): Promise<voi
   } catch (error) {
     logger.error('Setup standard import error', { error });
     res.status(500).json({ error: 'Failed to import standard' });
+  }
+});
+
+/**
+ * POST /api/v1/setup/seed-demo
+ * Seeds the database with comprehensive demo data.
+ * Only available during/after setup. Requires that admin and standards exist.
+ */
+router.post('/seed-demo', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const { seedDemoData } = await import('../db/seed-demo.js');
+    const seeded = await seedDemoData();
+
+    if (seeded) {
+      logger.info('Demo data seeded via setup wizard');
+      res.status(201).json({ message: 'Demo data loaded successfully' });
+    } else {
+      res.status(200).json({ message: 'Demo data already present, skipped' });
+    }
+  } catch (error) {
+    logger.error('Demo data seed error', { error });
+    res.status(500).json({ error: 'Failed to load demo data' });
   }
 });
 

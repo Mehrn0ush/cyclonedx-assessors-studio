@@ -38,8 +38,8 @@
 
       <el-table v-else :data="filteredClaims" stripe border role="grid" aria-label="Claims table" @row-click="handleRowClick">
         <el-table-column prop="name" :label="t('claims.name')" min-width="250" sortable></el-table-column>
-        <el-table-column prop="target" :label="t('claims.target')" width="200" sortable></el-table-column>
-        <el-table-column prop="predicate" width="200">
+        <el-table-column prop="target" :label="t('claims.target')" min-width="200" sortable></el-table-column>
+        <el-table-column prop="predicate" min-width="200">
           <template #header>
             <span>{{ t('claims.predicate') }} <HelpTip :content="t('claims.predicateDescription')" /></span>
           </template>
@@ -47,22 +47,22 @@
             <span class="truncate">{{ row.predicate }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('claims.evidence')" width="120">
+        <el-table-column :label="t('claims.evidence')" min-width="120">
           <template #default="{ row }">
             <span>{{ getEvidenceCount(row) }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.created')" width="150">
+        <el-table-column :label="t('common.created')" min-width="150">
           <template #default="{ row }">
             {{ formatDate(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.counter')" width="100">
+        <el-table-column :label="t('common.counter')" min-width="100">
           <template #default="{ row }">
-            <el-tag v-if="row.is_counter_claim" type="danger">{{ t('common.counter') }}</el-tag>
+            <span v-if="row.isCounterClaim" class="counter-badge">{{ t('common.counter') }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="attestation_id" :label="t('claims.attestation')" width="200" sortable></el-table-column>
+        <el-table-column prop="attestationId" :label="t('claims.attestation')" min-width="200" sortable></el-table-column>
       </el-table>
       <el-pagination
         v-model:current-page="currentPage"
@@ -215,7 +215,7 @@ const filteredClaims = computed(() => {
       c.name.toLowerCase().includes(searchText.value.toLowerCase()) ||
       c.target?.toLowerCase().includes(searchText.value.toLowerCase())
     const matchesType = !filterCounterClaim.value ||
-      String(c.is_counter_claim) === filterCounterClaim.value
+      String(c.isCounterClaim) === filterCounterClaim.value
     return matchesSearch && matchesType
   })
   const start = (currentPage.value - 1) * pageSize.value
@@ -229,7 +229,7 @@ const totalClaims = computed(() => {
       c.name.toLowerCase().includes(searchText.value.toLowerCase()) ||
       c.target?.toLowerCase().includes(searchText.value.toLowerCase())
     const matchesType = !filterCounterClaim.value ||
-      String(c.is_counter_claim) === filterCounterClaim.value
+      String(c.isCounterClaim) === filterCounterClaim.value
     return matchesSearch && matchesType
   }).length
 })
@@ -257,8 +257,8 @@ const fetchAllEvidence = async () => {
 }
 
 const getEvidenceCount = (claim: any) => {
-  const supportingCount = claim.evidence_ids ? claim.evidence_ids.length : 0
-  const counterCount = claim.counter_evidence_ids ? claim.counter_evidence_ids.length : 0
+  const supportingCount = claim.evidenceIds ? claim.evidenceIds.length : 0
+  const counterCount = claim.counterEvidenceIds ? claim.counterEvidenceIds.length : 0
   const total = supportingCount + counterCount
   return total > 0 ? `${total} ${t('claims.evidence')}` : '-'
 }
@@ -302,7 +302,7 @@ const openEditDialog = () => {
       target: selectedClaim.value.target,
       predicate: selectedClaim.value.predicate,
       reasoning: selectedClaim.value.reasoning,
-      isCounterClaim: selectedClaim.value.is_counter_claim || false,
+      isCounterClaim: selectedClaim.value.isCounterClaim || false,
       evidenceIds: selectedClaimDetail.value.evidence?.map((e: any) => e.id) || [],
       counterEvidenceIds: selectedClaimDetail.value.counterEvidence?.map((e: any) => e.id) || []
     }
@@ -377,6 +377,27 @@ onMounted(() => {
   gap: var(--cat-spacing-4);
   margin-bottom: var(--cat-spacing-4);
   align-items: center;
+}
+
+:deep(.el-table tbody tr) {
+  cursor: pointer;
+
+  &:hover > td {
+    background-color: var(--cat-bg-hover) !important;
+  }
+}
+
+.counter-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: var(--cat-font-size-xs);
+  font-weight: var(--cat-font-weight-medium);
+  line-height: 1.6;
+  white-space: nowrap;
+  background-color: rgba(248, 81, 73, 0.15);
+  color: #f85149;
 }
 
 .truncate {

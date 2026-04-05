@@ -21,19 +21,19 @@
         <el-table-column prop="name" :label="t('common.name')" min-width="150" sortable></el-table-column>
         <el-table-column prop="key" :label="t('admin.roleKey')" min-width="120" sortable></el-table-column>
         <el-table-column prop="description" :label="t('common.description')" min-width="250" sortable></el-table-column>
-        <el-table-column :label="t('admin.systemRole')" width="100">
+        <el-table-column :label="t('admin.systemRole')" min-width="100">
           <template #default="{ row }">
-            <el-tag :type="row.is_system ? 'info' : 'success'">
-              {{ row.is_system ? t('admin.systemRole') : t('admin.customRole') }}
-            </el-tag>
+            <span class="system-badge" :class="row.isSystem ? 'system-badge--system' : 'system-badge--custom'">
+              {{ row.isSystem ? t('admin.systemRole') : t('admin.customRole') }}
+            </span>
           </template>
         </el-table-column>
-        <el-table-column prop="permissionCount" :label="t('admin.permissionCount')" width="130" align="center" sortable></el-table-column>
-        <el-table-column :label="t('common.actions')" width="100" fixed="right">
+        <el-table-column prop="permissionCount" :label="t('admin.permissionCount')" min-width="130" align="center" sortable></el-table-column>
+        <el-table-column :label="t('common.actions')" min-width="100">
           <template #default="{ row }">
             <RowActions
               :show-edit="true"
-              :show-delete="!row.is_system"
+              :show-delete="!row.isSystem"
               @edit="handleEdit(row)"
               @delete="handleDelete(row)"
             />
@@ -201,7 +201,7 @@ const handleEdit = async (row: any) => {
       key: roleData.key,
       description: roleData.description || '',
       permissionIds: permissionIds,
-      isSystem: roleData.is_system
+      isSystem: roleData.isSystem
     }
     isEditing.value = true
     editingRoleId.value = row.id
@@ -315,6 +315,35 @@ onMounted(() => {
 
   .retry-button {
     margin-top: 16px;
+  }
+}
+
+.system-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: var(--cat-font-size-xs);
+  font-weight: var(--cat-font-weight-medium);
+  line-height: 1.6;
+  white-space: nowrap;
+
+  &--system {
+    background-color: rgba(47, 129, 247, 0.15);
+    color: #2f81f7;
+  }
+
+  &--custom {
+    background-color: rgba(163, 113, 247, 0.15);
+    color: #a371f7;
+  }
+}
+
+:deep(.el-table tbody tr) {
+  cursor: pointer;
+
+  &:hover > td {
+    background-color: var(--cat-bg-hover) !important;
   }
 }
 

@@ -40,18 +40,69 @@ export function getOpenAPISpec(): OpenAPISpec {
           tags: ['Health'],
           summary: 'Health check',
           operationId: 'getHealth',
+          description: 'Unauthenticated callers receive simple status. Authenticated callers receive detailed system metrics.',
           responses: {
             '200': {
               description: 'Service is healthy',
               content: {
                 'application/json': {
                   schema: {
-                    type: 'object',
-                    properties: {
-                      status: { type: 'string', example: 'ok' },
-                      timestamp: { type: 'string', format: 'date-time' },
-                    },
-                    required: ['status', 'timestamp'],
+                    oneOf: [
+                      {
+                        type: 'object',
+                        properties: {
+                          status: { type: 'string', example: 'healthy' },
+                          timestamp: { type: 'string', format: 'date-time' },
+                        },
+                        required: ['status', 'timestamp'],
+                      },
+                      {
+                        type: 'object',
+                        properties: {
+                          status: { type: 'string', example: 'healthy' },
+                          uptime: { type: 'string' },
+                          version: { type: 'string' },
+                          environment: { type: 'string' },
+                          memory: {
+                            type: 'object',
+                            properties: {
+                              heapUsed: { type: 'string' },
+                              heapUsedPercent: { type: 'string' },
+                              rss: { type: 'string' },
+                            },
+                          },
+                          system: {
+                            type: 'object',
+                            properties: {
+                              platform: { type: 'string' },
+                              memory: {
+                                type: 'object',
+                                properties: {
+                                  usedPercent: { type: 'string' },
+                                  alert: { type: 'string', nullable: true },
+                                },
+                              },
+                              loadavg: {
+                                type: 'object',
+                                properties: {
+                                  '1min': { type: 'string' },
+                                  alert: { type: 'string', nullable: true },
+                                },
+                              },
+                            },
+                          },
+                          disk: {
+                            type: 'object',
+                            properties: {
+                              total: { type: 'string' },
+                              used: { type: 'string' },
+                              free: { type: 'string' },
+                            },
+                          },
+                        },
+                        required: ['status', 'uptime', 'version'],
+                      },
+                    ],
                   },
                 },
               },
@@ -331,6 +382,106 @@ export function getOpenAPISpec(): OpenAPISpec {
           },
         },
       },
+      '/v1/auth/change-password': {
+        put: {
+          tags: ['Auth'],
+          summary: 'Change password',
+          operationId: 'changePassword',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    currentPassword: { type: 'string' },
+                    newPassword: { type: 'string' },
+                  },
+                  required: ['currentPassword', 'newPassword'],
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Password changed',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/auth/profile': {
+        put: {
+          tags: ['Auth'],
+          summary: 'Update profile',
+          operationId: 'updateProfile',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    displayName: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Profile updated',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/auth/logout-all': {
+        post: {
+          tags: ['Auth'],
+          summary: 'Logout from all sessions',
+          operationId: 'logoutAll',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Logged out from all sessions',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/auth/complete-onboarding': {
+        post: {
+          tags: ['Auth'],
+          summary: 'Mark onboarding as complete',
+          operationId: 'completeOnboarding',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Onboarding completed',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
       '/v1/projects': {
         get: {
           tags: ['Projects'],
@@ -547,6 +698,48 @@ export function getOpenAPISpec(): OpenAPISpec {
           },
         },
       },
+      '/v1/projects/{id}/archive': {
+        post: {
+          tags: ['Projects'],
+          summary: 'Archive project',
+          operationId: 'archiveProject',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Project archived',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/projects/{id}/export/summary': {
+        get: {
+          tags: ['Projects'],
+          summary: 'Get project summary',
+          operationId: 'getProjectSummary',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Project summary',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
       '/v1/standards': {
         get: {
           tags: ['Standards'],
@@ -606,6 +799,226 @@ export function getOpenAPISpec(): OpenAPISpec {
                   schema: { $ref: '#/components/schemas/Error' },
                 },
               },
+            },
+          },
+        },
+        put: {
+          tags: ['Standards'],
+          summary: 'Update standard',
+          operationId: 'updateStandard',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object' },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Standard updated',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+        delete: {
+          tags: ['Standards'],
+          summary: 'Delete standard',
+          operationId: 'deleteStandard',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '204': {
+              description: 'Standard deleted',
+            },
+          },
+        },
+      },
+      '/v1/standards/{id}/submit': {
+        post: {
+          tags: ['Standards'],
+          summary: 'Submit standard for review',
+          operationId: 'submitStandardForReview',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Standard submitted',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/standards/{id}/approve': {
+        post: {
+          tags: ['Standards'],
+          summary: 'Approve standard',
+          operationId: 'approveStandard',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Standard approved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/standards/{id}/reject': {
+        post: {
+          tags: ['Standards'],
+          summary: 'Reject standard',
+          operationId: 'rejectStandard',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Standard rejected',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/standards/{id}/duplicate': {
+        post: {
+          tags: ['Standards'],
+          summary: 'Duplicate standard',
+          operationId: 'duplicateStandard',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '201': {
+              description: 'Standard duplicated',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/standards/{id}/retire': {
+        post: {
+          tags: ['Standards'],
+          summary: 'Retire standard',
+          operationId: 'retireStandard',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Standard retired',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/standards/{id}/requirements': {
+        post: {
+          tags: ['Standards'],
+          summary: 'Create standard requirement',
+          operationId: 'createStandardRequirement',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object' },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'Requirement created',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/standards/{standardId}/requirements/{reqId}': {
+        put: {
+          tags: ['Standards'],
+          summary: 'Update standard requirement',
+          operationId: 'updateStandardRequirement',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'standardId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'reqId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object' },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Requirement updated',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+        delete: {
+          tags: ['Standards'],
+          summary: 'Delete standard requirement',
+          operationId: 'deleteStandardRequirement',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'standardId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'reqId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '204': {
+              description: 'Requirement deleted',
             },
           },
         },
@@ -858,6 +1271,38 @@ export function getOpenAPISpec(): OpenAPISpec {
             },
           },
         },
+        delete: {
+          tags: ['Assessments'],
+          summary: 'Delete assessment',
+          operationId: 'deleteAssessment',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Assessment deleted',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+            '404': {
+              description: 'Assessment not found',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
       },
       '/v1/assessments/{id}/start': {
         post: {
@@ -996,6 +1441,198 @@ export function getOpenAPISpec(): OpenAPISpec {
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/assessments/{id}/requirements/{requirementId}/evidence': {
+        get: {
+          tags: ['Assessments'],
+          summary: 'Get evidence for requirement',
+          operationId: 'getRequirementEvidence',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+            },
+            {
+              name: 'requirementId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Evidence retrieved',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: {
+                        type: 'array',
+                        items: { type: 'object' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/assessments/{id}/evidence': {
+        get: {
+          tags: ['Assessments'],
+          summary: 'Get all evidence for assessment',
+          operationId: 'getAssessmentEvidence',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Evidence retrieved',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: {
+                        type: 'array',
+                        items: { type: 'object' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/assessments/{id}/requirements/{requirementId}/notes': {
+        get: {
+          tags: ['Assessments'],
+          summary: 'Get notes for requirement',
+          operationId: 'getRequirementNotes',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+            },
+            {
+              name: 'requirementId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Notes retrieved',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: {
+                        type: 'array',
+                        items: { type: 'object' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          tags: ['Assessments'],
+          summary: 'Add note to requirement',
+          operationId: 'addRequirementNote',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+            },
+            {
+              name: 'requirementId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    content: { type: 'string' },
+                  },
+                  required: ['content'],
+                },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'Note created',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/assessments/{id}/notes': {
+        get: {
+          tags: ['Assessments'],
+          summary: 'Get all notes for assessment',
+          operationId: 'getAssessmentNotes',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Notes retrieved',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: {
+                        type: 'array',
+                        items: { type: 'object' },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -1245,6 +1882,185 @@ export function getOpenAPISpec(): OpenAPISpec {
           },
         },
       },
+      '/v1/evidence/{id}/link': {
+        post: {
+          tags: ['Evidence'],
+          summary: 'Link evidence to assessment',
+          operationId: 'linkEvidence',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object' },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Evidence linked',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/evidence/{id}/unlink': {
+        delete: {
+          tags: ['Evidence'],
+          summary: 'Unlink evidence from assessment',
+          operationId: 'unlinkEvidence',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '204': {
+              description: 'Evidence unlinked',
+            },
+          },
+        },
+      },
+      '/v1/evidence/{id}/submit-for-review': {
+        post: {
+          tags: ['Evidence'],
+          summary: 'Submit evidence for review',
+          operationId: 'submitEvidenceForReview',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Evidence submitted',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/evidence/{id}/approve': {
+        post: {
+          tags: ['Evidence'],
+          summary: 'Approve evidence',
+          operationId: 'approveEvidence',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Evidence approved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/evidence/{id}/reject': {
+        post: {
+          tags: ['Evidence'],
+          summary: 'Reject evidence',
+          operationId: 'rejectEvidence',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Evidence rejected',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/evidence/{id}/attachments': {
+        post: {
+          tags: ['Evidence'],
+          summary: 'Upload evidence attachment',
+          operationId: 'uploadEvidenceAttachment',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'multipart/form-data': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    file: { type: 'string', format: 'binary' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'Attachment uploaded',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/evidence/{id}/attachments/{attachmentId}/download': {
+        get: {
+          tags: ['Evidence'],
+          summary: 'Download evidence attachment',
+          operationId: 'downloadEvidenceAttachment',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'attachmentId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Attachment file',
+              content: {
+                'application/octet-stream': {},
+              },
+            },
+          },
+        },
+      },
+      '/v1/evidence/{id}/attachments/{attachmentId}': {
+        delete: {
+          tags: ['Evidence'],
+          summary: 'Delete evidence attachment',
+          operationId: 'deleteEvidenceAttachment',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'attachmentId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '204': {
+              description: 'Attachment deleted',
+            },
+          },
+        },
+      },
       '/v1/claims': {
         get: {
           tags: ['Claims'],
@@ -1455,6 +2271,396 @@ export function getOpenAPISpec(): OpenAPISpec {
           },
         },
       },
+      '/v1/entities': {
+        get: {
+          tags: ['Entities'],
+          summary: 'List entities',
+          operationId: 'listEntities',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
+            { name: 'offset', in: 'query', schema: { type: 'integer', default: 0 } },
+          ],
+          responses: {
+            '200': {
+              description: 'Entities retrieved',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: { type: 'array', items: { type: 'object' } },
+                      pagination: { $ref: '#/components/schemas/Pagination' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          tags: ['Entities'],
+          summary: 'Create entity',
+          operationId: 'createEntity',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    entityType: { type: 'string' },
+                    description: { type: 'string' },
+                  },
+                  required: ['name', 'entityType'],
+                },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'Entity created',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/entities/relationship-graph': {
+        get: {
+          tags: ['Entities'],
+          summary: 'Get entity relationship graph',
+          operationId: 'getEntityRelationshipGraph',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Entity relationship graph',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      entities: { type: 'array' },
+                      edges: { type: 'array' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/entities/{id}': {
+        get: {
+          tags: ['Entities'],
+          summary: 'Get entity detail',
+          operationId: 'getEntity',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Entity retrieved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+        put: {
+          tags: ['Entities'],
+          summary: 'Update entity',
+          operationId: 'updateEntity',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object' },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Entity updated',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+        delete: {
+          tags: ['Entities'],
+          summary: 'Delete entity',
+          operationId: 'deleteEntity',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '204': {
+              description: 'Entity deleted',
+            },
+          },
+        },
+      },
+      '/v1/entities/{id}/children': {
+        get: {
+          tags: ['Entities'],
+          summary: 'Get entity children',
+          operationId: 'getEntityChildren',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Entity children retrieved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/entities/{id}/assessments': {
+        get: {
+          tags: ['Entities'],
+          summary: 'Get entity assessments',
+          operationId: 'getEntityAssessments',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Entity assessments retrieved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/entities/{id}/history': {
+        get: {
+          tags: ['Entities'],
+          summary: 'Get entity history',
+          operationId: 'getEntityHistory',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Entity history retrieved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/entities/{id}/relationship-graph': {
+        get: {
+          tags: ['Entities'],
+          summary: 'Get entity relationship graph',
+          operationId: 'getEntityRelationshipGraphById',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Entity relationship graph',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/entities/{id}/relationships': {
+        post: {
+          tags: ['Entities'],
+          summary: 'Create entity relationship',
+          operationId: 'createEntityRelationship',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object' },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'Relationship created',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/entities/{id}/relationships/{relId}': {
+        delete: {
+          tags: ['Entities'],
+          summary: 'Delete entity relationship',
+          operationId: 'deleteEntityRelationship',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'relId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '204': {
+              description: 'Relationship deleted',
+            },
+          },
+        },
+      },
+      '/v1/entities/{id}/policies': {
+        get: {
+          tags: ['Entities'],
+          summary: 'Get entity policies',
+          operationId: 'getEntityPolicies',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Entity policies retrieved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          tags: ['Entities'],
+          summary: 'Create entity policy',
+          operationId: 'createEntityPolicy',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object' },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'Policy created',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/entities/{id}/policies/{policyId}': {
+        put: {
+          tags: ['Entities'],
+          summary: 'Update entity policy',
+          operationId: 'updateEntityPolicy',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'policyId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object' },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Policy updated',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+        delete: {
+          tags: ['Entities'],
+          summary: 'Delete entity policy',
+          operationId: 'deleteEntityPolicy',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'policyId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '204': {
+              description: 'Policy deleted',
+            },
+          },
+        },
+      },
+      '/v1/entities/{id}/progress': {
+        get: {
+          tags: ['Entities'],
+          summary: 'Get entity assessment progress',
+          operationId: 'getEntityProgress',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Entity progress retrieved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
       '/v1/attestations': {
         get: {
           tags: ['Attestations'],
@@ -1636,6 +2842,105 @@ export function getOpenAPISpec(): OpenAPISpec {
           },
         },
       },
+      '/v1/attestations/{id}/requirements': {
+        get: {
+          tags: ['Attestations'],
+          summary: 'Get attestation requirements',
+          operationId: 'getAttestationRequirements',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Requirements retrieved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          tags: ['Attestations'],
+          summary: 'Add requirement to attestation',
+          operationId: 'addAttestationRequirement',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object' },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'Requirement added',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/attestations/{id}/requirements/{requirementId}': {
+        put: {
+          tags: ['Attestations'],
+          summary: 'Update attestation requirement',
+          operationId: 'updateAttestationRequirement',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'requirementId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object' },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Requirement updated',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/attestations/{id}/sign': {
+        post: {
+          tags: ['Attestations'],
+          summary: 'Sign attestation',
+          operationId: 'signAttestation',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Attestation signed',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
       '/v1/users': {
         get: {
           tags: ['Users'],
@@ -1719,6 +3024,32 @@ export function getOpenAPISpec(): OpenAPISpec {
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/users/assignable': {
+        get: {
+          tags: ['Users'],
+          summary: 'Get assignable users',
+          operationId: 'getAssignableUsers',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Assignable users retrieved',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: {
+                        type: 'array',
+                        items: { $ref: '#/components/schemas/User' },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -2219,6 +3550,35 @@ export function getOpenAPISpec(): OpenAPISpec {
           },
         },
       },
+      '/v1/tags/autocomplete': {
+        get: {
+          tags: ['Tags'],
+          summary: 'Get tags autocomplete',
+          operationId: 'getTagsAutocomplete',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'q', in: 'query', schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Tags autocomplete results',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: {
+                        type: 'array',
+                        items: { type: 'object' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       '/v1/tags/{id}': {
         put: {
           tags: ['Tags'],
@@ -2652,6 +4012,164 @@ export function getOpenAPISpec(): OpenAPISpec {
           },
         },
       },
+      '/v1/dashboard/conformance-breakdown': {
+        get: {
+          tags: ['Dashboard'],
+          summary: 'Get conformance breakdown',
+          operationId: 'getConformanceBreakdown',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Conformance breakdown',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/dashboard/risk-insights': {
+        get: {
+          tags: ['Dashboard'],
+          summary: 'Get risk insights',
+          operationId: 'getRiskInsights',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Risk insights',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/dashboard/project-health': {
+        get: {
+          tags: ['Dashboard'],
+          summary: 'Get project health',
+          operationId: 'getProjectHealth',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Project health',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/dashboard/configs': {
+        get: {
+          tags: ['Dashboard'],
+          summary: 'Get dashboard configs',
+          operationId: 'getDashboardConfigs',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Dashboard configs',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          tags: ['Dashboard'],
+          summary: 'Create dashboard config',
+          operationId: 'createDashboardConfig',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object' },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'Dashboard config created',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/dashboard/configs/{id}': {
+        get: {
+          tags: ['Dashboard'],
+          summary: 'Get dashboard config',
+          operationId: 'getDashboardConfig',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Dashboard config',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+        put: {
+          tags: ['Dashboard'],
+          summary: 'Update dashboard config',
+          operationId: 'updateDashboardConfig',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object' },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Dashboard config updated',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+        delete: {
+          tags: ['Dashboard'],
+          summary: 'Delete dashboard config',
+          operationId: 'deleteDashboardConfig',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '204': {
+              description: 'Dashboard config deleted',
+            },
+          },
+        },
+      },
       '/v1/import/attestation': {
         post: {
           tags: ['Import'],
@@ -2695,6 +4213,214 @@ export function getOpenAPISpec(): OpenAPISpec {
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/audit': {
+        get: {
+          tags: ['Audit'],
+          summary: 'Get audit logs',
+          operationId: 'getAuditLogs',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
+            { name: 'offset', in: 'query', schema: { type: 'integer', default: 0 } },
+            { name: 'entityType', in: 'query', schema: { type: 'string' } },
+            { name: 'entityId', in: 'query', schema: { type: 'string' } },
+            { name: 'userId', in: 'query', schema: { type: 'string' } },
+            { name: 'action', in: 'query', schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Audit logs retrieved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/audit/entity/{entityType}/{entityId}': {
+        get: {
+          tags: ['Audit'],
+          summary: 'Get entity audit logs',
+          operationId: 'getEntityAuditLogs',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'entityType', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'entityId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
+            { name: 'offset', in: 'query', schema: { type: 'integer', default: 0 } },
+          ],
+          responses: {
+            '200': {
+              description: 'Entity audit logs retrieved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/notifications': {
+        get: {
+          tags: ['Notifications'],
+          summary: 'List notifications',
+          operationId: 'listNotifications',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
+            { name: 'offset', in: 'query', schema: { type: 'integer', default: 0 } },
+            { name: 'unreadOnly', in: 'query', schema: { type: 'boolean' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Notifications retrieved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/notifications/{id}/read': {
+        put: {
+          tags: ['Notifications'],
+          summary: 'Mark notification as read',
+          operationId: 'markNotificationAsRead',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Notification marked as read',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/notifications/read-all': {
+        put: {
+          tags: ['Notifications'],
+          summary: 'Mark all notifications as read',
+          operationId: 'markAllNotificationsAsRead',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'All notifications marked as read',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/notifications/count': {
+        get: {
+          tags: ['Notifications'],
+          summary: 'Get unread notification count',
+          operationId: 'getUnreadNotificationCount',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Unread count retrieved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/export/assessment/{assessmentId}': {
+        get: {
+          tags: ['Export'],
+          summary: 'Export assessment',
+          operationId: 'exportAssessment',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'assessmentId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Assessment exported',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/export/assessment/{assessmentId}/pdf': {
+        get: {
+          tags: ['Export'],
+          summary: 'Export assessment as PDF',
+          operationId: 'exportAssessmentPdf',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'assessmentId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Assessment PDF',
+              content: {
+                'application/pdf': {},
+              },
+            },
+          },
+        },
+      },
+      '/v1/export/project/{projectId}': {
+        get: {
+          tags: ['Export'],
+          summary: 'Export project',
+          operationId: 'exportProject',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Project exported',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/setup/seed-demo': {
+        post: {
+          tags: ['Setup'],
+          summary: 'Seed demo data',
+          operationId: 'seedDemoData',
+          responses: {
+            '201': {
+              description: 'Demo data seeded',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
                 },
               },
             },

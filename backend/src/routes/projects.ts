@@ -123,7 +123,12 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
           )
       )
       .where('project_standard.project_id', '=', req.params.id)
-      .selectAll()
+      .select([
+        'standard.id as id',
+        'standard.name as name',
+        'standard.version as version',
+        'standard.description as description',
+      ])
       .execute()) as any[];
 
     const tagsByProject = await fetchTagsForEntities(db, 'project_tag', 'project_id', [req.params.id]);
@@ -387,7 +392,12 @@ router.get(
             )
         )
         .where('project_standard.project_id', '=', req.params.id)
-        .selectAll()
+        .select([
+          'standard.id as id',
+          'standard.name as name',
+          'standard.version as version',
+          'standard.description as description',
+        ])
         .execute()) as any[];
 
       // Fetch assessments

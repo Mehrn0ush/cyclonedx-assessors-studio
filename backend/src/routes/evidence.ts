@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs/promises';
 import busboy from 'busboy';
+import crypto from 'crypto';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
@@ -131,12 +132,31 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
 router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
+    const includeContent = req.query.include_content === 'true';
 
     const evidence = await db
       .selectFrom('evidence')
-      .where('id', '=', req.params.id)
-      .selectAll()
-      .executeTakeFirst();
+      .leftJoin('app_user as author', (join) => join.onRef('author.id' as any, '=', 'evidence.author_id' as any))
+      .leftJoin('app_user as reviewer', (join) => join.onRef('reviewer.id' as any, '=', 'evidence.reviewer_id' as any))
+      .where('evidence.id', '=', req.params.id)
+      .select([
+        'evidence.id',
+        'evidence.bom_ref',
+        'evidence.name',
+        'evidence.property_name',
+        'evidence.description',
+        'evidence.state',
+        'evidence.author_id',
+        'evidence.reviewer_id',
+        'evidence.expires_on',
+        'evidence.is_counter_evidence',
+        'evidence.classification',
+        'evidence.created_at',
+        'evidence.updated_at',
+        'author.display_name as author_name',
+        'reviewer.display_name as reviewer_name',
+      ] as any[])
+      .executeTakeFirst() as any;
 
     if (!evidence) {
       res.status(404).json({ error: 'Evidence not found' });
@@ -159,11 +179,23 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
       .orderBy('evidence_note.created_at', 'desc')
       .execute()) as any[];
 
-    const attachments = await db
+    const attachmentsQuery = db
       .selectFrom('evidence_attachment')
-      .where('evidence_attachment.evidence_id', '=', req.params.id)
-      .selectAll()
-      .execute();
+      .where('evidence_attachment.evidence_id', '=', req.params.id);
+
+    const attachments = await (includeContent
+      ? attachmentsQuery.selectAll().execute()
+      : attachmentsQuery.select([
+          'id',
+          'evidence_id',
+          'filename',
+          'content_type',
+          'size_bytes',
+          'storage_path',
+          'content_hash',
+          'created_at',
+          'updated_at',
+        ]).execute());
 
     const tagsByEvidence = await fetchTagsForEntities(db, 'evidence_tag', 'evidence_id', [req.params.id]);
 
@@ -175,6 +207,79 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
     });
   } catch (error) {
     logger.error('Get evidence error', { error, requestId: req.requestId });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get claims referencing a specific evidence item
+router.get('/:id/claims', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const db = getDatabase();
+    const evidenceId = req.params.id;
+
+    // Find claims where this evidence is supporting, counter, or mitigation
+    const supportingClaims = (await db
+      .selectFrom('claim_evidence')
+      .innerJoin('claim', (join) =>
+        join.onRef('claim.id' as any, '=', 'claim_evidence.claim_id' as any)
+      )
+      .where('claim_evidence.evidence_id', '=', evidenceId)
+      .select([
+        'claim.id',
+        'claim.name',
+        'claim.target',
+        'claim.predicate',
+        'claim.is_counter_claim',
+      ] as any[])
+      .execute()) as any[];
+
+    const counterClaims = (await db
+      .selectFrom('claim_counter_evidence')
+      .innerJoin('claim', (join) =>
+        join.onRef('claim.id' as any, '=', 'claim_counter_evidence.claim_id' as any)
+      )
+      .where('claim_counter_evidence.evidence_id', '=', evidenceId)
+      .select([
+        'claim.id',
+        'claim.name',
+        'claim.target',
+        'claim.predicate',
+        'claim.is_counter_claim',
+      ] as any[])
+      .execute()) as any[];
+
+    const mitigationClaims = (await db
+      .selectFrom('claim_mitigation_strategy')
+      .innerJoin('claim', (join) =>
+        join.onRef('claim.id' as any, '=', 'claim_mitigation_strategy.claim_id' as any)
+      )
+      .where('claim_mitigation_strategy.evidence_id', '=', evidenceId)
+      .select([
+        'claim.id',
+        'claim.name',
+        'claim.target',
+        'claim.predicate',
+        'claim.is_counter_claim',
+      ] as any[])
+      .execute()) as any[];
+
+    const allClaims = [
+      ...supportingClaims.map((c: any) => ({ ...c, is_counter: false, is_mitigation: false })),
+      ...counterClaims.map((c: any) => ({ ...c, is_counter: true, is_mitigation: false })),
+      ...mitigationClaims.map((c: any) => ({ ...c, is_counter: false, is_mitigation: true })),
+    ];
+
+    // Deduplicate by claim ID
+    const seen = new Set<string>();
+    const uniqueClaims = allClaims.filter(c => {
+      if (seen.has(c.id)) return false;
+      seen.add(c.id);
+      return true;
+    });
+
+    res.json({ data: uniqueClaims });
+  } catch (error) {
+    logger.error('Get evidence claims error', { error, requestId: req.requestId });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -763,6 +868,17 @@ router.post(
   }
 );
 
+const createAttachmentSchema = z.object({
+  filename: z.string().min(1, 'Filename is required'),
+  contentType: z.string().min(1, 'Content type is required'),
+  binaryContent: z.string().min(1, 'Binary content is required'),
+});
+
+// Helper function to compute SHA-256 hash of buffer
+function computeContentHash(buffer: Buffer): string {
+  return crypto.createHash('sha256').update(buffer).digest('hex');
+}
+
 router.post(
   '/:id/attachments',
   requireAuth,
@@ -786,6 +902,65 @@ router.post(
         return;
       }
 
+      // Check if this is JSON body upload or multipart upload
+      const contentType = req.headers['content-type'] || '';
+      if (contentType.includes('application/json')) {
+        // JSON body upload (for demo data seeding)
+        try {
+          const data = createAttachmentSchema.parse(req.body);
+          const attachmentId = uuidv4();
+
+          // Decode base64 content
+          const buffer = Buffer.from(data.binaryContent, 'base64');
+          const contentHash = computeContentHash(buffer);
+          const sizeBytes = buffer.length;
+
+          await db
+            .insertInto('evidence_attachment')
+            .values(toSnakeCase({
+              id: attachmentId,
+              evidenceId: req.params.id,
+              filename: data.filename,
+              contentType: data.contentType,
+              sizeBytes,
+              storagePath: `evidence/${req.params.id}/${attachmentId}-${data.filename}`,
+              binaryContent: data.binaryContent,
+              contentHash,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            }))
+            .execute();
+
+          logger.info('Attachment created from JSON body', {
+            evidenceId: req.params.id,
+            attachmentId,
+            filename: data.filename,
+            userId: req.user?.id,
+            requestId: req.requestId,
+          });
+
+          res.status(201).json({
+            message: 'Attachment created successfully',
+            attachments: [{
+              id: attachmentId,
+              filename: data.filename,
+              contentType: data.contentType,
+              sizeBytes,
+              storagePath: `evidence/${req.params.id}/${attachmentId}-${data.filename}`,
+              contentHash,
+            }],
+          });
+          return;
+        } catch (error) {
+          if (error instanceof z.ZodError) {
+            res.status(400).json({ error: 'Invalid input', details: error.errors });
+            return;
+          }
+          throw error;
+        }
+      }
+
+      // Multipart form upload
       const bb = busboy({
         headers: req.headers,
       });
@@ -799,7 +974,7 @@ router.post(
         try {
           const attachmentId = uuidv4();
           const filename = info.filename;
-          const contentType = info.mimeType;
+          const contentTypeFromFile = info.mimeType;
           const storagePath = `evidence/${req.params.id}/${attachmentId}-${filename}`;
           const fullPath = path.join(uploadDir, `${attachmentId}-${filename}`);
 
@@ -815,6 +990,8 @@ router.post(
               await fs.writeFile(fullPath, buffer);
 
               const sizeBytes = buffer.length;
+              const contentHash = computeContentHash(buffer);
+              const binaryContent = buffer.toString('base64');
 
               await db
                 .insertInto('evidence_attachment')
@@ -822,9 +999,11 @@ router.post(
                   id: attachmentId,
                   evidenceId: req.params.id,
                   filename,
-                  contentType,
+                  contentType: contentTypeFromFile,
                   sizeBytes,
                   storagePath,
+                  binaryContent,
+                  contentHash,
                   createdAt: new Date(),
                   updatedAt: new Date(),
                 }))
@@ -833,9 +1012,10 @@ router.post(
               attachments.push({
                 id: attachmentId,
                 filename,
-                contentType: contentType,
+                contentType: contentTypeFromFile,
                 sizeBytes: sizeBytes,
                 storagePath: storagePath,
+                contentHash,
               });
 
               logger.info('Attachment uploaded', {
@@ -897,27 +1077,44 @@ router.get(
         return;
       }
 
-      const fullPath = path.join(process.cwd(), 'uploads', attachment.storage_path);
-
-      try {
-        await fs.access(fullPath);
-      } catch {
-        res.status(404).json({ error: 'File not found' });
-        return;
-      }
-
       res.setHeader('Content-Type', attachment.content_type);
       res.setHeader('Content-Disposition', `attachment; filename="${attachment.filename}"`);
 
-      const fileStream = require('fs').createReadStream(fullPath);
-      fileStream.pipe(res);
+      const fullPath = path.join(process.cwd(), 'uploads', attachment.storage_path);
 
-      fileStream.on('error', (error: any) => {
-        logger.error('Error streaming file', { error, requestId: req.requestId });
-        if (!res.headersSent) {
-          res.status(500).json({ error: 'Error downloading file' });
+      // Try to read from disk first
+      let fileStream: any;
+      try {
+        await fs.access(fullPath);
+        fileStream = require('fs').createReadStream(fullPath);
+        fileStream.pipe(res);
+
+        fileStream.on('error', (error: any) => {
+          logger.error('Error streaming file', { error, requestId: req.requestId });
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'Error downloading file' });
+          }
+        });
+      } catch {
+        // File doesn't exist on disk, try to serve from binary_content column
+        if (attachment.binary_content) {
+          try {
+            const buffer = Buffer.from(attachment.binary_content, 'base64');
+            res.send(buffer);
+            logger.info('Attachment served from database', {
+              evidenceId: req.params.id,
+              attachmentId: req.params.attachmentId,
+              userId: req.user?.id,
+              requestId: req.requestId,
+            });
+          } catch (error) {
+            logger.error('Error decoding binary content', { error, requestId: req.requestId });
+            res.status(500).json({ error: 'Error downloading file' });
+          }
+        } else {
+          res.status(404).json({ error: 'File not found' });
         }
-      });
+      }
     } catch (error) {
       logger.error('Download attachment error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });

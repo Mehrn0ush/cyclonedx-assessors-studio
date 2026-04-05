@@ -61,7 +61,7 @@
             <el-col :span="12">
               <div class="info-group">
                 <label>{{ t('evidence.expires') }}</label>
-                <p>{{ evidence.expires_on ? formatDateDisplay(evidence.expires_on) : t('common.notSet') }}</p>
+                <p>{{ evidence.expiresOn ? formatDateDisplay(evidence.expiresOn) : t('common.notSet') }}</p>
               </div>
             </el-col>
           </el-row>
@@ -88,7 +88,7 @@
 
             <!-- Assessor/Admin: Approve (when in_review) -->
             <el-button
-              v-if="evidence.state === 'in_review' && (userRole === 'assessor' || userRole === 'admin') && evidence.reviewer_id === authStore.user?.id"
+              v-if="evidence.state === 'in_review' && (userRole === 'assessor' || userRole === 'admin') && evidence.reviewerId === authStore.user?.id"
               type="success"
               @click="handleApprove"
             >
@@ -97,7 +97,7 @@
 
             <!-- Assessor/Admin: Reject (when in_review) -->
             <el-button
-              v-if="evidence.state === 'in_review' && (userRole === 'assessor' || userRole === 'admin') && evidence.reviewer_id === authStore.user?.id"
+              v-if="evidence.state === 'in_review' && (userRole === 'assessor' || userRole === 'admin') && evidence.reviewerId === authStore.user?.id"
               type="danger"
               @click="showRejectDialog = true"
             >
@@ -125,17 +125,28 @@
           </div>
 
           <el-table v-else :data="attachments" stripe border>
-            <el-table-column prop="filename" :label="t('evidence.filename')" min-width="250" sortable></el-table-column>
-            <el-table-column prop="content_type" :label="t('evidence.type')" width="150" sortable></el-table-column>
-            <el-table-column prop="size" :label="t('evidence.size')" width="100" sortable></el-table-column>
-            <el-table-column prop="createdAt" :label="t('evidence.uploaded')" width="150" sortable>
+            <el-table-column prop="filename" :label="t('evidence.filename')" min-width="250" sortable>
+              <template #default="{ row }">
+                <a href="#" class="attachment-link" @click.prevent="downloadAttachment(row)">{{ row.filename }}</a>
+              </template>
+            </el-table-column>
+            <el-table-column prop="contentType" :label="t('evidence.type')" min-width="150" sortable></el-table-column>
+            <el-table-column :label="t('evidence.size')" min-width="100" sortable :sort-by="(row: any) => row.sizeBytes">
+              <template #default="{ row }">
+                {{ formatFileSize(row.sizeBytes) }}
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('evidence.uploaded')" min-width="150" sortable>
               <template #default="{ row }">
                 {{ formatDateDisplay(row.createdAt) }}
               </template>
             </el-table-column>
-            <el-table-column :label="t('common.actions')" width="100">
-              <template #default>
-                <RowActions :show-edit="false" @delete="() => {}" />
+            <el-table-column :label="t('common.actions')" min-width="100">
+              <template #default="{ row }">
+                <div class="row-actions">
+                  <IconButton :icon="Download" variant="primary" tooltip="Download" @click="downloadAttachment(row)" />
+                  <IconButton v-if="isViewable(row.contentType)" :icon="View" variant="primary" tooltip="View" @click="viewAttachment(row)" />
+                </div>
               </template>
             </el-table-column>
           </el-table>
@@ -146,9 +157,24 @@
             <span>{{ t('evidence.claimsReferencing') }}</span>
           </template>
 
-          <div class="empty-state">
+          <div v-if="claims.length === 0" class="empty-state">
             <p>{{ t('evidence.noClaimsReferencing') }}</p>
           </div>
+          <el-table v-else :data="claims" stripe border>
+            <el-table-column prop="name" label="Claim" min-width="250">
+              <template #default="{ row }">
+                <router-link :to="`/claims/${row.id}`" class="attachment-link">{{ row.name }}</router-link>
+              </template>
+            </el-table-column>
+            <el-table-column prop="target" label="Target" min-width="200"></el-table-column>
+            <el-table-column label="Relationship" min-width="120">
+              <template #default="{ row }">
+                <el-tag v-if="row.isCounter" type="warning" size="small">Counter Evidence</el-tag>
+                <el-tag v-else-if="row.isMitigation" type="info" size="small">Mitigation</el-tag>
+                <el-tag v-else type="success" size="small">Supporting</el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
         </el-card>
 
         <el-card class="notes-card">
@@ -168,7 +194,7 @@
               <div class="timeline-marker"></div>
               <div class="timeline-content">
                 <div class="timeline-header">
-                  <span class="timeline-author">{{ note.display_name || note.username || t('common.unknownUser') }}</span>
+                  <span class="timeline-author">{{ note.displayName || note.username || t('common.unknownUser') }}</span>
                   <span class="timeline-date">{{ formatDateDisplay(note.createdAt) }}</span>
                 </div>
                 <p class="timeline-text">{{ note.content }}</p>
@@ -232,9 +258,9 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Loading, Lock } from '@element-plus/icons-vue'
+import { ArrowRight, Loading, Lock, Download, View } from '@element-plus/icons-vue'
 import StateBadge from '@/components/shared/StateBadge.vue'
-import RowActions from '@/components/shared/RowActions.vue'
+import IconButton from '@/components/shared/IconButton.vue'
 import { useAuthStore } from '@/stores/auth'
 import { formatDate } from '@/utils/dateFormat'
 
@@ -251,13 +277,14 @@ const evidence = ref<any>({
   description: '',
   state: '',
   classification: '',
-  author_id: '',
-  reviewer_id: '',
+  authorId: '',
+  reviewerId: '',
   createdAt: '',
-  expires_on: '',
-  is_counter_evidence: false
+  expiresOn: '',
+  isCounterEvidence: false
 })
 const attachments = ref<any[]>([])
+const claims = ref<any[]>([])
 const notes = ref<any[]>([])
 const isAddNoteDialogVisible = ref(false)
 const newNoteContent = ref('')
@@ -272,16 +299,77 @@ const submittingForReview = ref(false)
 const rejecting = ref(false)
 
 const authorDisplay = computed(() => {
-  return evidence.value.author_name || evidence.value.author_id || t('common.unknown')
+  return evidence.value.authorName || evidence.value.authorId || t('common.unknown')
 })
 
 const reviewerDisplay = computed(() => {
-  return evidence.value.reviewer_name || evidence.value.reviewer_id || t('common.pending')
+  return evidence.value.reviewerName || evidence.value.reviewerId || t('common.pending')
 })
 
 const formatDateDisplay = (dateString: string | null | undefined): string => {
   if (!dateString) return t('common.notSet')
   return formatDate(dateString) || dateString
+}
+
+const formatFileSize = (bytes: number | null | undefined): string => {
+  if (!bytes) return '-'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+const isViewable = (contentType: string | null | undefined): boolean => {
+  if (!contentType) return false
+  return contentType.startsWith('text/') || contentType === 'application/json'
+}
+
+const downloadAttachment = async (attachment: any) => {
+  try {
+    const evidenceId = route.params.id
+    const response = await axios.get(
+      `/api/v1/evidence/${evidenceId}/attachments/${attachment.id}/download`,
+      { responseType: 'blob' }
+    )
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', attachment.filename)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  } catch (err: any) {
+    ElMessage.error('Failed to download attachment')
+    console.error('Download error:', err)
+  }
+}
+
+const viewAttachment = async (attachment: any) => {
+  try {
+    const evidenceId = route.params.id
+    const response = await axios.get(
+      `/api/v1/evidence/${evidenceId}/attachments/${attachment.id}/download`,
+      { responseType: 'blob' }
+    )
+    const blob = new Blob([response.data], { type: attachment.contentType })
+    const url = window.URL.createObjectURL(blob)
+    window.open(url, '_blank')
+  } catch (err: any) {
+    ElMessage.error('Failed to view attachment')
+    console.error('View error:', err)
+  }
+}
+
+const fetchClaims = async () => {
+  try {
+    const evidenceId = route.params.id as string
+    const response = await axios.get(`/api/v1/evidence/${evidenceId}/claims`)
+    claims.value = Array.isArray(response.data) ? response.data : response.data.data || []
+  } catch (err: any) {
+    // Endpoint may not exist yet, silently handle
+    console.error('Failed to fetch claims for evidence:', err)
+    claims.value = []
+  }
 }
 
 const fetchReviewers = async () => {
@@ -411,6 +499,7 @@ const handleReject = async () => {
 
 onMounted(() => {
   fetchEvidenceData()
+  fetchClaims()
   fetchReviewers()
 })
 </script>
@@ -559,6 +648,21 @@ onMounted(() => {
 
 :deep(.el-breadcrumb__separator) {
   color: var(--cat-text-tertiary);
+}
+
+.attachment-link {
+  color: var(--cat-color-primary);
+  text-decoration: none;
+  cursor: pointer;
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.row-actions {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
 }
 
 :deep(.el-table) {
