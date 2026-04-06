@@ -17,7 +17,6 @@ export interface Project {
   name: string
   description: string
   state: ProjectState
-  workflowType: WorkflowType
   standards: Standard[]
   createdAt: string
   updatedAt: string
@@ -178,7 +177,7 @@ export interface WorkNote {
 // Entity types for flexible hierarchy model
 export type EntityType = 'organization' | 'business_unit' | 'team' | 'product' | 'product_version' | 'component' | 'service' | 'project'
 export type EntityState = 'active' | 'inactive' | 'archived'
-export type RelationshipType = 'owns' | 'supplies' | 'depends_on' | 'governs' | 'contains' | 'consumes'
+export type RelationshipType = 'owns' | 'supplies' | 'depends_on' | 'governs' | 'contains' | 'consumes' | 'assesses' | 'produces'
 
 export interface Entity {
   id: string

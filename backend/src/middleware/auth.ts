@@ -181,13 +181,3 @@ export function requireRole(...roles: string[]) {
   };
 }
 
-function extractToken(req: AuthRequest): string | null {
-  // Auth is cookie-only. The JWT lives in an httpOnly, SameSite=Strict
-  // cookie that JavaScript cannot read. No Bearer header is accepted
-  // to prevent token leakage via XSS.
-  if (req.cookies && req.cookies.token) {
-    return req.cookies.token;
-  }
-
-  return null;
-}

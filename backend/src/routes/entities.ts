@@ -24,7 +24,7 @@ const updateEntitySchema = z.object({
 
 const createRelationshipSchema = z.object({
   targetEntityId: z.string().uuid('Invalid entity ID'),
-  relationshipType: z.enum(['owns', 'supplies', 'depends_on', 'governs', 'contains', 'consumes']),
+  relationshipType: z.enum(['owns', 'supplies', 'depends_on', 'governs', 'contains', 'consumes', 'assesses', 'produces']),
 });
 
 const createPolicySchema = z.object({
@@ -291,6 +291,8 @@ router.post(
       const db = getDatabase();
       const entityId = uuidv4();
 
+      const bomRef = `${data.entityType}-${entityId.substring(0, 8)}`;
+
       await db
         .insertInto('entity')
         .values(toSnakeCase({
@@ -299,6 +301,7 @@ router.post(
           description: data.description,
           entityType: data.entityType,
           state: 'active',
+          bomRef,
         }))
         .execute();
 

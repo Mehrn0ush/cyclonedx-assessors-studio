@@ -20,7 +20,7 @@
       >
         <el-option
           :label="t('progress.allEntities')"
-          :value="null"
+          value=""
         />
         <el-option
           v-for="entity in entities"
@@ -206,7 +206,7 @@ const { t } = useI18n()
 // State
 // ============================================================================
 
-const selectedEntityId = ref<string | null>(null)
+const selectedEntityId = ref<string>('')
 const error = ref('')
 const loading = ref(false)
 

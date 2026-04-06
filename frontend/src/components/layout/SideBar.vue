@@ -46,7 +46,7 @@
       <!-- Activity -->
       <div class="nav-group">
         <div v-if="!uiStore.sidebarCollapsed" class="nav-group-label">Activity</div>
-        <div v-for="item in navItems.slice(4, 8)" :key="item.name" class="nav-item-wrapper">
+        <div v-for="item in activityItems" :key="item.name" class="nav-item-wrapper">
           <RouterLink
             :to="item.path"
             class="nav-item"
@@ -96,22 +96,6 @@
         </div>
       </div>
 
-      <!-- Settings -->
-      <div class="nav-group">
-        <div class="nav-item-wrapper">
-          <RouterLink
-            to="/settings"
-            class="nav-item"
-            :class="{ active: isActive('/settings') }"
-            :title="uiStore.sidebarCollapsed ? t('nav.settings') : ''"
-            :aria-label="t('nav.settings')"
-            @click="closeMobileMenu"
-          >
-            <el-icon class="nav-icon"><Setting /></el-icon>
-            <span class="nav-label">{{ t('nav.settings') }}</span>
-          </RouterLink>
-        </div>
-      </div>
     </nav>
 
     <button class="sidebar-toggle" @click="uiStore.toggleSidebar()" :aria-label="uiStore.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'">
@@ -135,8 +119,8 @@ import {
   Collection,
   ChatLineSquare,
   Stamp,
+
   User,
-  Setting,
   DArrowLeft,
   DArrowRight
 } from '@element-plus/icons-vue'
@@ -159,10 +143,13 @@ const navItems = computed<NavItem[]>(() => [
   { name: 'entities', label: t('nav.entities', 'Entities'), path: '/entities', icon: OfficeBuilding },
   { name: 'projects', label: t('nav.projects'), path: '/projects', icon: FolderOpened },
   { name: 'standards', label: t('nav.standards'), path: '/standards', icon: Document },
+])
+
+// Activity: primary workflow items
+const activityItems = computed<NavItem[]>(() => [
   { name: 'assessments', label: t('nav.assessments'), path: '/assessments', icon: DocumentChecked },
   { name: 'evidence', label: t('nav.evidence'), path: '/evidence', icon: Collection },
-  { name: 'claims', label: t('nav.claims'), path: '/claims', icon: ChatLineSquare },
-  { name: 'attestations', label: t('nav.attestations'), path: '/attestations', icon: Stamp }
+  { name: 'attestations', label: t('nav.attestations'), path: '/attestations', icon: Stamp },
 ])
 
 const isActive = (path: string) => {

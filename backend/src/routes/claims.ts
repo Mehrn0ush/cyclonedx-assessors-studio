@@ -8,9 +8,39 @@ import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
 
+/**
+ * Check if a claim's parent assessment is read-only (complete or archived).
+ * Claims linked via attestation -> assessment inherit the assessment's read-only state.
+ * Returns an error message if read-only, or null if mutable.
+ */
+async function checkClaimAssessmentReadOnly(db: any, attestationId: string | null | undefined): Promise<string | null> {
+  if (!attestationId) return null; // Unlinked claims are always mutable
+
+  const attestation = await db
+    .selectFrom('attestation')
+    .where('id', '=', attestationId)
+    .select(['assessment_id'])
+    .executeTakeFirst();
+
+  if (!attestation) return null;
+
+  const assessment = await db
+    .selectFrom('assessment')
+    .where('id', '=', attestation.assessment_id)
+    .select(['state'])
+    .executeTakeFirst();
+
+  if (!assessment) return null;
+
+  if (assessment.state === 'archived') return 'This claim belongs to an archived assessment and cannot be modified';
+  if (assessment.state === 'complete') return 'This claim belongs to a completed assessment. Reopen the assessment to make changes.';
+  return null;
+}
+
 const createClaimSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   target: z.string().min(1, 'Target is required'),
+  targetEntityId: z.string().uuid().nullable().optional(),
   predicate: z.string().min(1, 'Predicate is required'),
   reasoning: z.string().optional(),
   isCounterClaim: z.boolean().default(false),
@@ -22,47 +52,13 @@ const createClaimSchema = z.object({
 const updateClaimSchema = z.object({
   name: z.string().min(1).optional(),
   target: z.string().min(1).optional(),
+  targetEntityId: z.string().uuid().nullable().optional(),
   predicate: z.string().min(1).optional(),
   reasoning: z.string().optional(),
   isCounterClaim: z.boolean().optional(),
   attestationId: z.string().uuid().optional(),
   evidenceIds: z.array(z.string().uuid()).optional(),
   counterEvidenceIds: z.array(z.string().uuid()).optional(),
-});
-
-router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const db = getDatabase();
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const offset = Number(req.query.offset) || 0;
-    const attestationId = req.query.attestation_id as string | undefined;
-
-    let query = db.selectFrom('claim').selectAll();
-
-    if (attestationId) {
-      query = query.where('attestation_id', '=', attestationId);
-    }
-
-    const total = await db
-      .selectFrom('claim')
-      .select(db.fn.count<number>('id').as('count'))
-      .executeTakeFirstOrThrow()
-      .then(r => r.count);
-
-    const claims = await query.limit(limit).offset(offset).execute();
-
-    res.json({
-      data: claims,
-      pagination: {
-        limit,
-        offset,
-        total,
-      },
-    });
-  } catch (error) {
-    logger.error('Get claims error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
-  }
 });
 
 router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
@@ -101,11 +97,31 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
       .select(['evidence.id', 'evidence.name', 'evidence.description', 'evidence.state'])
       .execute();
 
+    // Fetch target entity details if linked
+    let targetEntity = null;
+    if ((claim as any).target_entity_id) {
+      targetEntity = await db
+        .selectFrom('entity')
+        .where('id', '=', (claim as any).target_entity_id)
+        .select(['id', 'name', 'entity_type', 'bom_ref'])
+        .executeTakeFirst() || null;
+    }
+
+    // Fetch external references
+    const externalReferences = await db
+      .selectFrom('claim_external_reference')
+      .where('claim_id', '=', req.params.id)
+      .selectAll()
+      .orderBy('created_at', 'asc')
+      .execute();
+
     res.json({
       claim,
       evidence,
       counterEvidence,
       mitigationStrategies,
+      targetEntity,
+      externalReferences,
     });
   } catch (error) {
     logger.error('Get claim error', { error, requestId: req.requestId });
@@ -120,6 +136,14 @@ router.post(
     try {
       const data = createClaimSchema.parse(req.body);
       const db = getDatabase();
+
+      // Guard: reject if parent assessment is complete/archived
+      const readOnlyError = await checkClaimAssessmentReadOnly(db, data.attestationId);
+      if (readOnlyError) {
+        res.status(403).json({ error: readOnlyError });
+        return;
+      }
+
       const claimId = uuidv4();
 
       await db
@@ -128,6 +152,7 @@ router.post(
           id: claimId,
           name: data.name,
           target: data.target,
+          targetEntityId: data.targetEntityId || null,
           predicate: data.predicate,
           reasoning: data.reasoning,
           isCounterClaim: data.isCounterClaim,
@@ -204,6 +229,13 @@ router.put(
 
       if (!claim) {
         res.status(404).json({ error: 'Claim not found' });
+        return;
+      }
+
+      // Guard: reject if parent assessment is complete/archived
+      const readOnlyError = await checkClaimAssessmentReadOnly(db, (claim as any).attestation_id);
+      if (readOnlyError) {
+        res.status(403).json({ error: readOnlyError });
         return;
       }
 
@@ -295,6 +327,13 @@ router.delete(
 
       if (!claim) {
         res.status(404).json({ error: 'Claim not found' });
+        return;
+      }
+
+      // Guard: reject if parent assessment is complete/archived
+      const readOnlyError = await checkClaimAssessmentReadOnly(db, (claim as any).attestation_id);
+      if (readOnlyError) {
+        res.status(403).json({ error: readOnlyError });
         return;
       }
 

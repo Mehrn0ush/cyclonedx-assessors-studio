@@ -27,12 +27,51 @@ const updateAssessmentSchema = z.object({
   description: z.string().optional(),
   dueDate: z.string().nullable().optional(),
   state: z
-    .enum(['new', 'pending', 'in_progress', 'on_hold', 'cancelled', 'complete'])
+    .enum(['new', 'pending', 'in_progress', 'on_hold', 'cancelled', 'complete', 'archived'])
     .optional(),
   tags: z.array(z.string()).optional(),
   assessorIds: z.array(z.string().uuid()).optional(),
   assesseeIds: z.array(z.string().uuid()).optional(),
 });
+
+/**
+ * Check if an assessment is in a read-only state (complete or archived).
+ * Returns an error message string if read-only, or null if mutable.
+ */
+function getReadOnlyError(state: string): string | null {
+  if (state === 'archived') return 'Archived assessments cannot be modified';
+  if (state === 'complete') return 'Completed assessments are read-only. Reopen the assessment to make changes.';
+  return null;
+}
+
+/**
+ * Fetch assessment state by ID and return 403 if read-only.
+ * Returns the assessment if mutable, or null if response was already sent.
+ */
+async function requireMutableAssessment(
+  db: any,
+  assessmentId: string,
+  res: Response
+): Promise<any | null> {
+  const assessment = await db
+    .selectFrom('assessment')
+    .where('id', '=', assessmentId)
+    .select(['id', 'state', 'title'])
+    .executeTakeFirst();
+
+  if (!assessment) {
+    res.status(404).json({ error: 'Assessment not found' });
+    return null;
+  }
+
+  const readOnlyError = getReadOnlyError(assessment.state);
+  if (readOnlyError) {
+    res.status(403).json({ error: readOnlyError });
+    return null;
+  }
+
+  return assessment;
+}
 
 router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -325,6 +364,27 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
     if (!assessment) {
       res.status(404).json({ error: 'Assessment not found' });
       return;
+    }
+
+    // Archived assessments are fully immutable
+    if (assessment.state === 'archived') {
+      res.status(403).json({ error: 'Archived assessments cannot be modified' });
+      return;
+    }
+
+    // Complete assessments only allow state transitions (reopen or archive)
+    if (assessment.state === 'complete') {
+      const isStateChangeOnly = data.state !== undefined &&
+        Object.keys(data).filter(k => data[k as keyof typeof data] !== undefined).length === 1;
+      if (!isStateChangeOnly) {
+        res.status(403).json({ error: 'Completed assessments are read-only. Reopen the assessment to make changes.' });
+        return;
+      }
+      // Only allow transitioning to in_progress (reopen) or archived
+      if (data.state !== 'in_progress' && data.state !== 'archived') {
+        res.status(403).json({ error: 'Completed assessments can only be reopened or archived' });
+        return;
+      }
     }
 
     const updateData: any = {};
@@ -656,6 +716,107 @@ router.post(
   }
 );
 
+// Archive an assessment (irreversible)
+router.post(
+  '/:id/archive',
+  requireAuth,
+  requireRole('admin'),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const db = getDatabase();
+
+      const assessment = await db
+        .selectFrom('assessment')
+        .where('id', '=', req.params.id)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!assessment) {
+        res.status(404).json({ error: 'Assessment not found' });
+        return;
+      }
+
+      if (assessment.state === 'archived') {
+        res.status(409).json({ error: 'Assessment is already archived' });
+        return;
+      }
+
+      if (assessment.state !== 'complete') {
+        res.status(409).json({ error: 'Only completed assessments can be archived' });
+        return;
+      }
+
+      await db
+        .updateTable('assessment')
+        .set({ state: 'archived' })
+        .where('id', '=', req.params.id)
+        .execute();
+
+      logger.info('Assessment archived', {
+        assessmentId: req.params.id,
+        requestId: req.requestId,
+      });
+
+      res.json({ message: 'Assessment archived successfully' });
+    } catch (error) {
+      logger.error('Archive assessment error', { error, requestId: req.requestId });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// Reopen a completed assessment (returns to in_progress)
+router.post(
+  '/:id/reopen',
+  requireAuth,
+  requireRole('assessor', 'admin'),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const db = getDatabase();
+
+      const assessment = await db
+        .selectFrom('assessment')
+        .where('id', '=', req.params.id)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!assessment) {
+        res.status(404).json({ error: 'Assessment not found' });
+        return;
+      }
+
+      if (assessment.state === 'archived') {
+        res.status(403).json({ error: 'Archived assessments cannot be reopened' });
+        return;
+      }
+
+      if (assessment.state !== 'complete') {
+        res.status(409).json({ error: 'Only completed assessments can be reopened' });
+        return;
+      }
+
+      await db
+        .updateTable('assessment')
+        .set({
+          state: 'in_progress',
+          end_date: null,
+        })
+        .where('id', '=', req.params.id)
+        .execute();
+
+      logger.info('Assessment reopened', {
+        assessmentId: req.params.id,
+        requestId: req.requestId,
+      });
+
+      res.json({ message: 'Assessment reopened successfully' });
+    } catch (error) {
+      logger.error('Reopen assessment error', { error, requestId: req.requestId });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
 // Update a specific assessment requirement result
 const updateRequirementSchema = z.object({
   result: z.enum(['yes', 'no', 'partial', 'not_applicable']).nullable().optional(),
@@ -680,6 +841,10 @@ router.put(
     try {
       const data = updateRequirementSchema.parse(req.body);
       const db = getDatabase();
+
+      // Guard: reject mutations on complete/archived assessments
+      const mutableCheck = await requireMutableAssessment(db, req.params.id, res);
+      if (!mutableCheck) return;
 
       const assessmentReq = await db
         .selectFrom('assessment_requirement')
@@ -966,12 +1131,53 @@ router.get(
         }
       }
 
-      const claimsWithCounts = claims.map(c => ({
-        ...c,
-        evidence_count: evidenceCounts.get(c.id) || 0,
-        counter_evidence_count: counterEvidenceCounts.get(c.id) || 0,
-        mitigation_count: mitigationCounts.get(c.id) || 0,
-      }));
+      // Fetch target entity names for claims that have target_entity_id
+      let targetEntityNames = new Map<string, { name: string; entity_type: string }>();
+      const targetEntityIds = claims
+        .map(c => c.target_entity_id)
+        .filter((id): id is string => id != null);
+      if (targetEntityIds.length > 0) {
+        const entities = await db
+          .selectFrom('entity')
+          .where('id', 'in', [...new Set(targetEntityIds)])
+          .select(['id', 'name', 'entity_type'])
+          .execute();
+        for (const e of entities) {
+          targetEntityNames.set(e.id, { name: e.name, entity_type: e.entity_type });
+        }
+      }
+
+      // Fetch external references for all claims
+      let externalRefsByClaimId = new Map<string, any[]>();
+      if (claimIds.length > 0) {
+        const extRefs = (await db
+          .selectFrom('claim_external_reference')
+          .where('claim_id', 'in', claimIds)
+          .selectAll()
+          .orderBy('created_at', 'asc')
+          .execute()) as any[];
+        for (const ref of extRefs) {
+          if (!externalRefsByClaimId.has(ref.claim_id)) {
+            externalRefsByClaimId.set(ref.claim_id, []);
+          }
+          externalRefsByClaimId.get(ref.claim_id)!.push(ref);
+        }
+      }
+
+      const claimsWithCounts = claims.map(c => {
+        const targetEntity = c.target_entity_id
+          ? targetEntityNames.get(c.target_entity_id)
+          : null;
+        return {
+          ...c,
+          target_entity_name: targetEntity?.name || null,
+          target_entity_type: targetEntity?.entity_type || null,
+          evidence_count: evidenceCounts.get(c.id) || 0,
+          counter_evidence_count: counterEvidenceCounts.get(c.id) || 0,
+          mitigation_count: mitigationCounts.get(c.id) || 0,
+          external_references: externalRefsByClaimId.get(c.id) || [],
+        };
+      });
 
       res.json({ data: claimsWithCounts });
     } catch (error) {
@@ -981,8 +1187,9 @@ router.get(
   }
 );
 
+// Assessment participants (for @mention autocomplete)
 router.get(
-  '/:id/requirements/:requirementId/notes',
+  '/:id/participants',
   requireAuth,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -991,7 +1198,7 @@ router.get(
       const assessment = await db
         .selectFrom('assessment')
         .where('id', '=', req.params.id)
-        .selectAll()
+        .select('id')
         .executeTakeFirst();
 
       if (!assessment) {
@@ -999,134 +1206,53 @@ router.get(
         return;
       }
 
-      const assessmentReq = await db
-        .selectFrom('assessment_requirement')
-        .where('assessment_id', '=', req.params.id)
-        .where('requirement_id', '=', req.params.requirementId)
-        .selectAll()
-        .executeTakeFirst();
-
-      if (!assessmentReq) {
-        res.status(404).json({ error: 'Assessment requirement not found' });
-        return;
-      }
-
-      const notes = (await db
-        .selectFrom('work_note')
-        .innerJoin(
-          'app_user',
-          (join) =>
-            join.onRef(
-              'app_user.id' as any,
-              '=',
-              'work_note.user_id' as any
-            )
+      const assessors = (await db
+        .selectFrom('assessment_assessor')
+        .innerJoin('app_user', (join) =>
+          join.onRef('app_user.id' as any, '=', 'assessment_assessor.user_id' as any)
         )
-        .where('work_note.assessment_requirement_id', '=', assessmentReq.id)
-        .selectAll()
-        .orderBy('work_note.created_at', 'desc')
+        .where('assessment_assessor.assessment_id', '=', req.params.id)
+        .select([
+          'app_user.id',
+          'app_user.username',
+          'app_user.display_name',
+          'app_user.role',
+        ])
         .execute()) as any[];
 
-      res.json({ data: notes });
-    } catch (error) {
-      logger.error('Get work notes error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  }
-);
-
-router.post(
-  '/:id/requirements/:requirementId/notes',
-  requireAuth,
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const data = addWorkNoteSchema.parse(req.body);
-      const db = getDatabase();
-
-      const assessment = await db
-        .selectFrom('assessment')
-        .where('id', '=', req.params.id)
-        .selectAll()
-        .executeTakeFirst();
-
-      if (!assessment) {
-        res.status(404).json({ error: 'Assessment not found' });
-        return;
-      }
-
-      const assessmentReq = await db
-        .selectFrom('assessment_requirement')
-        .where('assessment_id', '=', req.params.id)
-        .where('requirement_id', '=', req.params.requirementId)
-        .selectAll()
-        .executeTakeFirst();
-
-      if (!assessmentReq) {
-        res.status(404).json({ error: 'Assessment requirement not found' });
-        return;
-      }
-
-      const noteId = uuidv4();
-
-      await db
-        .insertInto('work_note')
-        .values({
-          id: noteId,
-          assessment_requirement_id: assessmentReq.id,
-          user_id: req.user!.id,
-          content: data.content,
-          created_at: new Date(),
-          updated_at: new Date(),
-        })
-        .execute();
-
-      // Notify all other participants on the assessment
-      const assessors = await db
-        .selectFrom('assessment_assessor')
-        .where('assessment_id', '=', req.params.id)
-        .select('user_id')
-        .execute();
-
-      const assessees = await db
+      const assessees = (await db
         .selectFrom('assessment_assessee')
-        .where('assessment_id', '=', req.params.id)
-        .select('user_id')
-        .execute();
+        .innerJoin('app_user', (join) =>
+          join.onRef('app_user.id' as any, '=', 'assessment_assessee.user_id' as any)
+        )
+        .where('assessment_assessee.assessment_id', '=', req.params.id)
+        .select([
+          'app_user.id',
+          'app_user.username',
+          'app_user.display_name',
+          'app_user.role',
+        ])
+        .execute()) as any[];
 
-      const allParticipants = [...assessors, ...assessees];
-      for (const participant of allParticipants) {
-        // Do not notify the note author
-        if (participant.user_id !== req.user!.id) {
-          await createNotification(db, {
-            userId: participant.user_id,
-            type: 'work_note_added',
-            title: 'Work Note Added',
-            message: `A new work note has been added to assessment "${assessment.title}"`,
-            link: `/assessments/${req.params.id}`,
-          });
+      // Deduplicate (a user could be both assessor and assessee)
+      const seen = new Set<string>();
+      const participants: any[] = [];
+      for (const u of [...assessors, ...assessees]) {
+        if (!seen.has(u.id)) {
+          seen.add(u.id);
+          participants.push(u);
         }
       }
 
-      logger.info('Work note created', {
-        noteId,
-        assessmentId: req.params.id,
-        requirementId: req.params.requirementId,
-        requestId: req.requestId,
-      });
-
-      res.status(201).json({ id: noteId, message: 'Work note added successfully' });
+      res.json({ data: participants });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
-        return;
-      }
-
-      logger.error('Add work note error', { error, requestId: req.requestId });
+      logger.error('Get assessment participants error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 );
 
+// Work Notes - assessment-level notes with author and comment
 router.get(
   '/:id/notes',
   requireAuth,
@@ -1148,15 +1274,6 @@ router.get(
       const notes = (await db
         .selectFrom('work_note')
         .innerJoin(
-          'assessment_requirement',
-          (join) =>
-            join.onRef(
-              'assessment_requirement.id' as any,
-              '=',
-              'work_note.assessment_requirement_id' as any
-            )
-        )
-        .innerJoin(
           'app_user',
           (join) =>
             join.onRef(
@@ -1165,14 +1282,107 @@ router.get(
               'work_note.user_id' as any
             )
         )
-        .where('assessment_requirement.assessment_id', '=', req.params.id)
-        .selectAll()
+        .where('work_note.assessment_id', '=', req.params.id)
+        .select([
+          'work_note.id',
+          'work_note.content',
+          'work_note.created_at',
+          'app_user.display_name as author_display_name',
+          'app_user.username as author_username',
+        ])
         .orderBy('work_note.created_at', 'desc')
         .execute()) as any[];
 
       res.json({ data: notes });
     } catch (error) {
       logger.error('Get assessment notes error', { error, requestId: req.requestId });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+router.post(
+  '/:id/notes',
+  requireAuth,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const data = addWorkNoteSchema.parse(req.body);
+      const db = getDatabase();
+
+      // Guard: reject mutations on complete/archived assessments
+      const mutableCheck = await requireMutableAssessment(db, req.params.id, res);
+      if (!mutableCheck) return;
+
+      const assessment = await db
+        .selectFrom('assessment')
+        .where('id', '=', req.params.id)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!assessment) {
+        res.status(404).json({ error: 'Assessment not found' });
+        return;
+      }
+
+      const noteId = uuidv4();
+
+      await db
+        .insertInto('work_note')
+        .values({
+          id: noteId,
+          assessment_id: req.params.id,
+          user_id: req.user!.id,
+          content: data.content,
+          created_at: new Date(),
+          updated_at: new Date(),
+        })
+        .execute();
+
+      // Parse @mentions from content and send targeted notifications
+      const mentionPattern = /@(\w+(?:\.\w+)*)/g;
+      const mentionedUsernames = new Set<string>();
+      let match;
+      while ((match = mentionPattern.exec(data.content)) !== null) {
+        mentionedUsernames.add(match[1].toLowerCase());
+      }
+
+      if (mentionedUsernames.size > 0) {
+        // Look up mentioned users by username (case insensitive)
+        const allUsers = await db
+          .selectFrom('app_user')
+          .select(['id', 'username'])
+          .execute();
+
+        const authorDisplayName = req.user!.displayName || req.user!.username || 'Someone';
+
+        for (const user of allUsers) {
+          if (mentionedUsernames.has(user.username.toLowerCase()) && user.id !== req.user!.id) {
+            await createNotification(db, {
+              userId: user.id,
+              type: 'work_note_mention',
+              title: 'You were mentioned in a work note',
+              message: `${authorDisplayName} mentioned you in a work note on assessment "${assessment.title}"`,
+              link: `/assessments/${req.params.id}`,
+            });
+          }
+        }
+      }
+
+      logger.info('Work note created', {
+        noteId,
+        assessmentId: req.params.id,
+        mentions: Array.from(mentionedUsernames),
+        requestId: req.requestId,
+      });
+
+      res.status(201).json({ id: noteId, message: 'Work note added successfully' });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        return;
+      }
+
+      logger.error('Add work note error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -1196,13 +1406,14 @@ router.delete(
         return;
       }
 
+      if (assessment.state === 'archived') {
+        res.status(403).json({ error: 'Archived assessments cannot be deleted' });
+        return;
+      }
+
       // Delete related records first
       await db.deleteFrom('work_note')
-        .where('assessment_requirement_id', 'in',
-          db.selectFrom('assessment_requirement')
-            .select('id')
-            .where('assessment_id', '=', req.params.id)
-        )
+        .where('assessment_id', '=', req.params.id)
         .execute();
 
       await db.deleteFrom('assessment_requirement')

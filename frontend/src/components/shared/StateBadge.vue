@@ -92,6 +92,7 @@ const colorClassMap: Record<string, string> = {
 }
 
 const getLabel = (state: string): string => {
+  if (!state) return 'Unknown'
   return labelMap[state] || state.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 

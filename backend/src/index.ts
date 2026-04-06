@@ -35,6 +35,7 @@ import importRoutes from './routes/import.js';
 import exportRoutes from './routes/export.js';
 import auditRoutes from './routes/audit.js';
 import notificationRoutes from './routes/notifications.js';
+import assessorRoutes from './routes/assessors.js';
 import { getOpenAPISpec } from './openapi.js';
 
 const config = getConfig();
@@ -153,6 +154,7 @@ app.use('/api/v1/import', importRoutes);
 app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/export', exportRoutes);
+app.use('/api/v1/assessors', assessorRoutes);
 
 // Serve frontend static files in production
 if (config.NODE_ENV === 'production') {

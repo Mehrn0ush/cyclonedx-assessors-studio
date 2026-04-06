@@ -66,20 +66,6 @@ function transformKeysToSnake(obj: any): any {
 }
 
 /**
- * Express middleware that converts incoming JSON request body keys
- * from camelCase to snake_case so route handlers can use DB column names directly.
- *
- * @deprecated Use camelCase schemas in route handlers and convert at the DB boundary
- * with toSnakeCase() instead. This avoids the mismatch between JS conventions and DB columns.
- */
-export function snakeCaseRequest(req: Request, _res: Response, next: NextFunction): void {
-  if (req.body && typeof req.body === 'object') {
-    req.body = transformKeysToSnake(req.body);
-  }
-  next();
-}
-
-/**
  * Converts a plain object's keys from camelCase to snake_case.
  * Use this at the database boundary to convert validated camelCase data
  * into snake_case column names for inserts/updates.

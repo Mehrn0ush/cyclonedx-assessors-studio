@@ -84,7 +84,8 @@ export interface Project {
   name: string;
   description?: string | null;
   state: 'new' | 'in_progress' | 'on_hold' | 'complete' | 'operational' | 'retired';
-  workflow_type: 'claims_driven' | 'evidence_driven';
+  start_date?: Date | null;
+  due_date?: Date | null;
   archived_at?: Date | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
@@ -147,7 +148,7 @@ export interface Assessment {
   due_date?: Date | null;
   start_date?: Date | null;
   end_date?: Date | null;
-  state: 'new' | 'pending' | 'in_progress' | 'on_hold' | 'cancelled' | 'complete';
+  state: 'new' | 'pending' | 'in_progress' | 'on_hold' | 'cancelled' | 'complete' | 'archived';
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -218,6 +219,7 @@ export interface Claim {
   bom_ref?: string | null;
   name: string;
   target: string;
+  target_entity_id?: string | null;
   predicate: string;
   reasoning?: string | null;
   is_counter_claim: boolean;
@@ -249,6 +251,7 @@ export interface Attestation {
   summary?: string | null;
   assessment_id: string;
   signatory_id?: string | null;
+  assessor_id?: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -278,6 +281,8 @@ export interface Signatory {
   name: string;
   role?: string | null;
   organization_id?: string | null;
+  external_reference_type?: string | null;
+  external_reference_url?: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -330,7 +335,7 @@ export interface AssessmentRequirementEvidence {
 
 export interface WorkNote {
   id: Generated<string>;
-  assessment_requirement_id: string;
+  assessment_id: string;
   user_id: string;
   content: string;
   created_at: Generated<Date>;
@@ -385,6 +390,7 @@ export interface Entity {
   description?: string | null;
   entity_type: 'organization' | 'business_unit' | 'team' | 'product' | 'product_version' | 'component' | 'service' | 'project';
   state: 'active' | 'inactive' | 'archived';
+  bom_ref?: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -393,7 +399,7 @@ export interface EntityRelationship {
   id: Generated<string>;
   source_entity_id: string;
   target_entity_id: string;
-  relationship_type: 'owns' | 'supplies' | 'depends_on' | 'governs' | 'contains' | 'consumes';
+  relationship_type: 'owns' | 'supplies' | 'depends_on' | 'governs' | 'contains' | 'consumes' | 'assesses' | 'produces';
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -416,6 +422,38 @@ export interface CompliancePolicy {
   standard_id: string;
   description?: string | null;
   is_inherited: boolean;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface Assessor {
+  id: Generated<string>;
+  bom_ref: string;
+  third_party: boolean;
+  entity_id?: string | null;
+  user_id?: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface AttestationRequirementClaim {
+  attestation_requirement_id: string;
+  claim_id: string;
+  created_at: Generated<Date>;
+}
+
+export interface AttestationRequirementCounterClaim {
+  attestation_requirement_id: string;
+  claim_id: string;
+  created_at: Generated<Date>;
+}
+
+export interface ClaimExternalReference {
+  id: Generated<string>;
+  claim_id: string;
+  type: string;
+  url: string;
+  comment?: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -593,4 +631,18 @@ export interface Database {
   dashboard: Selectable<Dashboard>;
   dashboard_insert: Insertable<Dashboard>;
   dashboard_update: Updateable<Dashboard>;
+
+  assessor: Selectable<Assessor>;
+  assessor_insert: Insertable<Assessor>;
+  assessor_update: Updateable<Assessor>;
+
+  attestation_requirement_claim: Selectable<AttestationRequirementClaim>;
+  attestation_requirement_claim_insert: Insertable<AttestationRequirementClaim>;
+
+  attestation_requirement_counter_claim: Selectable<AttestationRequirementCounterClaim>;
+  attestation_requirement_counter_claim_insert: Insertable<AttestationRequirementCounterClaim>;
+
+  claim_external_reference: Selectable<ClaimExternalReference>;
+  claim_external_reference_insert: Insertable<ClaimExternalReference>;
+  claim_external_reference_update: Updateable<ClaimExternalReference>;
 }

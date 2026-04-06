@@ -39,6 +39,7 @@
         <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="setup-form">
           <el-form-item :label="t('setup.username')" prop="username">
             <el-input
+              ref="usernameInputRef"
               v-model="form.username"
               :placeholder="t('setup.usernamePlaceholder')"
               size="large"
@@ -254,7 +255,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, nextTick } from 'vue'
+import { ref, reactive, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -288,6 +289,8 @@ const { t } = useI18n()
 const router = useRouter()
 const formRef = ref<FormInstance>()
 const standardsListRef = ref<HTMLElement>()
+
+const usernameInputRef = ref<any>(null)
 const step = ref(0)
 const loading = ref(false)
 const error = ref('')
@@ -304,6 +307,30 @@ const demoError = ref('')
 const demoSuccess = ref(false)
 
 const steps = ['Welcome', 'Account', 'Standards', 'Demo Data', 'Complete']
+
+// Auto focus the primary action on each step
+const focusStepAction = async () => {
+  await nextTick()
+  if (step.value === 1 && usernameInputRef.value) {
+    usernameInputRef.value.focus()
+  }
+}
+
+const handleWelcomeKeydown = (e: KeyboardEvent) => {
+  if (step.value === 0 && e.key === 'Enter') {
+    step.value = 1
+  }
+}
+
+watch(step, focusStepAction)
+onMounted(() => {
+  focusStepAction()
+  window.addEventListener('keydown', handleWelcomeKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleWelcomeKeydown)
+})
 
 const form = reactive({
   username: '',

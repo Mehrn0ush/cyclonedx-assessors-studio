@@ -175,13 +175,19 @@ export async function seedDemoData(): Promise<boolean> {
 
   // 5. Entities
   for (const entity of data.entities) {
-    await db.insertInto('entity').values(entity).execute();
+    // Auto-generate bom_ref if not provided in demo data
+    const bomRef = entity.bom_ref || `${entity.entity_type}-${entity.id.substring(0, 8)}`;
+    await db.insertInto('entity').values({
+      ...entity,
+      bom_ref: bomRef,
+    }).execute();
   }
   logger.info(`Seeded ${data.entities.length} entities`);
 
   // 6. Entity Relationships
   for (const rel of data.entity_relationships) {
-    await db.insertInto('entity_relationship').values(rel).execute();
+    const { _comment, ...relData } = rel as any;
+    await db.insertInto('entity_relationship').values(relData).execute();
   }
   logger.info(`Seeded ${data.entity_relationships.length} entity relationships`);
 
@@ -206,6 +212,15 @@ export async function seedDemoData(): Promise<boolean> {
       await db.insertInto('entity_standard').values({ ...es, created_at: new Date() }).execute();
     }
     logger.info(`Seeded ${entityStandardPairs.length} entity-standard associations`);
+  }
+  // Link Supplier A to SSDF standard
+  if (ssdfStandardId) {
+    await db.insertInto('entity_standard').values({
+      entity_id: '00000000-0000-4000-e000-000000000006',
+      standard_id: ssdfStandardId,
+      created_at: new Date(),
+    }).execute();
+    logger.info('Linked Supplier A to SSDF standard');
   }
 
   // 9. Compliance Policies
@@ -390,32 +405,32 @@ export async function seedDemoData(): Promise<boolean> {
       }).execute();
     }
 
-    // 21. Work Notes on some assessment requirements
-    if (assessmentReqIds.length >= 3) {
+    // 21. Work Notes on first assessment (assessment-level notes)
+    {
       const workNotes = [
         {
           id: uuidv4(),
-          assessment_requirement_id: assessmentReqIds[0],
+          assessment_id: '00000000-0000-4000-f300-000000000001',
           user_id: '00000000-0000-4000-c000-000000000002',
-          content: 'Reviewed pentest report section 4.2 which covers this requirement. All findings remediated.',
+          content: 'Reviewed pentest report section 4.2 which covers authentication requirements. All findings remediated. @spatil can you verify the remediation on your end?',
         },
         {
           id: uuidv4(),
-          assessment_requirement_id: assessmentReqIds[2],
+          assessment_id: '00000000-0000-4000-f300-000000000001',
           user_id: '00000000-0000-4000-c000-000000000002',
-          content: 'API MFA enforcement is on the roadmap for Q2 2026. Currently only web UI enforces MFA.',
+          content: 'API MFA enforcement is on the roadmap for Q2 2026. Currently only web UI enforces MFA. @mwilson need to follow up with API gateway team on timeline.',
         },
         {
           id: uuidv4(),
-          assessment_requirement_id: assessmentReqIds[2],
+          assessment_id: '00000000-0000-4000-f300-000000000001',
           user_id: '00000000-0000-4000-c000-000000000004',
-          content: 'The API gateway team has started work on this. Expected completion: 2026-05-15.',
+          content: 'The API gateway team has started work on MFA enforcement. Expected completion: 2026-05-15. @jthompson updating you as requested.',
         },
         {
           id: uuidv4(),
-          assessment_requirement_id: assessmentReqIds[6],
+          assessment_id: '00000000-0000-4000-f300-000000000001',
           user_id: '00000000-0000-4000-c000-000000000003',
-          content: 'Current password policy: 8 chars minimum, no complexity. Need to upgrade to 12 chars with complexity rules.',
+          content: 'Current password policy: 8 chars minimum, no complexity. Need to upgrade to 12 chars with complexity rules per ASVS requirement.',
         },
       ];
       for (const wn of workNotes) {
@@ -439,9 +454,12 @@ export async function seedDemoData(): Promise<boolean> {
     logger.info(`Seeded ${requirements.length} assessment requirements`);
   }
 
-  // 27. Claims
+  // 27. Claims (include target_entity_id if present)
   for (const claim of data.claims) {
-    await db.insertInto('claim').values(claim).execute();
+    await db.insertInto('claim').values({
+      ...claim,
+      target_entity_id: claim.target_entity_id || null,
+    }).execute();
   }
   logger.info(`Seeded ${data.claims.length} claims`);
 
@@ -460,53 +478,97 @@ export async function seedDemoData(): Promise<boolean> {
     await db.insertInto('claim_mitigation_strategy').values({ ...cms, created_at: new Date() }).execute();
   }
 
-  // 31. Attestations (link to first assessment)
+  // 31a. Assessors (CycloneDX declarations.assessors)
+  const internalAssessorId = uuidv4();
+  const externalAssessorId = uuidv4();
+  await db.insertInto('assessor').values({
+    id: internalAssessorId,
+    bom_ref: `assessor-${internalAssessorId.substring(0, 8)}`,
+    third_party: false,
+    entity_id: '00000000-0000-4000-e000-000000000004', // Acme Security team
+    user_id: null,
+  }).execute();
+  await db.insertInto('assessor').values({
+    id: externalAssessorId,
+    bom_ref: `assessor-${externalAssessorId.substring(0, 8)}`,
+    third_party: true,
+    entity_id: '00000000-0000-4000-e000-000000000013', // SecureAudit Partners
+    user_id: null,
+  }).execute();
+  logger.info('Seeded 2 assessors (1 internal, 1 external)');
+
+  // 31b. Claim external references (CycloneDX claim.externalReferences)
+  await db.insertInto('claim_external_reference').values({
+    id: uuidv4(),
+    claim_id: '00000000-0000-4000-f500-000000000001',
+    type: 'issue-tracker',
+    url: 'https://jira.acme.example.com/browse/SEC-1234',
+    comment: 'Authentication hardening tracking ticket',
+  }).execute();
+  await db.insertInto('claim_external_reference').values({
+    id: uuidv4(),
+    claim_id: '00000000-0000-4000-f500-000000000002',
+    type: 'pentest-report',
+    url: 'https://docs.acme.example.com/security/pentest-2026-q1.pdf',
+    comment: 'Q1 2026 penetration test identifying session fixation',
+  }).execute();
+  await db.insertInto('claim_external_reference').values({
+    id: uuidv4(),
+    claim_id: '00000000-0000-4000-f500-000000000003',
+    type: 'certification-report',
+    url: 'https://compliance.suppliera.example.com/soc2-type2-2025.pdf',
+    comment: 'Supplier A SOC 2 Type II report',
+  }).execute();
+  logger.info('Seeded 3 claim external references');
+
+  // 31c. Attestations (link to the complete SSDF assessment, not the in-progress one)
   const attestation1Id = uuidv4();
   await db.insertInto('attestation').values({
     id: attestation1Id,
-    summary: 'Based on our assessment of Product A v2.1 against ASVS Level 2 requirements, we attest that the product substantially meets the authentication, session management, and access control requirements with identified exceptions documented in counter claims.',
-    assessment_id: '00000000-0000-4000-f300-000000000001',
+    summary: 'Based on our comprehensive assessment of Supplier A against NIST SP 800-218 (SSDF v1.1) requirements, we attest that the organization substantially meets the secure software development practices with identified exceptions documented in counter claims.',
+    assessment_id: '00000000-0000-4000-f300-100000000001',
     signatory_id: '00000000-0000-4000-f100-000000000001',
+    assessor_id: internalAssessorId,
   }).execute();
 
-  // Link claims to attestation
+  // Link SSDF claims to attestation (these belong to the complete SSDF assessment)
   await db
     .updateTable('claim')
     .set({ attestation_id: attestation1Id })
-    .where('id', '=', '00000000-0000-4000-f500-000000000001')
+    .where('id', '=', '00000000-0000-4000-f500-100000000001')
     .execute();
   await db
     .updateTable('claim')
     .set({ attestation_id: attestation1Id })
-    .where('id', '=', '00000000-0000-4000-f500-000000000002')
+    .where('id', '=', '00000000-0000-4000-f500-100000000002')
     .execute();
 
-  // Attestation requirements (use some of the requirements we already seeded)
-  if (firstStandardId) {
+  // Attestation requirements (use SSDF requirements for the complete SSDF assessment)
+  if (ssdfStandardId) {
     const reqs = await db
       .selectFrom('requirement')
-      .where('standard_id', '=', firstStandardId)
+      .where('standard_id', '=', ssdfStandardId)
       .select(['id'])
       .orderBy('identifier', 'asc')
       .limit(5)
       .execute();
 
     for (let i = 0; i < reqs.length; i++) {
-      const scores = [0.95, 1.0, 0.6, 0.9, 1.0];
-      const confidences = [0.9, 0.95, 0.7, 0.85, 1.0];
+      const scores = [0.95, 1.0, 0.85, 0.9, 0.8];
+      const confidences = [0.9, 0.95, 0.85, 0.9, 0.75];
       const rationales = [
-        'Strong authentication controls verified through multiple evidence sources.',
-        'MFA is fully enforced for web UI authentication paths.',
-        'Partial compliance: API paths lack MFA enforcement. Remediation in progress.',
-        'Session management follows OWASP best practices with noted exception for legacy flow.',
-        'Not applicable to this system architecture; full score awarded.',
+        'Organization has comprehensive security requirements documented and communicated to all stakeholders.',
+        'Security roles and training are well defined with regular training programs in place.',
+        'Toolchain automation supports secure development practices with minor gaps in third party component verification.',
+        'Security gates and quality criteria are enforced throughout the development lifecycle.',
+        'Source code access controls are strong with MFA, branch protection, and regular access reviews.',
       ];
       const confRationales = [
-        'High confidence based on penetration test and configuration review.',
-        'Verified through direct configuration observation.',
-        'Medium confidence; remediation timeline not yet confirmed.',
-        'High confidence; legacy flow affects a small subset of users.',
-        'Full confidence; architectural review confirms non-applicability.',
+        'High confidence based on documentation review and stakeholder interviews.',
+        'Verified through training records and role definition documentation.',
+        'Good confidence; automation is in place but some manual processes remain.',
+        'High confidence; pipeline configuration demonstrates enforcement.',
+        'Verified through repository configuration and access audit logs.',
       ];
 
       await db.insertInto('attestation_requirement').values({
@@ -520,6 +582,32 @@ export async function seedDemoData(): Promise<boolean> {
       }).execute();
     }
     logger.info(`Seeded attestation with ${reqs.length} requirement mappings`);
+
+    // Link attestation requirements to SSDF claims
+    const attReqs = await db
+      .selectFrom('attestation_requirement')
+      .where('attestation_id', '=', attestation1Id)
+      .select(['id'])
+      .orderBy('created_at', 'asc')
+      .execute();
+
+    // Link first attestation requirement to SSDF claim 1 (supporting)
+    if (attReqs.length > 0) {
+      await db.insertInto('attestation_requirement_claim').values({
+        attestation_requirement_id: attReqs[0].id,
+        claim_id: '00000000-0000-4000-f500-100000000001',
+        created_at: new Date(),
+      }).execute();
+    }
+    // Link second attestation requirement to SSDF claim 2
+    if (attReqs.length > 1) {
+      await db.insertInto('attestation_requirement_claim').values({
+        attestation_requirement_id: attReqs[1].id,
+        claim_id: '00000000-0000-4000-f500-100000000002',
+        created_at: new Date(),
+      }).execute();
+    }
+    logger.info('Seeded attestation requirement claim links');
   }
 
   // --- SSDF Assessment Data ---
@@ -577,12 +665,12 @@ export async function seedDemoData(): Promise<boolean> {
         }
       }
 
-      // Seed work notes for this assessment requirement
+      // Seed work notes for this assessment
       if (ar.work_notes && ar.work_notes.length > 0) {
         for (const wn of ar.work_notes) {
           await db.insertInto('work_note').values({
             id: uuidv4(),
-            assessment_requirement_id: arId,
+            assessment_id: ssdfAssessmentId,
             user_id: wn.user_id || adminUserId,
             content: wn.content,
             created_at: new Date(),
@@ -593,21 +681,40 @@ export async function seedDemoData(): Promise<boolean> {
     }
     logger.info(`Seeded ${ssdfAssessmentReqMap.size} SSDF assessment requirements`);
 
-    // Create SSDF attestation
+    // Create SSDF attestation (with external assessor)
     const ssdfAttestationId = uuidv4();
     await db.insertInto('attestation').values({
       id: ssdfAttestationId,
       summary: ssdf.attestation.summary,
       assessment_id: ssdfAssessmentId,
       signatory_id: ssdf.attestation.signatory_id,
+      assessor_id: externalAssessorId,
     }).execute();
 
-    // Link SSDF claims to attestation
+    // Link SSDF claims to attestation and set target entities
+    // Map SSDF claim targets to entity IDs
+    const ssdfTargetEntityMap: Record<string, string> = {
+      'Acme Corporation SDLC': '00000000-0000-4000-e000-000000000001',          // Acme Inc
+      'Acme Corporation': '00000000-0000-4000-e000-000000000001',               // Acme Inc
+      'Acme Corporation Development Infrastructure': '00000000-0000-4000-e000-000000000001',
+      'Acme Corporation Development Process': '00000000-0000-4000-e000-000000000001',
+      'Product A v2.1 Source Repositories': '00000000-0000-4000-e000-000000000008', // Product A v2.1
+      'Product A v2.1 Build and Release': '00000000-0000-4000-e000-000000000008',
+      'Product A v2.1 Releases': '00000000-0000-4000-e000-000000000008',
+      'Product A v2.1 Supply Chain': '00000000-0000-4000-e000-000000000008',
+      'Product A v2.1 Development': '00000000-0000-4000-e000-000000000008',
+      'Product A v2.1 Architecture': '00000000-0000-4000-e000-000000000008',
+    };
+
     for (const claim of data.claims) {
       if (claim.id.startsWith('00000000-0000-4000-f500-1000')) {
+        const targetEntityId = ssdfTargetEntityMap[claim.target] || null;
         await db
           .updateTable('claim')
-          .set({ attestation_id: ssdfAttestationId })
+          .set({
+            attestation_id: ssdfAttestationId,
+            ...(targetEntityId ? { target_entity_id: targetEntityId } : {}),
+          })
           .where('id', '=', claim.id)
           .execute();
       }

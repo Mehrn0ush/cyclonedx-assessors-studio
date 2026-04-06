@@ -231,7 +231,7 @@ router.get('/assessment-distribution', requireAuth, async (req: AuthRequest, res
   try {
     const db = getDatabase();
 
-    const states = ['new', 'pending', 'in_progress', 'on_hold', 'cancelled', 'complete'];
+    const states = ['new', 'pending', 'in_progress', 'on_hold', 'cancelled', 'complete', 'archived'];
     const distribution = await Promise.all(
       states.map(async (state) => {
         const count = await db

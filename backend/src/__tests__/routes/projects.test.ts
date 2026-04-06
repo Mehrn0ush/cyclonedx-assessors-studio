@@ -26,7 +26,6 @@ describe('Projects', () => {
       name: 'Test Project',
       description: 'A test project',
       state: 'new',
-      workflow_type: 'evidence_driven',
     }).execute();
 
     const project = await db.selectFrom('project')
@@ -37,7 +36,6 @@ describe('Projects', () => {
     expect(project).toBeDefined();
     expect(project!.name).toBe('Test Project');
     expect(project!.state).toBe('new');
-    expect(project!.workflow_type).toBe('evidence_driven');
   });
 
   it('should create a project with helper function', async () => {
@@ -167,7 +165,6 @@ describe('Projects', () => {
         id: uuidv4(),
         name: `Project ${state}`,
         state: state as any,
-        workflow_type: 'evidence_driven',
       }).execute();
     }
 
@@ -182,23 +179,4 @@ describe('Projects', () => {
     }
   });
 
-  it('should support both workflow types', async () => {
-    const db = getTestDatabase();
-
-    const claimsProject = await createTestProject({ workflowType: 'claims_driven' });
-    const evidenceProject = await createTestProject({ workflowType: 'evidence_driven' });
-
-    const claims = await db.selectFrom('project')
-      .where('id', '=', claimsProject.id)
-      .selectAll()
-      .executeTakeFirst();
-
-    const evidence = await db.selectFrom('project')
-      .where('id', '=', evidenceProject.id)
-      .selectAll()
-      .executeTakeFirst();
-
-    expect(claims!.workflow_type).toBe('claims_driven');
-    expect(evidence!.workflow_type).toBe('evidence_driven');
-  });
 });

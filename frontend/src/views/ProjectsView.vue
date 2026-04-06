@@ -73,11 +73,6 @@
             <StateBadge :state="row.state" />
           </template>
         </el-table-column>
-        <el-table-column prop="workflowType" :label="t('projects.workflow')" min-width="160" sortable>
-          <template #default="{ row }">
-            <el-tag>{{ formatWorkflowType(row.workflowType) }}</el-tag>
-          </template>
-        </el-table-column>
         <el-table-column :label="t('common.tags')" min-width="180">
           <template #default="{ row }">
             <span
@@ -121,13 +116,6 @@
 
         <el-form-item :label="t('projects.description')" prop="description">
           <el-input v-model="dialogForm.description" type="textarea" :rows="3" :placeholder="t('projects.description')" />
-        </el-form-item>
-
-        <el-form-item :label="t('projects.workflowType')" prop="workflowType">
-          <el-select v-model="dialogForm.workflowType">
-            <el-option :label="t('projects.evidenceDriven')" value="evidence_driven"></el-option>
-            <el-option :label="t('projects.claimsDriven')" value="claims_driven"></el-option>
-          </el-select>
         </el-form-item>
 
         <el-form-item :label="t('projects.standards')" prop="standardIds">
@@ -238,14 +226,12 @@ const dialogForm = ref({
   id: '',
   name: '',
   description: '',
-  workflowType: 'evidence_driven',
   standardIds: [] as string[],
   tags: [] as string[]
 })
 
 const formRules = {
   name: [{ required: true, message: 'Name is required', trigger: 'blur' }],
-  workflowType: [{ required: true, message: 'Workflow type is required', trigger: 'change' }],
   standardIds: [{ required: true, type: 'array', min: 1, message: 'At least one standard is required', trigger: 'change' }]
 }
 
@@ -275,14 +261,6 @@ const totalCount = computed(() => {
 // Methods
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString()
-}
-
-const formatWorkflowType = (type: string) => {
-  const map: Record<string, string> = {
-    evidence_driven: t('projects.evidenceDriven'),
-    claims_driven: t('projects.claimsDriven'),
-  }
-  return map[type] || type
 }
 
 const fetchProjects = async () => {
@@ -321,7 +299,6 @@ const openEditDialog = async (row: any) => {
     id: row.id,
     name: row.name,
     description: row.description,
-    workflowType: row.workflowType,
     standardIds: (row.standards || []).map((s: any) => s.id),
     tags: (row.tags || []).map((t: any) => t.name)
   }
@@ -340,7 +317,6 @@ const saveProject = async () => {
       await axios.put(`/api/v1/projects/${dialogForm.value.id}`, {
         name: dialogForm.value.name,
         description: dialogForm.value.description,
-        workflowType: dialogForm.value.workflowType,
         standardIds: dialogForm.value.standardIds,
         tags: dialogForm.value.tags
       })
@@ -349,7 +325,6 @@ const saveProject = async () => {
       await axios.post('/api/v1/projects', {
         name: dialogForm.value.name,
         description: dialogForm.value.description,
-        workflowType: dialogForm.value.workflowType,
         standardIds: dialogForm.value.standardIds,
         tags: dialogForm.value.tags
       })
@@ -389,7 +364,6 @@ const resetForm = () => {
     id: '',
     name: '',
     description: '',
-    workflowType: 'evidence_driven',
     standardIds: [] as string[],
     tags: [] as string[]
   }

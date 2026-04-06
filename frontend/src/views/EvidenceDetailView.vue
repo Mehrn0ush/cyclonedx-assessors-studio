@@ -163,7 +163,7 @@
           <el-table v-else :data="claims" stripe border>
             <el-table-column prop="name" label="Claim" min-width="250">
               <template #default="{ row }">
-                <router-link :to="`/claims/${row.id}`" class="attachment-link">{{ row.name }}</router-link>
+                <span>{{ row.name }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="target" label="Target" min-width="200"></el-table-column>

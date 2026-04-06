@@ -164,84 +164,96 @@
       "name": "Acme Inc",
       "description": "Top level organization for all Acme business units, products, and teams.",
       "entity_type": "organization",
-      "state": "active"
+      "state": "active",
+      "bom_ref": "org-acme-inc"
     },
     {
       "id": "00000000-0000-4000-e000-000000000002",
       "name": "Acme Product Engineering",
       "description": "Division responsible for product development and engineering across all Acme product lines.",
       "entity_type": "business_unit",
-      "state": "active"
+      "state": "active",
+      "bom_ref": "bu-acme-product-engineering"
     },
     {
       "id": "00000000-0000-4000-e000-000000000003",
       "name": "Acme IT",
       "description": "Corporate IT services including infrastructure, networking, and internal tools.",
       "entity_type": "business_unit",
-      "state": "active"
+      "state": "active",
+      "bom_ref": "bu-acme-it"
     },
     {
       "id": "00000000-0000-4000-e000-000000000004",
       "name": "Acme Security",
       "description": "Enterprise security team responsible for governance, risk, and compliance.",
       "entity_type": "team",
-      "state": "active"
+      "state": "active",
+      "bom_ref": "team-acme-security"
     },
     {
       "id": "00000000-0000-4000-e000-000000000005",
       "name": "Acme Compliance",
       "description": "Regulatory compliance team managing standards adherence and audit preparation.",
       "entity_type": "team",
-      "state": "active"
+      "state": "active",
+      "bom_ref": "team-acme-compliance"
     },
     {
       "id": "00000000-0000-4000-e000-000000000006",
       "name": "Supplier A",
       "description": "Third party supplier providing critical software components to Acme product lines.",
       "entity_type": "organization",
-      "state": "active"
+      "state": "active",
+      "bom_ref": "org-supplier-a"
     },
     {
       "id": "00000000-0000-4000-e000-000000000007",
       "name": "Product A",
       "description": "Acme's flagship SaaS platform for enterprise customers.",
       "entity_type": "product",
-      "state": "active"
+      "state": "active",
+      "bom_ref": "product-a"
     },
     {
       "id": "00000000-0000-4000-e000-000000000008",
       "name": "Product A v2.1",
       "description": "Current production release of Product A.",
       "entity_type": "product_version",
-      "state": "active"
+      "state": "active",
+      "bom_ref": "product-a-v2.1"
     },
     {
       "id": "00000000-0000-4000-e000-000000000009",
       "name": "Auth Service",
       "description": "Authentication and authorization microservice used across Acme products.",
       "entity_type": "component",
-      "state": "active"
+      "state": "active",
+      "bom_ref": "component-auth-service"
     },
     {
       "id": "00000000-0000-4000-e000-000000000010",
       "name": "Payment Gateway",
       "description": "Payment processing component integrated with third party payment providers.",
       "entity_type": "component",
-      "state": "active"
-    },
-    {
-      "id": "00000000-0000-4000-e000-000000000011",
-      "name": "Platform Migration",
-      "description": "Enterprise project to migrate legacy infrastructure to cloud native architecture.",
-      "entity_type": "project",
-      "state": "active"
+      "state": "active",
+      "bom_ref": "component-payment-gateway"
     },
     {
       "id": "00000000-0000-4000-e000-000000000012",
       "name": "Acme Identity Platform",
       "description": "SaaS identity and access management service provided to enterprise customers.",
       "entity_type": "service",
-      "state": "active"
+      "state": "active",
+      "bom_ref": "service-acme-identity"
+    },
+    {
+      "id": "00000000-0000-4000-e000-000000000013",
+      "name": "SecureAudit Partners",
+      "description": "Independent third party security assessment firm specializing in SDLC and compliance audits.",
+      "entity_type": "organization",
+      "state": "active",
+      "bom_ref": "org-secureaudit-partners"
     }
   ],
   "entity_relationships": [
@@ -249,85 +261,78 @@
       "id": "00000000-0000-4000-e100-000000000001",
       "source_entity_id": "00000000-0000-4000-e000-000000000001",
       "target_entity_id": "00000000-0000-4000-e000-000000000002",
-      "relationship_type": "owns"
+      "relationship_type": "contains",
+      "_comment": "Acme Inc contains Acme Product Engineering"
     },
     {
       "id": "00000000-0000-4000-e100-000000000002",
       "source_entity_id": "00000000-0000-4000-e000-000000000001",
       "target_entity_id": "00000000-0000-4000-e000-000000000003",
-      "relationship_type": "owns"
+      "relationship_type": "contains",
+      "_comment": "Acme Inc contains Acme IT"
     },
     {
       "id": "00000000-0000-4000-e100-000000000003",
       "source_entity_id": "00000000-0000-4000-e000-000000000001",
       "target_entity_id": "00000000-0000-4000-e000-000000000004",
-      "relationship_type": "owns"
+      "relationship_type": "contains",
+      "_comment": "Acme Inc contains Acme Security"
     },
     {
       "id": "00000000-0000-4000-e100-000000000004",
-      "source_entity_id": "00000000-0000-4000-e000-000000000001",
+      "source_entity_id": "00000000-0000-4000-e000-000000000004",
       "target_entity_id": "00000000-0000-4000-e000-000000000005",
-      "relationship_type": "owns"
+      "relationship_type": "contains",
+      "_comment": "Acme Security contains Acme Compliance"
     },
     {
       "id": "00000000-0000-4000-e100-000000000005",
       "source_entity_id": "00000000-0000-4000-e000-000000000002",
-      "target_entity_id": "00000000-0000-4000-e000-000000000007",
-      "relationship_type": "owns"
+      "target_entity_id": "00000000-0000-4000-e000-000000000012",
+      "relationship_type": "produces",
+      "_comment": "Acme Product Engineering produces Acme Identity Platform"
     },
     {
       "id": "00000000-0000-4000-e100-000000000006",
-      "source_entity_id": "00000000-0000-4000-e000-000000000007",
-      "target_entity_id": "00000000-0000-4000-e000-000000000008",
-      "relationship_type": "contains"
+      "source_entity_id": "00000000-0000-4000-e000-000000000006",
+      "target_entity_id": "00000000-0000-4000-e000-000000000007",
+      "relationship_type": "produces",
+      "_comment": "Supplier A produces Product A"
     },
     {
       "id": "00000000-0000-4000-e100-000000000007",
-      "source_entity_id": "00000000-0000-4000-e000-000000000008",
-      "target_entity_id": "00000000-0000-4000-e000-000000000009",
-      "relationship_type": "contains"
+      "source_entity_id": "00000000-0000-4000-e000-000000000007",
+      "target_entity_id": "00000000-0000-4000-e000-000000000008",
+      "relationship_type": "contains",
+      "_comment": "Product A contains Product A v2.1"
     },
     {
       "id": "00000000-0000-4000-e100-000000000008",
       "source_entity_id": "00000000-0000-4000-e000-000000000008",
-      "target_entity_id": "00000000-0000-4000-e000-000000000010",
-      "relationship_type": "contains"
+      "target_entity_id": "00000000-0000-4000-e000-000000000009",
+      "relationship_type": "contains",
+      "_comment": "Product A v2.1 contains Auth Service"
     },
     {
       "id": "00000000-0000-4000-e100-000000000009",
-      "source_entity_id": "00000000-0000-4000-e000-000000000006",
-      "target_entity_id": "00000000-0000-4000-e000-000000000009",
-      "relationship_type": "supplies"
+      "source_entity_id": "00000000-0000-4000-e000-000000000008",
+      "target_entity_id": "00000000-0000-4000-e000-000000000010",
+      "relationship_type": "contains",
+      "_comment": "Product A v2.1 contains Payment Gateway"
     },
     {
       "id": "00000000-0000-4000-e100-000000000010",
-      "source_entity_id": "00000000-0000-4000-e000-000000000010",
+      "source_entity_id": "00000000-0000-4000-e000-000000000013",
       "target_entity_id": "00000000-0000-4000-e000-000000000006",
-      "relationship_type": "depends_on"
+      "relationship_type": "assesses",
+      "_comment": "SecureAudit Partners assesses Supplier A"
     },
     {
       "id": "00000000-0000-4000-e100-000000000011",
-      "source_entity_id": "00000000-0000-4000-e000-000000000004",
-      "target_entity_id": "00000000-0000-4000-e000-000000000007",
-      "relationship_type": "governs"
-    },
-    {
-      "id": "00000000-0000-4000-e100-000000000012",
-      "source_entity_id": "00000000-0000-4000-e000-000000000005",
-      "target_entity_id": "00000000-0000-4000-e000-000000000001",
-      "relationship_type": "governs"
-    },
-    {
-      "id": "00000000-0000-4000-e100-000000000013",
-      "source_entity_id": "00000000-0000-4000-e000-000000000002",
-      "target_entity_id": "00000000-0000-4000-e000-000000000012",
-      "relationship_type": "owns"
-    },
-    {
-      "id": "00000000-0000-4000-e100-000000000014",
-      "source_entity_id": "00000000-0000-4000-e000-000000000012",
-      "target_entity_id": "00000000-0000-4000-e000-000000000009",
-      "relationship_type": "contains"
+      "source_entity_id": "00000000-0000-4000-e000-000000000013",
+      "target_entity_id": "00000000-0000-4000-e000-000000000008",
+      "relationship_type": "assesses",
+      "_comment": "SecureAudit Partners assesses Product A v2.1"
     }
   ],
   "entity_tags": [
@@ -361,22 +366,13 @@
       "id": "00000000-0000-4000-f000-000000000001",
       "name": "2026 Security Assessments",
       "description": "Annual security assessment program covering all Acme products and business units for fiscal year 2026.",
-      "state": "in_progress",
-      "workflow_type": "evidence_driven"
+      "state": "in_progress"
     },
     {
       "id": "00000000-0000-4000-f000-000000000002",
       "name": "Supplier Due Diligence Q1 2026",
       "description": "Quarterly supplier security assessment to evaluate third party component providers.",
-      "state": "in_progress",
-      "workflow_type": "claims_driven"
-    },
-    {
-      "id": "00000000-0000-4000-f000-000000000003",
-      "name": "SOC 2 Preparation",
-      "description": "Preparing for SOC 2 Type II audit by conducting internal readiness assessments.",
-      "state": "new",
-      "workflow_type": "evidence_driven"
+      "state": "in_progress"
     }
   ],
   "project_tags": [
@@ -395,14 +391,6 @@
     {
       "project_id": "00000000-0000-4000-f000-000000000002",
       "tag_id": "00000000-0000-4000-d000-000000000004"
-    },
-    {
-      "project_id": "00000000-0000-4000-f000-000000000003",
-      "tag_id": "00000000-0000-4000-d000-000000000002"
-    },
-    {
-      "project_id": "00000000-0000-4000-f000-000000000003",
-      "tag_id": "00000000-0000-4000-d000-000000000006"
     }
   ],
   "signatories": [
@@ -483,10 +471,10 @@
     },
     {
       "id": "00000000-0000-4000-f300-100000000001",
-      "title": "Acme SDLC SSDF Assessment",
-      "description": "Comprehensive NIST SP 800-218 (SSDF v1.1) assessment of Acme Corporation's software development lifecycle practices across four practice groups: Prepare Organization (PO), Protect Software (PS), Produce Well-Secured Software (PW), and Review/Validate (RV).",
+      "title": "Supplier A SSDF Assessment",
+      "description": "Comprehensive NIST SP 800-218 (SSDF v1.1) assessment of Supplier A's software development lifecycle practices across four practice groups: Prepare Organization (PO), Protect Software (PS), Produce Well-Secured Software (PW), and Review/Validate (RV). Conducted by SecureAudit Partners.",
       "project_id": "00000000-0000-4000-f000-000000000001",
-      "entity_id": "00000000-0000-4000-e000-000000000001",
+      "entity_id": "00000000-0000-4000-e000-000000000006",
       "standard_id": "__SSDF_STANDARD__",
       "state": "complete",
       "start_date": "2025-11-01T00:00:00Z",
@@ -1312,8 +1300,8 @@
     },
     {
       "id": "00000000-0000-4000-f500-100000000001",
-      "name": "Acme maintains comprehensive security requirements",
-      "target": "Acme Corporation SDLC",
+      "name": "Supplier A maintains comprehensive security requirements",
+      "target": "Supplier A SDLC",
       "predicate": "Security requirements for software development infrastructure and organization-developed software are identified, documented, and communicated to all stakeholders.",
       "reasoning": "Based on comprehensive security requirements documentation covering all aspects of SDLC infrastructure, processes, and software security.",
       "is_counter_claim": false
@@ -1321,7 +1309,7 @@
     {
       "id": "00000000-0000-4000-f500-100000000002",
       "name": "Security roles and training are properly defined and maintained",
-      "target": "Acme Corporation",
+      "target": "Supplier A",
       "predicate": "All personnel involved in software development have defined security roles and responsibilities with mandatory security training.",
       "reasoning": "SDLC role definitions document roles and training records demonstrate regular security awareness and specialized training programs.",
       "is_counter_claim": false
@@ -1329,7 +1317,7 @@
     {
       "id": "00000000-0000-4000-f500-100000000003",
       "name": "Toolchain and automation support secure development practices",
-      "target": "Acme Corporation Development Infrastructure",
+      "target": "Supplier A Development Infrastructure",
       "predicate": "Organization uses automated tools and toolchains throughout the SDLC to support secure development practices and reduce human error.",
       "reasoning": "CI/CD pipeline documentation and security toolchain configuration demonstrate comprehensive automation of security gates.",
       "is_counter_claim": false
@@ -1337,7 +1325,7 @@
     {
       "id": "00000000-0000-4000-f500-100000000004",
       "name": "Security gates and quality criteria are defined and enforced",
-      "target": "Acme Corporation Development Process",
+      "target": "Supplier A Development Process",
       "predicate": "Explicit security criteria and quality gates are defined and enforced throughout the development lifecycle.",
       "reasoning": "Pipeline configuration and design review records document security gate implementation and enforcement.",
       "is_counter_claim": false
@@ -1417,7 +1405,7 @@
     {
       "id": "00000000-0000-4000-f500-100000000014",
       "name": "Vulnerabilities are identified, tracked, and remediated",
-      "target": "Acme Corporation",
+      "target": "Supplier A",
       "predicate": "Organization identifies vulnerabilities through multiple methods and tracks remediation with defined response timeframes.",
       "reasoning": "Vulnerability management process defines response timeframes and tracks remediation metrics.",
       "is_counter_claim": false

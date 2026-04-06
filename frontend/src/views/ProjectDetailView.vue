@@ -17,12 +17,24 @@
     </el-alert>
 
     <div v-else-if="project" class="project-detail-content">
-      <!-- CDXA Workflow Progress -->
+      <!-- Project Dashboard -->
       <el-card class="workflow-card">
         <template #header>
-          <span>{{ t('common.assessmentWorkflow') }}</span>
+          <div class="card-header">
+            <span>Project Progress</span>
+            <div class="view-mode-toggle">
+              <el-radio-group v-model="dashboardView" size="small">
+                <el-radio-button value="overview">
+                  <el-icon><Odometer /></el-icon>
+                </el-radio-button>
+                <el-radio-button value="timeline">
+                  <svg width="1em" height="1em" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="2.5" width="9" height="2.5" rx="1.25" fill="currentColor"/><rect x="4" y="6.75" width="11" height="2.5" rx="1.25" fill="currentColor"/><rect x="2" y="11" width="8" height="2.5" rx="1.25" fill="currentColor"/></svg>
+                </el-radio-button>
+              </el-radio-group>
+            </div>
+          </div>
         </template>
-        <WorkflowStepper :steps="workflowSteps" :current-step="currentWorkflowStep" @step-click="handleStepClick" />
+        <ProjectDashboard :key="dashboardKey" :project-id="(route.params.id as string)" :view="dashboardView" @navigate-assessment="navigateToAssessment" />
       </el-card>
 
       <el-card class="project-info-card">
@@ -73,8 +85,15 @@
           </el-col>
           <el-col :span="6">
             <div class="info-field">
-              <label id="project-workflow-label">{{ t('projects.workflowType') }} <HelpTip content="Claims Driven: You define claims first and attach evidence. Evidence Driven: You collect evidence first and then create claims from it." /></label>
-              <p aria-labelledby="project-workflow-label">{{ formatWorkflowType(project.workflowType) }}</p>
+              <label id="project-dates-label">Dates</label>
+              <div aria-labelledby="project-dates-label">
+                <p v-if="project.startDate || project.dueDate">
+                  <span v-if="project.startDate">Start: {{ formatDate(project.startDate) }}</span>
+                  <span v-if="project.startDate && project.dueDate"> &middot; </span>
+                  <span v-if="project.dueDate">Due: {{ formatDate(project.dueDate) }}</span>
+                </p>
+                <p v-else class="no-value">No dates set</p>
+              </div>
             </div>
           </el-col>
         </el-row>
@@ -177,11 +196,11 @@
             <el-option :label="t('states.retired')" value="retired" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('projects.workflowType')">
-          <el-select v-model="editForm.workflowType">
-            <el-option :label="t('projects.evidenceDriven')" value="evidence_driven" />
-            <el-option :label="t('projects.claimsDriven')" value="claims_driven" />
-          </el-select>
+        <el-form-item label="Start Date">
+          <el-date-picker v-model="editForm.startDate" type="date" style="width: 100%;" clearable />
+        </el-form-item>
+        <el-form-item label="Due Date">
+          <el-date-picker v-model="editForm.dueDate" type="date" style="width: 100%;" clearable />
         </el-form-item>
         <el-form-item :label="t('projects.standards')">
           <el-select v-model="editForm.standardIds" multiple :placeholder="t('projects.selectStandards')" style="width: 100%;">
@@ -220,16 +239,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ArrowRight, Loading, Edit as EditIcon, ArrowDown } from '@element-plus/icons-vue'
+import { ArrowRight, Loading, Edit as EditIcon, ArrowDown, Odometer } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import TagInput from '@/components/shared/TagInput.vue'
-import WorkflowStepper from '@/components/shared/WorkflowStepper.vue'
-import HelpTip from '@/components/shared/HelpTip.vue'
+import ProjectDashboard from '@/components/shared/ProjectDashboard.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -243,6 +261,9 @@ const projectStandards = ref<any[]>([])
 const assessments = ref<any[]>([])
 const assessmentsLoading = ref(true)
 const activeTab = ref('assessments')
+const dashboardKey = ref(0)
+const dashboardView = ref<'overview' | 'timeline'>('overview')
+const refreshDashboard = () => { dashboardKey.value++ }
 
 // Edit project state
 const showEditDialog = ref(false)
@@ -254,9 +275,10 @@ const editForm = ref({
   name: '',
   description: '',
   state: 'new',
-  workflowType: 'evidence_driven',
   standardIds: [] as string[],
   tags: [] as string[],
+  startDate: null as any,
+  dueDate: null as any,
 })
 
 // New assessment state
@@ -268,55 +290,9 @@ const assessmentForm = ref({
   dueDate: null as any,
 })
 
-const evidenceDrivenSteps = [
-  { key: 'standards', label: 'Standards', description: 'Define requirements' },
-  { key: 'assessment', label: 'Assessment', description: 'Evaluate compliance' },
-  { key: 'evidence', label: 'Evidence', description: 'Collect proof' },
-  { key: 'claims', label: 'Claims', description: 'Assert conformance' },
-  { key: 'attestation', label: 'Attestation', description: 'Formal sign-off' },
-  { key: 'export', label: 'Export', description: 'Publish CycloneDX BOM' },
-]
-
-const claimsDrivenSteps = [
-  { key: 'standards', label: 'Standards', description: 'Define requirements' },
-  { key: 'assessment', label: 'Assessment', description: 'Evaluate compliance' },
-  { key: 'claims', label: 'Claims', description: 'Assert conformance' },
-  { key: 'evidence', label: 'Evidence', description: 'Support claims' },
-  { key: 'attestation', label: 'Attestation', description: 'Formal sign-off' },
-  { key: 'export', label: 'Export', description: 'Publish CycloneDX BOM' },
-]
-
-const workflowSteps = computed(() => {
-  if (project.value?.workflowType === 'claims_driven') return claimsDrivenSteps
-  return evidenceDrivenSteps
-})
-
-const currentWorkflowStep = ref('standards')
-
-const computeWorkflowStep = () => {
-  if (!project.value) return
-  const state = project.value.state
-  const isClaims = project.value.workflowType === 'claims_driven'
-
-  if (state === 'new') {
-    currentWorkflowStep.value = projectStandards.value.length > 0 ? 'assessment' : 'standards'
-  } else if (state === 'in_progress') {
-    if (assessments.value.some((a: any) => a.state === 'in_progress')) {
-      currentWorkflowStep.value = isClaims ? 'claims' : 'evidence'
-    } else if (assessments.value.some((a: any) => a.state === 'complete')) {
-      currentWorkflowStep.value = isClaims ? 'evidence' : 'claims'
-    } else {
-      currentWorkflowStep.value = 'assessment'
-    }
-  } else if (state === 'complete' || state === 'operational') {
-    currentWorkflowStep.value = 'export'
-  }
-}
-
 onMounted(async () => {
   await fetchProject()
   await fetchAssessments()
-  computeWorkflowStep()
 })
 
 const fetchProject = async () => {
@@ -363,43 +339,13 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-const formatWorkflowType = (type: string) => {
-  const map: Record<string, string> = {
-    evidence_driven: t('projects.evidenceDriven'),
-    claims_driven: t('projects.claimsDriven'),
-  }
-  return map[type] || type
-}
-
-const navigateToAssessment = (row: any) => {
-  router.push(`/assessments/${row.id}`)
+const navigateToAssessment = (rowOrId: any) => {
+  const id = typeof rowOrId === 'string' ? rowOrId : rowOrId.id
+  router.push(`/assessments/${id}`)
 }
 
 const navigateToStandard = (row: any) => {
   router.push(`/standards/${row.id}`)
-}
-
-const handleStepClick = (stepKey: string) => {
-  switch (stepKey) {
-    case 'standards':
-      activeTab.value = 'standards'
-      break
-    case 'assessment':
-      activeTab.value = 'assessments'
-      break
-    case 'evidence':
-      router.push('/evidence')
-      break
-    case 'claims':
-      router.push('/claims')
-      break
-    case 'attestation':
-      router.push('/attestations')
-      break
-    case 'export':
-      handleExportCycloneDX()
-      break
-  }
 }
 
 // Edit project
@@ -408,9 +354,10 @@ const openEditDialog = async () => {
     name: project.value.name,
     description: project.value.description || '',
     state: project.value.state,
-    workflowType: project.value.workflowType,
     standardIds: projectStandards.value.map((s: any) => s.id),
     tags: projectTags.value.map((t: any) => t.name),
+    startDate: project.value.startDate ? new Date(project.value.startDate) : null,
+    dueDate: project.value.dueDate ? new Date(project.value.dueDate) : null,
   }
   await fetchAvailableStandards()
   showEditDialog.value = true
@@ -431,14 +378,15 @@ const saveProject = async () => {
       name: editForm.value.name,
       description: editForm.value.description,
       state: editForm.value.state,
-      workflowType: editForm.value.workflowType,
       standardIds: editForm.value.standardIds,
       tags: editForm.value.tags,
+      startDate: editForm.value.startDate ? new Date(editForm.value.startDate).toISOString().split('T')[0] : null,
+      dueDate: editForm.value.dueDate ? new Date(editForm.value.dueDate).toISOString().split('T')[0] : null,
     })
     ElMessage.success(t('projects.projectUpdated'))
     showEditDialog.value = false
     await fetchProject()
-    computeWorkflowStep()
+    refreshDashboard()
   } catch (err: any) {
     ElMessage.error(err.response?.data?.error || 'Failed to update project')
   } finally {
@@ -447,7 +395,7 @@ const saveProject = async () => {
 }
 
 const resetEditForm = () => {
-  editForm.value = { name: '', description: '', state: 'new', workflowType: 'evidence_driven', standardIds: [], tags: [] }
+  editForm.value = { name: '', description: '', state: 'new', standardIds: [], tags: [], startDate: null, dueDate: null }
 }
 
 // Create assessment
@@ -470,7 +418,7 @@ const createAssessment = async () => {
     showAssessmentDialog.value = false
     resetAssessmentForm()
     await fetchAssessments()
-    computeWorkflowStep()
+    refreshDashboard()
   } catch (err: any) {
     ElMessage.error(err.response?.data?.error || 'Failed to create assessment')
   } finally {
@@ -565,6 +513,10 @@ const handleExportProjectPDF = async () => {
   gap: var(--cat-spacing-2);
 }
 
+.view-mode-toggle {
+  margin-left: auto;
+}
+
 .tab-header {
   display: flex;
   justify-content: flex-end;
@@ -610,6 +562,11 @@ const handleExportProjectPDF = async () => {
       line-height: 1.6;
     }
   }
+}
+
+.no-value {
+  color: var(--cat-text-tertiary);
+  font-style: italic;
 }
 
 .settings-tab {

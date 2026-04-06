@@ -62,7 +62,7 @@
         <el-icon><Sunny v-if="uiStore.theme === 'dark'" /><Moon v-else /></el-icon>
       </button>
 
-      <el-dropdown @command="handleUserCommand" aria-label="User menu">
+      <el-dropdown @command="handleUserCommand" aria-label="User menu" popper-class="user-dropdown-popper">
         <div class="user-menu" role="button" tabindex="0">
           <el-avatar :size="32" :icon="UserFilled"></el-avatar>
           <div class="user-info">
@@ -75,7 +75,6 @@
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item command="profile">{{ $t('topbar.profile') }}</el-dropdown-item>
-            <el-dropdown-item command="settings">{{ $t('nav.settings') }}</el-dropdown-item>
             <el-dropdown-item command="logout" divided>{{ $t('topbar.logout') }}</el-dropdown-item>
           </el-dropdown-menu>
         </template>
@@ -147,8 +146,6 @@ const handleUserCommand = (command: string) => {
   if (command === 'logout') {
     authStore.logout()
     router.push('/login')
-  } else if (command === 'settings') {
-    router.push('/settings')
   } else if (command === 'profile') {
     router.push('/settings')
   }
@@ -572,6 +569,30 @@ onUnmounted(() => {
 
   &:hover :deep(.el-input__wrapper) {
     background-color: var(--cat-bg-hover);
+  }
+}
+</style>
+
+<style lang="scss">
+.user-dropdown-popper {
+  min-width: 160px !important;
+
+  .el-dropdown-menu {
+    background-color: var(--cat-bg-elevated);
+    border-color: var(--cat-border-default);
+    padding: 4px 0;
+  }
+
+  .el-dropdown-menu__item {
+    color: var(--cat-text-primary);
+    padding: 8px 16px;
+    line-height: 1.4;
+
+    &:hover,
+    &:focus {
+      background-color: var(--cat-bg-hover);
+      color: var(--cat-text-primary);
+    }
   }
 }
 </style>

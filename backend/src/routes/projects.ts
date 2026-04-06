@@ -15,18 +15,20 @@ const createProjectSchema = z.object({
   state: z
     .enum(['new', 'in_progress', 'on_hold', 'complete', 'operational', 'retired'])
     .default('new'),
-  workflowType: z.enum(['claims_driven', 'evidence_driven']).default('evidence_driven'),
   standardIds: z.array(z.string()).min(1, 'At least one standard is required'),
   tags: z.array(z.string()).optional(),
+  startDate: z.string().nullable().optional(),
+  dueDate: z.string().nullable().optional(),
 });
 
 const updateProjectSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
   state: z.enum(['new', 'in_progress', 'on_hold', 'complete', 'operational', 'retired']).optional(),
-  workflowType: z.enum(['claims_driven', 'evidence_driven']).optional(),
   standardIds: z.array(z.string()).min(1, 'At least one standard is required').optional(),
   tags: z.array(z.string()).optional(),
+  startDate: z.string().nullable().optional(),
+  dueDate: z.string().nullable().optional(),
 });
 
 router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
@@ -161,7 +163,8 @@ router.post(
           name: data.name,
           description: data.description,
           state: data.state,
-          workflowType: data.workflowType,
+          startDate: data.startDate || null,
+          dueDate: data.dueDate || null,
         }))
         .execute();
 
@@ -193,7 +196,6 @@ router.post(
         name: data.name,
         description: data.description,
         state: data.state,
-        workflowType: data.workflowType,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -232,7 +234,8 @@ router.put(
       if (data.name !== undefined) updateData.name = data.name;
       if (data.description !== undefined) updateData.description = data.description;
       if (data.state !== undefined) updateData.state = data.state;
-      if (data.workflowType !== undefined) updateData.workflowType = data.workflowType;
+      if (data.startDate !== undefined) updateData.startDate = data.startDate || null;
+      if (data.dueDate !== undefined) updateData.dueDate = data.dueDate || null;
 
       if (Object.keys(updateData).length > 0) {
         await db
@@ -448,7 +451,6 @@ router.get(
           name: project.name,
           description: project.description,
           state: project.state,
-          workflow_type: project.workflow_type,
           created_at: project.created_at,
         },
         standards: standards.map(s => ({
@@ -481,5 +483,243 @@ router.get(
     }
   }
 );
+
+/**
+ * GET /api/v1/projects/:id/stats
+ *
+ * Returns aggregated metrics for a project's assessments, suitable for
+ * rendering a project-level dashboard.
+ */
+router.get('/:id/stats', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const db = getDatabase();
+    const projectId = req.params.id;
+
+    // Verify project exists
+    const project = await db
+      .selectFrom('project')
+      .where('id', '=', projectId)
+      .select(['id', 'state', 'start_date', 'due_date'])
+      .executeTakeFirst();
+
+    if (!project) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+
+    // Fetch all assessments for this project
+    const assessments = await db
+      .selectFrom('assessment')
+      .where('project_id', '=', projectId)
+      .select([
+        'id',
+        'title',
+        'state',
+        'conformance_score',
+        'due_date',
+        'start_date',
+        'end_date',
+        'created_at',
+      ])
+      .execute() as any[];
+
+    const assessmentIds = assessments.map((a: any) => a.id);
+
+    // --- Assessment completion ---
+    const totalAssessments = assessments.length;
+    const completedAssessments = assessments.filter((a: any) => a.state === 'complete' || a.state === 'archived').length;
+    const inProgressAssessments = assessments.filter((a: any) => a.state === 'in_progress').length;
+
+    // --- Timeline tracking ---
+    const now = new Date();
+    const overdueAssessments = assessments.filter((a: any) =>
+      a.due_date && new Date(a.due_date) < now && a.state !== 'complete' && a.state !== 'archived' && a.state !== 'cancelled'
+    );
+    const upcomingDueDates = assessments
+      .filter((a: any) => a.due_date && new Date(a.due_date) >= now && a.state !== 'complete' && a.state !== 'archived')
+      .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+      .slice(0, 5)
+      .map((a: any) => ({ id: a.id, title: a.title, dueDate: a.due_date, state: a.state }));
+
+    // Earliest and latest due dates for the project timeline
+    const allDueDates = assessments.filter((a: any) => a.due_date).map((a: any) => new Date(a.due_date));
+    const earliestDueDate = allDueDates.length > 0 ? new Date(Math.min(...allDueDates.map(d => d.getTime()))) : null;
+    const latestDueDate = allDueDates.length > 0 ? new Date(Math.max(...allDueDates.map(d => d.getTime()))) : null;
+
+    // --- Evidence coverage ---
+    let totalRequirements = 0;
+    let requirementsWithEvidence = 0;
+    let totalEvidenceItems = 0;
+
+    if (assessmentIds.length > 0) {
+      // Count total requirements across all assessments
+      const reqCounts = await db
+        .selectFrom('assessment_requirement')
+        .where('assessment_id', 'in', assessmentIds)
+        .select(db.fn.count<number>('id').as('count'))
+        .executeTakeFirstOrThrow() as any;
+      totalRequirements = Number(reqCounts.count);
+
+      // Count requirements that have at least one evidence link
+      const reqsWithEv = await db
+        .selectFrom('assessment_requirement')
+        .where('assessment_id', 'in', assessmentIds)
+        .where('id', 'in',
+          db.selectFrom('assessment_requirement_evidence' as any)
+            .select('assessment_requirement_id' as any)
+        )
+        .select(db.fn.count<number>('id').as('count'))
+        .executeTakeFirstOrThrow() as any;
+      requirementsWithEvidence = Number(reqsWithEv.count);
+
+      // Count distinct evidence items linked to these assessments
+      const evCount = await db
+        .selectFrom('assessment_requirement_evidence' as any)
+        .innerJoin('assessment_requirement', (join: any) =>
+          join.onRef('assessment_requirement.id', '=', 'assessment_requirement_evidence.assessment_requirement_id')
+        )
+        .where('assessment_requirement.assessment_id', 'in', assessmentIds)
+        .select(db.fn.count<number>('assessment_requirement_evidence.evidence_id' as any).distinct().as('count'))
+        .executeTakeFirstOrThrow() as any;
+      totalEvidenceItems = Number(evCount.count);
+    }
+
+    // --- Conformance scores ---
+    const scoredAssessments = assessments
+      .filter((a: any) => a.conformance_score !== null && a.conformance_score !== undefined)
+      .map((a: any) => ({
+        id: a.id,
+        title: a.title,
+        score: Number(a.conformance_score),
+        state: a.state,
+      }));
+
+    const avgConformanceScore = scoredAssessments.length > 0
+      ? scoredAssessments.reduce((sum, a) => sum + a.score, 0) / scoredAssessments.length
+      : null;
+
+    // --- Early warnings / gaps ---
+    const warnings: { type: string; severity: 'critical' | 'warning' | 'info'; message: string; assessmentId?: string }[] = [];
+
+    // Overdue assessments
+    for (const a of overdueAssessments) {
+      const daysOverdue = Math.ceil((now.getTime() - new Date(a.due_date).getTime()) / (1000 * 60 * 60 * 24));
+      warnings.push({
+        type: 'overdue',
+        severity: daysOverdue > 30 ? 'critical' : 'warning',
+        message: `"${a.title}" is ${daysOverdue} day${daysOverdue === 1 ? '' : 's'} past due`,
+        assessmentId: a.id,
+      });
+    }
+
+    // Assessments with no requirements
+    if (assessmentIds.length > 0) {
+      const assessmentReqCounts = await db
+        .selectFrom('assessment_requirement')
+        .where('assessment_id', 'in', assessmentIds)
+        .groupBy('assessment_id')
+        .select(['assessment_id', db.fn.count<number>('id').as('count')])
+        .execute() as any[];
+
+      const assessmentReqMap = new Map(assessmentReqCounts.map((r: any) => [r.assessment_id, Number(r.count)]));
+
+      for (const a of assessments) {
+        if (a.state !== 'cancelled' && a.state !== 'archived') {
+          const reqCount = assessmentReqMap.get(a.id) || 0;
+          if (reqCount === 0 && a.state !== 'new') {
+            warnings.push({
+              type: 'no_requirements',
+              severity: 'warning',
+              message: `"${a.title}" has no requirements linked`,
+              assessmentId: a.id,
+            });
+          }
+        }
+      }
+    }
+
+    // Assessment due dates exceeding project due date
+    if (project.due_date) {
+      const projectDue = new Date(project.due_date);
+      for (const a of assessments) {
+        if (a.due_date && new Date(a.due_date) > projectDue && a.state !== 'complete' && a.state !== 'archived' && a.state !== 'cancelled') {
+          warnings.push({
+            type: 'exceeds_project_deadline',
+            severity: 'warning',
+            message: `"${a.title}" due date extends past the project deadline`,
+            assessmentId: a.id,
+          });
+        }
+      }
+    }
+
+    // Low evidence coverage warning
+    const evidenceCoveragePercent = totalRequirements > 0
+      ? (requirementsWithEvidence / totalRequirements) * 100
+      : null;
+
+    if (evidenceCoveragePercent !== null && evidenceCoveragePercent < 50 && inProgressAssessments > 0) {
+      warnings.push({
+        type: 'low_evidence_coverage',
+        severity: 'warning',
+        message: `Evidence coverage is ${evidenceCoveragePercent.toFixed(0)}% across all assessments`,
+      });
+    }
+
+    // Low conformance scores (score is stored as 0-100)
+    for (const a of scoredAssessments) {
+      if (a.score < 50 && a.state !== 'new') {
+        warnings.push({
+          type: 'low_conformance',
+          severity: 'warning',
+          message: `"${a.title}" has a conformance score of ${a.score.toFixed(0)}%`,
+          assessmentId: a.id,
+        });
+      }
+    }
+
+    // Per-assessment breakdown for the dashboard table
+    const assessmentBreakdown = assessments.map((a: any) => ({
+      id: a.id,
+      title: a.title,
+      state: a.state,
+      startDate: a.start_date,
+      dueDate: a.due_date,
+      conformanceScore: a.conformance_score !== null ? Number(a.conformance_score) : null,
+    }));
+
+    res.json({
+      assessmentCompletion: {
+        total: totalAssessments,
+        completed: completedAssessments,
+        inProgress: inProgressAssessments,
+        percent: totalAssessments > 0 ? Math.round((completedAssessments / totalAssessments) * 100) : 0,
+      },
+      timeline: {
+        projectStartDate: project.start_date || null,
+        projectDueDate: project.due_date || null,
+        overdue: overdueAssessments.length,
+        upcomingDueDates,
+        earliestDueDate,
+        latestDueDate,
+      },
+      evidenceCoverage: {
+        totalRequirements,
+        requirementsWithEvidence,
+        totalEvidenceItems,
+        percent: totalRequirements > 0 ? Math.round((requirementsWithEvidence / totalRequirements) * 100) : null,
+      },
+      conformance: {
+        averageScore: avgConformanceScore,
+        assessments: scoredAssessments,
+      },
+      warnings,
+      assessmentBreakdown,
+    });
+  } catch (error) {
+    logger.error('Get project stats error', { error, requestId: req.requestId });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 export default router;

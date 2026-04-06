@@ -203,7 +203,7 @@ CREATE TABLE IF NOT EXISTS assessment (
   due_date TIMESTAMP WITH TIME ZONE,
   start_date TIMESTAMP WITH TIME ZONE,
   end_date TIMESTAMP WITH TIME ZONE,
-  state VARCHAR(50) NOT NULL DEFAULT 'new' CHECK(state IN ('new', 'pending', 'in_progress', 'on_hold', 'cancelled', 'complete')),
+  state VARCHAR(50) NOT NULL DEFAULT 'new' CHECK(state IN ('new', 'pending', 'in_progress', 'on_hold', 'cancelled', 'complete', 'archived')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -640,7 +640,6 @@ export async function createTestProject(overrides: Partial<{
   name: string;
   description: string;
   state: string;
-  workflowType: string;
 }> = {}) {
   const db = getTestDatabase();
   const projectId = uuidv4();
@@ -650,7 +649,6 @@ export async function createTestProject(overrides: Partial<{
     name: overrides.name || 'Test Project',
     description: overrides.description || 'A test project',
     state: (overrides.state || 'new') as any,
-    workflow_type: (overrides.workflowType || 'evidence_driven') as any,
   }).execute();
 
   return {

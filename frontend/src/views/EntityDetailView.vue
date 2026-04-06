@@ -551,6 +551,8 @@ const relationshipColor = (type: string): string => {
     supplies: '#f0883e',
     depends_on: '#f85149',
     consumes: '#db61a2',
+    assesses: '#d2a8ff',
+    produces: '#7ee787',
   }
   return colors[type] || '#6e7681'
 }
@@ -739,6 +741,8 @@ const formatRelationshipType = (type: string): string => {
     governs: 'Governs',
     contains: 'Contains',
     consumes: 'Consumes',
+    assesses: 'Assesses',
+    produces: 'Produces',
   }
   return map[type] || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }

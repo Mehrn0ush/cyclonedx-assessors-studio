@@ -165,7 +165,7 @@ CREATE TABLE IF NOT EXISTS assessment (
   due_date TIMESTAMP WITH TIME ZONE,
   start_date TIMESTAMP WITH TIME ZONE,
   end_date TIMESTAMP WITH TIME ZONE,
-  state VARCHAR(50) NOT NULL DEFAULT 'new' CHECK(state IN ('new', 'pending', 'in_progress', 'on_hold', 'cancelled', 'complete')),
+  state VARCHAR(50) NOT NULL DEFAULT 'new' CHECK(state IN ('new', 'pending', 'in_progress', 'on_hold', 'cancelled', 'complete', 'archived')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -504,14 +504,14 @@ ALTER TABLE affirmation ADD COLUMN IF NOT EXISTS entity_id UUID REFERENCES entit
 -- Work Notes (per assessment requirement)
 CREATE TABLE IF NOT EXISTS work_note (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  assessment_requirement_id UUID NOT NULL REFERENCES assessment_requirement(id) ON DELETE CASCADE,
+  assessment_id UUID NOT NULL REFERENCES assessment(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_work_note_assessment_requirement ON work_note(assessment_requirement_id);
+CREATE INDEX IF NOT EXISTS idx_work_note_assessment ON work_note(assessment_id);
 
 -- Audit Trail
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -566,6 +566,90 @@ CREATE INDEX IF NOT EXISTS idx_dashboard_owner ON dashboard(owner_id);
 -- Update entity_type CHECK constraint to include 'service' (for existing databases)
 ALTER TABLE entity DROP CONSTRAINT IF EXISTS entity_entity_type_check;
 ALTER TABLE entity ADD CONSTRAINT entity_entity_type_check CHECK(entity_type IN ('organization', 'business_unit', 'team', 'product', 'product_version', 'component', 'service', 'project'));
+
+-- =====================================================================
+-- CycloneDX Declarations Alignment (gaps 1-5)
+-- =====================================================================
+
+-- Add bom_ref to entity (all entities can be CycloneDX targets)
+ALTER TABLE entity ADD COLUMN IF NOT EXISTS bom_ref VARCHAR(255);
+
+-- Assessor table: CycloneDX declarations.assessors[]
+-- Links to an entity (org) and optionally an app_user (for internal assessors)
+CREATE TABLE IF NOT EXISTS assessor (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  bom_ref VARCHAR(255) NOT NULL,
+  third_party BOOLEAN NOT NULL DEFAULT TRUE,
+  entity_id UUID REFERENCES entity(id) ON DELETE SET NULL,
+  user_id UUID REFERENCES app_user(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_assessor_entity ON assessor(entity_id);
+CREATE INDEX IF NOT EXISTS idx_assessor_user ON assessor(user_id);
+
+-- Add assessor_id to attestation: CycloneDX attestation.assessor
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS assessor_id UUID REFERENCES assessor(id) ON DELETE SET NULL;
+
+-- Attestation requirement claim links: CycloneDX attestation.map[].claims[]
+CREATE TABLE IF NOT EXISTS attestation_requirement_claim (
+  attestation_requirement_id UUID NOT NULL REFERENCES attestation_requirement(id) ON DELETE CASCADE,
+  claim_id UUID NOT NULL REFERENCES claim(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (attestation_requirement_id, claim_id)
+);
+
+-- Attestation requirement counter claim links: CycloneDX attestation.map[].counterClaims[]
+CREATE TABLE IF NOT EXISTS attestation_requirement_counter_claim (
+  attestation_requirement_id UUID NOT NULL REFERENCES attestation_requirement(id) ON DELETE CASCADE,
+  claim_id UUID NOT NULL REFERENCES claim(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (attestation_requirement_id, claim_id)
+);
+
+-- Change claim target from TEXT to entity FK: CycloneDX declarations.targets
+ALTER TABLE claim ADD COLUMN IF NOT EXISTS target_entity_id UUID REFERENCES entity(id) ON DELETE SET NULL;
+
+-- Claim external references: CycloneDX claim.externalReferences[]
+CREATE TABLE IF NOT EXISTS claim_external_reference (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  claim_id UUID NOT NULL REFERENCES claim(id) ON DELETE CASCADE,
+  type VARCHAR(100) NOT NULL CHECK(type IN (
+    'vcs', 'issue-tracker', 'website', 'advisories', 'bom', 'mailing-list',
+    'social', 'chat', 'documentation', 'support', 'source-distribution',
+    'distribution', 'distribution-intake', 'license', 'build-meta',
+    'build-system', 'release-notes', 'security-contact', 'model-card',
+    'log', 'configuration', 'evidence', 'formulation', 'attestation',
+    'threat-model', 'adversary-model', 'risk-assessment',
+    'vulnerability-assertion', 'exploitability-statement', 'pentest-report',
+    'static-analysis-report', 'dynamic-analysis-report',
+    'runtime-analysis-report', 'component-analysis-report',
+    'maturity-report', 'certification-report', 'codified-infrastructure',
+    'quality-metrics', 'poam', 'electronic-signature', 'digital-signature',
+    'rfc-9116', 'patent', 'patent-family', 'patent-assertion', 'citation',
+    'other'
+  )),
+  url VARCHAR(2048) NOT NULL,
+  comment TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_claim_ext_ref_claim ON claim_external_reference(claim_id);
+
+-- Signatory external reference support: CycloneDX signatory.externalReference
+ALTER TABLE signatory ADD COLUMN IF NOT EXISTS external_reference_type VARCHAR(100);
+ALTER TABLE signatory ADD COLUMN IF NOT EXISTS external_reference_url VARCHAR(2048);
+
+-- Add start_date and due_date to project for timeline tracking
+ALTER TABLE project ADD COLUMN IF NOT EXISTS start_date DATE;
+ALTER TABLE project ADD COLUMN IF NOT EXISTS due_date DATE;
+
+-- Expand entity_relationship types with 'assesses' and 'produces'
+ALTER TABLE entity_relationship DROP CONSTRAINT IF EXISTS entity_relationship_relationship_type_check;
+ALTER TABLE entity_relationship ADD CONSTRAINT entity_relationship_relationship_type_check
+  CHECK(relationship_type IN ('owns', 'supplies', 'depends_on', 'governs', 'contains', 'consumes', 'assesses', 'produces'));
 `;
 
 export async function runMigrations(): Promise<void> {

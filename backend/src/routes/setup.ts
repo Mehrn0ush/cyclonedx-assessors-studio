@@ -253,8 +253,10 @@ router.post('/seed-demo', async (_req: Request, res: Response): Promise<void> =>
       res.status(200).json({ message: 'Demo data already present, skipped' });
     }
   } catch (error) {
-    logger.error('Demo data seed error', { error });
-    res.status(500).json({ error: 'Failed to load demo data' });
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const errStack = error instanceof Error ? error.stack : undefined;
+    logger.error('Demo data seed error', { message: errMsg, stack: errStack });
+    res.status(500).json({ error: 'Failed to load demo data', details: errMsg });
   }
 });
 

@@ -44,7 +44,7 @@
               <p v-if="assessment.description" class="info-description">{{ assessment.description }}</p>
             </div>
             <div class="action-buttons">
-              <el-button @click="openEditDialog">
+              <el-button v-if="!isReadOnly" @click="openEditDialog">
                 {{ t('common.edit') }}
               </el-button>
               <el-button v-if="assessment.state === 'new'" type="primary" @click="handleStartAssessment">
@@ -53,8 +53,31 @@
               <el-button v-if="assessment.state === 'in_progress'" type="success" @click="handleCompleteAssessment">
                 {{ t('assessments.completeAssessment') }}
               </el-button>
+              <el-button v-if="assessment.state === 'complete'" @click="handleReopenAssessment">
+                Reopen
+              </el-button>
+              <el-button v-if="assessment.state === 'complete'" type="warning" @click="handleArchiveAssessment">
+                Archive
+              </el-button>
             </div>
           </div>
+
+          <el-alert
+            v-if="isArchived"
+            title="This assessment is archived and permanently read-only."
+            type="info"
+            :closable="false"
+            show-icon
+            style="margin-bottom: var(--cat-spacing-4)"
+          />
+          <el-alert
+            v-else-if="assessment.state === 'complete'"
+            title="This assessment is complete and read-only. Reopen it to make changes."
+            type="info"
+            :closable="false"
+            show-icon
+            style="margin-bottom: var(--cat-spacing-4)"
+          />
 
           <el-divider />
 
@@ -175,7 +198,7 @@
               </el-table-column>
               <el-table-column :label="t('assessments.result')" min-width="130">
                 <template #default="{ row }">
-                  <el-select v-model="row.result" size="small" placeholder="Select" style="width: 100%" @change="handleResultChange(row)">
+                  <el-select v-model="row.result" size="small" placeholder="Select" style="width: 100%" :disabled="isReadOnly" @change="handleResultChange(row)">
                     <el-option :label="t('common.yes')" value="yes"></el-option>
                     <el-option :label="t('common.no')" value="no"></el-option>
                     <el-option label="Partial" value="partial"></el-option>
@@ -202,9 +225,10 @@
                     </div>
                     <span class="rationale-hint">Minimum 15 words required</span>
                   </div>
-                  <div v-else class="rationale-display" @click="startEditRationale(row)">
+                  <div v-else class="rationale-display" :class="{ 'read-only': isReadOnly }" @click="!isReadOnly && startEditRationale(row)">
                     <span v-if="row.rationale" class="rationale-text">{{ row.rationale }}</span>
-                    <span v-else class="rationale-placeholder">Click to add rationale...</span>
+                    <span v-else-if="!isReadOnly" class="rationale-placeholder">Click to add rationale...</span>
+                    <span v-else class="rationale-placeholder">No rationale</span>
                   </div>
                 </template>
               </el-table-column>
@@ -227,7 +251,7 @@
 
           <el-tab-pane :label="t('assessments.evidence')" name="evidence">
             <div class="evidence-section">
-              <el-button v-if="assessment.state !== 'completed'" type="primary" style="margin-bottom: var(--cat-spacing-4)" @click="showCreateEvidenceDialog = true">
+              <el-button v-if="!isReadOnly" type="primary" style="margin-bottom: var(--cat-spacing-4)" @click="showCreateEvidenceDialog = true">
                 {{ t('assessments.addEvidence') }}
               </el-button>
               <div v-if="isLoadingEvidence" class="loading-state">
@@ -281,14 +305,17 @@
 
           <el-tab-pane label="Claims" name="claims">
             <div class="claims-section">
+              <el-button v-if="!isReadOnly" type="primary" style="margin-bottom: var(--cat-spacing-4)" @click="showCreateClaimDialog = true">
+                Add Claim
+              </el-button>
               <div v-if="isLoadingClaims" class="loading-state">
                 <el-skeleton :rows="3" animated />
               </div>
               <div v-else-if="assessmentClaims.length === 0" class="empty-state">
                 <p>No claims associated with this assessment yet.</p>
-                <p v-if="!attestation" style="margin-top: 8px; font-size: var(--cat-font-size-sm); color: var(--cat-text-tertiary);">
-                  Claims are linked through attestations. Create an attestation first.
-                </p>
+                <el-button v-if="!isReadOnly" type="primary" size="small" style="margin-top: 12px" @click="showCreateClaimDialog = true">
+                  Add Claim
+                </el-button>
               </div>
               <el-table v-else :data="assessmentClaims" stripe border class="clickable-table" @row-click="handleClaimRowClick">
                 <el-table-column prop="name" label="Claim" min-width="250" sortable>
@@ -296,7 +323,17 @@
                     <span class="evidence-link">{{ row.name }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="target" label="Target" min-width="180" sortable></el-table-column>
+                <el-table-column label="Target" min-width="180" sortable>
+                  <template #default="{ row }">
+                    <router-link v-if="row.targetEntityId" :to="`/entities/${row.targetEntityId}`" class="evidence-link" @click.stop>
+                      {{ row.targetEntityName || row.target }}
+                    </router-link>
+                    <span v-else>{{ row.target }}</span>
+                    <div v-if="row.targetEntityType" style="font-size: var(--cat-font-size-xs); color: var(--cat-text-tertiary); margin-top: 2px;">
+                      {{ row.targetEntityType.replace('_', ' ') }}
+                    </div>
+                  </template>
+                </el-table-column>
                 <el-table-column label="Type" min-width="100">
                   <template #default="{ row }">
                     <el-tag v-if="row.isCounterClaim" type="warning" size="small">Counter</el-tag>
@@ -316,6 +353,17 @@
                 <el-table-column label="Predicate" min-width="300">
                   <template #default="{ row }">
                     <span class="claim-predicate">{{ row.predicate }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="References" min-width="120" align="center">
+                  <template #default="{ row }">
+                    <div v-if="row.externalReferences && row.externalReferences.length > 0" class="ext-ref-links">
+                      <a v-for="ref in row.externalReferences" :key="ref.id" :href="ref.url" target="_blank" rel="noopener noreferrer"
+                        class="ext-ref-pill" :title="ref.comment || ref.type" @click.stop>
+                        {{ ref.type }}
+                      </a>
+                    </div>
+                    <span v-else style="color: var(--cat-text-tertiary);">&#8212;</span>
                   </template>
                 </el-table-column>
               </el-table>
@@ -367,17 +415,20 @@
                   </el-table>
                 </div>
                 <div class="attestation-actions" style="margin-top: var(--cat-spacing-4)">
-                  <el-button @click="openEditScoresDialog">{{ t('assessments.editScores') }}</el-button>
-                  <el-button type="primary" @click="handleSignAttestation">{{ t('assessments.signAttestation') }}</el-button>
+                  <el-button v-if="!isReadOnly" @click="openEditScoresDialog">{{ t('assessments.editScores') }}</el-button>
+                  <el-button v-if="!isReadOnly" type="primary" @click="handleSignAttestation">{{ t('assessments.signAttestation') }}</el-button>
                   <el-button :loading="exportingCycloneDX" @click="handleExportCycloneDX">{{ t('assessments.exportCycloneDX') }}</el-button>
                   <el-button :loading="exportingPDF" @click="handleExportPDF">{{ t('assessments.exportPDF') }}</el-button>
                 </div>
               </div>
-              <div v-else-if="assessment.state === 'completed'" class="empty-state">
+              <div v-else-if="assessment.state === 'complete' && !isArchived" class="empty-state">
                 <p>{{ t('assessments.noAttestation') }}</p>
                 <el-button type="primary" @click="handleCreateAttestation" style="margin-top: var(--cat-spacing-4)">
                   {{ t('assessments.createAttestation') }}
                 </el-button>
+              </div>
+              <div v-else-if="isArchived && !attestation" class="empty-state">
+                <p>No attestation was created before archiving.</p>
               </div>
               <div v-else class="empty-state">
                 <p>{{ t('assessments.attestationPending') }}</p>
@@ -387,7 +438,7 @@
 
           <el-tab-pane :label="t('assessments.workNotes')" name="workNotes">
             <div class="work-notes-section">
-              <div v-if="assessment.state !== 'completed'" style="margin-bottom: var(--cat-spacing-4)">
+              <div v-if="!isReadOnly" style="margin-bottom: var(--cat-spacing-4)">
                 <el-button type="primary" @click="openAddNoteDialog">
                   {{ t('assessments.addWorkNote') }}
                 </el-button>
@@ -401,13 +452,10 @@
               <div v-else class="work-notes-list">
                 <div v-for="note in workNotes" :key="note.id" class="work-note-item">
                   <div class="note-header">
-                    <div>
-                      <span class="note-author">{{ note.authorDisplayName || note.authorName || 'Unknown' }}</span>
-                      <span class="note-requirement-tag">{{ getRequirementIdentifier(note.requirementId) }}</span>
-                    </div>
+                    <span class="note-author">{{ note.authorDisplayName || note.authorUsername || 'Unknown' }}</span>
                     <span class="note-date">{{ formatDate(note.createdAt) }}</span>
                   </div>
-                  <p class="note-content">{{ note.content }}</p>
+                  <p class="note-content" v-html="renderMentions(note.content)"></p>
                 </div>
               </div>
             </div>
@@ -493,17 +541,14 @@
     </el-dialog>
 
     <!-- Add Work Note Dialog -->
-    <el-dialog v-model="showAddNoteDialog" :title="t('assessments.addWorkNote')" width="500px">
-      <el-form :model="newNoteForm" label-width="120px">
-        <el-form-item :label="t('assessments.selectRequirement')" required>
-          <el-select v-model="newNoteForm.requirementId" :placeholder="t('assessments.selectRequirement')">
-            <el-option v-for="req in requirements" :key="req.id" :label="`${req.identifier} - ${req.title || req.name}`" :value="req.id"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="t('assessments.noteContent')" required>
-          <el-input v-model="newNoteForm.content" type="textarea" :rows="4" :placeholder="t('assessments.noteContent')" />
-        </el-form-item>
-      </el-form>
+    <el-dialog v-model="showAddNoteDialog" :title="t('assessments.addWorkNote')" width="540px">
+      <p class="mention-hint">Use @username to mention and notify a participant.</p>
+      <MentionTextarea
+        v-model="newNoteForm.content"
+        :participants="mentionParticipants"
+        :rows="6"
+        :placeholder="t('assessments.noteContent')"
+      />
       <template #footer>
         <el-button @click="showAddNoteDialog = false">{{ t('common.cancel') }}</el-button>
         <el-button type="primary" :loading="isSavingNote" @click="handleSaveNote">{{ t('common.save') }}</el-button>
@@ -592,6 +637,137 @@
         <el-button type="primary" :loading="isCreatingEvidence" @click="handleCreateEvidence">{{ t('common.create') }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- Add Claim Dialog -->
+    <el-dialog v-model="showCreateClaimDialog" title="New Claim" width="600px">
+      <el-form :model="createClaimForm" label-width="150px">
+        <el-form-item label="Name" required>
+          <el-input v-model="createClaimForm.name" placeholder="Brief name for this claim" />
+        </el-form-item>
+        <el-form-item label="Target">
+          <SearchSelect
+            v-model="createClaimForm.targetEntityId"
+            :options="claimTargetEntityOptions"
+            placeholder="Select target entity..."
+            search-placeholder="Search entities..."
+          />
+        </el-form-item>
+        <el-form-item label="Predicate" required>
+          <el-input v-model="createClaimForm.predicate" placeholder="What is being claimed about the target" type="textarea" :rows="2" />
+        </el-form-item>
+        <el-form-item label="Reasoning">
+          <el-input v-model="createClaimForm.reasoning" placeholder="Supporting rationale or description" type="textarea" :rows="3" />
+        </el-form-item>
+        <el-form-item label="Counter Claim">
+          <el-checkbox v-model="createClaimForm.isCounterClaim">This is a counter claim</el-checkbox>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showCreateClaimDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="isCreatingClaim" @click="handleCreateClaim">{{ t('common.create') }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Claim Detail Drawer -->
+    <el-drawer v-model="showClaimDetailDrawer" :title="isEditingClaim ? 'Edit Claim' : 'Claim Details'" size="50%" @close="isEditingClaim = false">
+      <div v-if="isLoadingClaimDetail" class="loading-state">
+        <el-skeleton :rows="4" animated />
+      </div>
+
+      <!-- Edit Mode -->
+      <div v-else-if="isEditingClaim && claimDetail" class="claim-detail-content">
+        <el-form :model="editClaimForm" label-position="top">
+          <el-form-item label="Name" required>
+            <el-input v-model="editClaimForm.name" placeholder="Brief name for this claim" />
+          </el-form-item>
+          <el-form-item label="Target">
+            <SearchSelect
+              v-model="editClaimForm.targetEntityId"
+              :options="claimTargetEntityOptions"
+              placeholder="Select target entity..."
+              search-placeholder="Search entities..."
+            />
+          </el-form-item>
+          <el-form-item label="Predicate" required>
+            <el-input v-model="editClaimForm.predicate" placeholder="What is being claimed about the target" type="textarea" :rows="2" />
+          </el-form-item>
+          <el-form-item label="Reasoning">
+            <el-input v-model="editClaimForm.reasoning" placeholder="Supporting rationale or description" type="textarea" :rows="3" />
+          </el-form-item>
+          <el-form-item label="Counter Claim">
+            <el-checkbox v-model="editClaimForm.isCounterClaim">This is a counter claim</el-checkbox>
+          </el-form-item>
+          <el-form-item label="Supporting Evidence">
+            <el-select v-model="editClaimForm.evidenceIds" multiple filterable placeholder="Select evidence items" clearable style="width: 100%">
+              <el-option v-for="ev in evidence" :key="ev.id" :label="ev.name" :value="ev.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="Counter Evidence">
+            <el-select v-model="editClaimForm.counterEvidenceIds" multiple filterable placeholder="Select evidence items" clearable style="width: 100%">
+              <el-option v-for="ev in evidence" :key="ev.id" :label="ev.name" :value="ev.id" />
+            </el-select>
+          </el-form-item>
+        </el-form>
+        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: var(--cat-spacing-4);">
+          <el-button @click="isEditingClaim = false">{{ t('common.cancel') }}</el-button>
+          <el-button type="primary" :loading="isSavingClaim" @click="handleSaveClaim">{{ t('common.save') }}</el-button>
+        </div>
+      </div>
+
+      <!-- View Mode -->
+      <div v-else-if="claimDetail" class="claim-detail-content">
+        <div v-if="!isReadOnly" style="display: flex; gap: 8px; justify-content: flex-end; margin-bottom: var(--cat-spacing-4);">
+          <el-button @click="startEditClaim">Edit</el-button>
+          <el-button type="danger" plain @click="handleDeleteClaim">Delete</el-button>
+        </div>
+        <div class="info-field">
+          <h4>Name</h4>
+          <p>{{ claimDetail.name }}</p>
+        </div>
+        <div class="info-field">
+          <h4>Target</h4>
+          <p>
+            <router-link v-if="claimDetail.targetEntityId" :to="`/entities/${claimDetail.targetEntityId}`" class="evidence-link">
+              {{ claimDetail.targetEntityName || claimDetail.target }}
+            </router-link>
+            <span v-else>{{ claimDetail.target }}</span>
+          </p>
+        </div>
+        <div class="info-field">
+          <h4>Type</h4>
+          <el-tag v-if="claimDetail.isCounterClaim" type="warning" size="small">Counter Claim</el-tag>
+          <el-tag v-else type="success" size="small">Claim</el-tag>
+        </div>
+        <div class="info-field">
+          <h4>Predicate</h4>
+          <p>{{ claimDetail.predicate }}</p>
+        </div>
+        <div v-if="claimDetail.reasoning" class="info-field">
+          <h4>Reasoning</h4>
+          <p>{{ claimDetail.reasoning }}</p>
+        </div>
+        <div class="info-field">
+          <h4>Supporting Evidence</h4>
+          <ul v-if="claimDetailEvidence.length > 0" class="claim-evidence-list">
+            <li v-for="ev in claimDetailEvidence" :key="ev.id">
+              <router-link :to="`/evidence/${ev.id}`" class="evidence-link" @click="showClaimDetailDrawer = false">{{ ev.name }}</router-link>
+              <el-tag v-if="ev.state" size="small" style="margin-left: 6px">{{ ev.state }}</el-tag>
+            </li>
+          </ul>
+          <p v-else style="color: var(--cat-text-tertiary)">No supporting evidence</p>
+        </div>
+        <div class="info-field">
+          <h4>Counter Evidence</h4>
+          <ul v-if="claimDetailCounterEvidence.length > 0" class="claim-evidence-list">
+            <li v-for="ev in claimDetailCounterEvidence" :key="ev.id">
+              <router-link :to="`/evidence/${ev.id}`" class="evidence-link" @click="showClaimDetailDrawer = false">{{ ev.name }}</router-link>
+              <el-tag v-if="ev.state" size="small" style="margin-left: 6px">{{ ev.state }}</el-tag>
+            </li>
+          </ul>
+          <p v-else style="color: var(--cat-text-tertiary)">No counter evidence</p>
+        </div>
+      </div>
+    </el-drawer>
 
     <!-- Export Preview Dialog -->
     <el-dialog v-model="showExportPreviewDialog" :title="t('assessments.exportAssessment')" width="500px">
@@ -685,6 +861,8 @@ import { ArrowRight, Check } from '@element-plus/icons-vue'
 import axios from 'axios'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import HelpTip from '@/components/shared/HelpTip.vue'
+import SearchSelect from '@/components/shared/SearchSelect.vue'
+import MentionTextarea from '@/components/shared/MentionTextarea.vue'
 import { formatDate } from '@/utils/dateFormat'
 
 const { t } = useI18n()
@@ -714,6 +892,14 @@ const requirements = ref<any[]>([])
 const evidence = ref<any[]>([])
 const assessors = ref<any[]>([])
 const assessees = ref<any[]>([])
+
+// Read-only state: complete and archived assessments are immutable
+const isReadOnly = computed(() => {
+  return assessment.value?.state === 'complete' || assessment.value?.state === 'archived'
+})
+const isArchived = computed(() => {
+  return assessment.value?.state === 'archived'
+})
 const projectName = ref<string>('')
 const entityName = ref<string>('')
 const standardName = ref<string>('')
@@ -760,6 +946,32 @@ const createEvidenceForm = ref({
 // Claims tab state
 const assessmentClaims = ref<any[]>([])
 const isLoadingClaims = ref(false)
+const showCreateClaimDialog = ref(false)
+const isCreatingClaim = ref(false)
+const claimTargetEntityOptions = ref<{ value: string; label: string; description?: string }[]>([])
+const createClaimForm = ref({
+  name: '',
+  targetEntityId: '',
+  predicate: '',
+  reasoning: '',
+  isCounterClaim: false,
+})
+const showClaimDetailDrawer = ref(false)
+const claimDetail = ref<any>(null)
+const claimDetailEvidence = ref<any[]>([])
+const claimDetailCounterEvidence = ref<any[]>([])
+const isLoadingClaimDetail = ref(false)
+const isEditingClaim = ref(false)
+const isSavingClaim = ref(false)
+const editClaimForm = ref({
+  name: '',
+  targetEntityId: '',
+  predicate: '',
+  reasoning: '',
+  isCounterClaim: false,
+  evidenceIds: [] as string[],
+  counterEvidenceIds: [] as string[],
+})
 
 // Requirement popup state
 const showRequirementPopup = ref(false)
@@ -781,9 +993,10 @@ const editForm = ref({
 })
 
 const newNoteForm = ref({
-  requirementId: '',
   content: '',
 })
+
+const mentionParticipants = ref<any[]>([])
 
 const editScoresForm = ref({
   scores: [] as any[]
@@ -952,7 +1165,7 @@ const fetchWorkNotes = async () => {
   try {
     const assessmentId = route.params.id as string
     const response = await axios.get(`/api/v1/assessments/${assessmentId}/notes`)
-    workNotes.value = Array.isArray(response.data) ? response.data : response.data.notes || []
+    workNotes.value = response.data?.data || []
   } catch (error) {
     console.error('Failed to fetch work notes:', error)
     workNotes.value = []
@@ -961,16 +1174,26 @@ const fetchWorkNotes = async () => {
   }
 }
 
+const fetchParticipants = async () => {
+  try {
+    const assessmentId = route.params.id as string
+    const response = await axios.get(`/api/v1/assessments/${assessmentId}/participants`)
+    mentionParticipants.value = response.data?.data || []
+  } catch (error) {
+    console.error('Failed to fetch participants:', error)
+    mentionParticipants.value = []
+  }
+}
+
 const openAddNoteDialog = () => {
-  newNoteForm.value = { requirementId: '', content: '' }
+  newNoteForm.value = { content: '' }
+  if (mentionParticipants.value.length === 0) {
+    fetchParticipants()
+  }
   showAddNoteDialog.value = true
 }
 
 const handleSaveNote = async () => {
-  if (!newNoteForm.value.requirementId) {
-    ElMessage.error(t('assessments.selectRequirement'))
-    return
-  }
   if (!newNoteForm.value.content.trim()) {
     ElMessage.error(t('assessments.noteContentRequired'))
     return
@@ -979,12 +1202,12 @@ const handleSaveNote = async () => {
   isSavingNote.value = true
   try {
     const assessmentId = route.params.id as string
-    await axios.post(`/api/v1/assessments/${assessmentId}/requirements/${newNoteForm.value.requirementId}/notes`, {
+    await axios.post(`/api/v1/assessments/${assessmentId}/notes`, {
       content: newNoteForm.value.content
     })
     ElMessage.success(t('assessments.workNoteAdded'))
     showAddNoteDialog.value = false
-    newNoteForm.value = { requirementId: '', content: '' }
+    newNoteForm.value = { content: '' }
     await fetchWorkNotes()
   } catch (error: any) {
     ElMessage.error(error.response?.data?.error || t('common.errorOccurred'))
@@ -992,6 +1215,20 @@ const handleSaveNote = async () => {
   } finally {
     isSavingNote.value = false
   }
+}
+
+const renderMentions = (content: string): string => {
+  if (!content) return ''
+  // Escape HTML first to prevent XSS, then highlight @mentions
+  const escaped = content
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+  return escaped.replace(
+    /@(\w+(?:\.\w+)*)/g,
+    '<span class="mention-highlight">@$1</span>'
+  )
 }
 
 const fetchAttestation = async () => {
@@ -1209,6 +1446,51 @@ const handleCompleteAssessment = async () => {
   }
 }
 
+const handleReopenAssessment = async () => {
+  try {
+    await ElMessageBox.confirm(
+      'Reopening this assessment will allow modifications to requirements, evidence, claims, and attestations. Continue?',
+      'Reopen Assessment',
+      {
+        confirmButtonText: 'Reopen',
+        cancelButtonText: t('common.cancel'),
+        type: 'warning'
+      }
+    )
+    const assessmentId = route.params.id as string
+    await axios.post(`/api/v1/assessments/${assessmentId}/reopen`)
+    ElMessage.success('Assessment reopened')
+    await fetchAssessmentData()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.response?.data?.error || 'Failed to reopen assessment')
+    }
+  }
+}
+
+const handleArchiveAssessment = async () => {
+  try {
+    await ElMessageBox.confirm(
+      'Archiving is permanent and cannot be undone. The assessment and all related data will become permanently read-only. Continue?',
+      'Archive Assessment',
+      {
+        confirmButtonText: 'Archive',
+        cancelButtonText: t('common.cancel'),
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger',
+      }
+    )
+    const assessmentId = route.params.id as string
+    await axios.post(`/api/v1/assessments/${assessmentId}/archive`)
+    ElMessage.success('Assessment archived')
+    await fetchAssessmentData()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.response?.data?.error || 'Failed to archive assessment')
+    }
+  }
+}
+
 const openEditDialog = () => {
   if (!assessment.value) return
   editForm.value = {
@@ -1366,8 +1648,21 @@ const workflowSteps = computed(() => {
   const assessedCount_ = requirements.value.filter((r: any) => r.result).length
   const evidenceCount = evidence.value.length
   const hasAttestation = !!attestation.value
-  const isComplete = assessment.value?.state === 'complete' || assessment.value?.state === 'completed'
+  const isComplete = assessment.value?.state === 'complete' || assessment.value?.state === 'archived'
   const hasStandard = !!assessment.value?.standardId
+
+  // Evidence is complete only when every assessed requirement has at least one evidence linked
+  const assessedReqs = requirements.value.filter((r: any) => r.result)
+  const allAssessedHaveEvidence = assessedReqs.length > 0 && assessedReqs.every(
+    (r: any) => getEvidenceCountForRequirement(r.id) > 0
+  )
+
+  // Claims complete when at least one claim exists for every assessed requirement with evidence
+  const claimCount = assessmentClaims.value.length
+  const claimsComplete = isComplete && claimCount > 0
+
+  // Attestation only complete when assessment is complete/archived and attestation exists
+  const attestationComplete = isComplete && hasAttestation
 
   return [
     {
@@ -1388,23 +1683,23 @@ const workflowSteps = computed(() => {
       key: 'evidence',
       label: 'Evidence',
       tabName: 'evidence',
-      complete: evidenceCount > 0,
+      complete: allAssessedHaveEvidence,
       detail: evidenceCount > 0 ? `${evidenceCount} item${evidenceCount !== 1 ? 's' : ''}` : 'None linked',
     },
     {
       key: 'claims',
       label: 'Claims',
       tabName: 'claims',
-      complete: assessmentClaims.value.length > 0,
-      detail: assessmentClaims.value.length > 0
-        ? `${assessmentClaims.value.length} claim${assessmentClaims.value.length !== 1 ? 's' : ''}`
+      complete: claimsComplete,
+      detail: claimCount > 0
+        ? `${claimCount} claim${claimCount !== 1 ? 's' : ''}`
         : 'None',
     },
     {
       key: 'attestation',
       label: 'Attestation',
       tabName: 'attestation',
-      complete: hasAttestation,
+      complete: attestationComplete,
       detail: hasAttestation ? 'Created' : 'Not started',
     },
     {
@@ -1432,8 +1727,156 @@ const fetchClaims = async () => {
   }
 }
 
-const handleClaimRowClick = (row: any) => {
-  router.push(`/claims/${row.id}`)
+const handleClaimRowClick = async (row: any) => {
+  showClaimDetailDrawer.value = true
+  isLoadingClaimDetail.value = true
+  try {
+    const response = await axios.get(`/api/v1/assessments/${route.params.id}/claims`)
+    const claims = Array.isArray(response.data) ? response.data : response.data.data || []
+    claimDetail.value = claims.find((c: any) => c.id === row.id) || row
+    // Fetch full claim detail for evidence lists
+    const detailResponse = await axios.get(`/api/v1/claims/${row.id}`)
+    claimDetailEvidence.value = detailResponse.data.evidence || []
+    claimDetailCounterEvidence.value = detailResponse.data.counterEvidence || []
+  } catch (err) {
+    claimDetail.value = row
+    claimDetailEvidence.value = []
+    claimDetailCounterEvidence.value = []
+  } finally {
+    isLoadingClaimDetail.value = false
+  }
+}
+
+const fetchClaimTargetEntities = async () => {
+  try {
+    const response = await axios.get('/api/v1/entities', { params: { limit: 200 } })
+    const entities = response.data.data || []
+    claimTargetEntityOptions.value = entities.map((e: any) => ({
+      value: e.id,
+      label: e.name,
+      description: e.entityType ? e.entityType.replace('_', ' ') : undefined
+    }))
+  } catch (err: any) {
+    console.error('Failed to fetch entities for claim target:', err)
+  }
+}
+
+const handleCreateClaim = async () => {
+  if (!createClaimForm.value.name || !createClaimForm.value.predicate) {
+    ElMessage.error('Name and predicate are required')
+    return
+  }
+
+  isCreatingClaim.value = true
+  try {
+    // Find the attestation for this assessment to link the claim
+    const attestationId = attestation.value?.id || null
+
+    // Resolve target text from entity if selected
+    let targetText = createClaimForm.value.name
+    if (createClaimForm.value.targetEntityId) {
+      const match = claimTargetEntityOptions.value.find(e => e.value === createClaimForm.value.targetEntityId)
+      if (match) targetText = match.label
+    }
+
+    const payload: any = {
+      name: createClaimForm.value.name,
+      target: targetText,
+      targetEntityId: createClaimForm.value.targetEntityId || null,
+      predicate: createClaimForm.value.predicate,
+      reasoning: createClaimForm.value.reasoning || undefined,
+      isCounterClaim: createClaimForm.value.isCounterClaim,
+    }
+    if (attestationId) {
+      payload.attestationId = attestationId
+    }
+
+    await axios.post('/api/v1/claims', payload)
+    ElMessage.success('Claim created successfully')
+    showCreateClaimDialog.value = false
+    createClaimForm.value = { name: '', targetEntityId: '', predicate: '', reasoning: '', isCounterClaim: false }
+    await fetchClaims()
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.message || 'Failed to create claim')
+  } finally {
+    isCreatingClaim.value = false
+  }
+}
+
+// --- Claim Edit/Delete ---
+const startEditClaim = () => {
+  if (!claimDetail.value) return
+  editClaimForm.value = {
+    name: claimDetail.value.name || '',
+    targetEntityId: claimDetail.value.targetEntityId || '',
+    predicate: claimDetail.value.predicate || '',
+    reasoning: claimDetail.value.reasoning || '',
+    isCounterClaim: claimDetail.value.isCounterClaim || false,
+    evidenceIds: claimDetailEvidence.value.map((ev: any) => ev.id),
+    counterEvidenceIds: claimDetailCounterEvidence.value.map((ev: any) => ev.id),
+  }
+  isEditingClaim.value = true
+}
+
+const handleSaveClaim = async () => {
+  if (!claimDetail.value) return
+  if (!editClaimForm.value.name || !editClaimForm.value.predicate) {
+    ElMessage.error('Name and predicate are required')
+    return
+  }
+
+  isSavingClaim.value = true
+  try {
+    let targetText = editClaimForm.value.name
+    if (editClaimForm.value.targetEntityId) {
+      const match = claimTargetEntityOptions.value.find(e => e.value === editClaimForm.value.targetEntityId)
+      if (match) targetText = match.label
+    }
+
+    const payload: any = {
+      name: editClaimForm.value.name,
+      target: targetText,
+      targetEntityId: editClaimForm.value.targetEntityId || null,
+      predicate: editClaimForm.value.predicate,
+      reasoning: editClaimForm.value.reasoning || undefined,
+      isCounterClaim: editClaimForm.value.isCounterClaim,
+      evidenceIds: editClaimForm.value.evidenceIds,
+      counterEvidenceIds: editClaimForm.value.counterEvidenceIds,
+    }
+
+    await axios.put(`/api/v1/claims/${claimDetail.value.id}`, payload)
+    ElMessage.success('Claim updated successfully')
+    isEditingClaim.value = false
+    showClaimDetailDrawer.value = false
+    await fetchClaims()
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.error || 'Failed to update claim')
+  } finally {
+    isSavingClaim.value = false
+  }
+}
+
+const handleDeleteClaim = async () => {
+  if (!claimDetail.value) return
+
+  try {
+    await ElMessageBox.confirm(
+      'Are you sure you want to delete this claim? This action cannot be undone.',
+      'Delete Claim',
+      { confirmButtonText: 'Delete', cancelButtonText: 'Cancel', type: 'warning' }
+    )
+  } catch {
+    return // User cancelled
+  }
+
+  try {
+    await axios.delete(`/api/v1/claims/${claimDetail.value.id}`)
+    ElMessage.success('Claim deleted successfully')
+    showClaimDetailDrawer.value = false
+    await fetchClaims()
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.error || 'Failed to delete claim')
+  }
 }
 
 // --- Evidence Row Click ---
@@ -1522,6 +1965,7 @@ onMounted(() => {
   fetchWorkNotes()
   fetchAttestation()
   fetchAssignableUsers()
+  fetchClaimTargetEntities()
 })
 </script>
 
@@ -1699,6 +2143,22 @@ onMounted(() => {
   margin: 0;
   color: var(--cat-text-secondary);
   line-height: var(--cat-line-height-base);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+
+  :deep(.mention-highlight) {
+    color: var(--cat-primary, #58a6ff);
+    font-weight: var(--cat-font-weight-medium);
+    background: rgba(88, 166, 255, 0.1);
+    border-radius: 3px;
+    padding: 1px 3px;
+  }
+}
+
+.mention-hint {
+  margin: 0 0 var(--cat-spacing-3) 0;
+  color: var(--cat-text-tertiary);
+  font-size: var(--cat-font-size-xs);
 }
 
 :deep(.el-breadcrumb__item) {
@@ -1896,6 +2356,14 @@ onMounted(() => {
   &:hover {
     background-color: rgba(88, 166, 255, 0.08);
   }
+
+  &.read-only {
+    cursor: default;
+
+    &:hover {
+      background-color: transparent;
+    }
+  }
 }
 
 .rationale-text {
@@ -2048,6 +2516,35 @@ onMounted(() => {
   padding: var(--cat-spacing-4) 0;
 }
 
+.claim-detail-content {
+  .info-field {
+    margin-bottom: var(--cat-spacing-4);
+
+    h4 {
+      margin: 0 0 var(--cat-spacing-1) 0;
+      font-size: var(--cat-font-size-sm);
+      color: var(--cat-text-tertiary);
+      font-weight: var(--cat-font-weight-semibold);
+    }
+
+    p {
+      margin: 0;
+    }
+  }
+}
+
+.claim-evidence-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+
+  li {
+    padding: var(--cat-spacing-1) 0;
+    display: flex;
+    align-items: center;
+  }
+}
+
 .evidence-count-display {
   display: inline-flex;
   gap: 6px;
@@ -2103,6 +2600,30 @@ onMounted(() => {
   overflow: hidden;
   color: var(--cat-text-secondary);
   font-size: var(--cat-font-size-sm);
+}
+
+.ext-ref-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+}
+
+.ext-ref-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: var(--cat-font-weight-medium);
+  background-color: rgba(88, 166, 255, 0.12);
+  color: #58a6ff;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: filter 0.15s ease;
+
+  &:hover {
+    filter: brightness(1.3);
+  }
 }
 
 // --- Clickable Evidence Table ---

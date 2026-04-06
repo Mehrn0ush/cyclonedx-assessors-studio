@@ -8,15 +8,34 @@ import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
 
+/**
+ * Check if an attestation's parent assessment is read-only.
+ * Returns error message if read-only, null if mutable.
+ */
+async function checkAttestationAssessmentReadOnly(db: any, assessmentId: string): Promise<string | null> {
+  const assessment = await db
+    .selectFrom('assessment')
+    .where('id', '=', assessmentId)
+    .select(['state'])
+    .executeTakeFirst();
+
+  if (!assessment) return null;
+  if (assessment.state === 'archived') return 'This attestation belongs to an archived assessment and cannot be modified';
+  if (assessment.state === 'complete') return 'This attestation belongs to a completed assessment. Reopen the assessment to make changes.';
+  return null;
+}
+
 const createAttestationSchema = z.object({
   summary: z.string().optional(),
   assessmentId: z.string().uuid('Invalid assessment ID'),
   signatoryId: z.string().uuid().optional(),
+  assessorId: z.string().uuid().optional(),
 });
 
 const updateAttestationSchema = z.object({
   summary: z.string().optional(),
   signatoryId: z.string().uuid().optional(),
+  assessorId: z.string().uuid().optional(),
 });
 
 const addRequirementSchema = z.object({
@@ -46,23 +65,33 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
       .executeTakeFirstOrThrow()
       .then(r => r.count);
 
-    const attestations = await db
+    const attestations = (await db
       .selectFrom('attestation')
       .leftJoin('assessment', 'assessment.id', 'attestation.assessment_id')
       .leftJoin('signatory', 'signatory.id', 'attestation.signatory_id')
+      .leftJoin('assessor', (join) =>
+        join.onRef('assessor.id' as any, '=', 'attestation.assessor_id' as any)
+      )
+      .leftJoin('entity as assessor_entity', (join) =>
+        join.onRef('assessor_entity.id' as any, '=', 'assessor.entity_id' as any)
+      )
       .select([
         'attestation.id',
         'attestation.summary',
         'attestation.assessment_id',
         'attestation.signatory_id',
+        'attestation.assessor_id',
         'attestation.created_at',
         'attestation.updated_at',
         'assessment.title as assessment_title',
         'signatory.name as signatory_name',
+        'assessor.bom_ref as assessor_bom_ref',
+        'assessor.third_party as assessor_third_party',
+        'assessor_entity.name as assessor_entity_name',
       ])
       .limit(limit)
       .offset(offset)
-      .execute();
+      .execute()) as any[];
 
     res.json({
       data: attestations,
@@ -147,6 +176,13 @@ router.post(
         return;
       }
 
+      // Guard: reject if assessment is complete/archived
+      const readOnlyError = await checkAttestationAssessmentReadOnly(db, data.assessmentId);
+      if (readOnlyError) {
+        res.status(403).json({ error: readOnlyError });
+        return;
+      }
+
       await db
         .insertInto('attestation')
         .values(toSnakeCase({
@@ -201,6 +237,13 @@ router.put(
         return;
       }
 
+      // Guard: reject if parent assessment is complete/archived
+      const readOnlyError = await checkAttestationAssessmentReadOnly(db, attestation.assessment_id);
+      if (readOnlyError) {
+        res.status(403).json({ error: readOnlyError });
+        return;
+      }
+
       const updateData: any = {};
 
       if (data.summary !== undefined) updateData.summary = data.summary;
@@ -249,6 +292,13 @@ router.post(
 
       if (!attestation) {
         res.status(404).json({ error: 'Attestation not found' });
+        return;
+      }
+
+      // Guard: reject if parent assessment is complete/archived
+      const readOnlyError = await checkAttestationAssessmentReadOnly(db, attestation.assessment_id);
+      if (readOnlyError) {
+        res.status(403).json({ error: readOnlyError });
         return;
       }
 
@@ -335,6 +385,20 @@ router.put(
       if (!attestationReq) {
         res.status(404).json({ error: 'Attestation requirement not found' });
         return;
+      }
+
+      // Guard: look up parent attestation to check assessment state
+      const parentAttestation = await db
+        .selectFrom('attestation')
+        .where('id', '=', req.params.id)
+        .select(['assessment_id'])
+        .executeTakeFirst();
+      if (parentAttestation) {
+        const readOnlyError = await checkAttestationAssessmentReadOnly(db, parentAttestation.assessment_id);
+        if (readOnlyError) {
+          res.status(403).json({ error: readOnlyError });
+          return;
+        }
       }
 
       await db

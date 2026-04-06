@@ -28,7 +28,7 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 const checkHealth = async () => {
   try {
     const { data } = await axios.get('/api/health', { timeout: 5000 })
-    backendStatus.value = data.status === 'ok' ? 'connected' : 'disconnected'
+    backendStatus.value = data.status === 'healthy' ? 'connected' : 'disconnected'
   } catch {
     backendStatus.value = 'disconnected'
   }

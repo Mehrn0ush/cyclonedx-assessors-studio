@@ -223,7 +223,8 @@
     "archiveProject": "Archive Project",
     "confirmArchive": "Are you sure you want to archive this project? This cannot be undone.",
     "projectArchived": "Project archived successfully",
-    "exportCycloneDX": "Export CycloneDX BOM",
+    "exportCycloneDX": "Export CycloneDX",
+    "exportProjectReport": "Export Project Report",
     "noProjects": "No projects",
     "noProjectsDescription": "Create a project to organize your assessments and track compliance."
   },
