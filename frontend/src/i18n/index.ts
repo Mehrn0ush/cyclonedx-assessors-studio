@@ -7,7 +7,6 @@ export const AVAILABLE_LOCALES = [
   { code: 'de-DE', name: 'German', nativeName: 'Deutsch', direction: 'ltr' as const },
   { code: 'es-ES', name: 'Spanish', nativeName: 'Español', direction: 'ltr' as const },
   { code: 'zh-CN', name: 'Chinese', nativeName: '简体中文', direction: 'ltr' as const },
-  { code: 'ar-SA', name: 'Arabic', nativeName: 'العربية', direction: 'rtl' as const },
   { code: 'ja-JP', name: 'Japanese', nativeName: '日本語', direction: 'ltr' as const },
   { code: 'ru-RU', name: 'Russian', nativeName: 'Русский', direction: 'ltr' as const },
 ]

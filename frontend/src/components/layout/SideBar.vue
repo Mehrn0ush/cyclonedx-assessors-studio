@@ -3,7 +3,7 @@
     <nav class="sidebar-nav">
       <!-- Overview -->
       <div class="nav-group">
-        <div v-if="!uiStore.sidebarCollapsed" class="nav-group-label">Overview</div>
+        <div v-if="!uiStore.sidebarCollapsed" class="nav-group-label">{{ t('nav.overview') }}</div>
         <div v-for="item in navItems.slice(0, 1)" :key="item.name" class="nav-item-wrapper">
           <RouterLink
             :to="item.path"
@@ -24,7 +24,7 @@
 
       <!-- Manage -->
       <div class="nav-group">
-        <div v-if="!uiStore.sidebarCollapsed" class="nav-group-label">Manage</div>
+        <div v-if="!uiStore.sidebarCollapsed" class="nav-group-label">{{ t('nav.manage') }}</div>
         <div v-for="item in navItems.slice(1, 4)" :key="item.name" class="nav-item-wrapper">
           <RouterLink
             :to="item.path"
@@ -45,7 +45,7 @@
 
       <!-- Activity -->
       <div class="nav-group">
-        <div v-if="!uiStore.sidebarCollapsed" class="nav-group-label">Activity</div>
+        <div v-if="!uiStore.sidebarCollapsed" class="nav-group-label">{{ t('nav.activity') }}</div>
         <div v-for="item in activityItems" :key="item.name" class="nav-item-wrapper">
           <RouterLink
             :to="item.path"
@@ -66,7 +66,7 @@
 
       <!-- Admin -->
       <div v-if="authStore.user?.role === 'admin'" class="nav-group">
-        <div v-if="!uiStore.sidebarCollapsed" class="nav-group-label">Admin</div>
+        <div v-if="!uiStore.sidebarCollapsed" class="nav-group-label">{{ t('nav.admin') }}</div>
         <div class="nav-item-wrapper">
           <RouterLink
             to="/admin/users"

@@ -7,6 +7,7 @@ import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
 import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
 import { createNotification } from '../utils/notifications.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
+import { validatePagination } from '../utils/pagination.js';
 
 const router = Router();
 
@@ -76,8 +77,7 @@ async function requireMutableAssessment(
 router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const offset = Number(req.query.offset) || 0;
+    const { limit, offset } = validatePagination(req.query);
     const state = req.query.state as string | undefined;
     const projectId = req.query.projectId as string | undefined;
     const myOnly = req.query.myOnly === 'true';
@@ -453,7 +453,19 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
       requestId: req.requestId,
     });
 
-    res.json({ message: 'Assessment updated successfully' });
+    // Fetch and return the updated assessment
+    const updatedAssessment = await db
+      .selectFrom('assessment')
+      .where('id', '=', req.params.id)
+      .selectAll()
+      .executeTakeFirst();
+
+    const tagsByAssessment = await fetchTagsForEntities(db, 'assessment_tag', 'assessment_id', [req.params.id]);
+
+    res.json({
+      ...updatedAssessment,
+      tags: tagsByAssessment[req.params.id] || [],
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: 'Invalid input', details: error.errors });
@@ -649,6 +661,21 @@ router.post(
           error: 'Cannot complete assessment',
           unassessedCount,
           missingRationaleCount,
+        });
+        return;
+      }
+
+      // Check that at least one evidence item is linked to the assessment
+      const evidenceLinks = await db
+        .selectFrom('assessment_requirement_evidence')
+        .innerJoin('assessment_requirement', 'assessment_requirement.id', 'assessment_requirement_evidence.assessment_requirement_id')
+        .where('assessment_requirement.assessment_id', '=', assessment.id)
+        .selectAll()
+        .execute();
+
+      if (evidenceLinks.length === 0) {
+        res.status(400).json({
+          error: 'Cannot complete assessment without any evidence. At least one evidence item must be linked to a requirement.',
         });
         return;
       }

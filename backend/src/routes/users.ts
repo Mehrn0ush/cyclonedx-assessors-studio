@@ -243,7 +243,23 @@ router.put(
         requestId: req.requestId,
       });
 
-      res.json({ message: 'User updated successfully' });
+      // Fetch and return the updated user
+      const updatedUser = await db
+        .selectFrom('app_user')
+        .where('id', '=', req.params.id)
+        .select([
+          'id',
+          'username',
+          'email',
+          'display_name',
+          'role',
+          'is_active',
+          'last_login_at',
+          'created_at',
+        ])
+        .executeTakeFirst();
+
+      res.json(updatedUser);
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: 'Invalid input', details: error.errors });
@@ -286,7 +302,23 @@ router.put(
         requestId: req.requestId,
       });
 
-      res.json({ message: 'User activated successfully' });
+      // Fetch and return the updated user
+      const updatedUser = await db
+        .selectFrom('app_user')
+        .where('id', '=', req.params.id)
+        .select([
+          'id',
+          'username',
+          'email',
+          'display_name',
+          'role',
+          'is_active',
+          'last_login_at',
+          'created_at',
+        ])
+        .executeTakeFirst();
+
+      res.json(updatedUser);
     } catch (error) {
       logger.error('Activate user error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
@@ -329,7 +361,23 @@ router.put(
         requestId: req.requestId,
       });
 
-      res.json({ message: 'User deactivated successfully' });
+      // Fetch and return the updated user
+      const updatedUser = await db
+        .selectFrom('app_user')
+        .where('id', '=', req.params.id)
+        .select([
+          'id',
+          'username',
+          'email',
+          'display_name',
+          'role',
+          'is_active',
+          'last_login_at',
+          'created_at',
+        ])
+        .executeTakeFirst();
+
+      res.json(updatedUser);
     } catch (error) {
       logger.error('Deactivate user error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });

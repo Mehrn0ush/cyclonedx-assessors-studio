@@ -14,7 +14,7 @@ const config = getConfig();
 
 const loginSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
 const registerSchema = z.object({
@@ -217,7 +217,7 @@ router.post(
         requestId: req.requestId,
       });
 
-      res.json({ message: 'Logged out successfully' });
+      res.status(204).send();
     } catch (error) {
       logger.error('Logout error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
@@ -290,7 +290,23 @@ router.put(
         requestId: req.requestId,
       });
 
-      res.json({ message: 'Password changed successfully' });
+      // Fetch and return the updated user (without password hash)
+      const updatedUser = await db
+        .selectFrom('app_user')
+        .where('id', '=', req.user.id)
+        .selectAll()
+        .executeTakeFirst();
+
+      res.json({
+        user: {
+          id: updatedUser?.id,
+          username: updatedUser?.username,
+          email: updatedUser?.email,
+          displayName: updatedUser?.display_name,
+          role: updatedUser?.role,
+          hasCompletedOnboarding: updatedUser?.has_completed_onboarding || false,
+        },
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: 'Invalid input', details: error.errors });
@@ -342,7 +358,23 @@ router.put(
         requestId: req.requestId,
       });
 
-      res.json({ message: 'Profile updated successfully' });
+      // Fetch and return the updated user
+      const updatedUser = await db
+        .selectFrom('app_user')
+        .where('id', '=', req.user.id)
+        .selectAll()
+        .executeTakeFirst();
+
+      res.json({
+        user: {
+          id: updatedUser?.id,
+          username: updatedUser?.username,
+          email: updatedUser?.email,
+          displayName: updatedUser?.display_name,
+          role: updatedUser?.role,
+          hasCompletedOnboarding: updatedUser?.has_completed_onboarding || false,
+        },
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: 'Invalid input', details: error.errors });
@@ -381,7 +413,7 @@ router.post(
         requestId: req.requestId,
       });
 
-      res.json({ message: 'Logged out from all sessions successfully' });
+      res.status(204).send();
     } catch (error) {
       logger.error('Logout all sessions error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
@@ -408,7 +440,23 @@ router.post('/complete-onboarding', requireAuth, async (req: AuthRequest, res: R
       requestId: req.requestId,
     });
 
-    res.json({ message: 'Onboarding completed' });
+    // Fetch and return the updated user
+    const updatedUser = await db
+      .selectFrom('app_user')
+      .where('id', '=', req.user.id)
+      .selectAll()
+      .executeTakeFirst();
+
+    res.json({
+      user: {
+        id: updatedUser?.id,
+        username: updatedUser?.username,
+        email: updatedUser?.email,
+        displayName: updatedUser?.display_name,
+        role: updatedUser?.role,
+        hasCompletedOnboarding: updatedUser?.has_completed_onboarding || false,
+      },
+    });
   } catch (error) {
     logger.error('Complete onboarding error', { error, requestId: req.requestId });
     res.status(500).json({ error: 'Internal server error' });

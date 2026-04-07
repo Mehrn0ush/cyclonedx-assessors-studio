@@ -646,10 +646,14 @@ ALTER TABLE signatory ADD COLUMN IF NOT EXISTS external_reference_url VARCHAR(20
 ALTER TABLE project ADD COLUMN IF NOT EXISTS start_date DATE;
 ALTER TABLE project ADD COLUMN IF NOT EXISTS due_date DATE;
 
+-- Store original or generated CycloneDX JSON for deterministic export
+ALTER TABLE standard ADD COLUMN IF NOT EXISTS source_json TEXT;
+
 -- Expand entity_relationship types with 'assesses' and 'produces'
 ALTER TABLE entity_relationship DROP CONSTRAINT IF EXISTS entity_relationship_relationship_type_check;
 ALTER TABLE entity_relationship ADD CONSTRAINT entity_relationship_relationship_type_check
   CHECK(relationship_type IN ('owns', 'supplies', 'depends_on', 'governs', 'contains', 'consumes', 'assesses', 'produces'));
+
 `;
 
 export async function runMigrations(): Promise<void> {

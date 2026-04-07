@@ -6,6 +6,7 @@ import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
 import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
+import { validatePagination } from '../utils/pagination.js';
 
 const router = Router();
 
@@ -34,8 +35,7 @@ const updateProjectSchema = z.object({
 router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const offset = Number(req.query.offset) || 0;
+    const { limit, offset } = validatePagination(req.query);
     const state = req.query.state as string | undefined;
 
     let query = db.selectFrom('project').selectAll();
@@ -271,7 +271,40 @@ router.put(
         requestId: req.requestId,
       });
 
-      res.json({ message: 'Project updated successfully' });
+      // Fetch and return the updated resource
+      const updatedProject = await db
+        .selectFrom('project')
+        .where('id', '=', req.params.id)
+        .selectAll()
+        .executeTakeFirst();
+
+      const standards = (await db
+        .selectFrom('project_standard')
+        .innerJoin(
+          'standard',
+          (join) =>
+            join.onRef(
+              'standard.id' as any,
+              '=',
+              'project_standard.standard_id' as any
+            )
+        )
+        .where('project_standard.project_id', '=', req.params.id)
+        .select([
+          'standard.id as id',
+          'standard.name as name',
+          'standard.version as version',
+          'standard.description as description',
+        ])
+        .execute()) as any[];
+
+      const tagsByProject = await fetchTagsForEntities(db, 'project_tag', 'project_id', [req.params.id]);
+
+      res.json({
+        ...updatedProject,
+        standards,
+        tags: tagsByProject[req.params.id] || [],
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: 'Invalid input', details: error.errors });
@@ -298,8 +331,9 @@ router.delete(
         .selectAll()
         .executeTakeFirst();
 
-      if (!project) {
-        res.status(404).json({ error: 'Project not found' });
+      // Idempotent: if already deleted/retired, return 204
+      if (!project || project.state === 'retired') {
+        res.status(204).send();
         return;
       }
 
@@ -314,7 +348,7 @@ router.delete(
         requestId: req.requestId,
       });
 
-      res.json({ message: 'Project deleted successfully' });
+      res.status(204).send();
     } catch (error) {
       logger.error('Delete project error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });

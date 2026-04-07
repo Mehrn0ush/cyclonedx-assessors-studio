@@ -25,13 +25,13 @@ export function getOpenAPISpec(): OpenAPISpec {
     openapi: '3.0.3',
     info: {
       title: 'CycloneDX Assessors Studio API',
-      version: '0.1.0',
+      version: '0.2.0',
       description: 'API for managing security assessments, evidence, and compliance attestations',
     },
     servers: [
       {
         url: '/api',
-        description: 'API v1 Server',
+        description: 'API Server',
       },
     ],
     paths: {
@@ -115,6 +115,7 @@ export function getOpenAPISpec(): OpenAPISpec {
           tags: ['Setup'],
           summary: 'Check setup status',
           operationId: 'getSetupStatus',
+          description: 'Returns whether initial setup has been completed',
           responses: {
             '200': {
               description: 'Setup status retrieved',
@@ -123,11 +124,9 @@ export function getOpenAPISpec(): OpenAPISpec {
                   schema: {
                     type: 'object',
                     properties: {
-                      isSetup: { type: 'boolean' },
-                      adminExists: { type: 'boolean' },
-                      standardsImported: { type: 'boolean' },
+                      setupComplete: { type: 'boolean' },
                     },
-                    required: ['isSetup'],
+                    required: ['setupComplete'],
                   },
                 },
               },
@@ -140,6 +139,7 @@ export function getOpenAPISpec(): OpenAPISpec {
           tags: ['Setup'],
           summary: 'Complete initial setup',
           operationId: 'setupSystem',
+          description: 'Creates the initial administrator account. Only works when no users exist in the database.',
           requestBody: {
             required: true,
             content: {
@@ -147,31 +147,45 @@ export function getOpenAPISpec(): OpenAPISpec {
                 schema: {
                   type: 'object',
                   properties: {
-                    adminName: { type: 'string' },
-                    adminEmail: { type: 'string', format: 'email' },
-                    adminPassword: { type: 'string', minLength: 8 },
+                    username: { type: 'string', minLength: 3, maxLength: 64, pattern: '^[a-zA-Z0-9._-]+$' },
+                    email: { type: 'string', format: 'email' },
+                    displayName: { type: 'string', minLength: 1, maxLength: 128 },
+                    password: { type: 'string', minLength: 8, maxLength: 128 },
                   },
-                  required: ['adminName', 'adminEmail', 'adminPassword'],
+                  required: ['username', 'email', 'displayName', 'password'],
                 },
               },
             },
           },
           responses: {
             '201': {
-              description: 'System setup completed',
+              description: 'Administrator account created successfully',
               content: {
                 'application/json': {
-                  schema: { $ref: '#/components/schemas/User' },
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      message: { type: 'string' },
+                      user: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string', format: 'uuid' },
+                          username: { type: 'string' },
+                          email: { type: 'string' },
+                          displayName: { type: 'string' },
+                          role: { type: 'string', enum: ['admin'] },
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
             '400': {
-              description: 'Invalid setup request',
-              content: {
-                'application/json': {
-                  schema: { $ref: '#/components/schemas/Error' },
-                },
-              },
+              description: 'Validation failed',
+            },
+            '403': {
+              description: 'Setup already completed',
             },
           },
         },
@@ -181,25 +195,35 @@ export function getOpenAPISpec(): OpenAPISpec {
           tags: ['Setup'],
           summary: 'Get available standards feed',
           operationId: 'getStandardsFeed',
+          description: 'Fetches the CycloneDX standards feed. Only available during setup.',
           responses: {
             '200': {
               description: 'Standards feed retrieved',
               content: {
                 'application/json': {
                   schema: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        id: { type: 'string' },
-                        name: { type: 'string' },
-                        version: { type: 'string' },
-                        description: { type: 'string' },
+                    type: 'object',
+                    properties: {
+                      data: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string' },
+                            title: { type: 'string' },
+                            url: { type: 'string' },
+                            summary: { type: 'string' },
+                            datePublished: { type: 'string', format: 'date-time' },
+                          },
+                        },
                       },
                     },
                   },
                 },
               },
+            },
+            '502': {
+              description: 'Failed to fetch standards feed',
             },
           },
         },
@@ -207,8 +231,9 @@ export function getOpenAPISpec(): OpenAPISpec {
       '/v1/setup/import-standard': {
         post: {
           tags: ['Setup'],
-          summary: 'Import standard during setup',
+          summary: 'Import standard from URL',
           operationId: 'importStandardSetup',
+          description: 'Downloads a CycloneDX standards document from a URL and imports it. Only available during setup.',
           requestBody: {
             required: true,
             content: {
@@ -216,31 +241,64 @@ export function getOpenAPISpec(): OpenAPISpec {
                 schema: {
                   type: 'object',
                   properties: {
-                    standardId: { type: 'string' },
-                    standardName: { type: 'string' },
-                    standardVersion: { type: 'string' },
+                    url: { type: 'string', format: 'uri' },
+                    title: { type: 'string' },
                   },
-                  required: ['standardId', 'standardName'],
+                  required: ['url'],
                 },
               },
             },
           },
           responses: {
             '201': {
-              description: 'Standard imported',
+              description: 'Standard imported successfully',
               content: {
                 'application/json': {
-                  schema: { $ref: '#/components/schemas/Standard' },
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      message: { type: 'string' },
+                      data: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            identifier: { type: 'string' },
+                            name: { type: 'string' },
+                            requirementCount: { type: 'integer' },
+                          },
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
             '400': {
-              description: 'Invalid standard import request',
-              content: {
-                'application/json': {
-                  schema: { $ref: '#/components/schemas/Error' },
-                },
-              },
+              description: 'Invalid URL or validation failed',
+            },
+            '502': {
+              description: 'Failed to download standard',
+            },
+          },
+        },
+      },
+      '/v1/setup/seed-demo': {
+        post: {
+          tags: ['Setup'],
+          summary: 'Seed demo data',
+          operationId: 'seedDemoData',
+          description: 'Seeds the database with comprehensive demo data. Only available during/after setup.',
+          responses: {
+            '201': {
+              description: 'Demo data loaded successfully',
+            },
+            '200': {
+              description: 'Demo data already present, skipped',
+            },
+            '500': {
+              description: 'Failed to load demo data',
             },
           },
         },
@@ -250,6 +308,7 @@ export function getOpenAPISpec(): OpenAPISpec {
           tags: ['Auth'],
           summary: 'User login',
           operationId: 'login',
+          description: 'Authenticates a user and returns user info. Auth token is set as httpOnly cookie.',
           requestBody: {
             required: true,
             content: {
@@ -257,10 +316,10 @@ export function getOpenAPISpec(): OpenAPISpec {
                 schema: {
                   type: 'object',
                   properties: {
-                    email: { type: 'string', format: 'email' },
-                    password: { type: 'string' },
+                    username: { type: 'string', minLength: 3 },
+                    password: { type: 'string', minLength: 8 },
                   },
-                  required: ['email', 'password'],
+                  required: ['username', 'password'],
                 },
               },
             },
@@ -273,21 +332,24 @@ export function getOpenAPISpec(): OpenAPISpec {
                   schema: {
                     type: 'object',
                     properties: {
-                      user: { $ref: '#/components/schemas/User' },
-                      token: { type: 'string' },
+                      user: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string', format: 'uuid' },
+                          username: { type: 'string' },
+                          email: { type: 'string' },
+                          displayName: { type: 'string' },
+                          role: { type: 'string', enum: ['admin', 'assessor', 'assessee'] },
+                          hasCompletedOnboarding: { type: 'boolean' },
+                        },
+                      },
                     },
-                    required: ['user', 'token'],
                   },
                 },
               },
             },
             '401': {
               description: 'Invalid credentials',
-              content: {
-                'application/json': {
-                  schema: { $ref: '#/components/schemas/Error' },
-                },
-              },
             },
           },
         },
@@ -297,6 +359,7 @@ export function getOpenAPISpec(): OpenAPISpec {
           tags: ['Auth'],
           summary: 'User registration',
           operationId: 'register',
+          description: 'Creates a new user account with assessee role',
           requestBody: {
             required: true,
             content: {
@@ -304,11 +367,12 @@ export function getOpenAPISpec(): OpenAPISpec {
                 schema: {
                   type: 'object',
                   properties: {
-                    name: { type: 'string' },
+                    username: { type: 'string', minLength: 3 },
                     email: { type: 'string', format: 'email' },
+                    displayName: { type: 'string', minLength: 1 },
                     password: { type: 'string', minLength: 8 },
                   },
-                  required: ['name', 'email', 'password'],
+                  required: ['username', 'email', 'displayName', 'password'],
                 },
               },
             },
@@ -318,17 +382,30 @@ export function getOpenAPISpec(): OpenAPISpec {
               description: 'User registered successfully',
               content: {
                 'application/json': {
-                  schema: { $ref: '#/components/schemas/User' },
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      message: { type: 'string' },
+                      user: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string', format: 'uuid' },
+                          username: { type: 'string' },
+                          email: { type: 'string' },
+                          displayName: { type: 'string' },
+                          role: { type: 'string', enum: ['assessee'] },
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
             '400': {
               description: 'Invalid registration request',
-              content: {
-                'application/json': {
-                  schema: { $ref: '#/components/schemas/Error' },
-                },
-              },
+            },
+            '409': {
+              description: 'Username or email already exists',
             },
           },
         },
@@ -338,16 +415,41 @@ export function getOpenAPISpec(): OpenAPISpec {
           tags: ['Auth'],
           summary: 'User logout',
           operationId: 'logout',
+          description: 'Logs out the current user and clears the session',
           security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
           responses: {
             '200': {
-              description: 'Logout successful',
+              description: 'Logged out successfully',
               content: {
                 'application/json': {
                   schema: {
                     type: 'object',
                     properties: {
-                      success: { type: 'boolean' },
+                      message: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/auth/logout-all': {
+        post: {
+          tags: ['Auth'],
+          summary: 'Logout from all sessions',
+          operationId: 'logoutAll',
+          description: 'Logs out the current user from all active sessions',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Logged out from all sessions successfully',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      message: { type: 'string' },
                     },
                   },
                 },
@@ -361,23 +463,33 @@ export function getOpenAPISpec(): OpenAPISpec {
           tags: ['Auth'],
           summary: 'Get current user',
           operationId: 'getCurrentUser',
+          description: 'Returns the authenticated user profile',
           security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
           responses: {
             '200': {
               description: 'Current user retrieved',
               content: {
                 'application/json': {
-                  schema: { $ref: '#/components/schemas/User' },
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      user: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string', format: 'uuid' },
+                          username: { type: 'string' },
+                          email: { type: 'string' },
+                          displayName: { type: 'string' },
+                          role: { type: 'string', enum: ['admin', 'assessor', 'assessee'] },
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
             '401': {
               description: 'Not authenticated',
-              content: {
-                'application/json': {
-                  schema: { $ref: '#/components/schemas/Error' },
-                },
-              },
             },
           },
         },
@@ -437,24 +549,6 @@ export function getOpenAPISpec(): OpenAPISpec {
           responses: {
             '200': {
               description: 'Profile updated',
-              content: {
-                'application/json': {
-                  schema: { type: 'object' },
-                },
-              },
-            },
-          },
-        },
-      },
-      '/v1/auth/logout-all': {
-        post: {
-          tags: ['Auth'],
-          summary: 'Logout from all sessions',
-          operationId: 'logoutAll',
-          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
-          responses: {
-            '200': {
-              description: 'Logged out from all sessions',
               content: {
                 'application/json': {
                   schema: { type: 'object' },
@@ -745,15 +839,42 @@ export function getOpenAPISpec(): OpenAPISpec {
           tags: ['Standards'],
           summary: 'List standards',
           operationId: 'listStandards',
+          description: 'Returns a paginated list of standards with requirement and level counts',
           security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            {
+              name: 'limit',
+              in: 'query',
+              schema: { type: 'integer', default: 50, maximum: 100 },
+              description: 'Maximum number of standards to return',
+            },
+            {
+              name: 'offset',
+              in: 'query',
+              schema: { type: 'integer', default: 0 },
+              description: 'Offset for pagination',
+            },
+            {
+              name: 'state',
+              in: 'query',
+              schema: { type: 'string', enum: ['draft', 'in_review', 'published', 'retired'] },
+              description: 'Filter by standard state',
+            },
+          ],
           responses: {
             '200': {
               description: 'Standards retrieved',
               content: {
                 'application/json': {
                   schema: {
-                    type: 'array',
-                    items: { $ref: '#/components/schemas/Standard' },
+                    type: 'object',
+                    properties: {
+                      data: {
+                        type: 'array',
+                        items: { $ref: '#/components/schemas/Standard' },
+                      },
+                      pagination: { $ref: '#/components/schemas/Pagination' },
+                    },
                   },
                 },
               },
@@ -1023,11 +1144,42 @@ export function getOpenAPISpec(): OpenAPISpec {
           },
         },
       },
+      '/v1/standards/{id}/export': {
+        get: {
+          tags: ['Standards'],
+          summary: 'Export standard as CycloneDX',
+          operationId: 'exportStandard',
+          description: 'Exports a standard as a CycloneDX JSON document',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Standard exported successfully',
+              content: {
+                'application/vnd.cyclonedx+json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+            '404': {
+              description: 'Standard not found',
+            },
+          },
+        },
+      },
       '/v1/standards/import': {
         post: {
           tags: ['Standards'],
           summary: 'Import standard',
           operationId: 'importStandard',
+          description: 'Imports a standard from JSON payload',
           security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
           requestBody: {
             required: true,
@@ -1036,11 +1188,40 @@ export function getOpenAPISpec(): OpenAPISpec {
                 schema: {
                   type: 'object',
                   properties: {
-                    standardId: { type: 'string' },
-                    standardName: { type: 'string' },
-                    standardVersion: { type: 'string' },
+                    identifier: { type: 'string' },
+                    name: { type: 'string' },
+                    description: { type: 'string' },
+                    owner: { type: 'string' },
+                    version: { type: 'string' },
+                    licenseId: { type: 'string' },
+                    requirements: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          identifier: { type: 'string' },
+                          name: { type: 'string' },
+                          description: { type: 'string' },
+                          openCre: { type: ['string', 'array'] },
+                          parentIdentifier: { type: 'string' },
+                        },
+                      },
+                    },
+                    levels: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          identifier: { type: 'string' },
+                          title: { type: 'string' },
+                          description: { type: 'string' },
+                          requirements: { type: 'array', items: { type: 'string' } },
+                        },
+                      },
+                    },
+                    sourceJson: { type: 'string' },
                   },
-                  required: ['standardId', 'standardName'],
+                  required: ['identifier', 'name'],
                 },
               },
             },
@@ -1050,17 +1231,21 @@ export function getOpenAPISpec(): OpenAPISpec {
               description: 'Standard imported',
               content: {
                 'application/json': {
-                  schema: { $ref: '#/components/schemas/Standard' },
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string', format: 'uuid' },
+                      identifier: { type: 'string' },
+                      name: { type: 'string' },
+                      requirementCount: { type: 'integer' },
+                      message: { type: 'string' },
+                    },
+                  },
                 },
               },
             },
-            '403': {
-              description: 'Insufficient permissions',
-              content: {
-                'application/json': {
-                  schema: { $ref: '#/components/schemas/Error' },
-                },
-              },
+            '409': {
+              description: 'Standard already exists',
             },
           },
         },
@@ -4410,23 +4595,6 @@ export function getOpenAPISpec(): OpenAPISpec {
           },
         },
       },
-      '/v1/setup/seed-demo': {
-        post: {
-          tags: ['Setup'],
-          summary: 'Seed demo data',
-          operationId: 'seedDemoData',
-          responses: {
-            '201': {
-              description: 'Demo data seeded',
-              content: {
-                'application/json': {
-                  schema: { type: 'object' },
-                },
-              },
-            },
-          },
-        },
-      },
     },
     components: {
       schemas: {
@@ -4592,8 +4760,8 @@ export function getOpenAPISpec(): OpenAPISpec {
         cookieAuth: {
           type: 'apiKey',
           in: 'cookie',
-          name: 'session',
-          description: 'Session cookie authentication',
+          name: 'token',
+          description: 'JWT session cookie authentication',
         },
         apiKeyAuth: {
           type: 'apiKey',

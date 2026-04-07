@@ -1,17 +1,17 @@
 <template>
   <div class="widget-content">
     <div v-if="assessments.length === 0" class="widget-empty">
-      <p>No completed assessments yet.</p>
+      <p>{{ t('dashboard.widgets.noCompletedAssessments') }}</p>
     </div>
     <table v-else class="timeline-table">
       <thead>
         <tr>
-          <th>Assessment</th>
-          <th>Entity</th>
-          <th>Standard</th>
-          <th>Completed</th>
-          <th>Score</th>
-          <th>State</th>
+          <th>{{ t('dashboard.widgets.tableHeaders.assessment') }}</th>
+          <th>{{ t('dashboard.widgets.tableHeaders.entity') }}</th>
+          <th>{{ t('dashboard.widgets.tableHeaders.standard') }}</th>
+          <th>{{ t('dashboard.widgets.tableHeaders.completed') }}</th>
+          <th>{{ t('dashboard.widgets.tableHeaders.score') }}</th>
+          <th>{{ t('dashboard.widgets.tableHeaders.state') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -38,6 +38,9 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const assessments = ref([
   { id: '1-1', title: 'Initial Security Assessment', entityName: 'Acme Corp', standardName: 'NIST SP 800-53 Rev. 5', score: 82, completedDate: '2026-03-15' },

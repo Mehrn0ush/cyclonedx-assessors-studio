@@ -47,6 +47,7 @@ export interface Standard {
   approved_at?: Date | null;
   submitted_at?: Date | null;
   is_imported: boolean;
+  source_json?: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

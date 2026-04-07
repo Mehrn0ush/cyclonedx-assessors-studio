@@ -1,3 +1,8 @@
+<script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
+</script>
+
 <template>
   <div class="entity-detail-container">
     <div class="entity-detail-header">
@@ -105,7 +110,7 @@
                     <el-table-column :label="t('entities.direction')" min-width="100">
                       <template #default="{ row }">
                         <el-tag :type="row.direction === 'parent' ? 'info' : 'success'" size="small">
-                          {{ row.direction === 'parent' ? 'Inbound' : 'Outbound' }}
+                          {{ row.direction === 'parent' ? t('relationships.inbound') : t('relationships.outbound') }}
                         </el-tag>
                       </template>
                     </el-table-column>

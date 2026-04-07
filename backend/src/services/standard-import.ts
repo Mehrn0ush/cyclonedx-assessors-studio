@@ -44,10 +44,10 @@ export interface ImportedStandardResult {
  */
 export async function importStandard(
   standard: RawStandardInput,
-  options: { fallbackName?: string; markAsImported?: boolean } = {},
+  options: { fallbackName?: string; markAsImported?: boolean; sourceJson?: string } = {},
 ): Promise<ImportedStandardResult> {
   const db = getDatabase();
-  const { fallbackName = 'Unknown Standard', markAsImported = true } = options;
+  const { fallbackName = 'Unknown Standard', markAsImported = true, sourceJson } = options;
 
   const bomRef = standard['bom-ref'] || standard.bomRef || standard.identifier || uuidv4();
   const standardName = standard.name || standard.title || fallbackName;
@@ -88,6 +88,7 @@ export async function importStandard(
       license_id: null,
       state: 'published',
       is_imported: markAsImported,
+      source_json: sourceJson || null,
     })
     .execute();
 
@@ -96,12 +97,47 @@ export async function importStandard(
   const requirements = standard.requirements || [];
   const requirementMap = new Map<string, string>();
 
-  // Sort so parents come before children
-  const sortedRequirements = [...requirements].sort((a: any, b: any) => {
-    const aId = a['bom-ref'] || a.bomRef || a.identifier || '';
-    const bId = b['bom-ref'] || b.bomRef || b.identifier || '';
-    return aId.localeCompare(bId);
-  });
+  // Topological sort: parents must be inserted before their children.
+  // Build a map of bom-ref -> requirement, then walk from roots down.
+  const reqByRef = new Map<string, any>();
+  const childrenOf = new Map<string, any[]>();
+  const roots: any[] = [];
+
+  for (const req of requirements) {
+    const ref = req['bom-ref'] || req.bomRef || req.identifier || '';
+    reqByRef.set(ref, req);
+    const parentRef = req.parent || req.parentIdentifier || null;
+    if (!parentRef) {
+      roots.push(req);
+    } else {
+      if (!childrenOf.has(parentRef)) {
+        childrenOf.set(parentRef, []);
+      }
+      childrenOf.get(parentRef)!.push(req);
+    }
+  }
+
+  const sortedRequirements: any[] = [];
+  const visit = (node: any) => {
+    sortedRequirements.push(node);
+    const ref = node['bom-ref'] || node.bomRef || node.identifier || '';
+    const children = childrenOf.get(ref) || [];
+    for (const child of children) {
+      visit(child);
+    }
+  };
+  for (const root of roots) {
+    visit(root);
+  }
+
+  // Append any orphans whose parent ref doesn't match a known requirement
+  // (fallback: they get null parent_id)
+  const visited = new Set(sortedRequirements);
+  for (const req of requirements) {
+    if (!visited.has(req)) {
+      sortedRequirements.push(req);
+    }
+  }
 
   for (const req of sortedRequirements) {
     const reqBomRef = req['bom-ref'] || req.bomRef || req.identifier || '';

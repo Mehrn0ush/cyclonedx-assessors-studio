@@ -21,7 +21,7 @@
       <el-card class="workflow-card">
         <template #header>
           <div class="card-header">
-            <span>Project Progress</span>
+            <span>{{ t('projectDashboard.projectProgress') }}</span>
             <div class="view-mode-toggle">
               <el-radio-group v-model="dashboardView" size="small">
                 <el-radio-button value="overview">
@@ -239,6 +239,9 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
+
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'

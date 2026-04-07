@@ -77,10 +77,20 @@
           </div>
 
           <div class="evidence-actions" v-if="evidence">
+            <!-- Edit evidence details (when not claimed/locked) -->
+            <el-button
+              v-if="evidence.state !== 'claimed' && (userRole === 'assessor' || userRole === 'admin')"
+              type="primary"
+              :icon="Edit"
+              @click="openEditDialog"
+            >
+              Edit
+            </el-button>
+
             <!-- Assessee/Assessor/Admin: Submit for Review (when in_progress) -->
             <el-button
               v-if="evidence.state === 'in_progress' && (userRole === 'assessee' || userRole === 'assessor' || userRole === 'admin')"
-              type="primary"
+              type="warning"
               @click="showSubmitForReviewDialog = true"
             >
               Submit for Review
@@ -88,7 +98,7 @@
 
             <!-- Assessor/Admin: Approve (when in_review) -->
             <el-button
-              v-if="evidence.state === 'in_review' && (userRole === 'assessor' || userRole === 'admin') && evidence.reviewerId === authStore.user?.id"
+              v-if="evidence.state === 'in_review' && (userRole === 'admin' || (userRole === 'assessor' && evidence.reviewerId === authStore.user?.id))"
               type="success"
               @click="handleApprove"
             >
@@ -97,7 +107,7 @@
 
             <!-- Assessor/Admin: Reject (when in_review) -->
             <el-button
-              v-if="evidence.state === 'in_review' && (userRole === 'assessor' || userRole === 'admin') && evidence.reviewerId === authStore.user?.id"
+              v-if="evidence.state === 'in_review' && (userRole === 'admin' || (userRole === 'assessor' && evidence.reviewerId === authStore.user?.id))"
               type="danger"
               @click="showRejectDialog = true"
             >
@@ -116,7 +126,19 @@
           <template #header>
             <div class="card-header">
               <span>{{ t('evidence.attachments') }}</span>
-              <el-button type="primary" size="small">{{ t('common.upload') }}</el-button>
+              <el-button
+                v-if="evidence.state !== 'claimed'"
+                type="primary"
+                size="small"
+                @click="triggerUpload"
+              >{{ t('common.upload') }}</el-button>
+              <input
+                ref="fileInputRef"
+                type="file"
+                multiple
+                style="display: none"
+                @change="handleFileUpload"
+              />
             </div>
           </template>
 
@@ -236,6 +258,28 @@
         </template>
       </el-dialog>
 
+      <!-- Edit Evidence Dialog -->
+      <el-dialog v-model="showEditDialog" title="Edit Evidence" width="600px" @close="resetEditForm">
+        <el-form :model="editForm" label-width="120px">
+          <el-form-item label="Name" required>
+            <el-input v-model="editForm.name" placeholder="Evidence name" />
+          </el-form-item>
+          <el-form-item label="Description">
+            <el-input v-model="editForm.description" type="textarea" :rows="4" placeholder="Evidence description" />
+          </el-form-item>
+          <el-form-item label="Classification">
+            <el-input v-model="editForm.classification" placeholder="Classification" />
+          </el-form-item>
+          <el-form-item label="Expires On">
+            <el-date-picker v-model="editForm.expiresOn" type="date" placeholder="Select expiration date" clearable />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="showEditDialog = false">{{ t('common.cancel') }}</el-button>
+          <el-button type="primary" :loading="savingEdit" @click="handleSaveEdit">{{ t('common.save') }}</el-button>
+        </template>
+      </el-dialog>
+
       <!-- Reject Dialog -->
       <el-dialog v-model="showRejectDialog" title="Reject Evidence" width="50%">
         <el-form>
@@ -258,7 +302,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Loading, Lock, Download, View } from '@element-plus/icons-vue'
+import { ArrowRight, Loading, Lock, Download, View, Edit } from '@element-plus/icons-vue'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import IconButton from '@/components/shared/IconButton.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -297,6 +341,16 @@ const rejectionNote = ref('')
 const reviewers = ref<any[]>([])
 const submittingForReview = ref(false)
 const rejecting = ref(false)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const uploading = ref(false)
+const showEditDialog = ref(false)
+const savingEdit = ref(false)
+const editForm = ref({
+  name: '',
+  description: '',
+  classification: '',
+  expiresOn: null as string | null,
+})
 
 const authorDisplay = computed(() => {
   return evidence.value.authorName || evidence.value.authorId || t('common.unknown')
@@ -320,7 +374,9 @@ const formatFileSize = (bytes: number | null | undefined): string => {
 
 const isViewable = (contentType: string | null | undefined): boolean => {
   if (!contentType) return false
-  return contentType.startsWith('text/') || contentType === 'application/json'
+  return contentType.startsWith('text/')
+    || contentType === 'application/json'
+    || contentType === 'application/vnd.cyclonedx+json'
 }
 
 const downloadAttachment = async (attachment: any) => {
@@ -357,6 +413,74 @@ const viewAttachment = async (attachment: any) => {
   } catch (err: any) {
     ElMessage.error('Failed to view attachment')
     console.error('View error:', err)
+  }
+}
+
+const openEditDialog = () => {
+  editForm.value = {
+    name: evidence.value.name || '',
+    description: evidence.value.description || '',
+    classification: evidence.value.classification || '',
+    expiresOn: evidence.value.expiresOn || null,
+  }
+  showEditDialog.value = true
+}
+
+const resetEditForm = () => {
+  editForm.value = {
+    name: '',
+    description: '',
+    classification: '',
+    expiresOn: null,
+  }
+}
+
+const handleSaveEdit = async () => {
+  if (!editForm.value.name.trim()) {
+    ElMessage.warning('Name is required')
+    return
+  }
+  try {
+    savingEdit.value = true
+    const evidenceId = route.params.id
+    await axios.put(`/api/v1/evidence/${evidenceId}`, editForm.value)
+    ElMessage.success('Evidence updated successfully')
+    showEditDialog.value = false
+    await fetchEvidenceData()
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.error || 'Failed to update evidence')
+  } finally {
+    savingEdit.value = false
+  }
+}
+
+const triggerUpload = () => {
+  fileInputRef.value?.click()
+}
+
+const handleFileUpload = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  if (!input.files?.length) return
+
+  const evidenceId = route.params.id as string
+  const formData = new FormData()
+  for (const file of input.files) {
+    formData.append('files', file)
+  }
+
+  try {
+    uploading.value = true
+    await axios.post(`/api/v1/evidence/${evidenceId}/attachments`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    ElMessage.success('File(s) uploaded successfully')
+    await fetchEvidenceData()
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.error || 'Failed to upload file(s)')
+    console.error('Upload error:', err)
+  } finally {
+    uploading.value = false
+    input.value = '' // reset so same file can be re-uploaded
   }
 }
 

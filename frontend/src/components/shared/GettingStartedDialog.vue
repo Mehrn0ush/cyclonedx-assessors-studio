@@ -24,9 +24,9 @@
         <div class="gs-icon">
           <el-icon :size="48" color="var(--el-color-primary)"><Promotion /></el-icon>
         </div>
-        <h2 class="gs-title">Welcome to Assessors Studio</h2>
+        <h2 class="gs-title">{{ t('gettingStarted.welcome') }}</h2>
         <p class="gs-description">
-          Assessors Studio helps you evaluate organizations, teams, and products against industry standards, then produce formal attestations of conformance. Here is a quick overview of how it works.
+          {{ t('gettingStarted.welcomeDescription') }}
         </p>
       </div>
 
@@ -35,9 +35,9 @@
         <div class="gs-icon">
           <el-icon :size="48" color="var(--el-color-primary)"><OfficeBuilding /></el-icon>
         </div>
-        <h2 class="gs-title">Entities & Standards</h2>
+        <h2 class="gs-title">{{ t('gettingStarted.entitiesTitle') }}</h2>
         <p class="gs-description">
-          An entity is anything you want to assess: an organization, a team, a product, or a software component. You link each entity to the standards it needs to meet, such as ASVS, BSIMM, PCI DSS, or SSDF. Entities connect to each other to form a flexible hierarchy that mirrors your org structure or supply chain.
+          {{ t('gettingStarted.entitiesDescription') }}
         </p>
       </div>
 
@@ -46,9 +46,9 @@
         <div class="gs-icon">
           <el-icon :size="48" color="var(--el-color-primary)"><DocumentChecked /></el-icon>
         </div>
-        <h2 class="gs-title">Assessments</h2>
+        <h2 class="gs-title">{{ t('gettingStarted.assessmentsTitle') }}</h2>
         <p class="gs-description">
-          An assessment evaluates one entity against one standard. Assessors work through each requirement, recording a result and rationale. Evidence such as documents or test reports can be attached to support those findings. Multiple assessments can run in parallel across different standards.
+          {{ t('gettingStarted.assessmentsDescription') }}
         </p>
       </div>
 
@@ -57,9 +57,9 @@
         <div class="gs-icon">
           <el-icon :size="48" color="var(--el-color-primary)"><Stamp /></el-icon>
         </div>
-        <h2 class="gs-title">Attestations & Progress</h2>
+        <h2 class="gs-title">{{ t('gettingStarted.attestationsTitle') }}</h2>
         <p class="gs-description">
-          When an assessment is complete, you generate a formal attestation that records the results as a signed declaration. Attestations export as CycloneDX documents or PDF reports. Over time, the Progress view shows how conformance scores trend across assessments, helping you measure improvement.
+          {{ t('gettingStarted.attestationsDescription') }}
         </p>
       </div>
 
@@ -68,9 +68,9 @@
         <div class="gs-icon">
           <el-icon :size="48" color="var(--el-color-primary)"><SetUp /></el-icon>
         </div>
-        <h2 class="gs-title">Built for Automation</h2>
+        <h2 class="gs-title">{{ t('gettingStarted.automationTitle') }}</h2>
         <p class="gs-description">
-          Assessors Studio is API first. Assessments, evidence collection, and attestation generation can all be orchestrated through the API, supporting human driven workflows, fully automated pipelines, or a mix of both.
+          {{ t('gettingStarted.automationDescription') }}
         </p>
       </div>
     </div>
@@ -78,14 +78,14 @@
     <template #footer>
       <div class="gs-footer">
         <el-button v-if="currentStep > 0" @click="currentStep--">
-          Previous
+          {{ t('gettingStarted.previous') }}
         </el-button>
         <div class="gs-footer-spacer"></div>
         <el-button v-if="currentStep < steps.length - 1" type="primary" @click="currentStep++">
-          Next
+          {{ t('gettingStarted.next') }}
         </el-button>
         <el-button v-else type="primary" @click="handleDismiss">
-          Get Started
+          {{ t('gettingStarted.getStarted') }}
         </el-button>
       </div>
     </template>
@@ -94,6 +94,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   Promotion,
   OfficeBuilding,
@@ -103,6 +104,8 @@ import {
 } from '@element-plus/icons-vue'
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: boolean

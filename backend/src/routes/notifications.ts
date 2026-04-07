@@ -2,14 +2,14 @@ import { Router, Response } from 'express';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth } from '../middleware/auth.js';
+import { validatePagination } from '../utils/pagination.js';
 
 const router = Router();
 
 router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const offset = Number(req.query.offset) || 0;
+    const { limit, offset } = validatePagination(req.query);
     const unreadOnly = req.query.unreadOnly === 'true';
 
     let query = db
@@ -74,7 +74,14 @@ router.put('/:id/read', requireAuth, async (req: AuthRequest, res: Response): Pr
       requestId: req.requestId,
     });
 
-    res.json({ message: 'Notification marked as read' });
+    // Fetch and return the updated notification
+    const updatedNotification = await db
+      .selectFrom('notification')
+      .where('id', '=', req.params.id)
+      .selectAll()
+      .executeTakeFirst();
+
+    res.json(updatedNotification);
   } catch (error) {
     logger.error('Mark notification as read error', { error, requestId: req.requestId });
     res.status(500).json({ error: 'Internal server error' });
@@ -97,7 +104,15 @@ router.put('/read-all', requireAuth, async (req: AuthRequest, res: Response): Pr
       requestId: req.requestId,
     });
 
-    res.json({ message: 'All notifications marked as read' });
+    // Return the updated notifications
+    const updatedNotifications = await db
+      .selectFrom('notification')
+      .where('user_id', '=', req.user!.id)
+      .selectAll()
+      .orderBy('created_at', 'desc')
+      .execute();
+
+    res.json({ data: updatedNotifications });
   } catch (error) {
     logger.error('Mark all notifications as read error', { error, requestId: req.requestId });
     res.status(500).json({ error: 'Internal server error' });

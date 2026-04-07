@@ -6,6 +6,7 @@ import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
 import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
+import { validatePagination } from '../utils/pagination.js';
 
 const router = Router();
 
@@ -36,8 +37,7 @@ const createPolicySchema = z.object({
 router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const offset = Number(req.query.offset) || 0;
+    const { limit, offset } = validatePagination(req.query);
     const entity_type = req.query.entity_type as string | undefined;
     const state = req.query.state as string | undefined;
     const search = req.query.search as string | undefined;
@@ -375,7 +375,14 @@ router.put(
         requestId: req.requestId,
       });
 
-      res.json({ message: 'Entity updated successfully' });
+      // Fetch and return the updated entity
+      const updatedEntity = await db
+        .selectFrom('entity')
+        .where('id', '=', req.params.id)
+        .selectAll()
+        .executeTakeFirst();
+
+      res.json(updatedEntity);
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: 'Invalid input', details: error.errors });
@@ -419,7 +426,7 @@ router.delete(
         requestId: req.requestId,
       });
 
-      res.json({ message: 'Entity deleted successfully' });
+      res.status(204).send();
     } catch (error) {
       logger.error('Delete entity error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });

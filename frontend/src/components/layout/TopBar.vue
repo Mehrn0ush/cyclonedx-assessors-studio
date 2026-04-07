@@ -320,18 +320,6 @@ onUnmounted(() => {
   text-transform: capitalize;
 }
 
-:deep(.el-dropdown-menu) {
-  background-color: var(--cat-bg-elevated);
-  border-color: var(--cat-border-default);
-}
-
-:deep(.el-dropdown-menu__item) {
-  color: var(--cat-text-primary);
-
-  &:hover {
-    background-color: var(--cat-bg-hover);
-  }
-}
 
 .about-toggle {
   @include mixins.button-reset;
@@ -573,26 +561,3 @@ onUnmounted(() => {
 }
 </style>
 
-<style lang="scss">
-.user-dropdown-popper {
-  min-width: 160px !important;
-
-  .el-dropdown-menu {
-    background-color: var(--cat-bg-elevated);
-    border-color: var(--cat-border-default);
-    padding: 4px 0;
-  }
-
-  .el-dropdown-menu__item {
-    color: var(--cat-text-primary);
-    padding: 8px 16px;
-    line-height: 1.4;
-
-    &:hover,
-    &:focus {
-      background-color: var(--cat-bg-hover);
-      color: var(--cat-text-primary);
-    }
-  }
-}
-</style>

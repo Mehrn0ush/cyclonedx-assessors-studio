@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { getDatabase } from '../db/connection.js';
 import { AuthRequest, requireAuth, hashApiKey } from '../middleware/auth.js';
 import { logger } from '../utils/logger.js';
+import { logAudit } from '../utils/audit.js';
 
 const router = Router();
 
@@ -37,14 +38,33 @@ router.post(
       // Non-admins can only create keys for themselves
       const targetUserId = userId && req.user!.role === 'admin' ? userId : req.user!.id;
 
+      const db = getDatabase();
+
+      // When creating a key for another user, validate they exist and are active
+      if (targetUserId !== req.user!.id) {
+        const targetUser = await db
+          .selectFrom('app_user')
+          .where('id', '=', targetUserId)
+          .selectAll()
+          .executeTakeFirst();
+
+        if (!targetUser) {
+          res.status(404).json({ error: 'Target user not found' });
+          return;
+        }
+
+        if (!targetUser.is_active) {
+          res.status(400).json({ error: 'Cannot create API key for a deactivated user' });
+          return;
+        }
+      }
+
       const { key, prefix } = generateApiKey();
       const keyHash = hashApiKey(key);
 
       const expiresAt = expiresInDays
         ? new Date(Date.now() + expiresInDays * 86400000)
         : null;
-
-      const db = getDatabase();
       const row = await db
         .insertInto('api_key')
         .values({
@@ -57,6 +77,17 @@ router.post(
         })
         .returning(['id', 'name', 'prefix', 'expires_at', 'created_at'])
         .executeTakeFirstOrThrow();
+
+      // Add audit log entry when creating a key for another user
+      if (targetUserId !== req.user!.id) {
+        await logAudit(db, {
+          entityType: 'api_key',
+          entityId: row.id,
+          action: 'create_for_other',
+          userId: req.user!.id,
+          changes: { targetUserId, keyName: name },
+        });
+      }
 
       logger.info('API key created', {
         keyId: row.id,

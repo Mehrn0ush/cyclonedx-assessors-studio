@@ -1,7 +1,7 @@
 <template>
   <div class="widget-content">
     <div v-if="standards.length === 0" class="widget-empty">
-      <p>No completed assessments yet.</p>
+      <p>{{ t('dashboard.widgets.noCompletedAssessments') }}</p>
     </div>
     <div v-else class="standards-list">
       <div v-for="std in standards" :key="std.id" class="standard-card">
@@ -23,14 +23,14 @@
         </div>
 
         <div class="history-section">
-          <div class="history-label">Assessment History</div>
+          <div class="history-label">{{ t('dashboard.widgets.assessmentHistory') }}</div>
           <table class="history-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Title</th>
-                <th>Entity</th>
-                <th>Score</th>
+                <th>{{ t('dashboard.widgets.tableHeaders.date') }}</th>
+                <th>{{ t('dashboard.widgets.tableHeaders.title') }}</th>
+                <th>{{ t('dashboard.widgets.tableHeaders.entity') }}</th>
+                <th>{{ t('dashboard.widgets.tableHeaders.score') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -52,6 +52,9 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const standards = ref([
   {

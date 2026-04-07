@@ -3,7 +3,7 @@
     <PageHeader :title="t('standards.title')">
       <template #actions>
         <el-button v-if="canManageStandards" type="success" @click="showCreateDialog = true">
-          New Standard
+          {{ t('standards.newStandard') }}
         </el-button>
         <el-button v-if="authStore.user?.role === 'admin'" type="primary" @click="showImportDialog = true">
           {{ t('standards.importStandard') }}
@@ -23,12 +23,12 @@
 
       <template v-else>
         <div class="standards-filters">
-          <el-select v-model="filterState" placeholder="Filter by state" clearable class="state-filter">
-            <el-option label="All" value=""></el-option>
-            <el-option label="Draft" value="draft"></el-option>
-            <el-option label="In Review" value="in_review"></el-option>
-            <el-option label="Published" value="published"></el-option>
-            <el-option label="Retired" value="retired"></el-option>
+          <el-select v-model="filterState" :placeholder="t('standards.filterByState')" clearable class="state-filter">
+            <el-option :label="t('standards.all')" value=""></el-option>
+            <el-option :label="t('standards.draft')" value="draft"></el-option>
+            <el-option :label="t('standards.inReview')" value="in_review"></el-option>
+            <el-option :label="t('standards.published')" value="published"></el-option>
+            <el-option :label="t('standards.retired')" value="retired"></el-option>
           </el-select>
         </div>
         <el-table :data="paginatedData" stripe border @row-click="navigateToStandard" role="grid" aria-label="Standards table">
@@ -43,7 +43,7 @@
           <el-table-column prop="requirementsCount" :label="t('standards.requirements')" min-width="140" align="center" sortable></el-table-column>
           <el-table-column :label="t('common.actions')" min-width="100">
             <template #default="{ row }">
-              <RowActions :show-edit="false" :show-view="true" :show-delete="authStore.user?.role === 'admin'" @view="navigateToStandard(row)" @delete="() => {}" />
+              <RowActions :show-edit="false" :show-view="true" :show-export="true" :show-delete="authStore.user?.role === 'admin' && (row.state === 'draft' || row.state === 'retired')" @view="navigateToStandard(row)" @export="handleExportStandard(row)" @delete="handleDeleteStandard(row)" />
             </template>
           </el-table-column>
         </el-table>
@@ -57,27 +57,27 @@
     </div>
 
     <!-- Create Standard Dialog -->
-    <el-dialog v-model="showCreateDialog" title="New Standard" width="550px" @close="resetCreateStandardForm">
+    <el-dialog v-model="showCreateDialog" :title="t('standards.newStandard')" width="550px" @close="resetCreateStandardForm">
       <el-form :model="createStandardForm" label-width="120px">
-        <el-form-item label="Name" required>
+        <el-form-item :label="t('standards.name')" required>
           <el-input v-model="createStandardForm.name" placeholder="e.g. Internal Security Requirements" />
         </el-form-item>
-        <el-form-item label="Identifier" required>
+        <el-form-item :label="t('standards.identifier')" required>
           <el-input v-model="createStandardForm.identifier" placeholder="e.g. ISR-1.0" />
         </el-form-item>
-        <el-form-item label="Version">
+        <el-form-item :label="t('standards.version')">
           <el-input v-model="createStandardForm.version" placeholder="e.g. 1.0" />
         </el-form-item>
-        <el-form-item label="Owner">
+        <el-form-item :label="t('standards.owner')">
           <el-input v-model="createStandardForm.owner" placeholder="e.g. Security Team" />
         </el-form-item>
-        <el-form-item label="Description">
+        <el-form-item :label="t('standards.description')">
           <el-input v-model="createStandardForm.description" type="textarea" :rows="3" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showCreateDialog = false">Cancel</el-button>
-        <el-button type="primary" :loading="creatingStandard" @click="handleCreateStandard">Create Draft</el-button>
+        <el-button @click="showCreateDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="creatingStandard" @click="handleCreateStandard">{{ t('standards.createDraft') }}</el-button>
       </template>
     </el-dialog>
 
@@ -97,9 +97,9 @@
           drag
         >
           <el-icon style="font-size: 48px; color: var(--el-text-color-secondary); margin-bottom: 8px;"><Upload /></el-icon>
-          <div>Drop a CycloneDX JSON file here, or <em>click to browse</em></div>
+          <div>{{ t('standards.dropCycloneDXFile') }}</div>
           <template #tip>
-            <div class="el-upload__tip">Accepts .json and .cdx.json files</div>
+            <div class="el-upload__tip">{{ t('standards.acceptsJsonFiles') }}</div>
           </template>
         </el-upload>
         <el-alert v-if="importParseError" type="error" :closable="false" style="margin-top: 12px;">
@@ -108,21 +108,21 @@
       </div>
       <div v-else>
         <el-descriptions :column="1" border>
-          <el-descriptions-item label="Name">{{ importPreview.name }}</el-descriptions-item>
-          <el-descriptions-item label="Identifier">{{ importPreview.identifier }}</el-descriptions-item>
-          <el-descriptions-item v-if="importPreview.version" label="Version">{{ importPreview.version }}</el-descriptions-item>
-          <el-descriptions-item v-if="importPreview.owner" label="Owner">{{ importPreview.owner }}</el-descriptions-item>
-          <el-descriptions-item v-if="importPreview.description" label="Description">{{ importPreview.description }}</el-descriptions-item>
-          <el-descriptions-item label="Requirements">{{ importPreview.requirementCount }}</el-descriptions-item>
+          <el-descriptions-item :label="t('standards.name')">{{ importPreview.name }}</el-descriptions-item>
+          <el-descriptions-item :label="t('standards.identifier')">{{ importPreview.identifier }}</el-descriptions-item>
+          <el-descriptions-item v-if="importPreview.version" :label="t('standards.version')">{{ importPreview.version }}</el-descriptions-item>
+          <el-descriptions-item v-if="importPreview.owner" :label="t('standards.owner')">{{ importPreview.owner }}</el-descriptions-item>
+          <el-descriptions-item v-if="importPreview.description" :label="t('standards.description')">{{ importPreview.description }}</el-descriptions-item>
+          <el-descriptions-item :label="t('standards.requirements')">{{ importPreview.requirementCount }}</el-descriptions-item>
         </el-descriptions>
       </div>
       <template #footer>
         <el-button @click="showImportDialog = false">{{ t('common.cancel') }}</el-button>
         <el-button v-if="importPreview" type="default" @click="importPreview = null; selectedFile = null;">
-          Back
+          {{ t('standards.back') }}
         </el-button>
         <el-button v-if="importPreview" type="primary" :loading="importing" @click="handleImport">
-          {{ importing ? 'Importing...' : t('standards.importStandard') }}
+          {{ importing ? t('standards.importing') : t('standards.importStandard') }}
         </el-button>
       </template>
     </el-dialog>
@@ -135,7 +135,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Loading, Upload } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import RowActions from '@/components/shared/RowActions.vue'
 import StateBadge from '@/components/shared/StateBadge.vue'
@@ -162,6 +162,7 @@ const importPreview = ref<{
   requirementCount: number
   requirements: any[]
   levels: any[]
+  rawJson: string
 } | null>(null)
 const showCreateDialog = ref(false)
 const creatingStandard = ref(false)
@@ -191,6 +192,53 @@ const fetchStandards = async () => {
 
 const navigateToStandard = (row: any) => {
   router.push(`/standards/${row.id}`)
+}
+
+const handleDeleteStandard = async (row: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `Delete "${row.name}"? This action cannot be undone.`,
+      'Delete Standard',
+      {
+        confirmButtonText: 'Delete',
+        cancelButtonText: 'Cancel',
+        type: 'warning',
+      }
+    )
+    await axios.delete(`/api/v1/standards/${row.id}`)
+    ElMessage.success('Standard deleted')
+    await fetchStandards()
+  } catch (err: any) {
+    if (err !== 'cancel' && err?.message !== 'cancel') {
+      ElMessage.error(err.response?.data?.error || 'Failed to delete standard')
+    }
+  }
+}
+
+const handleExportStandard = async (row: any) => {
+  try {
+    const response = await axios.get(`/api/v1/standards/${row.id}/export`, {
+      responseType: 'blob',
+    })
+    const blob = new Blob([response.data], { type: 'application/vnd.cyclonedx+json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    const slug = row.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+    const suffix = row.version
+      ? row.version.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
+      : new Date().toISOString().replace(/[-:T]/g, '').replace(/\.\d+Z$/, '')
+    link.download = `${slug}-${suffix}.cdx.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.error || 'Failed to export standard')
+  }
 }
 
 const handleFileSelected = async (file: any) => {
@@ -273,6 +321,7 @@ const handleFileSelected = async (file: any) => {
       requirementCount: requirements.length,
       requirements,
       levels,
+      rawJson: text,
     }
   } catch (err: any) {
     importParseError.value = `Failed to parse file: ${err.message}`
@@ -299,6 +348,7 @@ const handleImport = async () => {
       description: importPreview.value.description || undefined,
       requirements: importPreview.value.requirements,
       levels: importPreview.value.levels.length > 0 ? importPreview.value.levels : undefined,
+      sourceJson: importPreview.value.rawJson,
     })
 
     const count = importPreview.value.requirementCount

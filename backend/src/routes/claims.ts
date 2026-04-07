@@ -144,6 +144,20 @@ router.post(
         return;
       }
 
+      // Validate attestation exists if provided
+      if (data.attestationId) {
+        const attestation = await db
+          .selectFrom('attestation')
+          .where('id', '=', data.attestationId)
+          .selectAll()
+          .executeTakeFirst();
+
+        if (!attestation) {
+          res.status(404).json({ error: 'Attestation not found' });
+          return;
+        }
+      }
+
       const claimId = uuidv4();
 
       await db
@@ -239,6 +253,29 @@ router.put(
         return;
       }
 
+      // If changing attestation, validate the new one exists and check its read-only status
+      if (data.attestationId !== undefined && data.attestationId !== (claim as any).attestation_id) {
+        if (data.attestationId) {
+          const newAttestation = await db
+            .selectFrom('attestation')
+            .where('id', '=', data.attestationId)
+            .selectAll()
+            .executeTakeFirst();
+
+          if (!newAttestation) {
+            res.status(404).json({ error: 'Target attestation not found' });
+            return;
+          }
+
+          // Check if the target assessment is read-only
+          const targetReadOnlyError = await checkClaimAssessmentReadOnly(db, data.attestationId);
+          if (targetReadOnlyError) {
+            res.status(403).json({ error: targetReadOnlyError });
+            return;
+          }
+        }
+      }
+
       const updateData: any = {};
 
       if (data.name !== undefined) updateData.name = data.name;
@@ -298,7 +335,14 @@ router.put(
         requestId: req.requestId,
       });
 
-      res.json({ message: 'Claim updated successfully' });
+      // Fetch and return the updated claim
+      const updatedClaim = await db
+        .selectFrom('claim')
+        .where('id', '=', req.params.id)
+        .selectAll()
+        .executeTakeFirst();
+
+      res.json(updatedClaim);
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: 'Invalid input', details: error.errors });
@@ -344,7 +388,7 @@ router.delete(
         requestId: req.requestId,
       });
 
-      res.json({ message: 'Claim deleted successfully' });
+      res.status(204).send();
     } catch (error) {
       logger.error('Delete claim error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });

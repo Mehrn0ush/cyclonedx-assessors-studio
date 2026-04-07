@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Loading, CircleCheckFilled } from '@element-plus/icons-vue'
 import client from '@/api/client'
+
+const { t } = useI18n()
 
 interface RiskInsight {
   type: 'blind_spot' | 'overdue' | 'gap' | 'expiring'
@@ -60,7 +63,7 @@ onMounted(() => {
       <el-icon :size="32" class="check-icon">
         <CircleCheckFilled />
       </el-icon>
-      <span>No active risks</span>
+      <span>{{ t('dashboard.widgets.noActiveRisks') }}</span>
     </div>
 
     <div v-else class="insights-list">

@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Loading } from '@element-plus/icons-vue'
 import client from '@/api/client'
+
+const { t } = useI18n()
 
 interface DueDate {
   id: string
@@ -57,7 +60,7 @@ onMounted(() => {
     </div>
 
     <div v-else-if="items.length === 0" class="empty-state">
-      <span>All assessments are on schedule.</span>
+      <span>{{ t('dashboard.widgets.allAssessmentsOnSchedule') }}</span>
     </div>
 
     <div v-else class="due-list">

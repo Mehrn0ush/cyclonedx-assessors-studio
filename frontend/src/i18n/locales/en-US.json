@@ -13,6 +13,7 @@
     "download": "Download",
     "edit": "Edit",
     "error": "Error",
+    "export": "Export",
     "expires": "Expires",
     "filter": "Filter",
     "id": "ID",
@@ -70,7 +71,11 @@
     "attestations": "Attestations",
     "users": "Users",
     "roles": "Roles",
-    "settings": "Settings"
+    "settings": "Settings",
+    "overview": "Overview",
+    "manage": "Manage",
+    "activity": "Activity",
+    "admin": "Admin"
   },
   "topbar": {
     "lightMode": "Light mode",
@@ -506,5 +511,89 @@
     "evidenceSubmitted": "Evidence submitted for review",
     "evidenceApproved": "Evidence approved",
     "evidenceRejected": "Evidence rejected"
+  },
+  "gettingStarted": {
+    "welcome": "Welcome to Assessors Studio",
+    "welcomeDescription": "Assessors Studio helps you evaluate organizations, teams, and products against industry standards, then produce formal attestations of conformance. Here is a quick overview of how it works.",
+    "entitiesTitle": "Entities & Standards",
+    "entitiesDescription": "An entity is anything you want to assess: an organization, a team, a product, or a software component. You link each entity to the standards it needs to meet, such as ASVS, BSIMM, PCI DSS, or SSDF. Entities connect to each other to form a flexible hierarchy that mirrors your org structure or supply chain.",
+    "assessmentsTitle": "Assessments",
+    "assessmentsDescription": "An assessment evaluates one entity against one standard. Assessors work through each requirement, recording a result and rationale. Evidence such as documents or test reports can be attached to support those findings. Multiple assessments can run in parallel across different standards.",
+    "attestationsTitle": "Attestations & Progress",
+    "attestationsDescription": "When an assessment is complete, you generate a formal attestation that records the results as a signed declaration. Attestations export as CycloneDX documents or PDF reports. Over time, the Progress view shows how conformance scores trend across assessments, helping you measure improvement.",
+    "automationTitle": "Built for Automation",
+    "automationDescription": "Assessors Studio is API first. Assessments, evidence collection, and attestation generation can all be orchestrated through the API, supporting human driven workflows, fully automated pipelines, or a mix of both.",
+    "previous": "Previous",
+    "next": "Next",
+    "getStarted": "Get Started"
+  },
+  "dashboard": {
+    "widgets": {
+      "noCompletedAssessments": "No completed assessments yet.",
+      "noRecentAssessments": "No recent assessments",
+      "allAssessmentsOnSchedule": "All assessments are on schedule.",
+      "noActiveRisks": "No active risks",
+      "noProjectsAvailable": "No projects available",
+      "noEvidenceDataAvailable": "No evidence data available",
+      "noStandardsAvailable": "No standards available",
+      "assessmentHistory": "Assessment History",
+      "expiringWithin30Days": "Expiring within 30 days",
+      "tableHeaders": {
+        "assessment": "Assessment",
+        "entity": "Entity",
+        "standard": "Standard",
+        "completed": "Completed",
+        "score": "Score",
+        "state": "State",
+        "date": "Date",
+        "title": "Title"
+      }
+    }
+  },
+  "projectDashboard": {
+    "assessments": "Assessments",
+    "timeline": "Timeline",
+    "overdue": "Overdue",
+    "today": "Today",
+    "project": "Project",
+    "noAssessmentsWithDates": "No assessments with dates to display.",
+    "projectProgress": "Project Progress"
+  },
+  "relationships": {
+    "inbound": "Inbound",
+    "outbound": "Outbound",
+    "showEdgeLabels": "Show edge labels"
+  },
+  "dropZones": {
+    "makeRootLevel": "Drop here to make root level"
+  },
+  "standards": {
+    "edit": "Edit",
+    "submitForApproval": "Submit for Approval",
+    "approve": "Approve",
+    "reject": "Reject",
+    "exportCycloneDX": "Export CycloneDX",
+    "duplicate": "Duplicate",
+    "retire": "Retire",
+    "more": "More",
+    "addLevel": "Add Level",
+    "newStandard": "New Standard",
+    "createDraft": "Create Draft",
+    "back": "Back",
+    "filterByState": "Filter by state",
+    "all": "All",
+    "draft": "Draft",
+    "inReview": "In Review",
+    "published": "Published",
+    "retired": "Retired",
+    "name": "Name",
+    "identifier": "Identifier",
+    "version": "Version",
+    "owner": "Owner",
+    "description": "Description",
+    "requirements": "Requirements",
+    "importing": "Importing...",
+    "dropCycloneDXFile": "Drop a CycloneDX JSON file here, or click to browse",
+    "acceptsJsonFiles": "Accepts .json and .cdx.json files"
   }
 }

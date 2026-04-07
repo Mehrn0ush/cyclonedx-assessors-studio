@@ -256,6 +256,14 @@ CREATE TABLE IF NOT EXISTS evidence (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Assessment Requirement Evidence junction
+CREATE TABLE IF NOT EXISTS assessment_requirement_evidence (
+  assessment_requirement_id UUID NOT NULL REFERENCES assessment_requirement(id) ON DELETE CASCADE,
+  evidence_id UUID NOT NULL REFERENCES evidence(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (assessment_requirement_id, evidence_id)
+);
+
 CREATE INDEX idx_evidence_state ON evidence(state);
 
 -- Tags (name is the natural key, always lowercase)
@@ -446,6 +454,17 @@ ALTER TABLE assessment_requirement ADD CONSTRAINT fk_assessment_requirement_evid
 ALTER TABLE claim DROP CONSTRAINT IF EXISTS fk_claim_attestation_id;
 ALTER TABLE claim ADD CONSTRAINT fk_claim_attestation_id
   FOREIGN KEY (attestation_id) REFERENCES attestation(id) ON DELETE SET NULL;
+
+-- Audit Log
+CREATE TABLE IF NOT EXISTS audit_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_type VARCHAR(100) NOT NULL,
+  entity_id UUID NOT NULL,
+  action VARCHAR(100) NOT NULL,
+  user_id UUID REFERENCES app_user(id) ON DELETE SET NULL,
+  changes JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
 -- Add role_id column to app_user for new RBAC system
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS role_id UUID REFERENCES role(id) ON DELETE SET NULL;
@@ -660,9 +679,9 @@ export async function createTestProject(overrides: Partial<{
 export async function createTestStandard(overrides: Partial<{
   identifier: string;
   name: string;
-  description: string;
-  owner: string;
-  version: string;
+  description: string | null;
+  owner: string | null;
+  version: string | null;
 }> = {}) {
   const db = getTestDatabase();
   const standardId = uuidv4();
@@ -672,9 +691,9 @@ export async function createTestStandard(overrides: Partial<{
     id: standardId,
     identifier,
     name: overrides.name || 'Test Standard',
-    description: overrides.description || 'A test standard',
-    owner: overrides.owner || 'Test Owner',
-    version: overrides.version || '1.0.0',
+    description: 'description' in overrides ? overrides.description : 'A test standard',
+    owner: 'owner' in overrides ? overrides.owner : 'Test Owner',
+    version: 'version' in overrides ? overrides.version : '1.0.0',
   }).execute();
 
   return {
@@ -689,6 +708,7 @@ export async function createTestRequirement(standardId: string, overrides: Parti
   name: string;
   description: string;
   parentId: string;
+  open_cre: string;
 }> = {}) {
   const db = getTestDatabase();
   const requirementId = uuidv4();
@@ -701,6 +721,7 @@ export async function createTestRequirement(standardId: string, overrides: Parti
     description: overrides.description || 'A test requirement',
     standard_id: standardId,
     parent_id: overrides.parentId || null,
+    open_cre: overrides.open_cre || null,
   }).execute();
 
   return {
@@ -775,5 +796,60 @@ export async function createTestEvidence(authorId: string, overrides: Partial<{
   return {
     id: evidenceId,
     name: overrides.name || 'Test Evidence',
+  };
+}
+
+export async function createTestTag(overrides: Partial<{
+  name: string;
+  color: string;
+}> = {}) {
+  const db = getTestDatabase();
+  const tagId = uuidv4();
+  const name = overrides.name || `tag-${uuidv4().slice(0, 8)}`.toLowerCase();
+  const color = overrides.color || '#6366f1';
+
+  await db.insertInto('tag').values({
+    id: tagId,
+    name,
+    color,
+    created_at: new Date(),
+  }).execute();
+
+  return {
+    id: tagId,
+    name,
+    color,
+  };
+}
+
+export async function createTestAttestationRequirement(
+  attestationId: string,
+  requirementId: string,
+  overrides: Partial<{
+    conformanceScore: number;
+    conformanceRationale: string;
+    confidenceScore: number;
+    confidenceRationale: string;
+  }> = {}
+) {
+  const db = getTestDatabase();
+  const attestReqId = uuidv4();
+
+  await db.insertInto('attestation_requirement').values({
+    id: attestReqId,
+    attestation_id: attestationId,
+    requirement_id: requirementId,
+    conformance_score: (overrides.conformanceScore ?? 0.5) as any,
+    conformance_rationale: overrides.conformanceRationale || 'Test rationale',
+    confidence_score: (overrides.confidenceScore ?? 0.75) as any,
+    confidence_rationale: overrides.confidenceRationale || 'Test confidence',
+    created_at: new Date(),
+    updated_at: new Date(),
+  }).execute();
+
+  return {
+    id: attestReqId,
+    attestation_id: attestationId,
+    requirement_id: requirementId,
   };
 }

@@ -262,7 +262,14 @@ router.put(
         requestId: req.requestId,
       });
 
-      res.json({ message: 'Attestation updated successfully' });
+      // Fetch and return the updated attestation
+      const updatedAttestation = await db
+        .selectFrom('attestation')
+        .where('id', '=', req.params.id)
+        .selectAll()
+        .executeTakeFirst();
+
+      res.json(updatedAttestation);
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: 'Invalid input', details: error.errors });

@@ -42,14 +42,14 @@
         <el-row :gutter="20">
           <el-col :span="6">
             <div class="info-group">
-              <label>State</label>
+              <label>{{ t('common.state') }}</label>
               <StateBadge :state="standard.state" />
             </div>
           </el-col>
           <el-col :span="6">
             <div class="info-group">
-              <label>Source</label>
-              <p>{{ standard.is_imported ? 'Imported' : 'Authored' }}</p>
+              <label>{{ t('common.status') }}</label>
+              <p>{{ standard.is_imported ? t('standards.importStandard') : 'Authored' }}</p>
             </div>
           </el-col>
           <el-col v-if="standard.authored_by" :span="6">
@@ -89,67 +89,121 @@
           :icon="Edit"
           @click="openEditDialog"
         >
-          Edit
+          {{ t('standards.edit') }}
         </el-button>
         <el-button
           v-if="canSubmitForApproval"
           type="warning"
           @click="handleSubmitForApproval"
         >
-          Submit for Approval
+          {{ t('standards.submitForApproval') }}
         </el-button>
         <el-button
           v-if="canApprove"
           type="success"
           @click="handleApprove"
         >
-          Approve
+          {{ t('standards.approve') }}
         </el-button>
         <el-button
           v-if="canReject"
           type="danger"
           @click="handleReject"
         >
-          Reject
+          {{ t('standards.reject') }}
         </el-button>
         <el-button
-          v-if="canDuplicate"
           type="default"
-          @click="handleDuplicate"
+          @click="handleExport"
+          :loading="exporting"
         >
-          Duplicate
+          {{ t('standards.exportCycloneDX') }}
         </el-button>
-        <el-dropdown v-if="canRetire">
+        <el-dropdown v-if="canDuplicate || canRetire" trigger="click">
           <el-button type="default">
-            More <el-icon class="el-icon--right"><arrow-down /></el-icon>
+            {{ t('standards.more') }} <el-icon class="el-icon--right"><arrow-down /></el-icon>
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item @click="handleRetire">Retire</el-dropdown-item>
+              <el-dropdown-item v-if="canDuplicate" @click="handleDuplicate">{{ t('standards.duplicate') }}</el-dropdown-item>
+              <el-dropdown-item v-if="canRetire" @click="handleRetire">{{ t('standards.retire') }}</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
       </div>
 
-      <!-- Levels card (only shown if the standard has levels) -->
-      <el-card v-if="levels.length > 0" class="levels-card">
+      <!-- Levels card -->
+      <el-card v-if="levels.length > 0 || canEditRequirements" class="levels-card">
         <template #header>
-          <span>{{ t('standards.levels') }} ({{ levels.length }})</span>
+          <div class="card-header-content">
+            <span>{{ t('standards.levels') }} ({{ levels.length }})</span>
+            <el-button
+              v-if="canEditRequirements"
+              type="primary"
+              size="small"
+              :icon="Plus"
+              @click="openAddLevelDialog"
+            >
+              {{ t('standards.addLevel') }}
+            </el-button>
+          </div>
         </template>
 
-        <el-table :data="levels" stripe border>
-          <el-table-column prop="identifier" :label="t('common.id')" min-width="150" sortable></el-table-column>
+        <el-table
+          :data="levels"
+          stripe
+          border
+          @row-click="canEditRequirements ? toggleLevelExpand($event) : null"
+          :row-class-name="levelRowClassName"
+        >
+          <el-table-column prop="identifier" :label="t('common.id')" min-width="150" sortable>
+            <template #default="{ row }">
+              <div v-if="editingLevelField?.id === row.id && editingLevelField?.field === 'identifier'" class="inline-edit-compact" @click.stop>
+                <el-input v-model="editingLevelValue" size="small" @keydown.enter="saveLevelField(row)" @keydown.escape="editingLevelField = null" />
+                <el-button size="small" type="primary" link @click="saveLevelField(row)">&#10003;</el-button>
+                <el-button size="small" link @click="editingLevelField = null">&#10005;</el-button>
+              </div>
+              <span v-else class="editable-text" :class="{ 'clickable': canEditRequirements }" @click.stop="canEditRequirements && startEditLevel(row, 'identifier')">{{ row.identifier }}</span>
+            </template>
+          </el-table-column>
           <el-table-column prop="title" :label="t('standards.name')" min-width="200" sortable>
             <template #default="{ row }">
-              {{ row.title || row.identifier }}
+              <div v-if="editingLevelField?.id === row.id && editingLevelField?.field === 'title'" class="inline-edit-compact" @click.stop>
+                <el-input v-model="editingLevelValue" size="small" @keydown.enter="saveLevelField(row)" @keydown.escape="editingLevelField = null" />
+                <el-button size="small" type="primary" link @click="saveLevelField(row)">&#10003;</el-button>
+                <el-button size="small" link @click="editingLevelField = null">&#10005;</el-button>
+              </div>
+              <span v-else class="editable-text" :class="{ 'clickable': canEditRequirements, 'placeholder-text': canEditRequirements && !row.title }" @click.stop="canEditRequirements && startEditLevel(row, 'title')">{{ row.title || (canEditRequirements ? 'Click to add title...' : row.identifier) }}</span>
             </template>
           </el-table-column>
           <el-table-column prop="description" :label="t('standards.description')" min-width="250" sortable>
             <template #default="{ row }">
-              <span class="level-description">{{ row.description || '-' }}</span>
+              <div v-if="editingLevelField?.id === row.id && editingLevelField?.field === 'description'" class="inline-edit-compact" @click.stop>
+                <el-input v-model="editingLevelValue" size="small" type="textarea" :rows="2" @keydown.escape="editingLevelField = null" />
+                <el-button size="small" type="primary" link @click="saveLevelField(row)">&#10003;</el-button>
+                <el-button size="small" link @click="editingLevelField = null">&#10005;</el-button>
+              </div>
+              <span v-else class="editable-text level-description" :class="{ 'clickable': canEditRequirements, 'placeholder-text': canEditRequirements && !row.description }" @click.stop="canEditRequirements && startEditLevel(row, 'description')">{{ row.description || (canEditRequirements ? 'Click to add description...' : '-') }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="requirementsCount" :label="t('standards.requirements')" min-width="140" align="center" sortable></el-table-column>
+          <el-table-column prop="requirementsCount" :label="t('standards.requirements')" min-width="140" align="center" sortable>
+            <template #default="{ row }">
+              <el-button v-if="canEditRequirements" type="primary" link size="small" @click.stop="openLevelRequirementsDialog(row)">
+                {{ row.requirementsCount }} {{ row.requirementsCount === 1 ? 'requirement' : 'requirements' }}
+              </el-button>
+              <span v-else>{{ row.requirementsCount }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column v-if="canEditRequirements" :label="t('common.actions')" min-width="80" align="center">
+            <template #default="{ row }">
+              <IconButton
+                :icon="Delete"
+                variant="danger"
+                :tooltip="t('common.delete')"
+                @click.stop="handleDeleteLevel(row)"
+              />
+            </template>
+          </el-table-column>
         </el-table>
       </el-card>
 
@@ -165,58 +219,25 @@
               :icon="Plus"
               @click="openAddRequirementDialog"
             >
-              Add Requirement
+              {{ t('common.add') }}
             </el-button>
           </div>
         </template>
 
-        <el-table
-          :data="requirements"
-          stripe
-          border
-          row-key="id"
-          :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
-          default-expand-all
-        >
-          <el-table-column prop="identifier" :label="t('common.id')" min-width="140" sortable></el-table-column>
-          <el-table-column prop="name" :label="t('standards.name')" min-width="300" sortable>
-            <template #default="{ row }">
-              {{ row.name !== row.identifier ? row.name : '' }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="description" :label="t('standards.description')" min-width="300" sortable>
-            <template #default="{ row }">
-              <span class="req-description">{{ row.description || '' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="canEditRequirements"
-            :label="t('common.actions')"
-            min-width="120"
-            align="center"
-          >
-            <template #default="{ row }">
-              <IconButton
-                :icon="Edit"
-                variant="primary"
-                :tooltip="t('common.edit')"
-                @click="openEditRequirementDialog(row)"
-              />
-              <IconButton
-                :icon="Delete"
-                variant="danger"
-                :tooltip="t('common.delete')"
-                @click="handleDeleteRequirement(row)"
-              />
-            </template>
-          </el-table-column>
-        </el-table>
+        <RequirementTree
+          :model-value="requirements"
+          :editable="canEditRequirements"
+          @delete="handleDeleteRequirement"
+          @edit="openEditRequirementDialog"
+          @save-inline="handleSaveInline"
+          @reparent="handleReparent"
+        />
       </el-card>
 
       <!-- Used By card -->
       <el-card class="used-by-card">
         <template #header>
-          <span>Used By</span>
+          <span>{{ t('common.status') }}</span>
         </template>
 
         <div v-if="projectsLoading" class="loading-state">
@@ -225,7 +246,7 @@
         </div>
 
         <div v-else-if="projects.length === 0" class="empty-state">
-          <p>No projects use this standard</p>
+          <p>{{ t('common.noData') }}</p>
         </div>
 
         <div v-else class="projects-list">
@@ -298,11 +319,12 @@
             v-model="requirementForm.parentId"
             placeholder="Select parent requirement (optional)"
             clearable
+            filterable
           >
             <el-option
-              v-for="req in requirements"
+              v-for="req in availableParentRequirements"
               :key="req.id"
-              :label="`${req.identifier}: ${req.name}`"
+              :label="req.label"
               :value="req.id"
             />
           </el-select>
@@ -311,6 +333,66 @@
       <template #footer>
         <el-button @click="requirementDialogVisible = false">Cancel</el-button>
         <el-button type="primary" @click="handleSaveRequirement">Save</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Add Level Dialog -->
+    <el-dialog
+      v-model="levelDialogVisible"
+      title="Add Level"
+      width="500px"
+      @close="resetLevelForm"
+    >
+      <el-form :model="levelForm" label-width="120px">
+        <el-form-item label="Identifier" required>
+          <el-input v-model="levelForm.identifier" placeholder="e.g. L1, L2, L3" />
+        </el-form-item>
+        <el-form-item label="Title">
+          <el-input v-model="levelForm.title" placeholder="e.g. Level 1: Opportunistic" />
+        </el-form-item>
+        <el-form-item label="Description">
+          <el-input v-model="levelForm.description" type="textarea" rows="3" placeholder="Level description" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="levelDialogVisible = false">Cancel</el-button>
+        <el-button type="primary" @click="handleSaveLevel">Save</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Level Requirements Assignment Dialog -->
+    <el-dialog
+      v-model="levelReqsDialogVisible"
+      :title="`Assign Requirements to ${editingLevel?.identifier || 'Level'}`"
+      width="700px"
+    >
+      <p style="margin-bottom: 12px; color: var(--cat-text-secondary); font-size: var(--cat-font-size-sm);">
+        Select which requirements belong to this level. Use the search box to filter.
+      </p>
+      <el-input
+        v-model="levelReqSearch"
+        placeholder="Search requirements..."
+        clearable
+        style="margin-bottom: 12px;"
+      />
+      <div class="level-reqs-checklist">
+        <el-checkbox-group v-model="selectedLevelReqIds">
+          <div v-for="req in filteredFlatRequirements" :key="req.id" class="level-req-item" :style="{ paddingLeft: `${req.depth * 20 + 8}px` }">
+            <el-checkbox :label="req.id" :value="req.id">
+              <span class="level-req-id">{{ req.identifier }}</span>
+              <span v-if="req.name !== req.identifier" class="level-req-name">{{ req.name }}</span>
+            </el-checkbox>
+          </div>
+        </el-checkbox-group>
+      </div>
+      <template #footer>
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <span style="color: var(--cat-text-secondary); font-size: var(--cat-font-size-sm);">{{ selectedLevelReqIds.length }} selected</span>
+          <div>
+            <el-button @click="levelReqsDialogVisible = false">Cancel</el-button>
+            <el-button type="primary" @click="handleSaveLevelRequirements">Save</el-button>
+          </div>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -325,6 +407,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import IconButton from '@/components/shared/IconButton.vue'
+import RequirementTree from '@/components/shared/RequirementTree.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
@@ -339,6 +422,7 @@ const requirements = ref<any[]>([])
 const levels = ref<any[]>([])
 const projects = ref<any[]>([])
 const projectsLoading = ref(false)
+const exporting = ref(false)
 
 // Edit dialog state
 const editDialogVisible = ref(false)
@@ -362,11 +446,71 @@ const requirementForm = ref({
   parentId: null,
 })
 
+// Inline editing is now handled by RequirementTree component
+
+// Level dialog state
+const levelDialogVisible = ref(false)
+const levelForm = ref({ identifier: '', title: '', description: '' })
+
+// Level inline editing state
+const editingLevelField = ref<{ id: string; field: string } | null>(null)
+const editingLevelValue = ref('')
+
+// Level requirements assignment dialog
+const levelReqsDialogVisible = ref(false)
+const editingLevel = ref<any>(null)
+const selectedLevelReqIds = ref<string[]>([])
+const levelReqSearch = ref('')
+
+// Flatten requirements for the level assignment checklist
+const flatRequirementsWithDepth = computed(() => {
+  const result: Array<{ id: string; identifier: string; name: string; depth: number }> = []
+  const flatten = (nodes: any[], depth: number) => {
+    for (const node of nodes) {
+      result.push({ id: node.id, identifier: node.identifier, name: node.name, depth })
+      if (node.children?.length) flatten(node.children, depth + 1)
+    }
+  }
+  flatten(requirements.value, 0)
+  return result
+})
+
+const filteredFlatRequirements = computed(() => {
+  const search = levelReqSearch.value.toLowerCase()
+  if (!search) return flatRequirementsWithDepth.value
+  return flatRequirementsWithDepth.value.filter(r =>
+    r.identifier.toLowerCase().includes(search) || r.name.toLowerCase().includes(search)
+  )
+})
+
 // Count total requirements (flattened from tree)
 const requirementCount = computed(() => {
   const count = (nodes: any[]): number =>
     nodes.reduce((sum, n) => sum + 1 + count(n.children || []), 0)
   return count(requirements.value)
+})
+
+// Flatten requirements tree for parent selector, excluding the currently edited requirement and its descendants
+const availableParentRequirements = computed(() => {
+  const editId = editingRequirement.value?.id
+  const result: { id: string; label: string }[] = []
+
+  const flatten = (nodes: any[], depth: number = 0) => {
+    for (const node of nodes) {
+      if (editId && node.id === editId) continue // skip self and descendants
+      const indent = depth > 0 ? '\u00A0'.repeat(depth * 4) : ''
+      result.push({
+        id: node.id,
+        label: `${indent}${node.identifier}: ${node.name}`,
+      })
+      if (node.children?.length) {
+        flatten(node.children, depth + 1)
+      }
+    }
+  }
+
+  flatten(requirements.value)
+  return result
 })
 
 // Check if user has admin or standards_manager role
@@ -540,6 +684,30 @@ const handleSaveRequirement = async () => {
   }
 }
 
+const handleSaveInline = async (row: any, field: string, value: string) => {
+  try {
+    await axios.put(
+      `/api/v1/standards/${standard.value.id}/requirements/${row.id}`,
+      { [field]: value }
+    )
+    await fetchStandard()
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.error || `Failed to update ${field}`)
+  }
+}
+
+const handleReparent = async (requirementId: string, newParentId: string | null) => {
+  try {
+    await axios.put(
+      `/api/v1/standards/${standard.value.id}/requirements/${requirementId}/reparent`,
+      { parent_id: newParentId }
+    )
+    await fetchStandard()
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.error || 'Failed to move requirement')
+  }
+}
+
 const handleDeleteRequirement = async (requirement: any) => {
   try {
     await ElMessageBox.confirm(
@@ -560,6 +728,97 @@ const handleDeleteRequirement = async (requirement: any) => {
     if (err.message !== 'cancel') {
       ElMessage.error(err.response?.data?.error || 'Failed to delete requirement')
     }
+  }
+}
+
+// Level handlers
+const openAddLevelDialog = () => {
+  levelForm.value = { identifier: '', title: '', description: '' }
+  levelDialogVisible.value = true
+}
+
+const resetLevelForm = () => {
+  levelForm.value = { identifier: '', title: '', description: '' }
+}
+
+const handleSaveLevel = async () => {
+  if (!levelForm.value.identifier) {
+    ElMessage.warning('Identifier is required')
+    return
+  }
+  try {
+    await axios.post(`/api/v1/standards/${standard.value.id}/levels`, levelForm.value)
+    ElMessage.success('Level added')
+    levelDialogVisible.value = false
+    await fetchStandard()
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.error || 'Failed to add level')
+  }
+}
+
+const handleDeleteLevel = async (level: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `Delete level "${level.identifier}"? This will also remove all requirement assignments for this level.`,
+      'Warning',
+      { confirmButtonText: 'Delete', cancelButtonText: 'Cancel', type: 'warning' }
+    )
+    await axios.delete(`/api/v1/standards/${standard.value.id}/levels/${level.id}`)
+    ElMessage.success('Level deleted')
+    await fetchStandard()
+  } catch (err: any) {
+    if (err !== 'cancel' && err?.message !== 'cancel') {
+      ElMessage.error(err.response?.data?.error || 'Failed to delete level')
+    }
+  }
+}
+
+const startEditLevel = (row: any, field: string) => {
+  editingLevelField.value = { id: row.id, field }
+  editingLevelValue.value = row[field] || ''
+}
+
+const saveLevelField = async (row: any) => {
+  if (!editingLevelField.value) return
+  try {
+    await axios.put(
+      `/api/v1/standards/${standard.value.id}/levels/${row.id}`,
+      { [editingLevelField.value.field]: editingLevelValue.value }
+    )
+    editingLevelField.value = null
+    await fetchStandard()
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.error || 'Failed to update level')
+  }
+}
+
+const toggleLevelExpand = (_row: any) => {
+  // Placeholder for potential future expand behavior
+}
+
+const levelRowClassName = (_data: any) => {
+  return ''
+}
+
+const openLevelRequirementsDialog = (level: any) => {
+  editingLevel.value = level
+  selectedLevelReqIds.value = [...(level.requirementIds || [])]
+  levelReqSearch.value = ''
+  levelReqsDialogVisible.value = true
+}
+
+const handleSaveLevelRequirements = async () => {
+  if (!editingLevel.value) return
+  try {
+    await axios.put(
+      `/api/v1/standards/${standard.value.id}/levels/${editingLevel.value.id}/requirements`,
+      { requirementIds: selectedLevelReqIds.value }
+    )
+    ElMessage.success('Level requirements updated')
+    levelReqsDialogVisible.value = false
+    await fetchStandard()
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.error || 'Failed to update level requirements')
   }
 }
 
@@ -634,6 +893,35 @@ const handleDuplicate = async () => {
     await router.push(`/standards/${data.id}`)
   } catch (err: any) {
     ElMessage.error(err.response?.data?.error || 'Failed to duplicate standard')
+  }
+}
+
+const handleExport = async () => {
+  exporting.value = true
+  try {
+    const response = await axios.get(`/api/v1/standards/${standard.value.id}/export`, {
+      responseType: 'blob',
+    })
+    const blob = new Blob([response.data], { type: 'application/vnd.cyclonedx+json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    const slug = standard.value.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+    const suffix = standard.value.version
+      ? standard.value.version.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
+      : new Date().toISOString().replace(/[-:T]/g, '').replace(/\.\d+Z$/, '')
+    link.download = `${slug}-${suffix}.cdx.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.error || 'Failed to export standard')
+  } finally {
+    exporting.value = false
   }
 }
 
@@ -755,11 +1043,59 @@ onMounted(fetchStandard)
   overflow: hidden;
 }
 
-.req-description {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.editable-text {
+  min-height: 20px;
+  display: inline-block;
+
+  &.clickable {
+    cursor: pointer;
+    border-radius: var(--cat-radius-sm);
+    padding: 1px 4px;
+    margin: -1px -4px;
+
+    &:hover {
+      background-color: var(--cat-bg-tertiary, rgba(255,255,255,0.05));
+    }
+  }
+
+  &.placeholder-text {
+    color: var(--cat-text-tertiary);
+    font-style: italic;
+    font-size: var(--cat-font-size-sm);
+  }
+}
+
+.inline-edit-compact {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.level-reqs-checklist {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--cat-border-default);
+  border-radius: var(--cat-radius-sm);
+  padding: 8px 0;
+}
+
+.level-req-item {
+  padding: 4px 12px;
+
+  &:hover {
+    background-color: var(--cat-bg-secondary);
+  }
+}
+
+.level-req-id {
+  font-weight: var(--cat-font-weight-medium);
+  font-size: var(--cat-font-size-sm);
+  margin-right: 8px;
+}
+
+.level-req-name {
+  color: var(--cat-text-secondary);
+  font-size: var(--cat-font-size-sm);
 }
 
 .loading-state {
@@ -810,6 +1146,7 @@ onMounted(fetchStandard)
   flex-wrap: wrap;
   padding: var(--cat-spacing-4) 0;
 }
+
 
 .card-header-content {
   display: flex;

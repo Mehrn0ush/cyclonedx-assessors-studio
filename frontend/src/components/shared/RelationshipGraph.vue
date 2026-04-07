@@ -13,7 +13,7 @@
       </div>
       <div class="relationship-graph__label-toggle">
         <el-switch v-model="showLabels" size="small" />
-        <span>Show edge labels</span>
+        <span>{{ t('relationships.showEdgeLabels') }}</span>
       </div>
     </div>
   </div>
@@ -21,7 +21,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import * as d3 from 'd3'
+
+const { t } = useI18n()
 
 interface RelationshipRow {
   id: string

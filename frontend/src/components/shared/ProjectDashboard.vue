@@ -10,7 +10,7 @@
         <div class="dashboard-stats">
             <div class="stat-card" role="region" aria-label="Assessment completion">
               <div class="stat-header">
-                <span class="stat-title">Assessments</span>
+                <span class="stat-title">{{ t('projectDashboard.assessments') }}</span>
               </div>
               <div class="stat-body">
                 <div class="stat-ring-container">
@@ -36,17 +36,17 @@
 
             <div class="stat-card" role="region" aria-label="Timeline status">
               <div class="stat-header">
-                <span class="stat-title">Timeline</span>
-                <el-tag v-if="timelineStatus === 'on_track'" type="success" size="small" effect="dark">On Track</el-tag>
-                <el-tag v-else-if="timelineStatus === 'at_risk'" type="warning" size="small" effect="dark">At Risk</el-tag>
-                <el-tag v-else-if="timelineStatus === 'overdue'" type="danger" size="small" effect="dark">Overdue</el-tag>
-                <el-tag v-else size="small" effect="dark">No Dates</el-tag>
+                <span class="stat-title">{{ t('projectDashboard.timeline') }}</span>
+                <el-tag v-if="timelineStatus === 'on_track'" type="success" size="small" effect="dark">{{ t('projectDashboard.project') }}</el-tag>
+                <el-tag v-else-if="timelineStatus === 'at_risk'" type="warning" size="small" effect="dark">{{ t('common.warning') }}</el-tag>
+                <el-tag v-else-if="timelineStatus === 'overdue'" type="danger" size="small" effect="dark">{{ t('projectDashboard.overdue') }}</el-tag>
+                <el-tag v-else size="small" effect="dark">{{ t('common.notProvided') }}</el-tag>
               </div>
               <div class="stat-body">
                 <div class="stat-detail" style="width: 100%">
                   <div v-if="stats.timeline.overdue > 0" class="timeline-alert">
                     <el-icon style="color: var(--cat-danger);"><WarningFilled /></el-icon>
-                    <span>{{ stats.timeline.overdue }} overdue</span>
+                    <span>{{ stats.timeline.overdue }} {{ t('projectDashboard.overdue') }}</span>
                   </div>
                   <div v-if="stats.timeline.projectDueDate" class="timeline-next">
                     <span class="stat-sub">Project deadline:</span>
@@ -135,7 +135,7 @@
 
       <div v-else>
         <div v-if="ganttItems.length === 0" class="gantt-empty">
-            No assessments with dates to display.
+            {{ t('projectDashboard.noAssessmentsWithDates') }}
           </div>
           <div v-else class="gantt-chart">
             <!-- Header with month labels -->
@@ -157,7 +157,7 @@
                   :style="{ left: todayPercent + '%' }"
                 >
                   <div class="gantt-today-line"></div>
-                  <span class="gantt-today-label">Today</span>
+                  <span class="gantt-today-label">{{ t('projectDashboard.today') }}</span>
                 </div>
               </div>
             </div>
@@ -165,7 +165,7 @@
             <!-- Project bar (if project has dates) -->
             <div v-if="projectGanttBar" class="gantt-row gantt-row-project">
               <div class="gantt-label-col">
-                <span class="gantt-item-label gantt-project-label">Project</span>
+                <span class="gantt-item-label gantt-project-label">{{ t('projectDashboard.project') }}</span>
               </div>
               <div class="gantt-bar-col">
                 <div
@@ -200,8 +200,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { WarningFilled, CircleCloseFilled, InfoFilled } from '@element-plus/icons-vue'
 import axios from 'axios'
+
+const { t } = useI18n()
 
 const props = withDefaults(defineProps<{
   projectId: string

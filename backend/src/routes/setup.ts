@@ -195,14 +195,42 @@ router.post('/import-standard', async (req: Request, res: Response): Promise<voi
     }
 
     // Fetch the CycloneDX standards document
-    const docResponse = await fetch(url);
-    if (!docResponse.ok) {
-      logger.error('Failed to fetch standard document', { url, status: docResponse.status });
-      res.status(502).json({ error: `Failed to download standard: ${title || url}` });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    let rawText: string;
+    try {
+      const docResponse = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (!docResponse.ok) {
+        logger.error('Failed to fetch standard document', { url, status: docResponse.status });
+        res.status(502).json({ error: `Failed to download standard: ${title || url}` });
+        return;
+      }
+
+      // Check Content-Length to prevent large downloads
+      const contentLength = docResponse.headers.get('content-length');
+      if (contentLength && parseInt(contentLength, 10) > 10 * 1024 * 1024) { // 10MB limit
+        logger.error('Standard document too large', { url, contentLength });
+        res.status(400).json({ error: 'Standard document is too large (max 10MB)' });
+        return;
+      }
+
+      rawText = await docResponse.text();
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        logger.error('Fetch timeout while downloading standard', { url });
+        res.status(504).json({ error: 'Request timeout while downloading standard' });
+      } else {
+        logger.error('Failed to fetch standard document', { url, error: fetchError });
+        res.status(502).json({ error: `Failed to download standard: ${title || url}` });
+      }
       return;
     }
 
-    const cdxDoc = (await docResponse.json()) as any;
+    const cdxDoc = JSON.parse(rawText) as any;
 
     // Extract standards from definitions (CycloneDX 1.6+) or declarations (older)
     const standards =
@@ -217,7 +245,10 @@ router.post('/import-standard', async (req: Request, res: Response): Promise<voi
     const importedStandards: Array<{ id: string; identifier: string; name: string; requirementCount: number }> = [];
 
     for (const standard of standards) {
-      const result = await importStandard(standard, { fallbackName: title || 'Unknown Standard' });
+      const result = await importStandard(standard, {
+        fallbackName: title || 'Unknown Standard',
+        sourceJson: rawText,
+      });
       importedStandards.push({
         id: result.id,
         identifier: result.identifier,

@@ -155,6 +155,46 @@ html.dark {
   --el-button-active-text-color: #bb8009;
 }
 
+// Dropdown popper + menu: dark theme alignment
+.el-popper.el-dropdown__popper {
+  background: var(--el-bg-color-overlay) !important;
+  border: 1px solid var(--el-border-color) !important;
+  border-radius: var(--el-border-radius-base) !important;
+  box-shadow: var(--el-box-shadow) !important;
+  padding: 0 !important;
+
+  .el-dropdown-menu {
+    background: transparent !important;
+    border: none !important;
+    padding: 4px 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+}
+
+.el-dropdown-menu__item {
+  color: var(--el-text-color-regular) !important;
+  padding: 10px 16px !important;
+  line-height: 1.4;
+
+  &:hover,
+  &:focus,
+  &:not(.is-disabled):focus {
+    background-color: rgba(47, 129, 247, 0.15) !important;
+    color: #58a6ff !important;
+  }
+
+  // Preserve danger color for destructive actions
+  &[style*="color: var(--el-color-danger)"],
+  &[style*="danger"] {
+    &:hover,
+    &:focus {
+      background-color: rgba(248, 81, 73, 0.15) !important;
+      color: #f85149 !important;
+    }
+  }
+}
+
 // Icon-only buttons: square aspect ratio
 .el-button:has(> .el-icon:only-child) {
   aspect-ratio: 1;

@@ -254,7 +254,24 @@ router.put(
         requestId: req.requestId,
       });
 
-      res.json({ message: 'Role updated successfully' });
+      // Fetch and return the updated role with its permissions
+      const updatedRole = await db
+        .selectFrom('role')
+        .where('id', '=', req.params.id)
+        .selectAll()
+        .executeTakeFirst();
+
+      const permissions = await db
+        .selectFrom('role_permission')
+        .innerJoin('permission', 'permission.id', 'role_permission.permission_id')
+        .where('role_permission.role_id', '=', req.params.id)
+        .select(['permission.id', 'permission.key', 'permission.name', 'permission.description', 'permission.category'])
+        .execute();
+
+      res.json({
+        ...updatedRole,
+        permissions,
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: 'Invalid input', details: error.errors });
@@ -298,7 +315,7 @@ router.delete(
         requestId: req.requestId,
       });
 
-      res.json({ message: 'Role deleted successfully' });
+      res.status(204).send();
     } catch (error) {
       logger.error('Delete role error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });

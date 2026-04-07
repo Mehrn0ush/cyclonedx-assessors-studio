@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Loading } from '@element-plus/icons-vue'
 import client from '@/api/client'
+
+const { t } = useI18n()
 
 interface ComplianceStandard {
   standardId: string
@@ -52,7 +55,7 @@ onMounted(() => {
     </div>
 
     <div v-else-if="standards.length === 0" class="empty-state">
-      <span>No standards available</span>
+      <span>{{ t('dashboard.widgets.noStandardsAvailable') }}</span>
     </div>
 
     <div v-else class="standards-list">

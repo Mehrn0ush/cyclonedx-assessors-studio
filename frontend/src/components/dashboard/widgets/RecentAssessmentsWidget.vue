@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Loading } from '@element-plus/icons-vue'
 import client from '@/api/client'
 import StateBadge from '@/components/shared/StateBadge.vue'
+
+const { t } = useI18n()
 
 interface Assessment {
   id: string
@@ -52,7 +55,7 @@ onMounted(() => {
     </div>
 
     <div v-else-if="assessments.length === 0" class="empty-state">
-      <span>No recent assessments</span>
+      <span>{{ t('dashboard.widgets.noRecentAssessments') }}</span>
     </div>
 
     <el-table v-else :data="assessments" stripe size="small" :show-header="true">

@@ -1,15 +1,15 @@
 import { Router, Response } from 'express';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { validatePagination } from '../utils/pagination.js';
 
 const router = Router();
 
-router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/', requireAuth, requireRole('admin'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const offset = Number(req.query.offset) || 0;
+    const { limit, offset } = validatePagination(req.query);
     const entityType = req.query.entityType as string | undefined;
     const entityId = req.query.entityId as string | undefined;
     const userId = req.query.userId as string | undefined;
@@ -62,11 +62,11 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
 router.get(
   '/entity/:entityType/:entityId',
   requireAuth,
+  requireRole('admin'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
-      const limit = Math.min(Number(req.query.limit) || 50, 100);
-      const offset = Number(req.query.offset) || 0;
+      const { limit, offset } = validatePagination(req.query);
 
       const total = await db
         .selectFrom('audit_log')

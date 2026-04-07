@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Loading } from '@element-plus/icons-vue'
 import client from '@/api/client'
 import StateBadge from '@/components/shared/StateBadge.vue'
+
+const { t } = useI18n()
 
 interface EvidenceItem {
   id: string
@@ -69,7 +72,7 @@ onMounted(() => {
     </div>
 
     <div v-else-if="stateItems.length === 0 && expiringItems.length === 0" class="empty-state">
-      <span>No evidence data available</span>
+      <span>{{ t('dashboard.widgets.noEvidenceDataAvailable') }}</span>
     </div>
 
     <div v-else class="evidence-container">
@@ -83,7 +86,7 @@ onMounted(() => {
       </div>
 
       <div v-if="expiringItems.length > 0" class="expiring-section">
-        <div class="section-title">Expiring within 30 days</div>
+        <div class="section-title">{{ t('dashboard.widgets.expiringWithin30Days') }}</div>
         <div class="expiring-list">
           <div v-for="item in expiringItems" :key="item.id" class="expiring-item">
             <div class="item-name">{{ item.name }}</div>

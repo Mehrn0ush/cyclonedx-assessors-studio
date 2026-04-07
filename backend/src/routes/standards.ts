@@ -6,8 +6,25 @@ import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { importStandard } from '../services/standard-import.js';
+import { buildRequirementTree, topologicalSort } from '../services/requirement-utils.js';
+import { generateStandardCycloneDX } from '../services/standard-export.js';
 
 const router = Router();
+
+/**
+ * Build a filesystem-safe export filename from a standard's name and version.
+ * If version is missing, falls back to a UTC timestamp (YYYYMMDD-HHmmss).
+ */
+function buildExportFilename(name: string, version?: string | null): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')   // replace non-alphanum runs with hyphen
+    .replace(/^-+|-+$/g, '');       // trim leading/trailing hyphens
+  const suffix = version
+    ? version.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
+    : new Date().toISOString().replace(/[-:T]/g, '').replace(/\.\d+Z$/, '');
+  return `${slug}-${suffix}.cdx.json`;
+}
 
 const importStandardSchema = z.object({
   identifier: z.string(),
@@ -37,6 +54,7 @@ const importStandardSchema = z.object({
       })
     )
     .optional(),
+  sourceJson: z.string().optional(),
 });
 
 router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
@@ -174,6 +192,71 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
   }
 });
 
+// Export a standard as CycloneDX JSON
+router.get(
+  '/:id/export',
+  requireAuth,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const db = getDatabase();
+      const standard = await db
+        .selectFrom('standard')
+        .where('id', '=', req.params.id)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!standard) {
+        res.status(404).json({ error: 'Standard not found' });
+        return;
+      }
+
+      const exportFilename = buildExportFilename(standard.name, standard.version);
+
+      // Serve the stored blob if available (imported or published in-app standards)
+      if (standard.source_json) {
+        res.setHeader('Content-Type', 'application/vnd.cyclonedx+json; version=1.6');
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="${exportFilename}"`,
+        );
+        res.send(standard.source_json);
+        return;
+      }
+
+      // No stored blob: this standard has not been published yet or was created
+      // before blob storage was added. Generate on the fly but do not persist.
+      if (standard.state === 'draft' || standard.state === 'in_review') {
+        const json = await generateStandardCycloneDX(req.params.id);
+        res.setHeader('Content-Type', 'application/vnd.cyclonedx+json; version=1.6');
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="${exportFilename}"`,
+        );
+        res.send(json);
+        return;
+      }
+
+      // Published/retired without a blob (legacy data): generate and store
+      const json = await generateStandardCycloneDX(req.params.id);
+      await db
+        .updateTable('standard')
+        .set({ source_json: json })
+        .where('id', '=', req.params.id)
+        .execute();
+
+      res.setHeader('Content-Type', 'application/vnd.cyclonedx+json; version=1.6');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${exportFilename}"`,
+      );
+      res.send(json);
+    } catch (error) {
+      logger.error('Export standard error', { error, requestId: req.requestId });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  },
+);
+
 router.post(
   '/import',
   requireAuth,
@@ -208,7 +291,9 @@ router.post(
         })),
       };
 
-      const result = await importStandard(rawStandard);
+      const result = await importStandard(rawStandard, {
+        sourceJson: data.sourceJson,
+      });
 
       if (result.skipped) {
         res.status(409).json({
@@ -341,7 +426,11 @@ router.put(
       });
 
       res.json(updated);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes('duplicate') || error?.message?.includes('unique')) {
+        res.status(409).json({ error: 'A standard with this identifier already exists' });
+        return;
+      }
       logger.error('Update standard error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -430,12 +519,16 @@ router.post(
         return;
       }
 
+      // Generate CycloneDX JSON blob at publish time for deterministic exports
+      const sourceJson = await generateStandardCycloneDX(req.params.id);
+
       await db
         .updateTable('standard')
         .set({
           state: 'published',
           approved_by: req.user!.id,
           approved_at: new Date(),
+          source_json: sourceJson,
         })
         .where('id', '=', req.params.id)
         .execute();
@@ -543,11 +636,24 @@ router.post(
       const newId = uuidv4();
       const newVersion = original.version ? `${original.version}-draft` : 'draft';
 
+      // Build a cleaner identifier for the duplicate: strip the old version
+      // suffix (if the identifier ends with it) and append the new version.
+      let baseIdentifier = original.identifier;
+      if (original.version) {
+        const versionSuffix = `-${original.version}`;
+        if (baseIdentifier.endsWith(versionSuffix)) {
+          baseIdentifier = baseIdentifier.slice(0, -versionSuffix.length);
+        }
+      }
+      // Also strip any trailing "-copy" from previous duplications
+      baseIdentifier = baseIdentifier.replace(/-copy$/, '');
+      const newIdentifier = `${baseIdentifier}-${newVersion}`;
+
       await db
         .insertInto('standard')
         .values(toSnakeCase({
           id: newId,
-          identifier: `${original.identifier}-copy`,
+          identifier: newIdentifier,
           name: `${original.name} (Draft)`,
           description: original.description,
           owner: original.owner,
@@ -559,16 +665,18 @@ router.post(
         }))
         .execute();
 
-      // Copy all requirements from original
-      const requirements = await db
+      // Copy all requirements from original, preserving parent/child hierarchy.
+      // Topological sort ensures parents are always inserted before children.
+      const rawRequirements = await db
         .selectFrom('requirement')
         .where('standard_id', '=', req.params.id)
         .selectAll()
         .execute();
 
+      const sortedRequirements = topologicalSort(rawRequirements);
       const requirementMap = new Map<string, string>();
 
-      for (const req_item of requirements) {
+      for (const req_item of sortedRequirements) {
         const newReqId = uuidv4();
 
         const parentId =
@@ -590,6 +698,48 @@ router.post(
           .execute();
 
         requirementMap.set(req_item.id, newReqId);
+      }
+
+      // Copy levels and their requirement associations
+      const originalLevels = await db
+        .selectFrom('level')
+        .where('standard_id', '=', req.params.id)
+        .selectAll()
+        .execute();
+
+      for (const lvl of originalLevels) {
+        const newLevelId = uuidv4();
+
+        await db
+          .insertInto('level')
+          .values({
+            id: newLevelId,
+            identifier: lvl.identifier,
+            title: lvl.title,
+            description: lvl.description,
+            standard_id: newId,
+          })
+          .execute();
+
+        // Copy level-requirement junctions, mapping old requirement IDs to new ones
+        const lvlReqs = await db
+          .selectFrom('level_requirement')
+          .where('level_id', '=', lvl.id)
+          .selectAll()
+          .execute();
+
+        for (const lr of lvlReqs) {
+          const newReqId = requirementMap.get(lr.requirement_id);
+          if (newReqId) {
+            await db
+              .insertInto('level_requirement')
+              .values({
+                level_id: newLevelId,
+                requirement_id: newReqId,
+              })
+              .execute();
+          }
+        }
       }
 
       const created = await db
@@ -689,15 +839,15 @@ router.post(
         return;
       }
 
-      const { identifier, name, description, open_cre, parentIdentifier } = req.body;
+      const { identifier, name, description, open_cre, parentIdentifier, parentId: bodyParentId } = req.body;
 
       if (!identifier || !name) {
         res.status(400).json({ error: 'Missing required fields: identifier and name' });
         return;
       }
 
-      let parentId = null;
-      if (parentIdentifier) {
+      let parentId: string | null = bodyParentId || null;
+      if (!parentId && parentIdentifier) {
         const parent = await db
           .selectFrom('requirement')
           .where('standard_id', '=', req.params.id)
@@ -784,7 +934,26 @@ router.put(
         return;
       }
 
-      const { identifier, name, description, openCre } = req.body;
+      const { identifier, name, description, openCre, parentId } = req.body;
+
+      // Validate parentId if provided (prevent self-reference and circular references)
+      if (parentId !== undefined && parentId !== null) {
+        if (parentId === req.params.reqId) {
+          res.status(400).json({ error: 'A requirement cannot be its own parent' });
+          return;
+        }
+        const parent = await db
+          .selectFrom('requirement')
+          .where('id', '=', parentId)
+          .where('standard_id', '=', req.params.standardId)
+          .selectAll()
+          .executeTakeFirst();
+
+        if (!parent) {
+          res.status(400).json({ error: 'Parent requirement not found in this standard' });
+          return;
+        }
+      }
 
       await db
         .updateTable('requirement')
@@ -793,6 +962,7 @@ router.put(
           ...(name && { name }),
           ...(description !== undefined && { description }),
           ...(openCre !== undefined && { openCre }),
+          ...(parentId !== undefined && { parentId: parentId || null }),
         }))
         .where('id', '=', req.params.reqId)
         .execute();
@@ -810,7 +980,11 @@ router.put(
       });
 
       res.json(updated);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes('duplicate') || error?.message?.includes('unique')) {
+        res.status(409).json({ error: 'A requirement with this identifier already exists in this standard' });
+        return;
+      }
       logger.error('Update requirement error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -872,42 +1046,405 @@ router.delete(
   }
 );
 
-function buildRequirementTree(
-  requirements: Array<{
-    id: string;
-    identifier: string;
-    name: string;
-    parent_id: string | null | undefined;
-    description: string | null | undefined;
-    open_cre: string | null | undefined;
-    standard_id: string;
-    created_at: Date;
-    updated_at: Date;
-  }>
-): Array<any> {
-  const map = new Map<string | null | undefined, Array<any>>();
+// =====================================================================
+// Level management routes
+// =====================================================================
 
-  for (const req of requirements) {
-    if (!map.has(req.parent_id)) {
-      map.set(req.parent_id, []);
+// Add a level to a draft standard
+router.post(
+  '/:standardId/levels',
+  requireAuth,
+  requireRole('admin', 'standards_manager'),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const db = getDatabase();
+      const standard = await db
+        .selectFrom('standard')
+        .where('id', '=', req.params.standardId)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!standard) { res.status(404).json({ error: 'Standard not found' }); return; }
+      if (standard.state !== 'draft') { res.status(403).json({ error: 'Can only add levels to draft standards' }); return; }
+
+      const { identifier, title, description } = req.body;
+      if (!identifier) { res.status(400).json({ error: 'Missing required field: identifier' }); return; }
+
+      const levelId = uuidv4();
+      await db
+        .insertInto('level')
+        .values({ id: levelId, identifier, title: title || null, description: description || null, standard_id: req.params.standardId })
+        .execute();
+
+      const created = await db.selectFrom('level').where('id', '=', levelId).selectAll().executeTakeFirst();
+      logger.info('Level added', { standardId: req.params.standardId, levelId, requestId: req.requestId });
+      res.status(201).json(created);
+    } catch (error: any) {
+      if (error?.message?.includes('duplicate') || error?.message?.includes('unique')) {
+        res.status(409).json({ error: 'A level with this identifier already exists in this standard' });
+        return;
+      }
+      logger.error('Add level error', { error, requestId: req.requestId });
+      res.status(500).json({ error: 'Internal server error' });
     }
-    map.get(req.parent_id)!.push(req);
   }
+);
 
-  function buildNode(parentId: string | null | undefined): Array<any> {
-    const children = map.get(parentId) || [];
-    return children.map(child => ({
-      id: child.id,
-      identifier: child.identifier,
-      name: child.name,
-      parent_id: child.parent_id || null,
-      description: child.description || null,
-      open_cre: child.open_cre || null,
-      children: buildNode(child.id),
-    }));
+// Update a level in a draft standard
+router.put(
+  '/:standardId/levels/:levelId',
+  requireAuth,
+  requireRole('admin', 'standards_manager'),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const db = getDatabase();
+      const standard = await db
+        .selectFrom('standard')
+        .where('id', '=', req.params.standardId)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!standard) { res.status(404).json({ error: 'Standard not found' }); return; }
+      if (standard.state !== 'draft') { res.status(403).json({ error: 'Can only edit levels in draft standards' }); return; }
+
+      const level = await db
+        .selectFrom('level')
+        .where('id', '=', req.params.levelId)
+        .where('standard_id', '=', req.params.standardId)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!level) { res.status(404).json({ error: 'Level not found' }); return; }
+
+      const { identifier, title, description } = req.body;
+
+      await db
+        .updateTable('level')
+        .set({
+          ...(identifier !== undefined && { identifier }),
+          ...(title !== undefined && { title: title || null }),
+          ...(description !== undefined && { description: description || null }),
+        })
+        .where('id', '=', req.params.levelId)
+        .execute();
+
+      const updated = await db.selectFrom('level').where('id', '=', req.params.levelId).selectAll().executeTakeFirst();
+      res.json(updated);
+    } catch (error: any) {
+      if (error?.message?.includes('duplicate') || error?.message?.includes('unique')) {
+        res.status(409).json({ error: 'A level with this identifier already exists in this standard' });
+        return;
+      }
+      logger.error('Update level error', { error, requestId: req.requestId });
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
+);
 
-  return buildNode(null);
-}
+// Delete a level from a draft standard
+router.delete(
+  '/:standardId/levels/:levelId',
+  requireAuth,
+  requireRole('admin', 'standards_manager'),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const db = getDatabase();
+      const standard = await db
+        .selectFrom('standard')
+        .where('id', '=', req.params.standardId)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!standard) { res.status(404).json({ error: 'Standard not found' }); return; }
+      if (standard.state !== 'draft') { res.status(403).json({ error: 'Can only delete levels from draft standards' }); return; }
+
+      await db.deleteFrom('level').where('id', '=', req.params.levelId).where('standard_id', '=', req.params.standardId).execute();
+      res.status(204).send();
+    } catch (error) {
+      logger.error('Delete level error', { error, requestId: req.requestId });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// Set requirements for a level (replaces all current assignments)
+router.put(
+  '/:standardId/levels/:levelId/requirements',
+  requireAuth,
+  requireRole('admin', 'standards_manager'),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const db = getDatabase();
+      const standard = await db
+        .selectFrom('standard')
+        .where('id', '=', req.params.standardId)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!standard) { res.status(404).json({ error: 'Standard not found' }); return; }
+      if (standard.state !== 'draft') { res.status(403).json({ error: 'Can only modify level requirements in draft standards' }); return; }
+
+      const level = await db
+        .selectFrom('level')
+        .where('id', '=', req.params.levelId)
+        .where('standard_id', '=', req.params.standardId)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!level) { res.status(404).json({ error: 'Level not found' }); return; }
+
+      const { requirementIds } = req.body;
+      if (!Array.isArray(requirementIds)) { res.status(400).json({ error: 'requirementIds must be an array' }); return; }
+
+      // Clear existing and re-insert
+      await db.deleteFrom('level_requirement').where('level_id', '=', req.params.levelId).execute();
+
+      for (const reqId of requirementIds) {
+        try {
+          await db
+            .insertInto('level_requirement')
+            .values({ level_id: req.params.levelId, requirement_id: reqId })
+            .execute();
+        } catch (insertErr: any) {
+          if (insertErr?.message?.includes('duplicate') || insertErr?.message?.includes('unique')) continue;
+          throw insertErr;
+        }
+      }
+
+      logger.info('Level requirements updated', { standardId: req.params.standardId, levelId: req.params.levelId, count: requirementIds.length, requestId: req.requestId });
+      res.json({ success: true, count: requirementIds.length });
+    } catch (error) {
+      logger.error('Update level requirements error', { error, requestId: req.requestId });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// Delete a draft or retired standard (retired only if no references exist)
+router.delete(
+  '/:id',
+  requireAuth,
+  requireRole('admin'),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const db = getDatabase();
+      const standard = await db
+        .selectFrom('standard')
+        .where('id', '=', req.params.id)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!standard) {
+        res.status(404).json({ error: 'Standard not found' });
+        return;
+      }
+
+      if (standard.state !== 'draft' && standard.state !== 'retired') {
+        res.status(403).json({ error: 'Only draft or retired standards can be deleted' });
+        return;
+      }
+
+      // For retired standards, verify no other objects reference it
+      if (standard.state === 'retired') {
+        const requirementIds = await db
+          .selectFrom('requirement')
+          .where('standard_id', '=', req.params.id)
+          .select('id')
+          .execute();
+
+        const reqIdList = requirementIds.map((r) => r.id);
+
+        // Check project_standard references
+        const projectRefs = await db
+          .selectFrom('project_standard')
+          .where('standard_id', '=', req.params.id)
+          .select(db.fn.count<number>('project_id').as('count'))
+          .executeTakeFirstOrThrow();
+
+        if (Number(projectRefs.count) > 0) {
+          res.status(409).json({ error: 'Cannot delete: standard is still referenced by one or more projects' });
+          return;
+        }
+
+        // Check entity_standard references
+        const entityRefs = await db
+          .selectFrom('entity_standard')
+          .where('standard_id', '=', req.params.id)
+          .select(db.fn.count<number>('entity_id').as('count'))
+          .executeTakeFirstOrThrow();
+
+        if (Number(entityRefs.count) > 0) {
+          res.status(409).json({ error: 'Cannot delete: standard is still referenced by one or more entities' });
+          return;
+        }
+
+        // Check compliance_policy references
+        const policyRefs = await db
+          .selectFrom('compliance_policy')
+          .where('standard_id', '=', req.params.id)
+          .select(db.fn.count<number>('id').as('count'))
+          .executeTakeFirstOrThrow();
+
+        if (Number(policyRefs.count) > 0) {
+          res.status(409).json({ error: 'Cannot delete: standard is still referenced by one or more compliance policies' });
+          return;
+        }
+
+        // Check assessment references
+        const assessmentRefs = await db
+          .selectFrom('assessment')
+          .where('standard_id', '=', req.params.id)
+          .select(db.fn.count<number>('id').as('count'))
+          .executeTakeFirstOrThrow();
+
+        if (Number(assessmentRefs.count) > 0) {
+          res.status(409).json({ error: 'Cannot delete: standard is still referenced by one or more assessments' });
+          return;
+        }
+
+        // Check if any requirements are referenced by assessment_requirement, attestation_requirement, or claims
+        if (reqIdList.length > 0) {
+          const assessmentReqRefs = await db
+            .selectFrom('assessment_requirement')
+            .where('requirement_id', 'in', reqIdList)
+            .select(db.fn.count<number>('id').as('count'))
+            .executeTakeFirstOrThrow();
+
+          if (Number(assessmentReqRefs.count) > 0) {
+            res.status(409).json({ error: 'Cannot delete: requirements from this standard are referenced by assessment data' });
+            return;
+          }
+
+          const attestationReqRefs = await db
+            .selectFrom('attestation_requirement')
+            .where('requirement_id', 'in', reqIdList)
+            .select(db.fn.count<number>('id').as('count'))
+            .executeTakeFirstOrThrow();
+
+          if (Number(attestationReqRefs.count) > 0) {
+            res.status(409).json({ error: 'Cannot delete: requirements from this standard are referenced by attestation data' });
+            return;
+          }
+        }
+      }
+
+      // CASCADE will remove requirements, levels, level_requirements
+      await db
+        .deleteFrom('standard')
+        .where('id', '=', req.params.id)
+        .execute();
+
+      logger.info('Standard deleted', {
+        standardId: req.params.id,
+        state: standard.state,
+        deletedBy: req.user!.id,
+        requestId: req.requestId,
+      });
+
+      res.status(204).send();
+    } catch (error) {
+      logger.error('Delete standard error', { error, requestId: req.requestId });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// Reparent a requirement (move it to a different parent via drag/drop)
+router.put(
+  '/:standardId/requirements/:reqId/reparent',
+  requireAuth,
+  requireRole('admin', 'standards_manager'),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const db = getDatabase();
+      const standard = await db
+        .selectFrom('standard')
+        .where('id', '=', req.params.standardId)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!standard) {
+        res.status(404).json({ error: 'Standard not found' });
+        return;
+      }
+
+      if (standard.state !== 'draft') {
+        res.status(403).json({ error: 'Can only reparent requirements in draft standards' });
+        return;
+      }
+
+      const requirement = await db
+        .selectFrom('requirement')
+        .where('id', '=', req.params.reqId)
+        .where('standard_id', '=', req.params.standardId)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!requirement) {
+        res.status(404).json({ error: 'Requirement not found' });
+        return;
+      }
+
+      const { parent_id: newParentId } = req.body;
+
+      // Prevent self-reference
+      if (newParentId === req.params.reqId) {
+        res.status(400).json({ error: 'A requirement cannot be its own parent' });
+        return;
+      }
+
+      // Validate parent exists in this standard (if not null)
+      if (newParentId) {
+        const parent = await db
+          .selectFrom('requirement')
+          .where('id', '=', newParentId)
+          .where('standard_id', '=', req.params.standardId)
+          .selectAll()
+          .executeTakeFirst();
+
+        if (!parent) {
+          res.status(400).json({ error: 'Parent requirement not found in this standard' });
+          return;
+        }
+
+        // Prevent circular references: walk up from proposed parent to ensure
+        // it does not eventually reach the requirement being moved
+        let cursor = parent;
+        while (cursor.parent_id) {
+          if (cursor.parent_id === req.params.reqId) {
+            res.status(400).json({ error: 'This move would create a circular reference' });
+            return;
+          }
+          const next = await db
+            .selectFrom('requirement')
+            .where('id', '=', cursor.parent_id)
+            .where('standard_id', '=', req.params.standardId)
+            .selectAll()
+            .executeTakeFirst();
+          if (!next) break;
+          cursor = next;
+        }
+      }
+
+      await db
+        .updateTable('requirement')
+        .set({ parent_id: newParentId || null })
+        .where('id', '=', req.params.reqId)
+        .execute();
+
+      logger.info('Requirement reparented', {
+        standardId: req.params.standardId,
+        requirementId: req.params.reqId,
+        newParentId: newParentId || null,
+        requestId: req.requestId,
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      logger.error('Reparent requirement error', { error, requestId: req.requestId });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
 
 export default router;

@@ -15,6 +15,13 @@
       @click="emit('view')"
     />
     <IconButton
+      v-if="showExport"
+      :icon="Download"
+      variant="primary"
+      :tooltip="$t('common.export')"
+      @click="emit('export')"
+    />
+    <IconButton
       v-if="showDelete"
       :icon="Delete"
       variant="danger"
@@ -25,23 +32,26 @@
 </template>
 
 <script setup lang="ts">
-import { Edit as EditIcon, Delete, View } from '@element-plus/icons-vue'
+import { Edit as EditIcon, Delete, View, Download } from '@element-plus/icons-vue'
 import IconButton from '@/components/shared/IconButton.vue'
 
 withDefaults(defineProps<{
   showEdit?: boolean
   showDelete?: boolean
   showView?: boolean
+  showExport?: boolean
 }>(), {
   showEdit: true,
   showDelete: true,
   showView: false,
+  showExport: false,
 })
 
 const emit = defineEmits<{
   edit: []
   delete: []
   view: []
+  export: []
 }>()
 </script>
 

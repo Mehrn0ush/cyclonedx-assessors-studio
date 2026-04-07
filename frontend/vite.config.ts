@@ -17,5 +17,14 @@ export default defineConfig({
         secure: false
       }
     }
-  }
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      reportsDirectory: './coverage',
+    },
+  },
 })

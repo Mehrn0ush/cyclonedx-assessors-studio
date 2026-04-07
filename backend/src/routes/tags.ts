@@ -103,7 +103,10 @@ router.put(
         await db.updateTable('tag').set(updateData).where('id', '=', req.params.id).execute();
       }
 
-      res.json({ message: 'Tag updated successfully' });
+      // Fetch and return the updated tag
+      const updatedTag = await db.selectFrom('tag').where('id', '=', req.params.id).selectAll().executeTakeFirst();
+
+      res.json(updatedTag);
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: 'Invalid input', details: error.errors });
@@ -124,14 +127,16 @@ router.delete(
     try {
       const db = getDatabase();
       const tag = await db.selectFrom('tag').where('id', '=', req.params.id).selectAll().executeTakeFirst();
+
+      // Idempotent: return 204 whether resource exists or not
       if (!tag) {
-        res.status(404).json({ error: 'Tag not found' });
+        res.status(204).send();
         return;
       }
 
       await db.deleteFrom('tag').where('id', '=', req.params.id).execute();
       logger.info('Tag deleted', { tagId: req.params.id, requestId: req.requestId });
-      res.json({ message: 'Tag deleted successfully' });
+      res.status(204).send();
     } catch (error) {
       logger.error('Delete tag error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });

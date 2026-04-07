@@ -61,8 +61,15 @@
   .el-option {
     color: var(--cat-text-primary);
 
-    &:hover {
-      background-color: var(--cat-bg-hover);
+    &:hover,
+    &.hover {
+      background-color: rgba(47, 129, 247, 0.15);
+      color: #58a6ff;
+    }
+
+    &.is-selected {
+      color: #58a6ff;
+      font-weight: 600;
     }
 
     &.selected {

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs/promises';
+import { createReadStream } from 'fs';
 import busboy from 'busboy';
 import crypto from 'crypto';
 import { getDatabase } from '../db/connection.js';
@@ -12,8 +13,44 @@ import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
 import { logAudit } from '../utils/audit.js';
 import { createNotification } from '../utils/notifications.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
+import { validatePagination } from '../utils/pagination.js';
 
 const router = Router();
+
+/**
+ * Check if a user is a participant (assessor or assessee) in an assessment, or is an admin.
+ */
+async function isAssessmentParticipant(db: any, userId: string, userRole: string, assessmentId: string): Promise<boolean> {
+  if (userRole === 'admin') return true;
+
+  const assessor = await db
+    .selectFrom('assessment_assessor')
+    .where('assessment_id', '=', assessmentId)
+    .where('user_id', '=', userId)
+    .selectAll()
+    .executeTakeFirst();
+  if (assessor) return true;
+
+  const assessee = await db
+    .selectFrom('assessment_assessee')
+    .where('assessment_id', '=', assessmentId)
+    .where('user_id', '=', userId)
+    .selectAll()
+    .executeTakeFirst();
+  return !!assessee;
+}
+
+/**
+ * Get the assessment ID from an assessment_requirement ID.
+ */
+async function getAssessmentIdFromRequirement(db: any, assessmentRequirementId: string): Promise<string | null> {
+  const row = await db
+    .selectFrom('assessment_requirement')
+    .where('id', '=', assessmentRequirementId)
+    .select('assessment_id')
+    .executeTakeFirst();
+  return row?.assessment_id || null;
+}
 
 const createEvidenceSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -32,8 +69,7 @@ const addNoteSchema = z.object({
 router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const offset = Number(req.query.offset) || 0;
+    const { limit, offset } = validatePagination(req.query);
     const state = req.query.state as string | undefined;
     const assessmentId = req.query.assessmentId as string | undefined;
     const requirementId = req.query.requirementId as string | undefined;
@@ -417,7 +453,19 @@ router.put('/:id', requireAuth, requireRole('admin', 'assessor'), async (req: Au
       requestId: req.requestId,
     });
 
-    res.json({ message: 'Evidence updated successfully' });
+    // Fetch and return the updated evidence
+    const updatedEvidence = await db
+      .selectFrom('evidence')
+      .where('id', '=', req.params.id)
+      .selectAll()
+      .executeTakeFirst();
+
+    const tagsByEvidence = await fetchTagsForEntities(db, 'evidence_tag', 'evidence_id', [req.params.id]);
+
+    res.json({
+      ...updatedEvidence,
+      tags: tagsByEvidence[req.params.id] || [],
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: 'Invalid input', details: error.errors });
@@ -526,6 +574,14 @@ router.post(
         return;
       }
 
+      // Authorization check: user must be a participant in the assessment
+      const assessmentId = assessmentReq.assessment_id;
+      const isParticipant = await isAssessmentParticipant(db, req.user!.id, req.user!.role, assessmentId);
+      if (!isParticipant) {
+        res.status(403).json({ error: 'You are not a participant in this assessment' });
+        return;
+      }
+
       const existing = await db
         .selectFrom('assessment_requirement_evidence')
         .where('assessment_requirement_id', '=', data.assessmentRequirementId)
@@ -578,6 +634,38 @@ router.delete(
     try {
       const data = unlinkEvidenceSchema.parse(req.body);
       const db = getDatabase();
+
+      // Validate evidence exists
+      const evidence = await db
+        .selectFrom('evidence')
+        .where('id', '=', req.params.id)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!evidence) {
+        res.status(404).json({ error: 'Evidence not found' });
+        return;
+      }
+
+      // Validate assessment_requirement exists and get assessment_id
+      const assessmentReq = await db
+        .selectFrom('assessment_requirement')
+        .where('id', '=', data.assessmentRequirementId)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!assessmentReq) {
+        res.status(404).json({ error: 'Assessment requirement not found' });
+        return;
+      }
+
+      // Authorization check: user must be a participant in the assessment
+      const assessmentId = assessmentReq.assessment_id;
+      const isParticipant = await isAssessmentParticipant(db, req.user!.id, req.user!.role, assessmentId);
+      if (!isParticipant) {
+        res.status(403).json({ error: 'You are not a participant in this assessment' });
+        return;
+      }
 
       const result = await db
         .deleteFrom('assessment_requirement_evidence')
@@ -636,6 +724,24 @@ router.post(
 
       if (!evidence) {
         res.status(404).json({ error: 'Evidence not found' });
+        return;
+      }
+
+      // Ownership check: only the evidence author or an admin can submit for review
+      if (req.user.role !== 'admin' && evidence.author_id !== req.user.id) {
+        res.status(403).json({ error: 'Only the evidence author or an admin can submit evidence for review' });
+        return;
+      }
+
+      // State check: evidence must be in 'in_progress' state
+      if (evidence.state !== 'in_progress') {
+        res.status(409).json({ error: 'Evidence can only be submitted for review from the in_progress state' });
+        return;
+      }
+
+      // Self-review prevention
+      if (data.reviewerId === req.user.id) {
+        res.status(400).json({ error: 'You cannot assign yourself as the reviewer' });
         return;
       }
 
@@ -729,18 +835,30 @@ router.post(
         return;
       }
 
-      if (evidence.reviewer_id !== req.user.id) {
-        res.status(403).json({ error: 'Only the assigned reviewer can approve evidence' });
+      if (req.user.role !== 'admin' && evidence.reviewer_id !== req.user.id) {
+        res.status(403).json({ error: 'Only the assigned reviewer or an admin can approve evidence' });
         return;
       }
 
-      await db
+      // Self-approval prevention: evidence authors cannot approve their own evidence
+      if (evidence.author_id === req.user.id) {
+        res.status(403).json({ error: 'Evidence authors cannot approve their own evidence' });
+        return;
+      }
+
+      const result = await db
         .updateTable('evidence')
         .set({
           state: 'claimed',
         })
         .where('id', '=', req.params.id)
+        .where('state', '=', 'in_review')
         .execute();
+
+      if (Number(result[0].numUpdatedRows) === 0) {
+        res.status(409).json({ error: 'Evidence state has changed. Please refresh and try again.' });
+        return;
+      }
 
       await logAudit(db, {
         entityType: 'evidence',
@@ -806,18 +924,30 @@ router.post(
         return;
       }
 
-      if (evidence.reviewer_id !== req.user.id) {
-        res.status(403).json({ error: 'Only the assigned reviewer can reject evidence' });
+      if (req.user.role !== 'admin' && evidence.reviewer_id !== req.user.id) {
+        res.status(403).json({ error: 'Only the assigned reviewer or an admin can reject evidence' });
         return;
       }
 
-      await db
+      // Self-rejection prevention: evidence authors cannot reject their own evidence
+      if (evidence.author_id === req.user.id) {
+        res.status(403).json({ error: 'Evidence authors cannot reject their own evidence' });
+        return;
+      }
+
+      const result = await db
         .updateTable('evidence')
         .set(toSnakeCase({
           state: 'in_progress',
         }))
         .where('id', '=', req.params.id)
+        .where('state', '=', 'in_review')
         .execute();
+
+      if (Number(result[0].numUpdatedRows) === 0) {
+        res.status(409).json({ error: 'Evidence state has changed. Please refresh and try again.' });
+        return;
+      }
 
       await logAudit(db, {
         entityType: 'evidence',
@@ -868,6 +998,32 @@ router.post(
   }
 );
 
+/**
+ * Detect CycloneDX media type from filename and (optionally) raw content.
+ * Returns the proper CycloneDX media type when the file is recognized,
+ * or the original fallback type when it is not.
+ */
+function detectCycloneDXMediaType(filename: string, fallback: string, content?: Buffer | string): string {
+  const lower = filename.toLowerCase();
+
+  // Filename-based detection (*.cdx.json / *.cdx.xml)
+  if (lower.endsWith('.cdx.json')) return 'application/vnd.cyclonedx+json';
+  if (lower.endsWith('.cdx.xml')) return 'application/vnd.cyclonedx+xml';
+
+  // Content-based detection for generic .json / .xml uploads
+  if (content) {
+    const head = (typeof content === 'string' ? content : content.toString('utf-8', 0, Math.min(content.length, 512))).trimStart();
+    if (lower.endsWith('.json') && head.includes('"bomFormat"') && head.includes('"CycloneDX"')) {
+      return 'application/vnd.cyclonedx+json';
+    }
+    if (lower.endsWith('.xml') && head.includes('<bom') && head.includes('cyclonedx')) {
+      return 'application/vnd.cyclonedx+xml';
+    }
+  }
+
+  return fallback;
+}
+
 const createAttachmentSchema = z.object({
   filename: z.string().min(1, 'Filename is required'),
   contentType: z.string().min(1, 'Content type is required'),
@@ -914,6 +1070,7 @@ router.post(
           const buffer = Buffer.from(data.binaryContent, 'base64');
           const contentHash = computeContentHash(buffer);
           const sizeBytes = buffer.length;
+          const resolvedContentType = detectCycloneDXMediaType(data.filename, data.contentType, buffer);
 
           await db
             .insertInto('evidence_attachment')
@@ -921,7 +1078,7 @@ router.post(
               id: attachmentId,
               evidenceId: req.params.id,
               filename: data.filename,
-              contentType: data.contentType,
+              contentType: resolvedContentType,
               sizeBytes,
               storagePath: `evidence/${req.params.id}/${attachmentId}-${data.filename}`,
               binaryContent: data.binaryContent,
@@ -944,7 +1101,7 @@ router.post(
             attachments: [{
               id: attachmentId,
               filename: data.filename,
-              contentType: data.contentType,
+              contentType: resolvedContentType,
               sizeBytes,
               storagePath: `evidence/${req.params.id}/${attachmentId}-${data.filename}`,
               contentHash,
@@ -992,6 +1149,7 @@ router.post(
               const sizeBytes = buffer.length;
               const contentHash = computeContentHash(buffer);
               const binaryContent = buffer.toString('base64');
+              const resolvedContentType = detectCycloneDXMediaType(filename, contentTypeFromFile, buffer);
 
               await db
                 .insertInto('evidence_attachment')
@@ -999,7 +1157,7 @@ router.post(
                   id: attachmentId,
                   evidenceId: req.params.id,
                   filename,
-                  contentType: contentTypeFromFile,
+                  contentType: resolvedContentType,
                   sizeBytes,
                   storagePath,
                   binaryContent,
@@ -1012,7 +1170,7 @@ router.post(
               attachments.push({
                 id: attachmentId,
                 filename,
-                contentType: contentTypeFromFile,
+                contentType: resolvedContentType,
                 sizeBytes: sizeBytes,
                 storagePath: storagePath,
                 contentHash,
@@ -1086,7 +1244,7 @@ router.get(
       let fileStream: any;
       try {
         await fs.access(fullPath);
-        fileStream = require('fs').createReadStream(fullPath);
+        fileStream = createReadStream(fullPath);
         fileStream.pipe(res);
 
         fileStream.on('error', (error: any) => {
