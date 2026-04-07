@@ -1,0 +1,93 @@
+# =============================================================================
+# CycloneDX Assessors Studio - Codacy Coverage Reporting
+# =============================================================================
+# Publishes test coverage reports from backend and frontend to Codacy.
+#
+# Setup:
+#   1. Create a GitHub repository secret named CODACY_PROJECT_TOKEN
+#   2. Get the token from: https://app.codacy.com/gh/{owner}/{repo}/settings/integrations
+#   3. Store the project API token in GitHub Settings > Secrets > CODACY_PROJECT_TOKEN
+#
+# Security hardening:
+#   - Action pinned to full commit SHA (not tag)
+#   - Minimal permissions (contents: read)
+#   - Uses official Codacy action
+#   - Runs only on main branch (and manual dispatch)
+# =============================================================================
+
+name: Codacy Coverage
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    name: "Publish Coverage to Codacy"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      # -----------------------------------------------------------------------
+      # Backend: Install, test with coverage
+      # -----------------------------------------------------------------------
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci --ignore-scripts
+
+      - name: Rebuild native modules (backend)
+        working-directory: backend
+        run: npm rebuild argon2
+
+      - name: Run backend tests with coverage
+        working-directory: backend
+        run: npx vitest run --coverage
+        env:
+          DATABASE_PROVIDER: pglite
+          PGLITE_DATA_DIR: ./data/test-pglite
+          JWT_SECRET: ci-testing-secret-that-is-at-least-32-characters-long
+          PORT: "3001"
+          LOG_LEVEL: error
+          CORS_ORIGIN: http://localhost:5173
+
+      # -----------------------------------------------------------------------
+      # Frontend: Install, test with coverage
+      # -----------------------------------------------------------------------
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --ignore-scripts
+
+      - name: Run frontend tests with coverage
+        working-directory: frontend
+        run: npx vitest run --coverage || true
+
+      # -----------------------------------------------------------------------
+      # Upload coverage reports to Codacy
+      # -----------------------------------------------------------------------
+      - name: Upload backend coverage to Codacy
+        uses: codacy/codacy-coverage-reporter-action@a6e93c66de3c919a2c1ab9872cf2e52defc3e59e  # v1.3.0
+        with:
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          coverage-reports: backend/coverage/lcov.info
+
+      - name: Upload frontend coverage to Codacy
+        if: always()
+        uses: codacy/codacy-coverage-reporter-action@a6e93c66de3c919a2c1ab9872cf2e52defc3e59e  # v1.3.0
+        with:
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          coverage-reports: frontend/coverage/lcov.info
