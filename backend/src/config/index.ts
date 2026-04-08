@@ -25,6 +25,9 @@ const envSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().default(''),
   S3_SECRET_ACCESS_KEY: z.string().default(''),
   S3_FORCE_PATH_STYLE: z.coerce.boolean().default(false),
+
+  // Application URL (required for external notification channels)
+  APP_URL: z.string().default('http://localhost:5173'),
 });
 
 type Env = z.infer<typeof envSchema>;

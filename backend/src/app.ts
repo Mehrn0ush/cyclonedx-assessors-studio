@@ -35,6 +35,7 @@ import notificationRoutes from './routes/notifications.js';
 import assessorRoutes from './routes/assessors.js';
 import adminRoutes from './routes/admin.js';
 import { getOpenAPISpec } from './openapi.js';
+import { getEventBus } from './events/index.js';
 
 export function createApp() {
   const config = getConfig();
@@ -98,6 +99,17 @@ export function createApp() {
 
   // Request middleware
   app.use(requestIdMiddleware);
+
+  // Inject event bus into every request
+  app.use((req: any, _res: Response, next: NextFunction) => {
+    try {
+      req.eventBus = getEventBus();
+    } catch {
+      // Event system may not be initialized yet (e.g., during setup)
+    }
+    next();
+  });
+
   app.use('/api/v1', camelCaseResponse);
 
   // Request logging (skip in test to reduce noise)

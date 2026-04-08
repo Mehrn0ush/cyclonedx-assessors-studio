@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { getConfig } from '../config/index.js';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
+import type { EventBus } from '../events/event-bus.js';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -15,6 +16,7 @@ export interface AuthRequest extends Request {
     hasCompletedOnboarding?: boolean;
   };
   requestId?: string;
+  eventBus?: EventBus;
 }
 
 const config = getConfig();

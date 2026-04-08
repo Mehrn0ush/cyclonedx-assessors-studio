@@ -85,6 +85,9 @@ export function setupHttpTests() {
     await seedDefaultRolesAndPermissions();
     initializeStorage();
 
+    const { initializeEventSystem } = await import('../../events/index.js');
+    await initializeEventSystem();
+
     app = createApp();
 
     // Create ONE persistent HTTP server for all tests. This avoids the

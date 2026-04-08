@@ -4,6 +4,7 @@ import { initializeDatabase, closeDatabase } from './db/connection.js';
 import { runMigrations } from './db/migrate.js';
 import { seedDefaultRolesAndPermissions } from './db/seed.js';
 import { initializeStorage } from './storage/index.js';
+import { initializeEventSystem, shutdownEventSystem } from './events/index.js';
 import { logger } from './utils/logger.js';
 
 const config = getConfig();
@@ -14,6 +15,8 @@ const gracefulShutdown = async (signal: string) => {
   logger.info(`Received ${signal}, starting graceful shutdown`);
 
   try {
+    await shutdownEventSystem();
+    logger.info('Event system shut down');
     await closeDatabase();
     logger.info('Database connection closed');
   } catch (error) {
@@ -38,6 +41,10 @@ async function start() {
     logger.info('Initializing storage...');
     initializeStorage();
     logger.info('Storage initialized');
+
+    logger.info('Initializing event system...');
+    await initializeEventSystem();
+    logger.info('Event system initialized');
 
     const port = config.PORT;
     app.listen(port, () => {

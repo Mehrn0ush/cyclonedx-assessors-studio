@@ -5,6 +5,7 @@ import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
 import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
+import { ASSESSMENT_STATE_CHANGED } from '../events/catalog.js';
 import { createNotification } from '../utils/notifications.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { validatePagination } from '../utils/pagination.js';
@@ -579,22 +580,16 @@ router.post(
           .execute();
       }
 
-      // Notify all assessees on the assessment
-      const assessees = await db
-        .selectFrom('assessment_assessee')
-        .where('assessment_id', '=', req.params.id)
-        .select('user_id')
-        .execute();
-
-      for (const assessee of assessees) {
-        await createNotification(db, {
-          userId: assessee.user_id,
-          type: 'assessment_started',
-          title: 'Assessment Started',
-          message: `Assessment "${assessment.title}" has been started`,
-          link: `/assessments/${req.params.id}`,
-        });
-      }
+      req.eventBus?.emit(
+        ASSESSMENT_STATE_CHANGED,
+        {
+          assessmentId: req.params.id,
+          assessmentTitle: assessment.title,
+          previousState: assessment.state,
+          newState: 'in_progress',
+        },
+        { userId: req.user!.id, displayName: req.user!.displayName },
+      );
 
       logger.info('Assessment started', {
         assessmentId: req.params.id,
@@ -706,29 +701,16 @@ router.post(
         .where('id', '=', req.params.id)
         .execute();
 
-      // Notify all assessors and assessees on the assessment
-      const assessors = await db
-        .selectFrom('assessment_assessor')
-        .where('assessment_id', '=', req.params.id)
-        .select('user_id')
-        .execute();
-
-      const assessees = await db
-        .selectFrom('assessment_assessee')
-        .where('assessment_id', '=', req.params.id)
-        .select('user_id')
-        .execute();
-
-      const allParticipants = [...assessors, ...assessees];
-      for (const participant of allParticipants) {
-        await createNotification(db, {
-          userId: participant.user_id,
-          type: 'assessment_completed',
-          title: 'Assessment Completed',
-          message: `Assessment "${assessment.title}" has been completed`,
-          link: `/assessments/${req.params.id}`,
-        });
-      }
+      req.eventBus?.emit(
+        ASSESSMENT_STATE_CHANGED,
+        {
+          assessmentId: req.params.id,
+          assessmentTitle: assessment.title,
+          previousState: assessment.state,
+          newState: 'completed',
+        },
+        { userId: req.user!.id, displayName: req.user!.displayName },
+      );
 
       logger.info('Assessment completed', {
         assessmentId: req.params.id,

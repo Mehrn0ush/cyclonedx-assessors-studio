@@ -8,7 +8,7 @@ import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
 import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
 import { logAudit } from '../utils/audit.js';
-import { createNotification } from '../utils/notifications.js';
+import { EVIDENCE_STATE_CHANGED } from '../events/catalog.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { validatePagination } from '../utils/pagination.js';
 import {
@@ -782,13 +782,19 @@ router.post(
         changes: toSnakeCase({ state: 'in_review', reviewerId: data.reviewerId }),
       });
 
-      await createNotification(db, {
-        userId: data.reviewerId,
-        type: 'evidence_review',
-        title: 'Evidence Submitted for Review',
-        message: `Evidence "${evidence.name}" has been submitted for your review`,
-        link: `/evidence/${req.params.id}`,
-      });
+      req.eventBus?.emit(
+        EVIDENCE_STATE_CHANGED,
+        {
+          evidenceId: req.params.id,
+          evidenceName: evidence.name,
+          previousState: 'in_progress',
+          newState: 'in_review',
+          reviewerId: data.reviewerId,
+          authorId: evidence.author_id,
+          assessmentId: null,
+        },
+        { userId: req.user.id, displayName: req.user.displayName },
+      );
 
       logger.info('Evidence submitted for review', {
         evidenceId: req.params.id,
@@ -872,13 +878,19 @@ router.post(
         changes: { state: 'claimed' },
       });
 
-      await createNotification(db, {
-        userId: evidence.author_id,
-        type: 'evidence_approved',
-        title: 'Evidence Approved',
-        message: `Your evidence "${evidence.name}" has been approved`,
-        link: `/evidence/${req.params.id}`,
-      });
+      req.eventBus?.emit(
+        EVIDENCE_STATE_CHANGED,
+        {
+          evidenceId: req.params.id,
+          evidenceName: evidence.name,
+          previousState: 'in_review',
+          newState: 'claimed',
+          authorId: evidence.author_id,
+          reviewerId: evidence.reviewer_id,
+          assessmentId: null,
+        },
+        { userId: req.user.id, displayName: req.user.displayName },
+      );
 
       logger.info('Evidence approved', {
         evidenceId: req.params.id,
@@ -974,13 +986,20 @@ router.post(
         }))
         .execute();
 
-      await createNotification(db, {
-        userId: evidence.author_id,
-        type: 'evidence_rejected',
-        title: 'Evidence Rejected',
-        message: `Your evidence "${evidence.name}" has been rejected. Reason: ${data.note}`,
-        link: `/evidence/${req.params.id}`,
-      });
+      req.eventBus?.emit(
+        EVIDENCE_STATE_CHANGED,
+        {
+          evidenceId: req.params.id,
+          evidenceName: evidence.name,
+          previousState: 'in_review',
+          newState: 'in_progress',
+          rejectionReason: data.note,
+          authorId: evidence.author_id,
+          reviewerId: evidence.reviewer_id,
+          assessmentId: null,
+        },
+        { userId: req.user.id, displayName: req.user.displayName },
+      );
 
       logger.info('Evidence rejected', {
         evidenceId: req.params.id,
