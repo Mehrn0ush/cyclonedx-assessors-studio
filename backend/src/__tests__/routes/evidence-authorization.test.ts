@@ -1113,6 +1113,7 @@ describe('Evidence Authorization Business Logic', () => {
           content_type: 'application/pdf',
           size_bytes: 1024,
           storage_path: '/storage/test1.pdf',
+          storage_provider: 'database',
           created_at: new Date(),
           updated_at: new Date(),
         })
@@ -1127,6 +1128,7 @@ describe('Evidence Authorization Business Logic', () => {
           content_type: 'application/pdf',
           size_bytes: 2048,
           storage_path: '/storage/test2.pdf',
+          storage_provider: 'database',
           created_at: new Date(),
           updated_at: new Date(),
         })

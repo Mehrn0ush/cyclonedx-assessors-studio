@@ -3,6 +3,7 @@ import { getConfig } from './config/index.js';
 import { initializeDatabase, closeDatabase } from './db/connection.js';
 import { runMigrations } from './db/migrate.js';
 import { seedDefaultRolesAndPermissions } from './db/seed.js';
+import { initializeStorage } from './storage/index.js';
 import { logger } from './utils/logger.js';
 
 const config = getConfig();
@@ -33,6 +34,10 @@ async function start() {
     await runMigrations();
     await seedDefaultRolesAndPermissions();
     logger.info('Database initialized');
+
+    logger.info('Initializing storage...');
+    initializeStorage();
+    logger.info('Storage initialized');
 
     const port = config.PORT;
     app.listen(port, () => {

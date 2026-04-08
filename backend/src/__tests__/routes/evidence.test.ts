@@ -275,6 +275,7 @@ describe('Evidence', () => {
         content_type: 'application/pdf',
         size_bytes: 102400,
         storage_path: '/storage/attachments/security_report.pdf',
+        storage_provider: 'database',
         created_at: new Date(),
         updated_at: new Date(),
       }).execute();
@@ -301,6 +302,7 @@ describe('Evidence', () => {
         content_type: 'application/pdf',
         size_bytes: 1024,
         storage_path: '/storage/test.pdf',
+        storage_provider: 'database',
         created_at: new Date(),
         updated_at: new Date(),
       }).execute();

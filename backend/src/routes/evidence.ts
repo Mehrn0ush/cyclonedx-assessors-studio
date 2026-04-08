@@ -1,9 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import path from 'path';
-import fs from 'fs/promises';
-import { createReadStream } from 'fs';
 import busboy from 'busboy';
 import crypto from 'crypto';
 import { getDatabase } from '../db/connection.js';
@@ -14,6 +11,13 @@ import { logAudit } from '../utils/audit.js';
 import { createNotification } from '../utils/notifications.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { validatePagination } from '../utils/pagination.js';
+import {
+  getStorageProvider,
+  getStorageProviderName,
+  getMaxFileSize,
+  resolveProvider,
+} from '../storage/index.js';
+import type { StorageProviderName } from '../storage/types.js';
 
 const router = Router();
 
@@ -1058,6 +1062,10 @@ router.post(
         return;
       }
 
+      const maxFileSize = getMaxFileSize();
+      const storageProviderName = getStorageProviderName();
+      const storageProvider = getStorageProvider();
+
       // Check if this is JSON body upload or multipart upload
       const contentType = req.headers['content-type'] || '';
       if (contentType.includes('application/json')) {
@@ -1068,30 +1076,50 @@ router.post(
 
           // Decode base64 content
           const buffer = Buffer.from(data.binaryContent, 'base64');
+
+          if (buffer.length > maxFileSize) {
+            res.status(413).json({ error: `File exceeds maximum size of ${maxFileSize} bytes` });
+            return;
+          }
+
           const contentHash = computeContentHash(buffer);
           const sizeBytes = buffer.length;
           const resolvedContentType = detectCycloneDXMediaType(data.filename, data.contentType, buffer);
+          const storageKey = `evidence/${req.params.id}/${attachmentId}-${data.filename}`;
+
+          // Build the row based on provider
+          const row: any = {
+            id: attachmentId,
+            evidenceId: req.params.id,
+            filename: data.filename,
+            contentType: resolvedContentType,
+            sizeBytes,
+            contentHash,
+            storageProvider: storageProviderName,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          if (storageProviderName === 'database') {
+            row.binaryContent = buffer;
+            row.storagePath = storageKey;
+          } else {
+            // S3: write to object storage, store the key
+            await storageProvider.put(storageKey, buffer, { contentType: resolvedContentType });
+            row.storagePath = storageKey;
+            row.binaryContent = null;
+          }
 
           await db
             .insertInto('evidence_attachment')
-            .values(toSnakeCase({
-              id: attachmentId,
-              evidenceId: req.params.id,
-              filename: data.filename,
-              contentType: resolvedContentType,
-              sizeBytes,
-              storagePath: `evidence/${req.params.id}/${attachmentId}-${data.filename}`,
-              binaryContent: data.binaryContent,
-              contentHash,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            }))
+            .values(toSnakeCase(row))
             .execute();
 
           logger.info('Attachment created from JSON body', {
             evidenceId: req.params.id,
             attachmentId,
             filename: data.filename,
+            storageProvider: storageProviderName,
             userId: req.user?.id,
             requestId: req.requestId,
           });
@@ -1103,7 +1131,7 @@ router.post(
               filename: data.filename,
               contentType: resolvedContentType,
               sizeBytes,
-              storagePath: `evidence/${req.params.id}/${attachmentId}-${data.filename}`,
+              storagePath: storageKey,
               contentHash,
             }],
           });
@@ -1120,59 +1148,79 @@ router.post(
       // Multipart form upload
       const bb = busboy({
         headers: req.headers,
+        limits: { fileSize: maxFileSize },
       });
-      const uploadDir = path.join(process.cwd(), 'uploads', 'evidence', req.params.id);
-
-      await fs.mkdir(uploadDir, { recursive: true });
 
       const attachments: any[] = [];
+      let fileSizeLimitHit = false;
 
       bb.on('file', async (fieldname, file, info) => {
         try {
           const attachmentId = uuidv4();
           const filename = info.filename;
           const contentTypeFromFile = info.mimeType;
-          const storagePath = `evidence/${req.params.id}/${attachmentId}-${filename}`;
-          const fullPath = path.join(uploadDir, `${attachmentId}-${filename}`);
+          const storageKey = `evidence/${req.params.id}/${attachmentId}-${filename}`;
 
           const chunks: Buffer[] = [];
+          let totalSize = 0;
 
           file.on('data', (chunk: Buffer) => {
+            totalSize += chunk.length;
             chunks.push(chunk);
           });
 
+          file.on('limit', () => {
+            fileSizeLimitHit = true;
+            logger.warn('File size limit exceeded', {
+              filename,
+              limit: maxFileSize,
+              requestId: req.requestId,
+            });
+          });
+
           file.on('end', async () => {
+            if (fileSizeLimitHit) return;
+
             try {
               const buffer = Buffer.concat(chunks);
-              await fs.writeFile(fullPath, buffer);
-
               const sizeBytes = buffer.length;
               const contentHash = computeContentHash(buffer);
-              const binaryContent = buffer.toString('base64');
               const resolvedContentType = detectCycloneDXMediaType(filename, contentTypeFromFile, buffer);
+
+              // Build the row based on active storage provider
+              const row: any = {
+                id: attachmentId,
+                evidenceId: req.params.id,
+                filename,
+                contentType: resolvedContentType,
+                sizeBytes,
+                contentHash,
+                storageProvider: storageProviderName,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              };
+
+              if (storageProviderName === 'database') {
+                row.binaryContent = buffer;
+                row.storagePath = storageKey;
+              } else {
+                // S3: write to object storage
+                await storageProvider.put(storageKey, buffer, { contentType: resolvedContentType });
+                row.storagePath = storageKey;
+                row.binaryContent = null;
+              }
 
               await db
                 .insertInto('evidence_attachment')
-                .values(toSnakeCase({
-                  id: attachmentId,
-                  evidenceId: req.params.id,
-                  filename,
-                  contentType: resolvedContentType,
-                  sizeBytes,
-                  storagePath,
-                  binaryContent,
-                  contentHash,
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                }))
+                .values(toSnakeCase(row))
                 .execute();
 
               attachments.push({
                 id: attachmentId,
                 filename,
                 contentType: resolvedContentType,
-                sizeBytes: sizeBytes,
-                storagePath: storagePath,
+                sizeBytes,
+                storagePath: storageKey,
                 contentHash,
               });
 
@@ -1180,6 +1228,7 @@ router.post(
                 evidenceId: req.params.id,
                 attachmentId,
                 filename,
+                storageProvider: storageProviderName,
                 userId: req.user?.id,
                 requestId: req.requestId,
               });
@@ -1197,6 +1246,10 @@ router.post(
       });
 
       bb.on('close', () => {
+        if (fileSizeLimitHit) {
+          res.status(413).json({ error: `File exceeds maximum size of ${maxFileSize} bytes` });
+          return;
+        }
         res.status(201).json({
           message: 'Attachments uploaded successfully',
           attachments,
@@ -1238,39 +1291,41 @@ router.get(
       res.setHeader('Content-Type', attachment.content_type);
       res.setHeader('Content-Disposition', `attachment; filename="${attachment.filename}"`);
 
-      const fullPath = path.join(process.cwd(), 'uploads', attachment.storage_path);
+      // Resolve the provider that was used to store this particular attachment,
+      // not the currently configured provider. This ensures mixed-storage
+      // deployments can still serve all files.
+      const recordProvider = (attachment.storage_provider || 'database') as StorageProviderName;
 
-      // Try to read from disk first
-      let fileStream: any;
       try {
-        await fs.access(fullPath);
-        fileStream = createReadStream(fullPath);
-        fileStream.pipe(res);
-
-        fileStream.on('error', (error: any) => {
-          logger.error('Error streaming file', { error, requestId: req.requestId });
-          if (!res.headersSent) {
-            res.status(500).json({ error: 'Error downloading file' });
-          }
-        });
-      } catch {
-        // File doesn't exist on disk, try to serve from binary_content column
-        if (attachment.binary_content) {
-          try {
-            const buffer = Buffer.from(attachment.binary_content, 'base64');
-            res.send(buffer);
-            logger.info('Attachment served from database', {
-              evidenceId: req.params.id,
-              attachmentId: req.params.attachmentId,
-              userId: req.user?.id,
-              requestId: req.requestId,
-            });
-          } catch (error) {
-            logger.error('Error decoding binary content', { error, requestId: req.requestId });
-            res.status(500).json({ error: 'Error downloading file' });
+        if (recordProvider === 'database') {
+          // For database provider, content is already in the row
+          if (attachment.binary_content) {
+            const data = Buffer.isBuffer(attachment.binary_content)
+              ? attachment.binary_content
+              : Buffer.from(attachment.binary_content as any, 'base64');
+            res.send(data);
+          } else {
+            res.status(404).json({ error: 'File content not found in database' });
           }
         } else {
-          res.status(404).json({ error: 'File not found' });
+          // S3 or filesystem: use the provider abstraction
+          const provider = resolveProvider(recordProvider);
+          const storageKey = attachment.storage_path || `evidence/${attachment.evidence_id}/${attachment.id}-${attachment.filename}`;
+          const result = await provider.get(storageKey);
+          res.send(result.data);
+        }
+
+        logger.info('Attachment downloaded', {
+          evidenceId: req.params.id,
+          attachmentId: req.params.attachmentId,
+          storageProvider: recordProvider,
+          userId: req.user?.id,
+          requestId: req.requestId,
+        });
+      } catch (error) {
+        logger.error('Error retrieving attachment content', { error, provider: recordProvider, requestId: req.requestId });
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Error downloading file' });
         }
       }
     } catch (error) {
@@ -1300,13 +1355,18 @@ router.delete(
         return;
       }
 
-      const fullPath = path.join(process.cwd(), 'uploads', attachment.storage_path);
-
-      try {
-        await fs.unlink(fullPath);
-      } catch (error: any) {
-        if (error.code !== 'ENOENT') {
-          logger.error('Error deleting file', { error, requestId: req.requestId });
+      // Delete from external storage if applicable (S3 or filesystem)
+      const recordProvider = (attachment.storage_provider || 'database') as StorageProviderName;
+      if (recordProvider !== 'database' && attachment.storage_path) {
+        try {
+          const provider = resolveProvider(recordProvider);
+          await provider.delete(attachment.storage_path);
+        } catch (error) {
+          logger.error('Error deleting from storage provider', {
+            error,
+            provider: recordProvider,
+            requestId: req.requestId,
+          });
         }
       }
 
@@ -1318,6 +1378,7 @@ router.delete(
       logger.info('Attachment deleted', {
         evidenceId: req.params.id,
         attachmentId: req.params.attachmentId,
+        storageProvider: recordProvider,
         userId: req.user?.id,
         requestId: req.requestId,
       });

@@ -208,9 +208,10 @@ export interface EvidenceAttachment {
   filename: string;
   content_type: string;
   size_bytes: number;
-  storage_path: string;
-  binary_content?: string | null;
+  storage_path?: string | null;
+  binary_content?: Buffer | null;
   content_hash?: string | null;
+  storage_provider: string;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

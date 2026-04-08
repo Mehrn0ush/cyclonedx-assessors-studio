@@ -315,7 +315,10 @@ CREATE TABLE IF NOT EXISTS evidence_attachment (
   filename VARCHAR(255) NOT NULL,
   content_type VARCHAR(255) NOT NULL,
   size_bytes INTEGER NOT NULL,
-  storage_path VARCHAR(255) NOT NULL,
+  storage_path VARCHAR(255),
+  binary_content BYTEA,
+  content_hash VARCHAR(64),
+  storage_provider TEXT NOT NULL DEFAULT 'database',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

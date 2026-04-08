@@ -654,6 +654,34 @@ ALTER TABLE entity_relationship DROP CONSTRAINT IF EXISTS entity_relationship_re
 ALTER TABLE entity_relationship ADD CONSTRAINT entity_relationship_relationship_type_check
   CHECK(relationship_type IN ('owns', 'supplies', 'depends_on', 'governs', 'contains', 'consumes', 'assesses', 'produces'));
 
+-- =====================================================================
+-- Evidence Storage Abstraction (spec 002)
+-- =====================================================================
+
+-- Add storage_provider column to track where each attachment is stored
+ALTER TABLE evidence_attachment ADD COLUMN IF NOT EXISTS storage_provider TEXT NOT NULL DEFAULT 'database';
+
+-- Convert binary_content from TEXT (base64) to BYTEA for native binary storage.
+-- The USING clause handles existing base64 text by decoding it in place.
+-- If the column is already BYTEA (re-run), this ALTER will fail harmlessly
+-- and the migration runner will skip it.
+ALTER TABLE evidence_attachment
+  ALTER COLUMN binary_content TYPE BYTEA
+  USING CASE
+    WHEN binary_content IS NOT NULL THEN decode(binary_content, 'base64')
+    ELSE NULL
+  END;
+
+-- Make storage_path nullable (it is NULL for database-stored attachments)
+ALTER TABLE evidence_attachment ALTER COLUMN storage_path DROP NOT NULL;
+
+-- Backfill: mark existing rows that have a storage_path but no binary_content as 'filesystem' (legacy)
+UPDATE evidence_attachment
+  SET storage_provider = 'filesystem'
+  WHERE storage_path IS NOT NULL
+    AND binary_content IS NULL
+    AND storage_provider = 'database';
+
 `;
 
 export async function runMigrations(): Promise<void> {
@@ -673,8 +701,14 @@ export async function runMigrations(): Promise<void> {
           parameters: [],
         } as any);
       } catch (error: any) {
+        const msg = error?.message || '';
         // Ignore "already exists" errors from CREATE INDEX / ALTER TABLE
-        if (error?.message?.includes('already exists')) {
+        if (msg.includes('already exists')) {
+          continue;
+        }
+        // Ignore type-conversion errors when column is already the target type
+        // (e.g. re-running TEXT->BYTEA migration when column is already BYTEA)
+        if (msg.includes('cannot cast') || msg.includes('function decode(bytea')) {
           continue;
         }
         throw error;

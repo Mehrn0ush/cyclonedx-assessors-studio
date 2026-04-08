@@ -13,6 +13,18 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+
+  // Evidence storage provider
+  STORAGE_PROVIDER: z.enum(['database', 's3']).default('database'),
+  UPLOAD_MAX_FILE_SIZE: z.coerce.number().int().positive().default(52428800), // 50 MB
+
+  // S3-compatible storage (required when STORAGE_PROVIDER=s3)
+  S3_BUCKET: z.string().default(''),
+  S3_REGION: z.string().default('us-east-1'),
+  S3_ENDPOINT: z.string().default(''),
+  S3_ACCESS_KEY_ID: z.string().default(''),
+  S3_SECRET_ACCESS_KEY: z.string().default(''),
+  S3_FORCE_PATH_STYLE: z.coerce.boolean().default(false),
 });
 
 type Env = z.infer<typeof envSchema>;

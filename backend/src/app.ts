@@ -33,6 +33,7 @@ import exportRoutes from './routes/export.js';
 import auditRoutes from './routes/audit.js';
 import notificationRoutes from './routes/notifications.js';
 import assessorRoutes from './routes/assessors.js';
+import adminRoutes from './routes/admin.js';
 import { getOpenAPISpec } from './openapi.js';
 
 export function createApp() {
@@ -150,6 +151,7 @@ export function createApp() {
   app.use('/api/v1/notifications', notificationRoutes);
   app.use('/api/v1/export', exportRoutes);
   app.use('/api/v1/assessors', assessorRoutes);
+  app.use('/api/v1/admin', adminRoutes);
 
   // Production static serving
   if (config.NODE_ENV === 'production') {

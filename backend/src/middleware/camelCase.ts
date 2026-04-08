@@ -14,7 +14,7 @@ function transformKeys(obj: any): any {
   if (Array.isArray(obj)) {
     return obj.map(transformKeys);
   }
-  if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
+  if (obj !== null && typeof obj === 'object' && !(obj instanceof Date) && !Buffer.isBuffer(obj)) {
     const result: Record<string, any> = {};
     for (const key of Object.keys(obj)) {
       result[snakeToCamel(key)] = transformKeys(obj[key]);
@@ -55,7 +55,7 @@ function transformKeysToSnake(obj: any): any {
   if (Array.isArray(obj)) {
     return obj.map(transformKeysToSnake);
   }
-  if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
+  if (obj !== null && typeof obj === 'object' && !(obj instanceof Date) && !Buffer.isBuffer(obj)) {
     const result: Record<string, any> = {};
     for (const key of Object.keys(obj)) {
       result[camelToSnake(key)] = transformKeysToSnake(obj[key]);

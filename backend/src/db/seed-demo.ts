@@ -361,9 +361,14 @@ export async function seedDemoData(): Promise<boolean> {
   }
   logger.info(`Seeded ${data.evidence_notes.length} evidence notes`);
 
-  // 23. Evidence Attachments (metadata only, no actual binary files)
+  // 23. Evidence Attachments (binary_content stored as BYTEA)
   for (const ea of data.evidence_attachments) {
-    await db.insertInto('evidence_attachment').values(ea).execute();
+    const row = { ...ea, storage_provider: 'database' };
+    // Convert base64 string from JSON to a Buffer for BYTEA column
+    if (typeof row.binary_content === 'string') {
+      row.binary_content = Buffer.from(row.binary_content, 'base64');
+    }
+    await db.insertInto('evidence_attachment').values(row).execute();
   }
   logger.info(`Seeded ${data.evidence_attachments.length} evidence attachments`);
 

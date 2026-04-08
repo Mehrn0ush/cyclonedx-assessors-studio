@@ -49,10 +49,17 @@ export function setupHttpTests() {
   beforeAll(async () => {
     if (initialized) return;
 
-    // Set environment BEFORE any app/config module is loaded
-    const dbDir = path.join(__dirname, '../../../..', 'data/pglite-http-test');
-    if (fs.existsSync(dbDir)) {
-      fs.rmSync(dbDir, { recursive: true, force: true });
+    // Set environment BEFORE any app/config module is loaded.
+    // Use a unique suffix to avoid conflicts with stale directories
+    // that the sandbox may not allow us to delete.
+    const dbDirBase = path.join(__dirname, '../../../..', 'data/pglite-http-test');
+    const dbDir = `${dbDirBase}-${Date.now()}`;
+    try {
+      if (fs.existsSync(dbDirBase)) {
+        fs.rmSync(dbDirBase, { recursive: true, force: true });
+      }
+    } catch {
+      // Ignore cleanup errors in sandboxed environments
     }
     fs.mkdirSync(dbDir, { recursive: true });
 
@@ -69,12 +76,14 @@ export function setupHttpTests() {
     const { initializeDatabase } = await import('../../db/connection.js');
     const { runMigrations } = await import('../../db/migrate.js');
     const { seedDefaultRolesAndPermissions } = await import('../../db/seed.js');
+    const { initializeStorage } = await import('../../storage/index.js');
     const { createApp } = await import('../../app.js');
     const { hashPassword } = await import('../../utils/crypto.js');
 
     await initializeDatabase();
     await runMigrations();
     await seedDefaultRolesAndPermissions();
+    initializeStorage();
 
     app = createApp();
 
