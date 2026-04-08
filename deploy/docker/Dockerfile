@@ -8,6 +8,7 @@ RUN npm run build
 
 # Stage 2: Build backend
 FROM node:24-alpine AS backend-build
+RUN apk add --no-cache python3 make g++
 WORKDIR /app/backend
 COPY backend/package*.json ./
 RUN npm ci
@@ -18,9 +19,11 @@ RUN npm run build
 FROM node:24-alpine AS production
 WORKDIR /app
 
-# Install production dependencies only
+# Install production dependencies only (build tools needed for argon2 native compilation)
+RUN apk add --no-cache python3 make g++
 COPY backend/package*.json ./backend/
-RUN cd backend && npm ci --omit=dev
+RUN cd backend && npm ci --omit=dev \
+    && apk del python3 make g++
 
 # Copy compiled backend
 COPY --from=backend-build /app/backend/dist ./backend/dist

@@ -1,0 +1,278 @@
+# =============================================================================
+# CycloneDX Assessors Studio - Release Pipeline
+# =============================================================================
+# Triggered manually via workflow_dispatch. Builds, tests, creates a GitHub
+# release with compiled artifacts, and publishes the Docker image to Docker Hub.
+#
+# Required repository secrets:
+#   DOCKERHUB_USERNAME   - Docker Hub username with push access
+#   DOCKERHUB_TOKEN      - Docker Hub access token (not password)
+#
+# Security hardening:
+#   - All actions pinned to full commit SHAs (not tags)
+#   - Top-level permissions deny-all; each job grants minimum needed
+#   - persist-credentials: false on every checkout
+#   - npm ci with frozen lockfile (no mutation)
+#   - Docker image tagged with version and SHA for traceability
+# =============================================================================
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g., 1.0.0). Do not include the 'v' prefix."
+        required: true
+        type: string
+      prerelease:
+        description: "Mark as pre-release?"
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+
+  # ---------------------------------------------------------------------------
+  # Validate inputs
+  # ---------------------------------------------------------------------------
+  validate:
+    name: "Validate"
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      tag: ${{ steps.check.outputs.tag }}
+
+    steps:
+      - name: Validate version format
+        id: check
+        run: |
+          VERSION="${{ inputs.version }}"
+          # Strip leading v if someone accidentally includes it
+          VERSION="${VERSION#v}"
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+            echo "::error::Invalid version format: $VERSION (expected semver, e.g. 1.0.0 or 1.0.0-rc.1)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------------------
+  # Backend: Build and test
+  # ---------------------------------------------------------------------------
+  backend:
+    name: "Backend / Build & Test"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: validate
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+        env:
+          NODE_ENV: development
+
+      - name: Rebuild native modules
+        run: npm rebuild argon2
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npx vitest run --reporter=verbose
+        env:
+          DATABASE_PROVIDER: pglite
+          PGLITE_DATA_DIR: ./data/test-pglite
+          JWT_SECRET: ci-testing-secret-that-is-at-least-32-characters-long
+          PORT: "3001"
+          LOG_LEVEL: error
+          CORS_ORIGIN: http://localhost:5173
+
+      - name: Build
+        run: npx tsc
+
+      - name: Upload compiled backend
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: backend-dist
+          path: backend/dist/
+          retention-days: 1
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Frontend: Build and test
+  # ---------------------------------------------------------------------------
+  frontend:
+    name: "Frontend / Build & Test"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: validate
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+        env:
+          NODE_ENV: development
+
+      - name: Typecheck
+        run: npx vue-tsc -b
+
+      - name: Run tests
+        run: npx vitest run --reporter=verbose
+
+      - name: Build
+        run: npx vite build
+
+      - name: Upload frontend build
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          retention-days: 1
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Create GitHub Release with compiled artifacts
+  # ---------------------------------------------------------------------------
+  github-release:
+    name: "GitHub Release"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [validate, backend, frontend]
+    permissions:
+      contents: write  # create tags and releases
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: true  # needed to push the tag
+
+      - name: Download backend artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          name: backend-dist
+          path: release-staging/backend-dist
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          name: frontend-dist
+          path: release-staging/frontend-dist
+
+      - name: Package release archives
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          cd release-staging
+          tar -czf "../assessors-studio-backend-${VERSION}.tar.gz" -C backend-dist .
+          tar -czf "../assessors-studio-frontend-${VERSION}.tar.gz" -C frontend-dist .
+
+      - name: Create tag
+        run: |
+          TAG="${{ needs.validate.outputs.tag }}"
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@7b4da11513bf3f43f9999e90eabced41ab8f3c11  # v2.2.1
+        with:
+          tag_name: ${{ needs.validate.outputs.tag }}
+          name: ${{ needs.validate.outputs.tag }}
+          prerelease: ${{ inputs.prerelease }}
+          generate_release_notes: true
+          files: |
+            assessors-studio-backend-${{ needs.validate.outputs.version }}.tar.gz
+            assessors-studio-frontend-${{ needs.validate.outputs.version }}.tar.gz
+
+  # ---------------------------------------------------------------------------
+  # Build and publish Docker image to Docker Hub
+  # ---------------------------------------------------------------------------
+  docker:
+    name: "Docker / Publish"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [validate, backend, frontend]
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392  # v3.6.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2  # v3.10.0
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772  # v3.4.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804  # v5.7.0
+        with:
+          images: cyclonedx/assessors-studio
+          tags: |
+            type=raw,value=${{ needs.validate.outputs.version }}
+            type=raw,value=latest,enable=${{ inputs.prerelease == false }}
+            type=sha,prefix=
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198e19c816612b  # v6.18.0
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
