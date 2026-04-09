@@ -18,4 +18,4 @@ export interface StorageProvider {
   exists(key: string): Promise<boolean>;
 }
 
-export type StorageProviderName = 'database' | 's3' | 'filesystem';
+export type StorageProviderName = 'database' | 's3';

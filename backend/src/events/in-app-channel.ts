@@ -3,8 +3,6 @@
  *
  * Thin wrapper for creating in-app notifications. The rules engine
  * handles recipient resolution and calls deliverToUser() directly.
- * This channel also supports the old hardcoded recipient resolution for
- * backwards compatibility.
  */
 
 import { v4 as uuidv4 } from 'uuid';

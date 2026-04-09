@@ -1316,7 +1316,7 @@ router.get(
             res.status(404).json({ error: 'File content not found in database' });
           }
         } else {
-          // S3 or filesystem: use the provider abstraction
+          // S3: use the provider abstraction
           const provider = resolveProvider(recordProvider);
           const storageKey = attachment.storage_path || `evidence/${attachment.evidence_id}/${attachment.id}-${attachment.filename}`;
           const result = await provider.get(storageKey);
@@ -1363,7 +1363,7 @@ router.delete(
         return;
       }
 
-      // Delete from external storage if applicable (S3 or filesystem)
+      // Delete from external storage if applicable (S3)
       const recordProvider = (attachment.storage_provider || 'database') as StorageProviderName;
       if (recordProvider !== 'database' && attachment.storage_path) {
         try {

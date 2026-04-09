@@ -12,7 +12,6 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "migrate": "tsx src/db/migrate.ts",
-    "storage:migrate": "tsx src/storage/migrate-storage.ts",
     "db:reset": "rm -rf data/pglite && echo 'Database reset. It will be recreated on next server start.'",
     "test": "vitest",
     "encrypt-secrets": "tsx src/scripts/encrypt-secrets.ts",

@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs';
 import {
   setupTestDb,
   teardownTestDb,
@@ -138,7 +137,6 @@ describe('DatabaseStorageProvider', () => {
 
     const dbAttachmentId = uuidv4();
     const s3AttachmentId = uuidv4();
-    const fsAttachmentId = uuidv4();
 
     // Database stored
     await db.insertInto('evidence_attachment').values({
@@ -168,21 +166,7 @@ describe('DatabaseStorageProvider', () => {
       updated_at: new Date(),
     }).execute();
 
-    // Legacy filesystem
-    await db.insertInto('evidence_attachment').values({
-      id: fsAttachmentId,
-      evidence_id: evidence.id,
-      filename: 'fs.txt',
-      content_type: 'text/plain',
-      size_bytes: 5,
-      storage_path: `evidence/${evidence.id}/${fsAttachmentId}-fs.txt`,
-      storage_provider: 'filesystem',
-      binary_content: null,
-      created_at: new Date(),
-      updated_at: new Date(),
-    }).execute();
-
-    // Query all three and verify mixed providers
+    // Query both and verify mixed providers
     const rows = await db
       .selectFrom('evidence_attachment')
       .select(['id', 'storage_provider'])
@@ -193,7 +177,6 @@ describe('DatabaseStorageProvider', () => {
     const providers = rows.map(r => r.storage_provider);
     expect(providers).toContain('database');
     expect(providers).toContain('s3');
-    expect(providers).toContain('filesystem');
   });
 
   it('should delete attachment content when the row is deleted (CASCADE)', async () => {
@@ -224,87 +207,6 @@ describe('DatabaseStorageProvider', () => {
       .executeTakeFirst();
 
     expect(row).toBeUndefined();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// FilesystemStorageProvider
-// ---------------------------------------------------------------------------
-describe('FilesystemStorageProvider', () => {
-  // Use /tmp for filesystem tests to avoid sandbox permission issues on mounted dirs
-  let tmpDir: string;
-
-  beforeAll(() => {
-    tmpDir = `/tmp/fs-test-${uuidv4().slice(0, 8)}`;
-    fs.mkdirSync(tmpDir, { recursive: true });
-  });
-
-  afterAll(() => {
-    try {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors in sandboxed environments
-    }
-  });
-
-  it('should put and get a file', async () => {
-    // Lazy import to avoid loading before env vars are set
-    const { FilesystemStorageProvider } = await import('../../storage/filesystem-provider.js');
-    const provider = new FilesystemStorageProvider(tmpDir);
-
-    const key = 'evidence/abc/123-test.txt';
-    const data = Buffer.from('filesystem test content');
-
-    await provider.put(key, data, { contentType: 'text/plain' });
-
-    const exists = await provider.exists(key);
-    expect(exists).toBe(true);
-
-    const result = await provider.get(key);
-    expect(result.data.toString()).toBe('filesystem test content');
-  });
-
-  it('should return false for exists when file does not exist', async () => {
-    const { FilesystemStorageProvider } = await import('../../storage/filesystem-provider.js');
-    const provider = new FilesystemStorageProvider(tmpDir);
-
-    const exists = await provider.exists('evidence/nonexistent/file.txt');
-    expect(exists).toBe(false);
-  });
-
-  it('should delete a file', async () => {
-    const { FilesystemStorageProvider } = await import('../../storage/filesystem-provider.js');
-    const provider = new FilesystemStorageProvider(tmpDir);
-
-    const key = 'evidence/abc/456-to-delete.txt';
-    await provider.put(key, Buffer.from('delete me'), { contentType: 'text/plain' });
-
-    expect(await provider.exists(key)).toBe(true);
-
-    await provider.delete(key);
-
-    expect(await provider.exists(key)).toBe(false);
-  });
-
-  it('should not throw when deleting a nonexistent file', async () => {
-    const { FilesystemStorageProvider } = await import('../../storage/filesystem-provider.js');
-    const provider = new FilesystemStorageProvider(tmpDir);
-
-    // Should not throw
-    await provider.delete('evidence/nonexistent/ghost.txt');
-  });
-
-  it('should create nested directories as needed', async () => {
-    const { FilesystemStorageProvider } = await import('../../storage/filesystem-provider.js');
-    const provider = new FilesystemStorageProvider(tmpDir);
-
-    const key = 'evidence/deep/nested/path/file.bin';
-    await provider.put(key, Buffer.from([0x00, 0xFF]), { contentType: 'application/octet-stream' });
-
-    const result = await provider.get(key);
-    expect(result.data.length).toBe(2);
-    expect(result.data[0]).toBe(0x00);
-    expect(result.data[1]).toBe(0xFF);
   });
 });
 

@@ -2,8 +2,7 @@
  * Recipient resolution for in-app notifications.
  *
  * Each event type has a resolver that returns the user IDs who
- * should receive a notification. These hardcoded resolvers will
- * be replaced by the notification rules engine.
+ * should receive a notification.
  */
 
 import type { Kysely } from 'kysely';

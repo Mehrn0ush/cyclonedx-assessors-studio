@@ -2,12 +2,10 @@ import { getConfig } from '../config/index.js';
 import { logger } from '../utils/logger.js';
 import type { StorageProvider, StorageProviderName } from './types.js';
 import { DatabaseStorageProvider } from './database-provider.js';
-import { FilesystemStorageProvider } from './filesystem-provider.js';
 import { S3StorageProvider } from './s3-provider.js';
 
 export type { StorageProvider, StorageProviderName } from './types.js';
 export { DatabaseStorageProvider } from './database-provider.js';
-export { FilesystemStorageProvider } from './filesystem-provider.js';
 export { S3StorageProvider } from './s3-provider.js';
 
 let activeProvider: StorageProvider | null = null;
@@ -88,8 +86,6 @@ export function resolveProvider(name: StorageProviderName): StorageProvider {
         forcePathStyle: config.S3_FORCE_PATH_STYLE,
       });
     }
-    case 'filesystem':
-      return new FilesystemStorageProvider();
     case 'database':
     default:
       return new DatabaseStorageProvider();
