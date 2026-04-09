@@ -1,6 +1,6 @@
 {
   "name": "cyclonedx-assessors-studio",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "private": true,
   "description": "CycloneDX Assessors Studio - Assessment and Attestation Management",
   "engines": {
@@ -24,6 +24,8 @@
     "lint:backend": "npm --prefix backend exec eslint . || true",
     "lint:frontend": "npm --prefix frontend exec eslint . || true",
     "db:reset": "npm --prefix backend run db:reset",
-    "clean": "rm -rf backend/dist backend/data frontend/dist"
+    "clean": "rm -rf backend/dist backend/data frontend/dist",
+    "version:set": "node scripts/bump-version.mjs",
+    "version:check": "node -e \"const r=require('./package.json').version,b=require('./backend/package.json').version,f=require('./frontend/package.json').version;console.log('root:',r,'backend:',b,'frontend:',f);if(r!==b||r!==f){console.error('VERSION MISMATCH');process.exit(1)}else{console.log('All in sync')}\""
   }
 }
