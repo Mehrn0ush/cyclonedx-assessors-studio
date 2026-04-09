@@ -94,6 +94,20 @@
             <span class="nav-label">{{ t('nav.roles') }}</span>
           </RouterLink>
         </div>
+
+        <div class="nav-item-wrapper">
+          <RouterLink
+            to="/admin/webhooks"
+            class="nav-item"
+            :class="{ active: isActive('/admin/webhooks') }"
+            :title="uiStore.sidebarCollapsed ? t('nav.webhooks') : ''"
+            :aria-label="t('nav.webhooks')"
+            @click="closeMobileMenu"
+          >
+            <el-icon class="nav-icon"><Connection /></el-icon>
+            <span class="nav-label">{{ t('nav.webhooks') }}</span>
+          </RouterLink>
+        </div>
       </div>
 
     </nav>
@@ -121,6 +135,7 @@ import {
   Stamp,
 
   User,
+  Connection,
   DArrowLeft,
   DArrowRight
 } from '@element-plus/icons-vue'

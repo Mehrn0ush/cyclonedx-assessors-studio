@@ -471,6 +471,36 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 -- Add role_id column to app_user for new RBAC system
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS role_id UUID REFERENCES role(id) ON DELETE SET NULL;
+
+-- Webhook tables (spec 004)
+CREATE TABLE IF NOT EXISTS webhook (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  url TEXT NOT NULL,
+  secret TEXT NOT NULL,
+  event_types TEXT[] NOT NULL DEFAULT ARRAY['*'],
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  consecutive_failures INTEGER NOT NULL DEFAULT 0,
+  created_by UUID REFERENCES app_user(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS webhook_delivery (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  webhook_id UUID NOT NULL REFERENCES webhook(id) ON DELETE CASCADE,
+  event_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'success', 'failed', 'exhausted')),
+  http_status INTEGER,
+  attempt INTEGER NOT NULL DEFAULT 1,
+  next_retry_at TIMESTAMP WITH TIME ZONE,
+  request_body JSONB,
+  response_body TEXT,
+  error_message TEXT,
+  delivered_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 `;
 
   const statements = SQL.split(';').filter(stmt => stmt.trim());

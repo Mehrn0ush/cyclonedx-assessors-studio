@@ -472,6 +472,35 @@ export interface Dashboard {
   updated_at: Generated<Date>;
 }
 
+export interface Webhook {
+  id: Generated<string>;
+  name: string;
+  url: string;
+  secret: string;
+  event_types: string[];
+  is_active: Generated<boolean>;
+  consecutive_failures: Generated<number>;
+  created_by?: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface WebhookDelivery {
+  id: Generated<string>;
+  webhook_id: string;
+  event_id: string;
+  event_type: string;
+  status: Generated<string>;
+  http_status?: number | null;
+  attempt: Generated<number>;
+  next_retry_at?: Date | null;
+  request_body?: any | null;
+  response_body?: string | null;
+  error_message?: string | null;
+  delivered_at?: Date | null;
+  created_at: Generated<Date>;
+}
+
 export interface Database {
   permission: Selectable<Permission>;
   permission_insert: Insertable<Permission>;
@@ -647,4 +676,12 @@ export interface Database {
   claim_external_reference: Selectable<ClaimExternalReference>;
   claim_external_reference_insert: Insertable<ClaimExternalReference>;
   claim_external_reference_update: Updateable<ClaimExternalReference>;
+
+  webhook: Selectable<Webhook>;
+  webhook_insert: Insertable<Webhook>;
+  webhook_update: Updateable<Webhook>;
+
+  webhook_delivery: Selectable<WebhookDelivery>;
+  webhook_delivery_insert: Insertable<WebhookDelivery>;
+  webhook_delivery_update: Updateable<WebhookDelivery>;
 }

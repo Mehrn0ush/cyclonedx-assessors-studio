@@ -28,6 +28,12 @@ const envSchema = z.object({
 
   // Application URL (required for external notification channels)
   APP_URL: z.string().default('http://localhost:5173'),
+
+  // Webhook channel (spec 004)
+  WEBHOOK_ENABLED: z.coerce.boolean().default(true),
+  WEBHOOK_TIMEOUT: z.coerce.number().int().positive().default(10000),
+  WEBHOOK_MAX_RETRIES: z.coerce.number().int().positive().default(5),
+  WEBHOOK_DELIVERY_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
 });
 
 type Env = z.infer<typeof envSchema>;

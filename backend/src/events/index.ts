@@ -8,6 +8,7 @@
 export { EventBus } from './event-bus.js';
 export { ChannelRegistry } from './channel-registry.js';
 export { InAppChannel } from './in-app-channel.js';
+export { WebhookChannel } from './webhook-channel.js';
 export type { NotificationChannel } from './channel.js';
 export type { EventEnvelope, Actor, EventOptions } from './types.js';
 export * from './catalog.js';
@@ -15,7 +16,9 @@ export * from './catalog.js';
 import { EventBus } from './event-bus.js';
 import { ChannelRegistry } from './channel-registry.js';
 import { InAppChannel } from './in-app-channel.js';
+import { WebhookChannel } from './webhook-channel.js';
 import { getDatabase } from '../db/connection.js';
+import { getConfig } from '../config/index.js';
 import { logger } from '../utils/logger.js';
 
 let eventBus: EventBus | null = null;
@@ -33,10 +36,25 @@ export async function initializeEventSystem(): Promise<void> {
   const inAppChannel = new InAppChannel(() => getDatabase());
   channelRegistry.register(inAppChannel);
 
-  // Future channels (webhook, email, slack, teams, mattermost) will
-  // be conditionally registered here based on config flags.
+  // Webhook channel (spec 004): registered when WEBHOOK_ENABLED=true
+  const config = getConfig();
+  if (config.WEBHOOK_ENABLED) {
+    const webhookChannel = new WebhookChannel(() => getDatabase());
+    channelRegistry.register(webhookChannel);
 
-  await channelRegistry.initializeAll(eventBus);
+    // Wire the emitter callback after initialization so the webhook
+    // channel can emit events (e.g., channel.webhook.disabled) without
+    // a circular dependency on the event bus.
+    await channelRegistry.initializeAll(eventBus);
+    webhookChannel.setEmitter((type, data) => {
+      eventBus.emit(type, data, { userId: null, displayName: 'System' });
+    });
+  } else {
+    await channelRegistry.initializeAll(eventBus);
+  }
+
+  // Future channels (email, slack, teams, mattermost) will be
+  // conditionally registered here based on config flags.
   logger.info('Event system initialized', {
     channels: channelRegistry.getChannelNames(),
   });

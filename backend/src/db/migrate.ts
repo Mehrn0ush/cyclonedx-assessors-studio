@@ -682,6 +682,42 @@ UPDATE evidence_attachment
     AND binary_content IS NULL
     AND storage_provider = 'database';
 
+-- =====================================================================
+-- Webhook Notification Channel (spec 004)
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS webhook (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  url TEXT NOT NULL,
+  secret TEXT NOT NULL,
+  event_types TEXT[] NOT NULL DEFAULT ARRAY['*'],
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  consecutive_failures INTEGER NOT NULL DEFAULT 0,
+  created_by UUID REFERENCES app_user(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS webhook_delivery (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  webhook_id UUID NOT NULL REFERENCES webhook(id) ON DELETE CASCADE,
+  event_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'success', 'failed', 'exhausted')),
+  http_status INTEGER,
+  attempt INTEGER NOT NULL DEFAULT 1,
+  next_retry_at TIMESTAMP WITH TIME ZONE,
+  request_body JSONB,
+  response_body TEXT,
+  error_message TEXT,
+  delivered_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_webhook_delivery_webhook ON webhook_delivery(webhook_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_delivery_status ON webhook_delivery(status, next_retry_at);
+
 `;
 
 export async function runMigrations(): Promise<void> {

@@ -34,6 +34,7 @@ import auditRoutes from './routes/audit.js';
 import notificationRoutes from './routes/notifications.js';
 import assessorRoutes from './routes/assessors.js';
 import adminRoutes from './routes/admin.js';
+import webhookRoutes from './routes/webhooks.js';
 import { getOpenAPISpec } from './openapi.js';
 import { getEventBus } from './events/index.js';
 
@@ -164,6 +165,7 @@ export function createApp() {
   app.use('/api/v1/export', exportRoutes);
   app.use('/api/v1/assessors', assessorRoutes);
   app.use('/api/v1/admin', adminRoutes);
+  app.use('/api/v1/webhooks', webhookRoutes);
 
   // Production static serving
   if (config.NODE_ENV === 'production') {
