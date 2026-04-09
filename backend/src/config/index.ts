@@ -29,6 +29,16 @@ const envSchema = z.object({
   // Application URL (required for external notification channels)
   APP_URL: z.string().default('http://localhost:5173'),
 
+  // Email / SMTP channel (spec 005)
+  SMTP_ENABLED: z.coerce.boolean().default(false),
+  SMTP_HOST: z.string().default(''),
+  SMTP_PORT: z.coerce.number().int().default(587),
+  SMTP_SECURE: z.coerce.boolean().default(false),
+  SMTP_USER: z.string().default(''),
+  SMTP_PASS: z.string().default(''),
+  SMTP_FROM: z.string().default(''),
+  SMTP_TLS_REJECT_UNAUTHORIZED: z.coerce.boolean().default(true),
+
   // Webhook channel (spec 004)
   WEBHOOK_ENABLED: z.coerce.boolean().default(true),
   WEBHOOK_TIMEOUT: z.coerce.number().int().positive().default(10000),

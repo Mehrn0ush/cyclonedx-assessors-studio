@@ -9,6 +9,7 @@ export { EventBus } from './event-bus.js';
 export { ChannelRegistry } from './channel-registry.js';
 export { InAppChannel } from './in-app-channel.js';
 export { WebhookChannel } from './webhook-channel.js';
+export { EmailChannel } from './channels/email.js';
 export type { NotificationChannel } from './channel.js';
 export type { EventEnvelope, Actor, EventOptions } from './types.js';
 export * from './catalog.js';
@@ -17,6 +18,7 @@ import { EventBus } from './event-bus.js';
 import { ChannelRegistry } from './channel-registry.js';
 import { InAppChannel } from './in-app-channel.js';
 import { WebhookChannel } from './webhook-channel.js';
+import { EmailChannel } from './channels/email.js';
 import { getDatabase } from '../db/connection.js';
 import { getConfig } from '../config/index.js';
 import { logger } from '../utils/logger.js';
@@ -53,7 +55,13 @@ export async function initializeEventSystem(): Promise<void> {
     await channelRegistry.initializeAll(eventBus);
   }
 
-  // Future channels (email, slack, teams, mattermost) will be
+  // Email channel (spec 005): registered when SMTP_ENABLED=true
+  if (config.SMTP_ENABLED) {
+    const emailChannel = new EmailChannel(() => getDatabase());
+    channelRegistry.register(emailChannel);
+  }
+
+  // Future channels (slack, teams, mattermost) will be
   // conditionally registered here based on config flags.
   logger.info('Event system initialized', {
     channels: channelRegistry.getChannelNames(),

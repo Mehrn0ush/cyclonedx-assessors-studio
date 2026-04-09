@@ -76,7 +76,8 @@
     "manage": "Manage",
     "activity": "Activity",
     "admin": "Admin",
-    "webhooks": "Webhooks"
+    "webhooks": "Webhooks",
+    "integrations": "Integrations"
   },
   "topbar": {
     "lightMode": "Light mode",
@@ -642,5 +643,42 @@
     "httpStatus": "HTTP Status",
     "attempt": "Attempt",
     "timestamp": "Timestamp"
+  },
+  "integrations": {
+    "title": "Integrations",
+    "subtitle": "View and test external service connections",
+    "configured": "Configured",
+    "notConfigured": "Not configured",
+    "smtp": {
+      "title": "Email / SMTP",
+      "host": "Host",
+      "port": "Port",
+      "security": "Security",
+      "from": "Sender Address",
+      "username": "Username",
+      "password": "Password",
+      "testConnection": "Test Connection",
+      "notConfiguredHint": "SMTP is not enabled. Configure SMTP environment variables to enable email notifications.",
+      "setupGuide": "Setup Guide",
+      "setupGuideIntro": "Add the following environment variables to your deployment to enable email notifications:",
+      "providerExamples": "Common provider settings:"
+    },
+    "storage": {
+      "title": "Evidence Storage",
+      "provider": "Provider",
+      "database": "Database",
+      "bucket": "Bucket",
+      "region": "Region",
+      "endpoint": "Endpoint",
+      "defaultEndpoint": "Default (AWS)",
+      "accessKey": "Access Key",
+      "maxFileSize": "Max File Size"
+    },
+    "webhook": {
+      "title": "Webhooks",
+      "enabledHint": "Webhook delivery is active. Manage individual webhooks from the Webhooks page.",
+      "disabledHint": "Webhook delivery is disabled. Set WEBHOOK_ENABLED=true to enable.",
+      "manageWebhooks": "Manage Webhooks"
+    }
   }
 }
