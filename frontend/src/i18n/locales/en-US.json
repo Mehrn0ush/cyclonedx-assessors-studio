@@ -701,6 +701,20 @@
       "disabledHint": "Mattermost notifications are disabled. Set MATTERMOST_ENABLED=true to enable.",
       "manage": "Manage Mattermost",
       "setupGuideText": "Set the MATTERMOST_ENABLED environment variable to true, then create incoming webhooks in your Mattermost instance under Integrations > Incoming Webhooks."
+    },
+    "metrics": {
+      "title": "Prometheus Metrics",
+      "enabledHint": "Metrics endpoint is active at /metrics. Scrape it with Prometheus or any compatible collector.",
+      "disabledHint": "Metrics endpoint is disabled. Set METRICS_ENABLED=true to enable.",
+      "prefix": "Metric Name Prefix",
+      "refreshInterval": "Domain Refresh Interval",
+      "refreshIntervalValue": "{seconds}s",
+      "token": "Bearer Token",
+      "endpointUrl": "Endpoint URL",
+      "endpointPath": "/metrics",
+      "prometheusConfig": "Example prometheus.yml snippet:",
+      "setupGuide": "Setup Guide",
+      "setupGuideText": "Set METRICS_ENABLED=true to expose the /metrics endpoint. Optionally set METRICS_TOKEN to require bearer token authentication for the endpoint."
     }
   },
   "chatIntegrations": {

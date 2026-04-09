@@ -5,6 +5,8 @@ import { runMigrations } from './db/migrate.js';
 import { seedDefaultRolesAndPermissions } from './db/seed.js';
 import { initializeStorage } from './storage/index.js';
 import { initializeEventSystem, shutdownEventSystem } from './events/index.js';
+import { startDomainGaugeRefresh, stopDomainGaugeRefresh } from './metrics/index.js';
+import { startHealthChecks, stopHealthChecks } from './routes/health.js';
 import { logger } from './utils/logger.js';
 
 const config = getConfig();
@@ -15,6 +17,8 @@ const gracefulShutdown = async (signal: string) => {
   logger.info(`Received ${signal}, starting graceful shutdown`);
 
   try {
+    stopDomainGaugeRefresh();
+    stopHealthChecks();
     await shutdownEventSystem();
     logger.info('Event system shut down');
     await closeDatabase();
@@ -46,11 +50,19 @@ async function start() {
     await initializeEventSystem();
     logger.info('Event system initialized');
 
+    // Start periodic background tasks
+    if (config.METRICS_ENABLED) {
+      startDomainGaugeRefresh();
+      logger.info('Prometheus domain gauge refresh started');
+    }
+    startHealthChecks();
+
     const port = config.PORT;
     app.listen(port, () => {
       logger.info(`Server started on port ${port}`, {
         environment: config.NODE_ENV,
         databaseProvider: config.DATABASE_PROVIDER,
+        metricsEnabled: config.METRICS_ENABLED,
       });
     });
   } catch (error) {

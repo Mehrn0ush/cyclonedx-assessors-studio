@@ -36,8 +36,10 @@ import assessorRoutes from './routes/assessors.js';
 import adminRoutes from './routes/admin.js';
 import webhookRoutes from './routes/webhooks.js';
 import chatIntegrationRoutes from './routes/chat-integrations.js';
+import metricsRoutes from './routes/metrics.js';
 import { getOpenAPISpec } from './openapi.js';
 import { getEventBus } from './events/index.js';
+import { metricsMiddleware } from './middleware/metrics.js';
 
 export function createApp() {
   const config = getConfig();
@@ -102,6 +104,12 @@ export function createApp() {
   // Request middleware
   app.use(requestIdMiddleware);
 
+  // Prometheus metrics instrumentation (spec 007)
+  const metricsConfig = getConfig();
+  if (metricsConfig.METRICS_ENABLED) {
+    app.use(metricsMiddleware);
+  }
+
   // Inject event bus into every request
   app.use((req: any, _res: Response, next: NextFunction) => {
     try {
@@ -134,6 +142,9 @@ export function createApp() {
 
   // Health check
   app.use('/api/health', healthRoutes);
+
+  // Prometheus metrics endpoint (spec 007)
+  app.use('/metrics', metricsRoutes);
 
   // OpenAPI specification
   app.get('/api/openapi.json', (req: Request, res: Response) => {

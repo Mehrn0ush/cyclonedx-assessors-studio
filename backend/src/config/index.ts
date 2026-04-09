@@ -51,6 +51,12 @@ const envSchema = z.object({
   MATTERMOST_ENABLED: z.coerce.boolean().default(false),
   CHAT_TIMEOUT: z.coerce.number().int().positive().default(10000),
   CHAT_DELIVERY_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
+
+  // Prometheus metrics (spec 007)
+  METRICS_ENABLED: z.coerce.boolean().default(true),
+  METRICS_TOKEN: z.string().default(''),
+  METRICS_PREFIX: z.string().default('cdxa_'),
+  METRICS_DOMAIN_REFRESH_INTERVAL: z.coerce.number().int().positive().default(60),
 });
 
 type Env = z.infer<typeof envSchema>;

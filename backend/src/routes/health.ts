@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
-import os from 'os';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getConfig } from '../config/index.js';
+import { getDatabase } from '../db/connection.js';
 import { tryAuthenticate } from '../middleware/auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -26,32 +26,46 @@ function formatUptime(ms: number): string {
   return parts.join(' ');
 }
 
-function formatBytes(bytes: number): string {
-  return `${Math.round(bytes / 1024 / 1024)} MB`;
+// Track database connectivity via a lightweight periodic check
+let databaseConnected = true;
+let dbCheckTimer: ReturnType<typeof setInterval> | null = null;
+
+async function checkDatabaseConnectivity(): Promise<void> {
+  try {
+    const db = getDatabase();
+    await db.executeQuery({
+      sql: 'SELECT 1 AS ok',
+      parameters: [],
+    } as any);
+    databaseConnected = true;
+  } catch {
+    databaseConnected = false;
+  }
 }
 
-function getDiskUsage(dir: string): { total: string; used: string; free: string } | null {
-  try {
-    const stats = fs.statfsSync(dir);
-    const total = stats.bsize * stats.blocks;
-    const free = stats.bsize * stats.bavail;
-    const used = total - free;
-    return {
-      total: formatBytes(total),
-      used: formatBytes(used),
-      free: formatBytes(free),
-    };
-  } catch {
-    return null;
+/** Start periodic DB health check (every 30s). */
+export function startHealthChecks(): void {
+  checkDatabaseConnectivity().catch(() => {});
+  dbCheckTimer = setInterval(() => {
+    checkDatabaseConnectivity().catch(() => {});
+  }, 30_000);
+}
+
+/** Stop periodic DB health check. */
+export function stopHealthChecks(): void {
+  if (dbCheckTimer) {
+    clearInterval(dbCheckTimer);
+    dbCheckTimer = null;
   }
 }
 
 /**
  * GET /api/health
  *
- * Unauthenticated callers receive a simple status check.
- * Authenticated callers (session cookie or API key) receive detailed
- * system metrics suitable for Prometheus or operational dashboards.
+ * Unauthenticated callers receive a simple status check (liveness probe).
+ * Authenticated callers receive version, uptime, and database status
+ * (readiness probe). Detailed system metrics are now served via the
+ * Prometheus endpoint at /metrics (spec 007).
  */
 router.get('/', async (req: Request, res: Response) => {
   const user = await tryAuthenticate(req as any);
@@ -64,24 +78,7 @@ router.get('/', async (req: Request, res: Response) => {
     return;
   }
 
-  // Authenticated: return detailed system metrics
-  const mem = process.memoryUsage();
-  const heapTotal = mem.heapTotal;
-  const heapUsed = mem.heapUsed;
-  const heapPercent = heapTotal > 0 ? ((heapUsed / heapTotal) * 100).toFixed(2) : '0.00';
-
-  const totalMem = os.totalmem();
-  const freeMem = os.freemem();
-  const usedMem = totalMem - freeMem;
-  const memPercent = ((usedMem / totalMem) * 100).toFixed(2);
-  const memAlert = parseFloat(memPercent) > 90 ? 'high' : null;
-
-  const loadAvg = os.loadavg();
-  const cpuCount = os.cpus().length;
-  const loadAlert = loadAvg[0] > cpuCount * 0.8 ? 'high' : null;
-
-  const disk = getDiskUsage(config.PGLITE_DATA_DIR || '.');
-
+  // Authenticated: return simplified health with database connectivity
   const pkgPath = path.resolve(__dirname, '../../../package.json');
   let version = '0.0.0';
   try {
@@ -93,26 +90,10 @@ router.get('/', async (req: Request, res: Response) => {
 
   res.json({
     status: 'healthy',
-    uptime: formatUptime(uptimeMs),
+    timestamp: new Date().toISOString(),
     version,
-    environment: config.NODE_ENV,
-    memory: {
-      heapUsed: formatBytes(heapUsed),
-      heapUsedPercent: `${heapPercent}%`,
-      rss: formatBytes(mem.rss),
-    },
-    system: {
-      platform: os.platform(),
-      memory: {
-        usedPercent: `${memPercent}%`,
-        alert: memAlert,
-      },
-      loadavg: {
-        '1min': loadAvg[0].toFixed(2),
-        alert: loadAlert,
-      },
-    },
-    ...(disk ? { disk } : {}),
+    uptime: formatUptime(uptimeMs),
+    database: databaseConnected ? 'connected' : 'disconnected',
   });
 });
 

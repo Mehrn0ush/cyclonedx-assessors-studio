@@ -279,6 +279,68 @@ SMTP_TLS_REJECT_UNAUTHORIZED=true</pre>
           </div>
         </div>
 
+        <!-- Prometheus Metrics Card -->
+        <div class="integration-card">
+          <div class="integration-card-header">
+            <div class="integration-card-title">
+              <el-icon :size="20"><DataLine /></el-icon>
+              <h3>{{ t('integrations.metrics.title') }}</h3>
+            </div>
+            <span class="status-badge" :class="status.metrics?.enabled ? 'status-badge--active' : 'status-badge--disabled'">
+              {{ status.metrics?.enabled ? t('common.active') : t('common.inactive') }}
+            </span>
+          </div>
+          <div v-if="status.metrics?.enabled" class="integration-card-body">
+            <div class="config-grid">
+              <div class="config-item">
+                <span class="config-label">{{ t('integrations.metrics.endpointUrl') }}</span>
+                <span class="config-value">{{ t('integrations.metrics.endpointPath') }}</span>
+              </div>
+              <div class="config-item">
+                <span class="config-label">{{ t('integrations.metrics.prefix') }}</span>
+                <span class="config-value">{{ status.metrics.prefix }}</span>
+              </div>
+              <div class="config-item">
+                <span class="config-label">{{ t('integrations.metrics.refreshInterval') }}</span>
+                <span class="config-value">{{ t('integrations.metrics.refreshIntervalValue', { seconds: status.metrics.domainRefreshInterval }) }}</span>
+              </div>
+              <div class="config-item">
+                <span class="config-label">{{ t('integrations.metrics.token') }}</span>
+                <span class="config-value">
+                  <el-icon v-if="status.metrics.tokenConfigured" :size="14"><Lock /></el-icon>
+                  {{ status.metrics.tokenConfigured ? t('integrations.configured') : t('integrations.notConfigured') }}
+                </span>
+              </div>
+            </div>
+
+            <div class="prometheus-config-section">
+              <p class="config-note">{{ t('integrations.metrics.prometheusConfig') }}</p>
+              <pre class="env-example">scrape_configs:
+  - job_name: 'assessors-studio'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['assessors-studio:3001']
+    # Uncomment if METRICS_TOKEN is set:
+    # authorization:
+    #   credentials: 'your-metrics-token'</pre>
+            </div>
+          </div>
+          <div v-else class="integration-card-body">
+            <p class="integration-hint">{{ t('integrations.metrics.disabledHint') }}</p>
+            <el-collapse>
+              <el-collapse-item :title="t('integrations.metrics.setupGuide')">
+                <div class="setup-guide">
+                  <p>{{ t('integrations.metrics.setupGuideText') }}</p>
+                  <pre class="env-example">METRICS_ENABLED=true
+METRICS_TOKEN=your-secret-token  # Optional
+METRICS_PREFIX=cdxa_             # Default
+METRICS_DOMAIN_REFRESH_INTERVAL=60  # Seconds</pre>
+                </div>
+              </el-collapse-item>
+            </el-collapse>
+          </div>
+        </div>
+
       </template>
     </div>
   </div>
@@ -294,6 +356,7 @@ import {
   FolderOpened,
   Connection,
   ChatLineSquare,
+  DataLine,
   Lock,
   Loading,
 } from '@element-plus/icons-vue'
@@ -341,6 +404,12 @@ interface IntegrationStatus {
   mattermost: {
     enabled: boolean
     integrationCount: number
+  }
+  metrics: {
+    enabled: boolean
+    prefix: string
+    domainRefreshInterval: number
+    tokenConfigured: boolean
   }
 }
 
@@ -549,5 +618,17 @@ onMounted(fetchStatus)
   font-size: var(--cat-font-size-xs);
   padding: var(--cat-spacing-1) 0;
   color: var(--cat-text-secondary);
+}
+
+.prometheus-config-section {
+  margin-top: var(--cat-spacing-4);
+  padding-top: var(--cat-spacing-3);
+  border-top: 1px solid var(--cat-border-default);
+}
+
+.config-note {
+  font-size: var(--cat-font-size-sm);
+  color: var(--cat-text-secondary);
+  margin: 0 0 var(--cat-spacing-2);
 }
 </style>

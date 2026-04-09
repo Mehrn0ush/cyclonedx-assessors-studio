@@ -8,6 +8,7 @@ import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth } from '../middleware/auth.js';
 import { hashPassword, verifyPassword, generateToken, hashToken } from '../utils/crypto.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
+import { authLoginTotal } from '../metrics/index.js';
 
 const router = Router();
 const config = getConfig();
@@ -36,6 +37,7 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
       .executeTakeFirst();
 
     if (!user) {
+      authLoginTotal.inc({ method: 'local', result: 'failure' });
       res.status(401).json({ error: 'Invalid credentials' });
       return;
     }
@@ -43,11 +45,13 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
     const passwordValid = await verifyPassword(user.password_hash, password);
 
     if (!passwordValid) {
+      authLoginTotal.inc({ method: 'local', result: 'failure' });
       res.status(401).json({ error: 'Invalid credentials' });
       return;
     }
 
     if (!user.is_active) {
+      authLoginTotal.inc({ method: 'local', result: 'failure' });
       res.status(401).json({ error: 'User account is inactive' });
       return;
     }
@@ -90,6 +94,8 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
       path: '/',
       maxAge: 24 * 60 * 60 * 1000,
     });
+
+    authLoginTotal.inc({ method: 'local', result: 'success' });
 
     logger.info('User logged in', {
       userId: user.id,

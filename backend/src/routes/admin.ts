@@ -282,6 +282,12 @@ router.get(
           enabled: config.MATTERMOST_ENABLED,
           integrationCount: chatCounts.mattermost,
         },
+        metrics: {
+          enabled: config.METRICS_ENABLED,
+          prefix: config.METRICS_PREFIX,
+          domainRefreshInterval: config.METRICS_DOMAIN_REFRESH_INTERVAL,
+          tokenConfigured: !!config.METRICS_TOKEN,
+        },
       });
     } catch (error) {
       logger.error('Get integrations status error', { error, requestId: req.requestId });
