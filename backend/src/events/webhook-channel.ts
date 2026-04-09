@@ -15,6 +15,7 @@ import { getConfig } from '../config/index.js';
 import type { NotificationChannel } from './channel.js';
 import type { EventEnvelope } from './types.js';
 import { CHANNEL_WEBHOOK_DISABLED } from './catalog.js';
+import { encryptionService } from '../utils/encryption.js';
 
 /** Retry delay schedule in milliseconds (attempt index 0 based). */
 const RETRY_DELAYS_MS = [
@@ -146,7 +147,8 @@ export class WebhookChannel implements NotificationChannel {
     const deliveryId = uuidv4();
     const body = JSON.stringify(envelope);
     const timestamp = Math.floor(Date.now() / 1000);
-    const signature = computeSignature(webhook.secret, timestamp, body);
+    const decryptedSecret = encryptionService.decrypt(webhook.secret);
+    const signature = computeSignature(decryptedSecret, timestamp, body);
 
     // Create the delivery record
     await db
@@ -358,7 +360,8 @@ export class WebhookChannel implements NotificationChannel {
     for (const row of pendingRetries) {
       const body = JSON.stringify(row.request_body);
       const timestamp = Math.floor(Date.now() / 1000);
-      const signature = computeSignature(row.secret, timestamp, body);
+      const decryptedSecret = encryptionService.decrypt(row.secret);
+      const signature = computeSignature(decryptedSecret, timestamp, body);
 
       // Increment the attempt counter
       await db

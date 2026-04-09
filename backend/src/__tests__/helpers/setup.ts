@@ -501,6 +501,15 @@ CREATE TABLE IF NOT EXISTS webhook_delivery (
   delivered_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Encryption at Rest (spec 009)
+CREATE TABLE IF NOT EXISTS encryption_key_version (
+  version INTEGER PRIMARY KEY,
+  salt TEXT NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  retired_at TIMESTAMP WITH TIME ZONE
+);
 `;
 
   const statements = SQL.split(';').filter(stmt => stmt.trim());

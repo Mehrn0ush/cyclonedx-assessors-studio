@@ -7,6 +7,7 @@ import { initializeStorage } from './storage/index.js';
 import { initializeEventSystem, shutdownEventSystem } from './events/index.js';
 import { startDomainGaugeRefresh, stopDomainGaugeRefresh } from './metrics/index.js';
 import { startHealthChecks, stopHealthChecks } from './routes/health.js';
+import { initializeEncryption } from './utils/encryption.js';
 import { logger } from './utils/logger.js';
 
 const config = getConfig();
@@ -41,6 +42,11 @@ async function start() {
     await runMigrations();
     await seedDefaultRolesAndPermissions();
     logger.info('Database initialized');
+
+    logger.info('Initializing encryption...');
+    const { getDatabase } = await import('./db/connection.js');
+    await initializeEncryption(getDatabase());
+    logger.info('Encryption initialized');
 
     logger.info('Initializing storage...');
     initializeStorage();

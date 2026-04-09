@@ -52,6 +52,10 @@ const envSchema = z.object({
   CHAT_TIMEOUT: z.coerce.number().int().positive().default(10000),
   CHAT_DELIVERY_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
 
+  // Encryption at rest (spec 009)
+  MASTER_ENCRYPTION_KEY: z.string().default(''),
+  REQUIRE_ENCRYPTION: z.coerce.boolean().default(false),
+
   // Prometheus metrics (spec 007)
   METRICS_ENABLED: z.coerce.boolean().default(true),
   METRICS_TOKEN: z.string().default(''),

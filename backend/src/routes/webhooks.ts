@@ -15,6 +15,7 @@ import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
 import { getEventBus } from '../events/index.js';
 import { CHANNEL_TEST } from '../events/catalog.js';
 import { validatePagination } from '../utils/pagination.js';
+import { encryptionService } from '../utils/encryption.js';
 
 const router = Router();
 
@@ -86,6 +87,7 @@ router.post(
 
       const id = uuidv4();
       const secret = generateSecret();
+      const encryptedSecret = encryptionService.encrypt(secret);
 
       await db
         .insertInto('webhook')
@@ -93,7 +95,7 @@ router.post(
           id,
           name: data.name,
           url: data.url,
-          secret,
+          secret: encryptedSecret,
           event_types: data.eventTypes as any,
           is_active: true,
           consecutive_failures: 0,
@@ -221,7 +223,7 @@ router.put(
       if (data.eventTypes !== undefined) updates.event_types = data.eventTypes as any;
       if (data.regenerateSecret) {
         newSecret = generateSecret();
-        updates.secret = newSecret;
+        updates.secret = encryptionService.encrypt(newSecret);
       }
 
       await db

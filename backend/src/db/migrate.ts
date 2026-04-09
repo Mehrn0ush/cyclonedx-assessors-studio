@@ -789,6 +789,18 @@ CREATE INDEX IF NOT EXISTS idx_notification_rule_scope ON notification_rule(scop
 CREATE INDEX IF NOT EXISTS idx_notification_rule_user ON notification_rule(user_id);
 CREATE INDEX IF NOT EXISTS idx_notification_rule_enabled ON notification_rule(enabled);
 
+-- =====================================================================
+-- Encryption at Rest (spec 009)
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS encryption_key_version (
+  version INTEGER PRIMARY KEY,
+  salt TEXT NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  retired_at TIMESTAMP WITH TIME ZONE
+);
+
 `;
 
 export async function runMigrations(): Promise<void> {

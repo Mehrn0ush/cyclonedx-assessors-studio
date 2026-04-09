@@ -548,6 +548,14 @@ export interface ChatDelivery {
   created_at: Generated<Date>;
 }
 
+export interface EncryptionKeyVersion {
+  version: number;
+  salt: string;
+  is_active: boolean;
+  created_at: Generated<Date>;
+  retired_at?: Date | null;
+}
+
 export interface Database {
   permission: Selectable<Permission>;
   permission_insert: Insertable<Permission>;
@@ -743,4 +751,8 @@ export interface Database {
   notification_rule: Selectable<NotificationRule>;
   notification_rule_insert: Insertable<NotificationRule>;
   notification_rule_update: Updateable<NotificationRule>;
+
+  encryption_key_version: Selectable<EncryptionKeyVersion>;
+  encryption_key_version_insert: Insertable<EncryptionKeyVersion>;
+  encryption_key_version_update: Updateable<EncryptionKeyVersion>;
 }

@@ -37,6 +37,7 @@ import adminNotificationRulesRoutes from './routes/admin-notification-rules.js';
 import assessorRoutes from './routes/assessors.js';
 import adminRoutes from './routes/admin.js';
 import webhookRoutes from './routes/webhooks.js';
+import adminEncryptionRoutes from './routes/admin-encryption.js';
 import chatIntegrationRoutes from './routes/chat-integrations.js';
 import metricsRoutes from './routes/metrics.js';
 import { getOpenAPISpec } from './openapi.js';
@@ -182,6 +183,7 @@ export function createApp() {
   app.use('/api/v1/assessors', assessorRoutes);
   app.use('/api/v1/admin', adminRoutes);
   app.use('/api/v1/webhooks', webhookRoutes);
+  app.use('/api/v1/admin/encryption', adminEncryptionRoutes);
   app.use('/api/v1/integrations/chat', chatIntegrationRoutes);
 
   // Production static serving

@@ -14,7 +14,10 @@
     "migrate": "tsx src/db/migrate.ts",
     "storage:migrate": "tsx src/storage/migrate-storage.ts",
     "db:reset": "rm -rf data/pglite && echo 'Database reset. It will be recreated on next server start.'",
-    "test": "vitest"
+    "test": "vitest",
+    "encrypt-secrets": "tsx src/scripts/encrypt-secrets.ts",
+    "rotate-encryption-key": "tsx src/scripts/rotate-encryption-key.ts",
+    "rekey-master": "tsx src/scripts/rekey-master.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.2.8",
