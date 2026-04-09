@@ -52,7 +52,12 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
 
     if (!user.is_active) {
       authLoginTotal.inc({ method: 'local', result: 'failure' });
-      res.status(401).json({ error: 'User account is inactive' });
+      logger.warn('Login attempt for inactive user', {
+        userId: user.id,
+        requestId: req.requestId,
+      });
+      // Use generic message to avoid revealing that the account exists
+      res.status(401).json({ error: 'Invalid credentials' });
       return;
     }
 
@@ -291,7 +296,17 @@ router.put(
         .where('id', '=', req.user.id)
         .execute();
 
-      logger.info('User changed password', {
+      // Invalidate all existing sessions to prevent stolen session reuse.
+      // This is a security requirement per OWASP ASVS 2.3.1.
+      await db
+        .deleteFrom('session')
+        .where('user_id', '=', req.user.id)
+        .execute();
+
+      // Clear the current session cookie so the user must re-authenticate
+      res.clearCookie('token');
+
+      logger.info('User changed password and all sessions invalidated', {
         userId: req.user.id,
         requestId: req.requestId,
       });
@@ -304,6 +319,7 @@ router.put(
         .executeTakeFirst();
 
       res.json({
+        message: 'Password changed successfully. Please log in again.',
         user: {
           id: updatedUser?.id,
           username: updatedUser?.username,

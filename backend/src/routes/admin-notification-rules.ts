@@ -19,8 +19,8 @@ const createRuleSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   channel: z.enum(['in_app', 'email', 'slack', 'teams', 'mattermost', 'webhook']),
   eventTypes: z.array(z.string()).min(1, 'At least one event type is required'),
-  filters: z.record(z.unknown()).optional().default({}),
-  destination: z.record(z.unknown()).optional().default({}),
+  filters: z.record(z.string(), z.unknown()).optional().default({}),
+  destination: z.record(z.string(), z.unknown()).optional().default({}),
   enabled: z.boolean().optional().default(true),
 });
 
@@ -62,11 +62,35 @@ router.post('/', requireAuth, requireRole('admin'), async (req: AuthRequest, res
 
     // Validate event types are from catalog (basic validation)
     const validEventTypes = [
+      // Assessment
       'assessment.created',
       'assessment.state_changed',
+      'assessment.deleted',
+      'assessment.assigned',
+      // Evidence
+      'evidence.created',
       'evidence.state_changed',
+      'evidence.attachment_added',
+      'evidence.attachment_removed',
+      // Claim
+      'claim.created',
+      'claim.updated',
+      // Attestation
       'attestation.created',
       'attestation.signed',
+      'attestation.exported',
+      // Project
+      'project.created',
+      'project.state_changed',
+      'project.archived',
+      // Standard
+      'standard.imported',
+      'standard.state_changed',
+      // System
+      'user.created',
+      'user.deactivated',
+      'apikey.created',
+      // Wildcard
       '*',
     ];
 
@@ -176,11 +200,13 @@ router.put('/:id', requireAuth, requireRole('admin'), async (req: AuthRequest, r
     // Validate event types if provided
     if (data.eventTypes) {
       const validEventTypes = [
-        'assessment.created',
-        'assessment.state_changed',
-        'evidence.state_changed',
-        'attestation.created',
-        'attestation.signed',
+        'assessment.created', 'assessment.state_changed', 'assessment.deleted', 'assessment.assigned',
+        'evidence.created', 'evidence.state_changed', 'evidence.attachment_added', 'evidence.attachment_removed',
+        'claim.created', 'claim.updated',
+        'attestation.created', 'attestation.signed', 'attestation.exported',
+        'project.created', 'project.state_changed', 'project.archived',
+        'standard.imported', 'standard.state_changed',
+        'user.created', 'user.deactivated', 'apikey.created',
         '*',
       ];
 

@@ -1,6 +1,6 @@
 <template>
   <div class="admin-notification-rules-container">
-    <PageHeader :title="t('notificationRules.title')" :subtitle="t('notificationRules.subtitle')">
+    <PageHeader :title="t('notificationRules.title')">
       <template #actions>
         <el-button type="primary" @click="openCreateDialog">{{ t('notificationRules.createRule') }}</el-button>
       </template>
@@ -66,10 +66,12 @@
               />
             </template>
           </el-table-column>
-          <el-table-column :label="t('common.actions')" min-width="160">
+          <el-table-column :label="t('common.actions')" width="100">
             <template #default="{ row }">
-              <el-button link type="primary" size="small" @click="openEditDialog(row)">{{ t('common.edit') }}</el-button>
-              <el-button link type="danger" size="small" @click="handleDelete(row)">{{ t('common.delete') }}</el-button>
+              <div class="row-actions">
+                <IconButton :icon="EditIcon" variant="primary" :tooltip="t('common.edit')" @click="openEditDialog(row)" />
+                <IconButton :icon="Delete" variant="danger" :tooltip="t('common.delete')" @click="handleDelete(row)" />
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -166,7 +168,6 @@
                 :options="projectOptions"
                 :placeholder="t('notificationRules.selectProject')"
                 :loading="projectsLoading"
-                @search="handleProjectSearch"
               />
             </el-form-item>
 
@@ -176,7 +177,6 @@
                 :options="standardOptions"
                 :placeholder="t('notificationRules.selectStandard')"
                 :loading="standardsLoading"
-                @search="handleStandardSearch"
               />
             </el-form-item>
           </div>
@@ -202,9 +202,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import {
+  Loading,
+  Edit as EditIcon,
+  Delete,
+} from '@element-plus/icons-vue'
 import axios from 'axios'
 import PageHeader from '@/components/shared/PageHeader.vue'
+import IconButton from '@/components/shared/IconButton.vue'
 import SearchSelect from '@/components/shared/SearchSelect.vue'
 import type { SelectOption } from '@/components/shared/SearchSelect.vue'
 
@@ -214,7 +219,8 @@ interface NotificationRule {
   channel: string
   eventTypes?: string[]
   event_types?: string[]
-  destination: string
+  destination: string | Record<string, any>
+  filters?: string | Record<string, any>
   filterProjectId?: string
   filter_project_id?: string
   filterStandardId?: string
@@ -304,22 +310,52 @@ const webhooksLoading = ref(false)
 
 const projectOptions = ref<SelectOption[]>([])
 const projectsLoading = ref(false)
-const projectSearchQuery = ref('')
 
 const standardOptions = ref<SelectOption[]>([])
 const standardsLoading = ref(false)
-const standardSearchQuery = ref('')
 
 const dialogTitle = computed(() =>
   isEditing.value ? t('notificationRules.editRule') : t('notificationRules.createRule')
 )
+
+// Safely parse a JSON string or return the value if already an object
+const parseJsonField = (value: any): Record<string, any> => {
+  if (!value) return {}
+  if (typeof value === 'string') {
+    try { return JSON.parse(value) } catch { return {} }
+  }
+  return value
+}
+
+// Extract destination string from the stored destination object
+const extractDestinationString = (channel: string, dest: Record<string, any>): string => {
+  if (channel === 'email') return dest.emails || ''
+  if (['slack', 'teams', 'mattermost'].includes(channel)) return dest.integrationId || ''
+  if (channel === 'webhook') return dest.webhookId || ''
+  return ''
+}
 
 const fetchRules = async () => {
   loading.value = true
   error.value = ''
   try {
     const { data } = await axios.get('/api/v1/admin/notification-rules')
-    rules.value = data.rules || data
+    const rawRules = data.rules || data
+    // Normalize JSON string fields from DB
+    rules.value = rawRules.map((rule: any) => {
+      const parsedFilters = parseJsonField(rule.filters)
+      const parsedEventTypes = typeof rule.event_types === 'string'
+        ? JSON.parse(rule.event_types)
+        : rule.event_types
+      return {
+        ...rule,
+        event_types: parsedEventTypes,
+        destination: rule.destination,
+        filters: parsedFilters,
+        filterProjectId: parsedFilters.projectId || '',
+        filterStandardId: parsedFilters.standardId || '',
+      }
+    })
   } catch (err: any) {
     error.value = err.response?.data?.error || 'Failed to load notification rules'
   } finally {
@@ -351,14 +387,13 @@ const fetchWebhooks = async () => {
   }
 }
 
-const handleProjectSearch = async (query: string) => {
-  projectSearchQuery.value = query
+const fetchProjectOptions = async () => {
   projectsLoading.value = true
   try {
     const { data } = await axios.get('/api/v1/projects', {
-      params: { search: query }
+      params: { limit: 100 }
     })
-    projectOptions.value = (data.projects || data).map((project: any) => ({
+    projectOptions.value = (data.data || []).map((project: any) => ({
       value: project.id,
       label: project.name
     }))
@@ -369,14 +404,13 @@ const handleProjectSearch = async (query: string) => {
   }
 }
 
-const handleStandardSearch = async (query: string) => {
-  standardSearchQuery.value = query
+const fetchStandardOptions = async () => {
   standardsLoading.value = true
   try {
     const { data } = await axios.get('/api/v1/standards', {
-      params: { search: query }
+      params: { limit: 100 }
     })
-    standardOptions.value = (data.standards || data).map((standard: any) => ({
+    standardOptions.value = (data.data || []).map((standard: any) => ({
       value: standard.id,
       label: standard.name
     }))
@@ -395,21 +429,33 @@ const openCreateDialog = () => {
   isEditing.value = false
   editingId.value = null
   resetForm()
+  fetchProjectOptions()
+  fetchStandardOptions()
   showDialog.value = true
 }
 
 const openEditDialog = (rule: NotificationRule) => {
   isEditing.value = true
   editingId.value = rule.id
+
+  // Parse destination object to extract the string value for the form field
+  const parsedDest = parseJsonField(rule.destination)
+  const destString = extractDestinationString(rule.channel, parsedDest)
+
+  // Parse filters to extract project/standard IDs
+  const parsedFilters = parseJsonField(rule.filters)
+
   form.value = {
     name: rule.name,
     channel: rule.channel,
     eventTypes: rule.eventTypes || rule.event_types || [],
-    destination: rule.destination,
-    filterProjectId: rule.filterProjectId || rule.filter_project_id || '',
-    filterStandardId: rule.filterStandardId || rule.filter_standard_id || '',
+    destination: destString,
+    filterProjectId: rule.filterProjectId || parsedFilters.projectId || '',
+    filterStandardId: rule.filterStandardId || parsedFilters.standardId || '',
     enabled: rule.enabled
   }
+  fetchProjectOptions()
+  fetchStandardOptions()
   showDialog.value = true
 }
 
@@ -435,13 +481,27 @@ const handleSave = async () => {
 
   saving.value = true
   try {
+    // Build destination object based on channel type
+    const destination: Record<string, string> = {}
+    if (form.value.channel === 'email') {
+      destination.emails = form.value.destination
+    } else if (['slack', 'teams', 'mattermost'].includes(form.value.channel)) {
+      destination.integrationId = form.value.destination
+    } else if (form.value.channel === 'webhook') {
+      destination.webhookId = form.value.destination
+    }
+
+    // Build filters object
+    const filters: Record<string, string> = {}
+    if (form.value.filterProjectId) filters.projectId = form.value.filterProjectId
+    if (form.value.filterStandardId) filters.standardId = form.value.filterStandardId
+
     const payload = {
       name: form.value.name,
       channel: form.value.channel,
       eventTypes: form.value.eventTypes,
-      destination: form.value.destination,
-      filterProjectId: form.value.filterProjectId || null,
-      filterStandardId: form.value.filterStandardId || null,
+      destination,
+      filters,
       enabled: form.value.enabled
     }
 
@@ -569,12 +629,14 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: var(--cat-spacing-3);
-  padding: var(--cat-spacing-3);
-  background-color: var(--cat-bg-surface);
-  border-radius: var(--cat-radius-md);
+  width: 100%;
 
   :deep(.el-form-item) {
     margin-bottom: 0;
+  }
+
+  :deep(.search-select) {
+    width: 100%;
   }
 }
 
@@ -586,6 +648,12 @@ onMounted(async () => {
 
 :deep(.el-dialog__body) {
   padding: var(--cat-spacing-4);
+}
+
+.row-actions {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
 }
 
 :deep(.el-table) {

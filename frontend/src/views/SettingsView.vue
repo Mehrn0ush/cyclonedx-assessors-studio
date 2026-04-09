@@ -131,23 +131,23 @@
       <!-- Notification Rules Section -->
       <el-card class="settings-card">
         <template #header>
-          <span>{{ t('settings.notificationRules.title') }}</span>
+          <span>{{ t('notificationRules.title') }}</span>
         </template>
 
         <div class="notification-rules-wrapper">
           <!-- Warning banner if Slack DM selected but no Slack ID -->
           <el-alert
             v-if="showSlackWarning"
-            :title="t('settings.notificationRules.slackWarning')"
+            :title="t('notificationRules.slackWarning')"
             type="warning"
             :closable="false"
             style="margin-bottom: var(--cat-spacing-4)"
           >
-            <RouterLink to="/settings">{{ t('settings.notificationRules.configureChatIdentities') }}</RouterLink>
+            <RouterLink to="/settings">{{ t('notificationRules.configureChatIdentities') }}</RouterLink>
           </el-alert>
 
           <div class="rules-header">
-            <el-button type="primary" size="small" @click="openUserRuleDialog">{{ t('settings.notificationRules.addRule') }}</el-button>
+            <el-button type="primary" size="small" @click="openUserRuleDialog">{{ t('notificationRules.addRule') }}</el-button>
           </div>
 
           <div v-if="userRulesLoading" class="loading-container">
@@ -156,14 +156,14 @@
           </div>
 
           <div v-else-if="userRules.length === 0" class="empty-state-small">
-            <p>{{ t('settings.notificationRules.noRules') }}</p>
+            <p>{{ t('notificationRules.noRules') }}</p>
           </div>
 
           <el-table v-else :data="userRules" stripe border style="margin-top: var(--cat-spacing-3)">
             <el-table-column prop="name" :label="t('common.name')" min-width="140" />
             <el-table-column :label="t('notificationRules.channel')" min-width="100">
               <template #default="{ row }">
-                <el-tag>{{ t(`settings.notificationRules.channels.${row.channel}`) }}</el-tag>
+                <el-tag>{{ t(`notificationRules.channels.${row.channel}`) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column :label="t('notificationRules.eventTypes')" min-width="150">
@@ -232,7 +232,7 @@
     <!-- User Notification Rule Dialog -->
     <el-dialog
       v-model="showUserRuleDialog"
-      :title="editingUserRuleId ? t('settings.notificationRules.editRule') : t('settings.notificationRules.createRule')"
+      :title="editingUserRuleId ? t('notificationRules.editRule') : t('notificationRules.createRule')"
       width="650px"
       @close="editingUserRuleId = null"
     >
@@ -241,7 +241,7 @@
         <el-form-item :label="t('common.name')" required>
           <el-input
             v-model="userRuleForm.name"
-            :placeholder="t('settings.notificationRules.namePlaceholder')"
+            :placeholder="t('notificationRules.namePlaceholder')"
           />
         </el-form-item>
 
@@ -274,50 +274,44 @@
           </el-select>
         </el-form-item>
 
-        <!-- Filters -->
-        <el-form-item :label="t('settings.notificationRules.filterMyContent')">
+        <!-- Content Filters -->
+        <el-form-item :label="t('notificationRules.filterMyContent')">
           <div class="filter-toggles">
-            <el-checkbox v-model="userRuleForm.onlyMyAssessments">{{ t('settings.notificationRules.onlyMyAssessments') }}</el-checkbox>
-            <el-checkbox v-model="userRuleForm.onlyMyEvidence">{{ t('settings.notificationRules.onlyMyEvidence') }}</el-checkbox>
-            <el-checkbox v-model="userRuleForm.onlyMyProjects">{{ t('settings.notificationRules.onlyMyProjects') }}</el-checkbox>
+            <el-checkbox v-model="userRuleForm.onlyMyAssessments">{{ t('notificationRules.onlyMyAssessments') }}</el-checkbox>
+            <el-checkbox v-model="userRuleForm.onlyMyEvidence">{{ t('notificationRules.onlyMyEvidence') }}</el-checkbox>
+            <el-checkbox v-model="userRuleForm.onlyMyProjects">{{ t('notificationRules.onlyMyProjects') }}</el-checkbox>
           </div>
         </el-form-item>
 
-        <!-- Specific Filters -->
-        <el-form-item :label="t('settings.notificationRules.specificFilters')">
-          <div class="specific-filters">
-            <div class="filter-row">
-              <label>{{ t('notificationRules.filterProject') }}</label>
+        <!-- Scope Filters -->
+        <el-form-item :label="t('notificationRules.filters')">
+          <div class="filters-section">
+            <el-form-item :label="t('notificationRules.filterProject')">
               <SearchSelect
                 v-model="userRuleForm.filterProjectId"
                 :options="projectOptionsUserRule"
                 :placeholder="t('notificationRules.selectProject')"
                 :loading="projectsLoadingUserRule"
-                @search="handleProjectSearchUserRule"
               />
-            </div>
+            </el-form-item>
 
-            <div class="filter-row">
-              <label>{{ t('notificationRules.filterStandard') }}</label>
+            <el-form-item :label="t('notificationRules.filterStandard')">
               <SearchSelect
                 v-model="userRuleForm.filterStandardId"
                 :options="standardOptionsUserRule"
                 :placeholder="t('notificationRules.selectStandard')"
                 :loading="standardsLoadingUserRule"
-                @search="handleStandardSearchUserRule"
               />
-            </div>
+            </el-form-item>
 
-            <div class="filter-row">
-              <label>{{ t('settings.notificationRules.filterAssessment') }}</label>
+            <el-form-item :label="t('notificationRules.filterAssessment')">
               <SearchSelect
                 v-model="userRuleForm.filterAssessmentId"
                 :options="assessmentOptionsUserRule"
-                :placeholder="t('settings.notificationRules.selectAssessment')"
+                :placeholder="t('notificationRules.selectAssessment')"
                 :loading="assessmentsLoadingUserRule"
-                @search="handleAssessmentSearchUserRule"
               />
-            </div>
+            </el-form-item>
           </div>
         </el-form-item>
 
@@ -559,13 +553,13 @@ const fetchUserRules = async () => {
   }
 }
 
-const handleProjectSearchUserRule = async (query: string) => {
+const fetchProjectOptionsUserRule = async () => {
   projectsLoadingUserRule.value = true
   try {
     const { data } = await axios.get('/api/v1/projects', {
-      params: { search: query }
+      params: { limit: 100 }
     })
-    projectOptionsUserRule.value = (data.projects || data).map((project: any) => ({
+    projectOptionsUserRule.value = (data.data || []).map((project: any) => ({
       value: project.id,
       label: project.name
     }))
@@ -576,13 +570,13 @@ const handleProjectSearchUserRule = async (query: string) => {
   }
 }
 
-const handleStandardSearchUserRule = async (query: string) => {
+const fetchStandardOptionsUserRule = async () => {
   standardsLoadingUserRule.value = true
   try {
     const { data } = await axios.get('/api/v1/standards', {
-      params: { search: query }
+      params: { limit: 100 }
     })
-    standardOptionsUserRule.value = (data.standards || data).map((standard: any) => ({
+    standardOptionsUserRule.value = (data.data || []).map((standard: any) => ({
       value: standard.id,
       label: standard.name
     }))
@@ -593,15 +587,15 @@ const handleStandardSearchUserRule = async (query: string) => {
   }
 }
 
-const handleAssessmentSearchUserRule = async (query: string) => {
+const fetchAssessmentOptionsUserRule = async () => {
   assessmentsLoadingUserRule.value = true
   try {
     const { data } = await axios.get('/api/v1/assessments', {
-      params: { search: query }
+      params: { limit: 100 }
     })
-    assessmentOptionsUserRule.value = (data.assessments || data).map((assessment: any) => ({
+    assessmentOptionsUserRule.value = (data.data || []).map((assessment: any) => ({
       value: assessment.id,
-      label: assessment.name
+      label: assessment.name || assessment.title
     }))
   } catch (err: any) {
     ElMessage.error('Failed to load assessments')
@@ -640,6 +634,9 @@ const openUserRuleDialog = (rule?: UserNotificationRule) => {
       enabled: true
     }
   }
+  fetchProjectOptionsUserRule()
+  fetchStandardOptionsUserRule()
+  fetchAssessmentOptionsUserRule()
   showUserRuleDialog.value = true
 }
 
@@ -845,24 +842,18 @@ onMounted(async () => {
   }
 }
 
-.specific-filters {
+.filters-section {
   display: flex;
   flex-direction: column;
   gap: var(--cat-spacing-3);
-  padding: var(--cat-spacing-3);
-  background-color: var(--cat-bg-surface);
-  border-radius: var(--cat-radius-md);
-}
+  width: 100%;
 
-.filter-row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cat-spacing-2);
+  :deep(.el-form-item) {
+    margin-bottom: 0;
+  }
 
-  label {
-    font-size: var(--cat-font-size-sm);
-    font-weight: var(--cat-font-weight-medium);
-    color: var(--cat-text-secondary);
+  :deep(.search-select) {
+    width: 100%;
   }
 }
 

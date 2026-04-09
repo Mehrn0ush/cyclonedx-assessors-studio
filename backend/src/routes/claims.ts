@@ -9,6 +9,44 @@ import { toSnakeCase } from '../middleware/camelCase.js';
 const router = Router();
 
 /**
+ * Check if the user is a participant in the assessment linked via an attestation.
+ * Admins always pass. Returns true if the user is allowed, false otherwise.
+ */
+async function isAttestationParticipant(
+  db: any,
+  userId: string,
+  userRole: string,
+  attestationId: string | null | undefined
+): Promise<boolean> {
+  if (userRole === 'admin') return true;
+  if (!attestationId) return true; // Unlinked claims are accessible to all authenticated users
+
+  const attestation = await db
+    .selectFrom('attestation')
+    .where('id', '=', attestationId)
+    .select(['assessment_id'])
+    .executeTakeFirst();
+
+  if (!attestation) return true; // Attestation doesn't exist; let other validation catch it
+
+  const assessor = await db
+    .selectFrom('assessment_assessor')
+    .where('assessment_id', '=', attestation.assessment_id)
+    .where('user_id', '=', userId)
+    .selectAll()
+    .executeTakeFirst();
+  if (assessor) return true;
+
+  const assessee = await db
+    .selectFrom('assessment_assessee')
+    .where('assessment_id', '=', attestation.assessment_id)
+    .where('user_id', '=', userId)
+    .selectAll()
+    .executeTakeFirst();
+  return !!assessee;
+}
+
+/**
  * Check if a claim's parent assessment is read-only (complete or archived).
  * Claims linked via attestation -> assessment inherit the assessment's read-only state.
  * Returns an error message if read-only, or null if mutable.
@@ -156,6 +194,13 @@ router.post(
           res.status(404).json({ error: 'Attestation not found' });
           return;
         }
+
+        // Authorization: user must be a participant in the assessment
+        const allowed = await isAttestationParticipant(db, req.user!.id, req.user!.role, data.attestationId);
+        if (!allowed) {
+          res.status(403).json({ error: 'You are not a participant in this assessment' });
+          return;
+        }
       }
 
       const claimId = uuidv4();
@@ -250,6 +295,13 @@ router.put(
       const readOnlyError = await checkClaimAssessmentReadOnly(db, (claim as any).attestation_id);
       if (readOnlyError) {
         res.status(403).json({ error: readOnlyError });
+        return;
+      }
+
+      // Authorization: user must be a participant in the current assessment
+      const allowed = await isAttestationParticipant(db, req.user!.id, req.user!.role, (claim as any).attestation_id);
+      if (!allowed) {
+        res.status(403).json({ error: 'You are not a participant in this assessment' });
         return;
       }
 

@@ -1297,7 +1297,17 @@ router.get(
       }
 
       res.setHeader('Content-Type', attachment.content_type);
-      res.setHeader('Content-Disposition', `attachment; filename="${attachment.filename}"`);
+      // Sanitize filename to prevent header injection (CWE-113) and path traversal
+      const sanitizedFilename = attachment.filename
+        .replace(/[\r\n]/g, '')           // Strip newlines (header injection)
+        .replace(/[/\\]/g, '_')           // Strip path separators (traversal)
+        .replace(/[^\w\s.\-()]/g, '_')    // Keep only safe characters
+        .substring(0, 255);               // Enforce length limit
+      const encodedFilename = encodeURIComponent(sanitizedFilename);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${sanitizedFilename}"; filename*=UTF-8''${encodedFilename}`
+      );
 
       // Resolve the provider that was used to store this particular attachment,
       // not the currently configured provider. This ensures mixed-storage

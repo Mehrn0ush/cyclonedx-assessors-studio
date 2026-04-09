@@ -1,141 +1,184 @@
 <template>
-  <div class="chat-integrations-container">
-    <PageHeader :title="t('chatIntegrations.title')" :subtitle="t('chatIntegrations.subtitle')" />
+  <div class="chat-integrations-container" :class="{ 'embedded-mode': embedded }">
+    <PageHeader v-if="!embedded" :title="t('chatIntegrations.title')" :subtitle="t('chatIntegrations.subtitle')" />
 
-    <!-- Platform tabs -->
-    <el-tabs v-model="activePlatform" class="platform-tabs" @tab-change="fetchIntegrations">
-      <el-tab-pane
-        v-for="p in platforms"
-        :key="p.key"
-        :label="p.label"
-        :name="p.key"
-      />
-    </el-tabs>
+    <!-- Stacked layout when embedded (no tabs within tabs) -->
+    <template v-if="embedded">
+      <div class="stacked-platforms">
+        <div v-for="p in platforms" :key="p.key" class="platform-section">
+          <div class="platform-section-header">
+            <h3>{{ p.label }}</h3>
+            <div class="platform-section-actions">
+              <el-button type="primary" size="small" @click="openCreateDialogForPlatform(p.key)">
+                {{ t('chatIntegrations.create') }}
+              </el-button>
+            </div>
+          </div>
 
-    <div class="chat-integrations-content">
-      <!-- Loading -->
-      <div v-if="loading" class="loading-container">
-        <el-icon class="is-loading" :size="24"><Loading /></el-icon>
-        <span>{{ t('common.loading') }}</span>
+          <div v-if="platformData[p.key]?.loading" class="loading-container">
+            <el-icon class="is-loading" :size="20"><Loading /></el-icon>
+            <span>{{ t('common.loading') }}</span>
+          </div>
+          <div v-else-if="platformData[p.key]?.error" class="error-container">
+            <el-alert :title="t('common.error')" :description="platformData[p.key].error" type="error" :closable="false" />
+          </div>
+          <template v-else>
+            <div v-if="(platformData[p.key]?.items || []).length === 0" class="empty-state-inline">
+              <span>{{ t('chatIntegrations.noIntegrations', { platform: p.label }) }}</span>
+            </div>
+            <el-table v-else :data="platformData[p.key]?.items || []" class="integrations-table" stripe size="small">
+              <el-table-column prop="name" :label="t('chatIntegrations.name')" min-width="140" />
+              <el-table-column :label="t('chatIntegrations.channelName')" min-width="120">
+                <template #default="{ row }">{{ row.channelName || row.channel_name || '—' }}</template>
+              </el-table-column>
+              <el-table-column :label="t('chatIntegrations.categories')" min-width="130">
+                <template #default="{ row }">
+                  <el-tooltip :content="parseCategories(row.eventCategories || row.event_categories).join(', ')" placement="top" :show-after="300">
+                    <span class="event-summary">{{ formatEventSummary(row.eventCategories || row.event_categories) }}</span>
+                  </el-tooltip>
+                </template>
+              </el-table-column>
+              <el-table-column :label="t('common.status')" width="100">
+                <template #default="{ row }">
+                  <span class="status-badge" :class="(row.isActive ?? row.is_active) ? 'status-badge--active' : 'status-badge--disabled'">
+                    {{ (row.isActive ?? row.is_active) ? t('common.active') : t('common.inactive') }}
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column :label="t('common.actions')" width="110" align="right">
+                <template #default="{ row }">
+                  <div class="row-actions">
+                    <IconButton :icon="Promotion" variant="warning" :tooltip="t('chatIntegrations.sendTest')" @click="testIntegration(row)" />
+                    <IconButton :icon="EditIcon" variant="primary" :tooltip="t('common.edit')" @click="openEditDialog(row)" />
+                    <IconButton :icon="Delete" variant="danger" :tooltip="t('common.delete')" @click="confirmDelete(row)" />
+                  </div>
+                </template>
+              </el-table-column>
+            </el-table>
+          </template>
+        </div>
       </div>
+    </template>
 
-      <!-- Error -->
-      <div v-else-if="error" class="error-container">
-        <el-alert :title="t('common.error')" :description="error" type="error" :closable="false" />
-        <el-button @click="fetchIntegrations" class="retry-button">{{ t('common.retry') }}</el-button>
-      </div>
+    <!-- Tabbed layout when standalone -->
+    <template v-else>
+      <el-tabs v-model="activePlatform" class="platform-tabs" @tab-change="fetchIntegrations">
+        <el-tab-pane
+          v-for="p in platforms"
+          :key="p.key"
+          :label="p.label"
+          :name="p.key"
+        />
+      </el-tabs>
 
-      <template v-else>
-        <!-- Actions bar -->
-        <div class="actions-bar">
-          <el-button type="primary" @click="openCreateDialog">
-            {{ t('chatIntegrations.create') }}
-          </el-button>
+      <div class="chat-integrations-content">
+        <!-- Loading -->
+        <div v-if="loading" class="loading-container">
+          <el-icon class="is-loading" :size="24"><Loading /></el-icon>
+          <span>{{ t('common.loading') }}</span>
         </div>
 
-        <!-- Empty state -->
-        <div v-if="integrations.length === 0" class="empty-state">
-          <p>{{ t('chatIntegrations.noIntegrations', { platform: currentPlatformLabel }) }}</p>
-          <el-collapse>
-            <el-collapse-item :title="t('chatIntegrations.setupGuide')">
-              <div class="setup-guide">
-                <div v-if="activePlatform === 'slack'">
-                  <p>{{ t('chatIntegrations.slackSetupGuide') }}</p>
-                  <pre class="env-example">SLACK_ENABLED=true</pre>
-                </div>
-                <div v-else-if="activePlatform === 'teams'">
-                  <p>{{ t('chatIntegrations.teamsSetupGuide') }}</p>
-                  <pre class="env-example">TEAMS_ENABLED=true</pre>
-                </div>
-                <div v-else-if="activePlatform === 'mattermost'">
-                  <p>{{ t('chatIntegrations.mattermostSetupGuide') }}</p>
-                  <pre class="env-example">MATTERMOST_ENABLED=true</pre>
-                </div>
-              </div>
-            </el-collapse-item>
-          </el-collapse>
+        <!-- Error -->
+        <div v-else-if="error" class="error-container">
+          <el-alert :title="t('common.error')" :description="error" type="error" :closable="false" />
+          <el-button @click="fetchIntegrations" class="retry-button">{{ t('common.retry') }}</el-button>
         </div>
 
-        <!-- Integration table -->
-        <el-table v-else :data="integrations" class="integrations-table" stripe>
-          <el-table-column prop="name" :label="t('chatIntegrations.name')" min-width="180" />
-          <el-table-column prop="channelName" :label="t('chatIntegrations.channelName')" min-width="140">
-            <template #default="{ row }">{{ row.channelName || row.channel_name || '—' }}</template>
-          </el-table-column>
-          <el-table-column :label="t('chatIntegrations.categories')" min-width="200">
-            <template #default="{ row }">
-              <div class="category-tags">
-                <el-tag
-                  v-for="cat in parseCategories(row.eventCategories || row.event_categories)"
-                  :key="cat"
-                  size="small"
-                  type="info"
-                >{{ cat }}</el-tag>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column :label="t('common.status')" width="120">
-            <template #default="{ row }">
-              <span class="status-badge" :class="(row.isActive ?? row.is_active) ? 'status-badge--active' : 'status-badge--disabled'">
-                {{ (row.isActive ?? row.is_active) ? t('common.active') : t('common.inactive') }}
-              </span>
-            </template>
-          </el-table-column>
-          <el-table-column :label="t('common.actions')" width="240" align="right">
-            <template #default="{ row }">
-              <el-button size="small" @click="testIntegration(row)">
-                {{ t('chatIntegrations.sendTest') }}
-              </el-button>
-              <el-button
-                v-if="!(row.isActive ?? row.is_active)"
-                size="small"
-                type="success"
-                @click="enableIntegration(row)"
-              >
-                {{ t('chatIntegrations.enable') }}
-              </el-button>
-              <el-button size="small" @click="openEditDialog(row)">
-                {{ t('common.edit') }}
-              </el-button>
-              <el-button size="small" type="danger" @click="confirmDelete(row)">
-                {{ t('common.delete') }}
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <template v-else>
+          <!-- Actions bar -->
+          <div class="actions-bar">
+            <el-button type="primary" @click="openCreateDialog">
+              {{ t('chatIntegrations.create') }}
+            </el-button>
+          </div>
 
-        <!-- Delivery log expand for selected integration -->
-        <div v-if="selectedIntegration" class="delivery-log-section">
-          <h4>{{ t('chatIntegrations.deliveryLog') }}: {{ selectedIntegration.name }}</h4>
-          <el-button size="small" @click="selectedIntegration = null">{{ t('common.close') }}</el-button>
-          <el-table :data="deliveries" class="delivery-table" stripe size="small">
-            <el-table-column prop="event_type" :label="t('chatIntegrations.eventType')" min-width="180" />
-            <el-table-column prop="status" :label="t('common.status')" width="100">
+          <!-- Empty state -->
+          <div v-if="integrations.length === 0" class="empty-state">
+            <p>{{ t('chatIntegrations.noIntegrations', { platform: currentPlatformLabel }) }}</p>
+            <el-collapse>
+              <el-collapse-item :title="t('chatIntegrations.setupGuide')">
+                <div class="setup-guide">
+                  <div v-if="activePlatform === 'slack'">
+                    <p>{{ t('chatIntegrations.slackSetupGuide') }}</p>
+                    <pre class="env-example">SLACK_ENABLED=true</pre>
+                  </div>
+                  <div v-else-if="activePlatform === 'teams'">
+                    <p>{{ t('chatIntegrations.teamsSetupGuide') }}</p>
+                    <pre class="env-example">TEAMS_ENABLED=true</pre>
+                  </div>
+                  <div v-else-if="activePlatform === 'mattermost'">
+                    <p>{{ t('chatIntegrations.mattermostSetupGuide') }}</p>
+                    <pre class="env-example">MATTERMOST_ENABLED=true</pre>
+                  </div>
+                </div>
+              </el-collapse-item>
+            </el-collapse>
+          </div>
+
+          <!-- Integration table -->
+          <el-table v-else :data="integrations" class="integrations-table" stripe>
+            <el-table-column prop="name" :label="t('chatIntegrations.name')" min-width="140" />
+            <el-table-column :label="t('chatIntegrations.channelName')" min-width="120">
+              <template #default="{ row }">{{ row.channelName || row.channel_name || '—' }}</template>
+            </el-table-column>
+            <el-table-column :label="t('chatIntegrations.categories')" min-width="130">
               <template #default="{ row }">
-                <el-tag :type="deliveryStatusType(row.status)" size="small">{{ row.status }}</el-tag>
+                <el-tooltip :content="parseCategories(row.eventCategories || row.event_categories).join(', ')" placement="top" :show-after="300">
+                  <span class="event-summary">{{ formatEventSummary(row.eventCategories || row.event_categories) }}</span>
+                </el-tooltip>
               </template>
             </el-table-column>
-            <el-table-column prop="http_status" :label="t('webhooks.httpStatus')" width="100" />
-            <el-table-column prop="attempt" :label="t('webhooks.attempt')" width="80" />
-            <el-table-column prop="error_message" :label="t('webhooks.errorMessage')" min-width="200">
-              <template #default="{ row }">{{ row.error_message || '—' }}</template>
+            <el-table-column :label="t('common.status')" width="100">
+              <template #default="{ row }">
+                <span class="status-badge" :class="(row.isActive ?? row.is_active) ? 'status-badge--active' : 'status-badge--disabled'">
+                  {{ (row.isActive ?? row.is_active) ? t('common.active') : t('common.inactive') }}
+                </span>
+              </template>
             </el-table-column>
-            <el-table-column prop="created_at" :label="t('webhooks.timestamp')" width="180">
-              <template #default="{ row }">{{ formatDate(row.created_at || row.createdAt) }}</template>
+            <el-table-column :label="t('common.actions')" width="110" align="right">
+              <template #default="{ row }">
+                <div class="row-actions">
+                  <IconButton :icon="Promotion" variant="warning" :tooltip="t('chatIntegrations.sendTest')" @click="testIntegration(row)" />
+                  <IconButton :icon="EditIcon" variant="primary" :tooltip="t('common.edit')" @click="openEditDialog(row)" />
+                  <IconButton :icon="Delete" variant="danger" :tooltip="t('common.delete')" @click="confirmDelete(row)" />
+                </div>
+              </template>
             </el-table-column>
           </el-table>
-          <div v-if="deliveryPagination.total > deliveryPagination.limit" class="pagination-bar">
-            <el-pagination
-              layout="prev, pager, next"
-              :total="deliveryPagination.total"
-              :page-size="deliveryPagination.limit"
-              :current-page="deliveryPage"
-              @current-change="onDeliveryPageChange"
-            />
+
+          <!-- Delivery log expand for selected integration -->
+          <div v-if="selectedIntegration" class="delivery-log-section">
+            <h4>{{ t('chatIntegrations.deliveryLog') }}: {{ selectedIntegration.name }}</h4>
+            <el-button size="small" @click="selectedIntegration = null">{{ t('common.close') }}</el-button>
+            <el-table :data="deliveries" class="delivery-table" stripe size="small">
+              <el-table-column prop="event_type" :label="t('chatIntegrations.eventType')" min-width="180" />
+              <el-table-column prop="status" :label="t('common.status')" width="100">
+                <template #default="{ row }">
+                  <el-tag :type="deliveryStatusType(row.status)" size="small">{{ row.status }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="http_status" :label="t('webhooks.httpStatus')" width="100" />
+              <el-table-column prop="attempt" :label="t('webhooks.attempt')" width="80" />
+              <el-table-column prop="error_message" :label="t('webhooks.errorMessage')" min-width="200">
+                <template #default="{ row }">{{ row.error_message || '—' }}</template>
+              </el-table-column>
+              <el-table-column prop="created_at" :label="t('webhooks.timestamp')" width="180">
+                <template #default="{ row }">{{ formatDate(row.created_at || row.createdAt) }}</template>
+              </el-table-column>
+            </el-table>
+            <div v-if="deliveryPagination.total > deliveryPagination.limit" class="pagination-bar">
+              <el-pagination
+                layout="prev, pager, next"
+                :total="deliveryPagination.total"
+                :page-size="deliveryPagination.limit"
+                :current-page="deliveryPage"
+                @current-change="onDeliveryPageChange"
+              />
+            </div>
           </div>
-        </div>
-      </template>
-    </div>
+        </template>
+      </div>
+    </template>
 
     <!-- Create/Edit Dialog -->
     <el-dialog
@@ -160,10 +203,14 @@
           <el-input v-model="form.channelName" :placeholder="t('chatIntegrations.channelNamePlaceholder')" />
           <div class="form-hint">{{ t('chatIntegrations.channelNameHint') }}</div>
         </el-form-item>
+        <el-form-item :label="t('common.enabled')">
+          <el-switch v-model="form.isActive" />
+        </el-form-item>
         <el-form-item :label="t('chatIntegrations.categories')" required>
-          <el-checkbox-group v-model="form.eventCategories">
-            <el-checkbox v-for="cat in availableCategories" :key="cat" :value="cat">{{ cat }}</el-checkbox>
-          </el-checkbox-group>
+          <EventTypeSelector
+            v-model="form.eventCategories"
+            granularity="event"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -186,12 +233,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import PageHeader from '@/components/shared/PageHeader.vue'
-import { Loading } from '@element-plus/icons-vue'
+import EventTypeSelector from '@/components/shared/EventTypeSelector.vue'
+import IconButton from '@/components/shared/IconButton.vue'
+import { Loading, Edit as EditIcon, Delete, Promotion } from '@element-plus/icons-vue'
+
+const props = withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 
 const { t } = useI18n()
 
@@ -200,8 +251,6 @@ const platforms = [
   { key: 'teams', label: 'Microsoft Teams' },
   { key: 'mattermost', label: 'Mattermost' },
 ]
-
-const availableCategories = ['assessment', 'evidence', 'claim', 'attestation', 'project', 'standard', 'system']
 
 const activePlatform = ref('slack')
 const loading = ref(true)
@@ -221,10 +270,51 @@ const deliveryPagination = ref({ limit: 20, offset: 0, total: 0 })
 const form = ref({
   name: '',
   platform: 'slack',
+  isActive: true,
   webhookUrl: '',
   channelName: '',
   eventCategories: ['assessment', 'evidence', 'attestation'] as string[],
 })
+
+// Stacked mode state (used when embedded)
+interface PlatformState {
+  loading: boolean
+  error: string | null
+  items: any[]
+}
+const platformData = reactive<Record<string, PlatformState>>({
+  slack: { loading: true, error: null, items: [] },
+  teams: { loading: true, error: null, items: [] },
+  mattermost: { loading: true, error: null, items: [] },
+})
+
+async function fetchAllPlatforms() {
+  for (const p of platforms) {
+    platformData[p.key].loading = true
+    platformData[p.key].error = null
+    try {
+      const { data } = await axios.get('/api/v1/integrations/chat', { params: { platform: p.key } })
+      platformData[p.key].items = data.data || []
+    } catch (err: any) {
+      platformData[p.key].error = err?.response?.data?.error || err?.message || 'Failed to load'
+    } finally {
+      platformData[p.key].loading = false
+    }
+  }
+}
+
+function openCreateDialogForPlatform(platform: string) {
+  editingId.value = null
+  form.value = {
+    name: '',
+    platform,
+    isActive: true,
+    webhookUrl: '',
+    channelName: '',
+    eventCategories: ['assessment', 'evidence', 'attestation'],
+  }
+  dialogVisible.value = true
+}
 
 const currentPlatformLabel = computed(() => {
   return platforms.find((p) => p.key === activePlatform.value)?.label || activePlatform.value
@@ -252,6 +342,22 @@ function parseCategories(cats: string | string[] | undefined): string[] {
     if (Array.isArray(parsed)) return parsed
   } catch { /* not JSON */ }
   return cats.split(',').map((c: string) => c.trim()).filter(Boolean)
+}
+
+function formatEventSummary(cats: string | string[] | undefined): string {
+  const items = parseCategories(cats)
+  if (items.length === 0) return 'None'
+  // Separate category-level entries from specific event types
+  const categories = items.filter((i) => !i.includes('.'))
+  const events = items.filter((i) => i.includes('.'))
+  const parts: string[] = []
+  if (categories.length > 0) {
+    parts.push(`${categories.length} ${categories.length === 1 ? 'category' : 'categories'}`)
+  }
+  if (events.length > 0) {
+    parts.push(`${events.length} ${events.length === 1 ? 'event' : 'events'}`)
+  }
+  return parts.join(', ')
 }
 
 function deliveryStatusType(status: string): string {
@@ -287,6 +393,7 @@ function openCreateDialog() {
   form.value = {
     name: '',
     platform: activePlatform.value,
+    isActive: true,
     webhookUrl: '',
     channelName: '',
     eventCategories: ['assessment', 'evidence', 'attestation'],
@@ -299,6 +406,7 @@ function openEditDialog(row: any) {
   form.value = {
     name: row.name,
     platform: row.platform,
+    isActive: row.isActive ?? row.is_active ?? true,
     webhookUrl: row.webhookUrl || row.webhook_url || '',
     channelName: row.channelName || row.channel_name || '',
     eventCategories: parseCategories(row.eventCategories || row.event_categories),
@@ -315,6 +423,7 @@ async function saveIntegration() {
         webhookUrl: form.value.webhookUrl,
         channelName: form.value.channelName || null,
         eventCategories: form.value.eventCategories,
+        isActive: form.value.isActive,
       })
       ElMessage.success(t('chatIntegrations.updated'))
     } else {
@@ -328,7 +437,11 @@ async function saveIntegration() {
       ElMessage.success(t('chatIntegrations.created'))
     }
     dialogVisible.value = false
-    await fetchIntegrations()
+    if (props.embedded) {
+      await fetchAllPlatforms()
+    } else {
+      await fetchIntegrations()
+    }
   } catch (err: any) {
     const msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Save failed'
     ElMessage.error(msg)
@@ -355,7 +468,11 @@ async function enableIntegration(row: any) {
   try {
     await axios.post(`/api/v1/integrations/chat/${row.id}/enable`)
     ElMessage.success(t('chatIntegrations.enabled'))
-    await fetchIntegrations()
+    if (props.embedded) {
+      await fetchAllPlatforms()
+    } else {
+      await fetchIntegrations()
+    }
   } catch (err: any) {
     ElMessage.error(err?.response?.data?.error || 'Failed to enable')
   }
@@ -370,7 +487,11 @@ async function confirmDelete(row: any) {
     )
     await axios.delete(`/api/v1/integrations/chat/${row.id}`)
     ElMessage.success(t('chatIntegrations.deleted'))
-    await fetchIntegrations()
+    if (props.embedded) {
+      await fetchAllPlatforms()
+    } else {
+      await fetchIntegrations()
+    }
   } catch {
     // cancelled
   }
@@ -396,13 +517,22 @@ function onDeliveryPageChange(page: number) {
   fetchDeliveries()
 }
 
-onMounted(fetchIntegrations)
+onMounted(() => {
+  if (props.embedded) {
+    fetchAllPlatforms()
+  } else {
+    fetchIntegrations()
+  }
+})
 </script>
 
 <style scoped lang="scss">
 .chat-integrations-container {
   padding: var(--cat-spacing-4);
-  max-width: 1100px;
+
+  &.embedded-mode {
+    padding: 0;
+  }
 }
 
 .chat-integrations-content {
@@ -440,29 +570,78 @@ onMounted(fetchIntegrations)
   color: var(--cat-text-secondary);
 }
 
+.stacked-platforms {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cat-spacing-5);
+}
+
+.platform-section {
+  background: var(--cat-bg-primary);
+  border: 1px solid var(--cat-border-default);
+  border-radius: var(--cat-radius-lg);
+  overflow: hidden;
+}
+
+.platform-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--cat-spacing-3) var(--cat-spacing-4);
+  background: var(--cat-bg-secondary);
+  border-bottom: 1px solid var(--cat-border-default);
+
+  h3 {
+    margin: 0;
+    font-size: var(--cat-font-size-md);
+    font-weight: var(--cat-font-weight-semibold);
+    color: var(--cat-text-primary);
+  }
+}
+
+.empty-state-inline {
+  padding: var(--cat-spacing-4);
+  color: var(--cat-text-tertiary);
+  font-size: var(--cat-font-size-sm);
+}
+
 .category-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
 
+.event-summary {
+  font-size: var(--cat-font-size-sm);
+  color: var(--cat-text-secondary);
+  cursor: default;
+}
+
+.row-actions {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;
   padding: 2px 10px;
-  border-radius: var(--cat-radius-full);
+  border-radius: 4px;
   font-size: var(--cat-font-size-xs);
-  font-weight: var(--cat-font-weight-semibold);
-}
+  font-weight: var(--cat-font-weight-medium);
+  line-height: 1.6;
+  white-space: nowrap;
 
-.status-badge--active {
-  background-color: var(--el-color-success-light-9, #f0f9eb);
-  color: var(--el-color-success, #67c23a);
-}
+  &--active {
+    background-color: rgba(63, 185, 80, 0.15);
+    color: #3fb950;
+  }
 
-.status-badge--disabled {
-  background-color: var(--el-color-info-light-9, #f4f4f5);
-  color: var(--el-color-info, #909399);
+  &--disabled {
+    background-color: rgba(248, 81, 73, 0.15);
+    color: #f85149;
+  }
 }
 
 .delivery-log-section {

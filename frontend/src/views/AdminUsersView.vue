@@ -41,10 +41,12 @@
           </template>
         </el-table-column>
         <el-table-column prop="lastLoginAt" :label="t('admin.lastLogin')" min-width="150" sortable></el-table-column>
-        <el-table-column :label="t('common.actions')" min-width="150">
+        <el-table-column :label="t('common.actions')" width="100">
           <template #default="{ row }">
-            <IconButton :icon="EditIcon" variant="primary" :tooltip="t('common.edit')" @click="handleEdit(row)" />
-            <IconButton :icon="Delete" variant="danger" :tooltip="t('common.delete')" @click="handleDelete(row)" />
+            <div class="row-actions">
+              <IconButton :icon="EditIcon" variant="primary" :tooltip="t('common.edit')" @click="handleEdit(row)" />
+              <IconButton :icon="Delete" variant="danger" :tooltip="t('common.delete')" @click="handleDelete(row)" />
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -374,6 +376,12 @@ onMounted(() => {
   .retry-button {
     margin-top: 16px;
   }
+}
+
+.row-actions {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
 }
 
 .bulk-actions-bar {

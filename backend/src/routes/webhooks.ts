@@ -26,19 +26,75 @@ function generateSecret(): string {
   return `whsec_${crypto.randomBytes(32).toString('hex')}`;
 }
 
+/**
+ * Validate that a webhook URL does not target private/internal networks (SSRF protection).
+ * Blocks localhost, link-local, private RFC 1918, and cloud metadata endpoints.
+ */
+function isPrivateOrReservedUrl(urlString: string): boolean {
+  try {
+    const parsed = new URL(urlString);
+    const hostname = parsed.hostname.toLowerCase();
+
+    // Block obvious internal hostnames
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname === '0.0.0.0' ||
+      hostname.endsWith('.local') ||
+      hostname.endsWith('.internal')
+    ) {
+      return true;
+    }
+
+    // Block cloud metadata endpoints (AWS, GCP, Azure)
+    if (hostname === '169.254.169.254' || hostname === 'metadata.google.internal') {
+      return true;
+    }
+
+    // Block private IPv4 ranges (RFC 1918) and link-local
+    const ipv4Match = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (ipv4Match) {
+      const [, a, b] = ipv4Match.map(Number);
+      if (a === 10) return true;                             // 10.0.0.0/8
+      if (a === 172 && b >= 16 && b <= 31) return true;     // 172.16.0.0/12
+      if (a === 192 && b === 168) return true;               // 192.168.0.0/16
+      if (a === 169 && b === 254) return true;               // 169.254.0.0/16 (link-local)
+      if (a === 127) return true;                            // 127.0.0.0/8 (loopback)
+      if (a === 0) return true;                              // 0.0.0.0/8
+    }
+
+    // Require HTTPS for webhook endpoints
+    if (parsed.protocol !== 'https:') {
+      return true;
+    }
+
+    return false;
+  } catch {
+    return true; // Invalid URL
+  }
+}
+
+// Custom Zod refinement for safe webhook URLs
+const safeWebhookUrl = z.string().url('URL must be a valid URL').refine(
+  (url) => !isPrivateOrReservedUrl(url),
+  'Webhook URL must use HTTPS and cannot target private, reserved, or internal network addresses'
+);
+
 // ---- Schemas ----
 
 const createWebhookSchema = z.object({
   name: z.string().min(1, 'Name is required').max(255),
-  url: z.string().url('URL must be a valid URL'),
+  url: safeWebhookUrl,
   eventTypes: z.array(z.string().min(1)).min(1, 'At least one event type is required'),
 });
 
 const updateWebhookSchema = z.object({
   name: z.string().min(1).max(255).optional(),
-  url: z.string().url('URL must be a valid URL').optional(),
+  url: safeWebhookUrl.optional(),
   eventTypes: z.array(z.string().min(1)).min(1).optional(),
   regenerateSecret: z.boolean().optional(),
+  isActive: z.boolean().optional(),
 });
 
 // ---- Routes ----
@@ -221,6 +277,10 @@ router.put(
       if (data.name !== undefined) updates.name = data.name;
       if (data.url !== undefined) updates.url = data.url;
       if (data.eventTypes !== undefined) updates.event_types = data.eventTypes as any;
+      if (data.isActive !== undefined) {
+        updates.is_active = data.isActive;
+        if (data.isActive) updates.consecutive_failures = 0;
+      }
       if (data.regenerateSecret) {
         newSecret = generateSecret();
         updates.secret = encryptionService.encrypt(newSecret);
@@ -237,7 +297,7 @@ router.put(
         name: data.name ?? webhook.name,
         url: data.url ?? webhook.url,
         eventTypes: data.eventTypes ?? webhook.event_types,
-        isActive: webhook.is_active,
+        isActive: data.isActive ?? webhook.is_active,
       };
 
       // Only include secret if it was regenerated

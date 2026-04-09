@@ -57,7 +57,7 @@ const envSchema = z.object({
   REQUIRE_ENCRYPTION: z.coerce.boolean().default(false),
 
   // Prometheus metrics
-  METRICS_ENABLED: z.coerce.boolean().default(true),
+  METRICS_ENABLED: z.coerce.boolean().default(false),
   METRICS_TOKEN: z.string().default(''),
   METRICS_PREFIX: z.string().default('cdxa_'),
   METRICS_DOMAIN_REFRESH_INTERVAL: z.coerce.number().int().positive().default(60),

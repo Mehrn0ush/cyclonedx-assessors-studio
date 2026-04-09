@@ -287,7 +287,8 @@ router.post('/seed-demo', async (_req: Request, res: Response): Promise<void> =>
     const errMsg = error instanceof Error ? error.message : String(error);
     const errStack = error instanceof Error ? error.stack : undefined;
     logger.error('Demo data seed error', { message: errMsg, stack: errStack });
-    res.status(500).json({ error: 'Failed to load demo data', details: errMsg });
+    // Do not expose internal error details to the client (OWASP A4)
+    res.status(500).json({ error: 'Failed to load demo data' });
   }
 });
 

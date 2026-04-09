@@ -50,6 +50,7 @@ const updateChatIntegrationSchema = z.object({
   webhookUrl: z.string().url('Must be a valid URL').optional(),
   eventCategories: z.array(z.string().min(1)).min(1).optional(),
   channelName: z.string().max(255).nullable().optional(),
+  isActive: z.boolean().optional(),
 });
 
 // ---- Routes ----
@@ -249,6 +250,10 @@ router.put(
       if (data.webhookUrl !== undefined) updates.webhook_url = data.webhookUrl;
       if (data.eventCategories !== undefined) updates.event_categories = JSON.stringify(data.eventCategories);
       if (data.channelName !== undefined) updates.channel_name = data.channelName;
+      if (data.isActive !== undefined) {
+        updates.is_active = data.isActive;
+        if (data.isActive) updates.consecutive_failures = 0;
+      }
 
       await db
         .updateTable('chat_integration')
@@ -263,7 +268,7 @@ router.put(
         webhookUrl: data.webhookUrl ?? integration.webhook_url,
         eventCategories: data.eventCategories ?? JSON.parse(integration.event_categories),
         channelName: data.channelName !== undefined ? data.channelName : integration.channel_name,
-        isActive: integration.is_active,
+        isActive: data.isActive ?? integration.is_active,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {

@@ -1,11 +1,10 @@
 <template>
-  <div class="admin-webhooks-container">
-    <PageHeader :title="t('webhooks.title')" :subtitle="t('webhooks.subtitle')">
+  <div class="admin-webhooks-container" :class="{ 'embedded-mode': embedded }">
+    <PageHeader v-if="!embedded" :title="t('webhooks.title')" :subtitle="t('webhooks.subtitle')">
       <template #actions>
         <el-button type="primary" @click="openCreateDialog">{{ t('webhooks.createWebhook') }}</el-button>
       </template>
     </PageHeader>
-
     <div class="admin-webhooks-content">
       <div v-if="loading" class="loading-container">
         <el-icon class="is-loading" :size="24"><Loading /></el-icon>
@@ -20,44 +19,49 @@
       <template v-else>
         <!-- Webhooks List -->
         <div v-if="!selectedWebhook">
+          <div class="list-header">
+            <el-button type="primary" size="small" @click="openCreateDialog">{{ t('webhooks.createWebhook') }}</el-button>
+          </div>
+
           <div v-if="webhooks.length === 0" class="empty-state">
             <p>{{ t('webhooks.noWebhooks') }}</p>
             <p class="empty-state-hint">{{ t('webhooks.noWebhooksDescription') }}</p>
           </div>
 
-          <el-table v-else :data="webhooks" stripe border>
-            <el-table-column prop="name" :label="t('common.name')" min-width="160" />
-            <el-table-column :label="t('webhooks.url')" min-width="240">
+          <el-table v-else :data="webhooks" stripe>
+            <el-table-column prop="name" :label="t('common.name')" min-width="130" />
+            <el-table-column :label="t('webhooks.url')" min-width="180">
               <template #default="{ row }">
                 <span class="url-cell" :title="row.url">{{ truncateUrl(row.url) }}</span>
               </template>
             </el-table-column>
-            <el-table-column :label="t('webhooks.eventTypes')" min-width="120">
+            <el-table-column :label="t('webhooks.eventTypes')" min-width="100">
               <template #default="{ row }">
                 <span>{{ formatEventTypes(row.eventTypes || row.event_types) }}</span>
               </template>
             </el-table-column>
-            <el-table-column :label="t('common.status')" min-width="110">
+            <el-table-column :label="t('common.status')" width="100">
               <template #default="{ row }">
                 <span class="status-badge" :class="(row.isActive ?? row.is_active) ? 'status-badge--active' : 'status-badge--disabled'">
                   {{ (row.isActive ?? row.is_active) ? t('common.active') : t('webhooks.disabled') }}
                 </span>
               </template>
             </el-table-column>
-            <el-table-column :label="t('webhooks.failures')" min-width="90" align="center">
+            <el-table-column :label="t('webhooks.failures')" width="80" align="center">
               <template #default="{ row }">
                 <span :class="{ 'failure-count': (row.consecutiveFailures || row.consecutive_failures || 0) > 0 }">
                   {{ row.consecutiveFailures ?? row.consecutive_failures ?? 0 }}
                 </span>
               </template>
             </el-table-column>
-            <el-table-column :label="t('common.actions')" min-width="180">
+            <el-table-column :label="t('common.actions')" width="160">
               <template #default="{ row }">
-                <IconButton :icon="ViewIcon" variant="info" :tooltip="t('webhooks.viewDeliveries')" @click="selectWebhook(row)" />
-                <IconButton :icon="EditIcon" variant="primary" :tooltip="t('common.edit')" @click="openEditDialog(row)" />
-                <IconButton v-if="!(row.isActive ?? row.is_active)" :icon="CircleCheck" variant="success" :tooltip="t('webhooks.reEnable')" @click="handleEnable(row)" />
-                <IconButton :icon="Promotion" variant="warning" :tooltip="t('webhooks.sendTest')" @click="handleTest(row)" />
-                <IconButton :icon="Delete" variant="danger" :tooltip="t('common.delete')" @click="handleDelete(row)" />
+                <div class="row-actions">
+                  <IconButton :icon="ViewIcon" variant="info" :tooltip="t('webhooks.viewDeliveries')" @click="selectWebhook(row)" />
+                  <IconButton :icon="Promotion" variant="warning" :tooltip="t('webhooks.sendTest')" @click="handleTest(row)" />
+                  <IconButton :icon="EditIcon" variant="primary" :tooltip="t('common.edit')" @click="openEditDialog(row)" />
+                  <IconButton :icon="Delete" variant="danger" :tooltip="t('common.delete')" @click="handleDelete(row)" />
+                </div>
               </template>
             </el-table-column>
           </el-table>
@@ -135,78 +139,26 @@
       </template>
     </div>
 
-    <!-- Create/Edit Dialog -->
-    <el-dialog v-model="showDialog" :title="dialogTitle" width="600px" @close="resetForm">
-      <el-form :model="form" label-width="130px" @submit.prevent="handleSave">
-        <el-form-item :label="t('common.name')" required>
-          <el-input v-model="form.name" :placeholder="t('webhooks.namePlaceholder')" />
-        </el-form-item>
-
-        <el-form-item :label="t('webhooks.url')" required>
-          <el-input v-model="form.url" :placeholder="t('webhooks.urlPlaceholder')" />
-        </el-form-item>
-
-        <el-form-item v-if="isEditing && createdSecret" :label="t('webhooks.secret')">
-          <div class="secret-display">
-            <code class="secret-value">{{ showSecret ? createdSecret : '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' }}</code>
-            <el-button size="small" @click="showSecret = !showSecret">
-              {{ showSecret ? t('webhooks.hideSecret') : t('webhooks.showSecret') }}
-            </el-button>
-            <el-button size="small" @click="copySecret">{{ t('webhooks.copySecret') }}</el-button>
-          </div>
-        </el-form-item>
-
-        <el-form-item v-if="isEditing" :label="t('webhooks.regenerateSecret')">
-          <el-switch v-model="form.regenerateSecret" />
-          <span class="form-hint">{{ t('webhooks.regenerateHint') }}</span>
-        </el-form-item>
-
-        <el-form-item :label="t('webhooks.eventTypes')" required>
-          <div class="event-types-section">
-            <el-checkbox v-model="subscribeAll" @change="handleSubscribeAllChange">
-              {{ t('webhooks.subscribeAll') }}
-            </el-checkbox>
-
-            <div v-if="!subscribeAll" class="event-categories">
-              <div v-for="(events, category) in eventCategories" :key="category" class="event-category">
-                <div class="category-label">{{ category }}</div>
-                <el-checkbox-group v-model="form.eventTypes">
-                  <el-checkbox v-for="evt in events" :key="evt" :value="evt">
-                    {{ evt }}
-                  </el-checkbox>
-                </el-checkbox-group>
-              </div>
-            </div>
-          </div>
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <el-button @click="showDialog = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">{{ t('common.save') }}</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- Secret Display Dialog (shown after create) -->
-    <el-dialog v-model="showSecretDialog" :title="t('webhooks.webhookCreated')" width="500px" :close-on-click-modal="false">
-      <div class="secret-reveal">
-        <p class="secret-warning">{{ t('webhooks.secretWarning') }}</p>
-        <div class="secret-box">
-          <code>{{ createdSecret }}</code>
-          <el-button size="small" type="primary" @click="copySecret">{{ t('webhooks.copySecret') }}</el-button>
-        </div>
-      </div>
-      <template #footer>
-        <el-button type="primary" @click="showSecretDialog = false">{{ t('webhooks.understood') }}</el-button>
-      </template>
-    </el-dialog>
+    <WebhookFormDialog
+      v-model:visible="showDialog"
+      v-model:secret-dialog-visible="showSecretDialog"
+      :is-editing="isEditing"
+      :editing-id="editingId"
+      :initial-data="webhookFormData"
+      :saving="saving"
+      :secret="createdSecret"
+      @save="handleSave"
+      @copy-secret="copySecret"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import axios from 'axios'
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+
+const props = withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Loading,
@@ -218,6 +170,7 @@ import {
   ArrowLeft,
 } from '@element-plus/icons-vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
+import WebhookFormDialog from '@/components/shared/WebhookFormDialog.vue'
 import IconButton from '@/components/shared/IconButton.vue'
 
 const { t } = useI18n()
@@ -230,10 +183,14 @@ const saving = ref(false)
 const showDialog = ref(false)
 const isEditing = ref(false)
 const editingId = ref('')
-const dialogTitle = ref('')
 const showSecretDialog = ref(false)
 const createdSecret = ref('')
-const showSecret = ref(false)
+const webhookFormData = ref<{ name: string; url: string; eventTypes: string[]; isActive: boolean }>({
+  name: '',
+  url: '',
+  eventTypes: [],
+  isActive: true,
+})
 
 // Delivery log state
 const selectedWebhook = ref<any>(null)
@@ -242,56 +199,6 @@ const deliveriesLoading = ref(false)
 const deliveryPage = ref(1)
 const deliveryPageSize = 20
 const deliveryTotal = ref(0)
-
-const subscribeAll = ref(false)
-
-const form = reactive({
-  name: '',
-  url: '',
-  eventTypes: [] as string[],
-  regenerateSecret: false,
-})
-
-// Event types organized by category (mirrors the backend catalog)
-const eventCategories = computed(() => ({
-  Assessment: [
-    'assessment.created',
-    'assessment.state_changed',
-    'assessment.deleted',
-    'assessment.assigned',
-  ],
-  Evidence: [
-    'evidence.created',
-    'evidence.state_changed',
-    'evidence.attachment_added',
-    'evidence.attachment_removed',
-  ],
-  Claim: [
-    'claim.created',
-    'claim.updated',
-  ],
-  Attestation: [
-    'attestation.created',
-    'attestation.signed',
-    'attestation.exported',
-  ],
-  Project: [
-    'project.created',
-    'project.state_changed',
-    'project.archived',
-  ],
-  Standard: [
-    'standard.imported',
-    'standard.state_changed',
-  ],
-  System: [
-    'user.created',
-    'user.deactivated',
-    'apikey.created',
-    'channel.webhook.disabled',
-    'channel.test',
-  ],
-}))
 
 // --- API calls ---
 
@@ -328,72 +235,36 @@ const fetchDeliveries = async () => {
 // --- Handlers ---
 
 const openCreateDialog = () => {
-  resetForm()
   isEditing.value = false
-  dialogTitle.value = t('webhooks.createWebhook')
+  editingId.value = ''
+  createdSecret.value = ''
+  webhookFormData.value = { name: '', url: '', eventTypes: [], isActive: true }
   showDialog.value = true
 }
 
 const openEditDialog = (row: any) => {
   isEditing.value = true
   editingId.value = row.id
-  dialogTitle.value = t('webhooks.editWebhook')
-  form.name = row.name
-  form.url = row.url
-  form.regenerateSecret = false
-  const types = row.eventTypes || row.event_types || []
-  if (Array.isArray(types) && types.length === 1 && types[0] === '*') {
-    subscribeAll.value = true
-    form.eventTypes = []
-  } else {
-    subscribeAll.value = false
-    form.eventTypes = [...types]
+  webhookFormData.value = {
+    name: row.name,
+    url: row.url,
+    eventTypes: [...(row.eventTypes || row.event_types || [])],
+    isActive: row.isActive ?? row.is_active ?? true,
   }
   showDialog.value = true
 }
 
-const resetForm = () => {
-  form.name = ''
-  form.url = ''
-  form.eventTypes = []
-  form.regenerateSecret = false
-  subscribeAll.value = false
-  editingId.value = ''
-  createdSecret.value = ''
-  showSecret.value = false
-}
-
-const handleSubscribeAllChange = (val: boolean) => {
-  if (val) {
-    form.eventTypes = []
-  }
-}
-
-const handleSave = async () => {
-  if (!form.name.trim()) {
-    ElMessage.error(t('webhooks.nameRequired'))
-    return
-  }
-  if (!form.url.trim()) {
-    ElMessage.error(t('webhooks.urlRequired'))
-    return
-  }
-
-  const eventTypes = subscribeAll.value ? ['*'] : form.eventTypes
-  if (eventTypes.length === 0) {
-    ElMessage.error(t('webhooks.eventTypesRequired'))
-    return
-  }
-
+const handleSave = async (data: { name: string; url: string; eventTypes: string[]; regenerateSecret: boolean; isActive: boolean }) => {
   saving.value = true
   try {
     if (isEditing.value) {
       const payload: any = {
-        name: form.name,
-        url: form.url,
-        eventTypes,
+        name: data.name,
+        url: data.url,
+        eventTypes: data.eventTypes,
+        isActive: data.isActive,
       }
-      if (form.regenerateSecret) {
+      if (data.regenerateSecret) {
         payload.regenerateSecret = true
       }
       const response = await axios.put(`/api/v1/webhooks/${editingId.value}`, payload)
@@ -404,9 +275,9 @@ const handleSave = async () => {
       ElMessage.success(t('webhooks.webhookUpdated'))
     } else {
       const response = await axios.post('/api/v1/webhooks', {
-        name: form.name,
-        url: form.url,
-        eventTypes,
+        name: data.name,
+        url: data.url,
+        eventTypes: data.eventTypes,
       })
       if (response.data.secret) {
         createdSecret.value = response.data.secret
@@ -525,6 +396,26 @@ onMounted(() => {
 <style scoped lang="scss">
 .admin-webhooks-container {
   padding: 0;
+}
+
+.list-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--cat-spacing-3);
+}
+
+.row-actions {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.embedded-mode {
+  padding: 0;
+
+  .admin-webhooks-content {
+    padding: 0;
+  }
 }
 
 .admin-webhooks-content {
@@ -664,81 +555,7 @@ onMounted(() => {
   color: #f85149;
 }
 
-// Event types form
-.event-types-section {
-  width: 100%;
-}
 
-.event-categories {
-  margin-top: var(--cat-spacing-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--cat-spacing-3);
-}
-
-.event-category {
-  padding: var(--cat-spacing-3);
-  background: var(--cat-bg-secondary);
-  border: 1px solid var(--cat-border-default);
-  border-radius: 4px;
-}
-
-.category-label {
-  font-size: var(--cat-font-size-xs);
-  font-weight: var(--cat-font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--cat-text-tertiary);
-  margin-bottom: var(--cat-spacing-2);
-}
-
-.form-hint {
-  margin-left: var(--cat-spacing-3);
-  font-size: var(--cat-font-size-xs);
-  color: var(--cat-text-tertiary);
-}
-
-// Secret display
-.secret-display {
-  display: flex;
-  align-items: center;
-  gap: var(--cat-spacing-2);
-  flex-wrap: wrap;
-}
-
-.secret-value {
-  font-family: var(--cat-font-family-mono, monospace);
-  font-size: var(--cat-font-size-sm);
-  padding: 4px 8px;
-  background: var(--cat-bg-secondary);
-  border: 1px solid var(--cat-border-default);
-  border-radius: 4px;
-}
-
-.secret-reveal {
-  .secret-warning {
-    color: var(--cat-text-secondary);
-    margin-bottom: var(--cat-spacing-4);
-    font-size: var(--cat-font-size-sm);
-  }
-
-  .secret-box {
-    display: flex;
-    align-items: center;
-    gap: var(--cat-spacing-3);
-    padding: var(--cat-spacing-3);
-    background: var(--cat-bg-secondary);
-    border: 1px solid var(--cat-border-default);
-    border-radius: 4px;
-
-    code {
-      flex: 1;
-      font-family: var(--cat-font-family-mono, monospace);
-      font-size: var(--cat-font-size-sm);
-      word-break: break-all;
-    }
-  }
-}
 
 :deep(.el-table tbody tr) {
   cursor: pointer;

@@ -95,8 +95,26 @@ export function createApp() {
       message: 'Too many authentication attempts, please try again later.',
     });
 
+    // Stricter limiter for resource-intensive operations (uploads, imports, exports)
+    const heavyOpLimiter = rateLimit({
+      windowMs: 60 * 60 * 1000, // 1 hour window
+      max: 120,
+      message: 'Too many resource-intensive requests, please try again later.',
+    });
+
+    // Stricter limiter for setup endpoints (prevent abuse once setup is complete)
+    const setupLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 30,
+      message: 'Too many setup requests, please try again later.',
+    });
+
     app.use(generalLimiter);
     app.use('/api/v1/auth', authLimiter);
+    app.use('/api/v1/import', heavyOpLimiter);
+    app.use('/api/v1/export', heavyOpLimiter);
+    app.use('/api/v1/evidence', heavyOpLimiter);
+    app.use('/api/v1/setup', setupLimiter);
   }
 
   // Body parsing

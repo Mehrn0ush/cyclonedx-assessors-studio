@@ -260,7 +260,7 @@ router.get(
 router.post(
   '/import',
   requireAuth,
-  requireRole('admin'),
+  requireRole('admin', 'standards_manager'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = importStandardSchema.parse(req.body);

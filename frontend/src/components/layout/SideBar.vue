@@ -97,20 +97,6 @@
 
         <div class="nav-item-wrapper">
           <RouterLink
-            to="/admin/webhooks"
-            class="nav-item"
-            :class="{ active: isActive('/admin/webhooks') }"
-            :title="uiStore.sidebarCollapsed ? t('nav.webhooks') : ''"
-            :aria-label="t('nav.webhooks')"
-            @click="closeMobileMenu"
-          >
-            <el-icon class="nav-icon"><Connection /></el-icon>
-            <span class="nav-label">{{ t('nav.webhooks') }}</span>
-          </RouterLink>
-        </div>
-
-        <div class="nav-item-wrapper">
-          <RouterLink
             to="/admin/integrations"
             class="nav-item"
             :class="{ active: isActive('/admin/integrations') }"
@@ -120,20 +106,6 @@
           >
             <el-icon class="nav-icon"><Setting /></el-icon>
             <span class="nav-label">{{ t('nav.integrations') }}</span>
-          </RouterLink>
-        </div>
-
-        <div class="nav-item-wrapper">
-          <RouterLink
-            to="/admin/chat-integrations"
-            class="nav-item"
-            :class="{ active: isActive('/admin/chat-integrations') }"
-            :title="uiStore.sidebarCollapsed ? t('nav.chatIntegrations') : ''"
-            :aria-label="t('nav.chatIntegrations')"
-            @click="closeMobileMenu"
-          >
-            <el-icon class="nav-icon"><ChatLineSquare /></el-icon>
-            <span class="nav-label">{{ t('nav.chatIntegrations') }}</span>
           </RouterLink>
         </div>
 
@@ -173,11 +145,9 @@ import {
   Document,
   DocumentChecked,
   Collection,
-  ChatLineSquare,
   Stamp,
   Bell,
   User,
-  Connection,
   Setting,
   DArrowLeft,
   DArrowRight

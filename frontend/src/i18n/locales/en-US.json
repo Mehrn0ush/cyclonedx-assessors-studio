@@ -36,6 +36,7 @@
     "confirmDelete": "Are you sure you want to delete this item?",
     "active": "Active",
     "inactive": "Inactive",
+    "enabled": "Enabled",
     "online": "Online",
     "offline": "Offline",
     "yes": "Yes",
@@ -533,7 +534,7 @@
       "slackMemberIdPlaceholder": "U123456789ABC",
       "slackMemberIdHelp": "Open your Slack workspace, click your profile photo, then 'Profile.' Click the three dot menu and select 'Copy member ID.'",
       "teamUserId": "Teams User ID",
-      "teamUserIdPlaceholder": "your-email@example.com",
+      "teamUserIdPlaceholder": "your-email{'@'}example.com",
       "teamUserIdHelp": "Your Microsoft Teams email address or user ID",
       "mattermostUsername": "Mattermost Username",
       "mattermostUsernamePlaceholder": "your.username",
@@ -666,6 +667,13 @@
     "subtitle": "View and test external service connections",
     "configured": "Configured",
     "notConfigured": "Not configured",
+    "tabs": {
+      "email": "Email",
+      "storage": "Storage",
+      "webhooks": "Webhooks",
+      "chat": "Chat",
+      "metrics": "Metrics"
+    },
     "smtp": {
       "title": "Email / SMTP",
       "host": "Host",
@@ -689,7 +697,13 @@
       "endpoint": "Endpoint",
       "defaultEndpoint": "Default (AWS)",
       "accessKey": "Access Key",
-      "maxFileSize": "Max File Size"
+      "maxFileSize": "Max File Size",
+      "setupGuide": "S3 Setup Guide",
+      "setupGuideIntro": "Evidence files are currently stored in the database. To use S3-compatible object storage instead, add the following environment variables:",
+      "providerExamples": "Compatible providers:",
+      "awsExample": "Set S3_BUCKET, S3_REGION, and credentials. No endpoint override needed.",
+      "minioExample": "Set S3_ENDPOINT to your MinIO URL and enable S3_FORCE_PATH_STYLE=true.",
+      "doExample": "Set S3_ENDPOINT=https://REGION.digitaloceanspaces.com and S3_REGION to your Spaces region."
     },
     "webhook": {
       "title": "Webhooks",
@@ -801,7 +815,7 @@
     "channel": "Channel",
     "eventTypes": "Event Types",
     "emailAddresses": "Email Addresses",
-    "emailAddressesPlaceholder": "user1@example.com, user2@example.com",
+    "emailAddressesPlaceholder": "user1{'@'}example.com, user2{'@'}example.com",
     "chatIntegration": "Chat Integration",
     "selectChatIntegration": "Select a chat integration",
     "webhook": "Webhook",

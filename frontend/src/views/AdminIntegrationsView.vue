@@ -1,83 +1,81 @@
 <template>
   <div class="admin-integrations-container">
-    <PageHeader :title="t('integrations.title')" :subtitle="t('integrations.subtitle')" />
+    <PageHeader :title="t('integrations.title')" />
 
-    <div class="admin-integrations-content">
-      <div v-if="loading" class="loading-container">
-        <el-icon class="is-loading" :size="24"><Loading /></el-icon>
-        <span>{{ t('common.loading') }}</span>
-      </div>
-
-      <div v-else-if="error" class="error-container">
-        <el-alert :title="t('common.error')" :description="error" type="error" :closable="false" />
-        <el-button @click="fetchStatus" class="retry-button">{{ t('common.retry') }}</el-button>
-      </div>
-
-      <template v-else>
-        <!-- SMTP / Email Card -->
-        <div class="integration-card">
-          <div class="integration-card-header">
-            <div class="integration-card-title">
-              <el-icon :size="20"><Message /></el-icon>
-              <h3>{{ t('integrations.smtp.title') }}</h3>
+    <el-tabs v-model="activeTab" class="integrations-tabs">
+      <!-- Email Tab -->
+      <el-tab-pane :label="t('integrations.tabs.email')" name="email">
+        <div v-if="loading" class="loading-container">
+          <el-icon class="is-loading" :size="24"><Loading /></el-icon>
+          <span>{{ t('common.loading') }}</span>
+        </div>
+        <div v-else-if="error" class="error-container">
+          <el-alert :title="t('common.error')" :description="error" type="error" :closable="false" />
+          <el-button @click="fetchStatus" class="retry-button">{{ t('common.retry') }}</el-button>
+        </div>
+        <template v-else>
+          <div class="integration-card">
+            <div class="integration-card-header">
+              <div class="integration-card-title">
+                <h3>{{ t('integrations.smtp.title') }}</h3>
+              </div>
+              <span class="status-badge" :class="status.smtp?.enabled ? 'status-badge--active' : 'status-badge--disabled'">
+                {{ status.smtp?.enabled ? t('common.active') : t('common.inactive') }}
+              </span>
             </div>
-            <span class="status-badge" :class="status.smtp?.enabled ? 'status-badge--active' : 'status-badge--disabled'">
-              {{ status.smtp?.enabled ? t('common.active') : t('common.inactive') }}
-            </span>
-          </div>
 
-          <div v-if="status.smtp?.enabled" class="integration-card-body">
-            <div class="config-grid">
-              <div class="config-item">
-                <span class="config-label">{{ t('integrations.smtp.host') }}</span>
-                <span class="config-value">{{ status.smtp.host || t('common.notSet') }}</span>
+            <div v-if="status.smtp?.enabled" class="integration-card-body">
+              <div class="config-grid">
+                <div class="config-item">
+                  <span class="config-label">{{ t('integrations.smtp.host') }}</span>
+                  <span class="config-value">{{ status.smtp.host || t('common.notSet') }}</span>
+                </div>
+                <div class="config-item">
+                  <span class="config-label">{{ t('integrations.smtp.port') }}</span>
+                  <span class="config-value">{{ status.smtp.port }}</span>
+                </div>
+                <div class="config-item">
+                  <span class="config-label">{{ t('integrations.smtp.security') }}</span>
+                  <span class="config-value">{{ status.smtp.secure ? 'TLS (implicit)' : 'STARTTLS' }}</span>
+                </div>
+                <div class="config-item">
+                  <span class="config-label">{{ t('integrations.smtp.from') }}</span>
+                  <span class="config-value">{{ status.smtp.from || t('common.notSet') }}</span>
+                </div>
+                <div class="config-item">
+                  <span class="config-label">{{ t('integrations.smtp.username') }}</span>
+                  <span class="config-value">{{ status.smtp.userConfigured ? t('integrations.configured') : t('integrations.notConfigured') }}</span>
+                </div>
+                <div class="config-item">
+                  <span class="config-label">{{ t('integrations.smtp.password') }}</span>
+                  <span class="config-value">
+                    <el-icon v-if="status.smtp.passConfigured" :size="14"><Lock /></el-icon>
+                    {{ status.smtp.passConfigured ? t('integrations.configured') : t('integrations.notConfigured') }}
+                  </span>
+                </div>
               </div>
-              <div class="config-item">
-                <span class="config-label">{{ t('integrations.smtp.port') }}</span>
-                <span class="config-value">{{ status.smtp.port }}</span>
-              </div>
-              <div class="config-item">
-                <span class="config-label">{{ t('integrations.smtp.security') }}</span>
-                <span class="config-value">{{ status.smtp.secure ? 'TLS (implicit)' : 'STARTTLS' }}</span>
-              </div>
-              <div class="config-item">
-                <span class="config-label">{{ t('integrations.smtp.from') }}</span>
-                <span class="config-value">{{ status.smtp.from || t('common.notSet') }}</span>
-              </div>
-              <div class="config-item">
-                <span class="config-label">{{ t('integrations.smtp.username') }}</span>
-                <span class="config-value">{{ status.smtp.userConfigured ? t('integrations.configured') : t('integrations.notConfigured') }}</span>
-              </div>
-              <div class="config-item">
-                <span class="config-label">{{ t('integrations.smtp.password') }}</span>
-                <span class="config-value">
-                  <el-icon v-if="status.smtp.passConfigured" :size="14"><Lock /></el-icon>
-                  {{ status.smtp.passConfigured ? t('integrations.configured') : t('integrations.notConfigured') }}
+
+              <div class="integration-card-actions">
+                <el-button
+                  type="primary"
+                  :loading="testingSmtp"
+                  @click="testSmtp"
+                >
+                  {{ t('integrations.smtp.testConnection') }}
+                </el-button>
+                <span v-if="smtpTestResult" class="test-result" :class="smtpTestResult.success ? 'test-result--success' : 'test-result--error'">
+                  {{ smtpTestResult.message }}
                 </span>
               </div>
             </div>
 
-            <div class="integration-card-actions">
-              <el-button
-                type="primary"
-                :loading="testingSmtp"
-                @click="testSmtp"
-              >
-                {{ t('integrations.smtp.testConnection') }}
-              </el-button>
-              <span v-if="smtpTestResult" class="test-result" :class="smtpTestResult.success ? 'test-result--success' : 'test-result--error'">
-                {{ smtpTestResult.message }}
-              </span>
-            </div>
-          </div>
-
-          <div v-else class="integration-card-body">
-            <p class="integration-hint">{{ t('integrations.smtp.notConfiguredHint') }}</p>
-            <el-collapse>
-              <el-collapse-item :title="t('integrations.smtp.setupGuide')">
-                <div class="setup-guide">
-                  <p>{{ t('integrations.smtp.setupGuideIntro') }}</p>
-                  <pre class="env-example">SMTP_ENABLED=true
+            <div v-else class="integration-card-body">
+              <p class="integration-hint">{{ t('integrations.smtp.notConfiguredHint') }}</p>
+              <el-collapse>
+                <el-collapse-item :title="t('integrations.smtp.setupGuide')">
+                  <div class="setup-guide">
+                    <p>{{ t('integrations.smtp.setupGuideIntro') }}</p>
+                    <pre class="env-example">SMTP_ENABLED=true
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -85,237 +83,164 @@ SMTP_USER=your-username
 SMTP_PASS=your-password
 SMTP_FROM="Assessors Studio" &lt;noreply@example.com&gt;
 SMTP_TLS_REJECT_UNAUTHORIZED=true</pre>
-                  <p class="provider-examples-title">{{ t('integrations.smtp.providerExamples') }}</p>
-                  <div class="provider-example">
-                    <strong>Amazon SES:</strong> SMTP_HOST=email-smtp.us-east-1.amazonaws.com, SMTP_PORT=587
+                    <p class="provider-examples-title">{{ t('integrations.smtp.providerExamples') }}</p>
+                    <div class="provider-example">
+                      <strong>Amazon SES:</strong> SMTP_HOST=email-smtp.us-east-1.amazonaws.com, SMTP_PORT=587
+                    </div>
+                    <div class="provider-example">
+                      <strong>SendGrid:</strong> SMTP_HOST=smtp.sendgrid.net, SMTP_PORT=587, SMTP_USER=apikey
+                    </div>
+                    <div class="provider-example">
+                      <strong>Gmail SMTP Relay:</strong> SMTP_HOST=smtp.gmail.com, SMTP_PORT=587
+                    </div>
                   </div>
-                  <div class="provider-example">
-                    <strong>SendGrid:</strong> SMTP_HOST=smtp.sendgrid.net, SMTP_PORT=587, SMTP_USER=apikey
-                  </div>
-                  <div class="provider-example">
-                    <strong>Gmail SMTP Relay:</strong> SMTP_HOST=smtp.gmail.com, SMTP_PORT=587
-                  </div>
-                </div>
-              </el-collapse-item>
-            </el-collapse>
-          </div>
-        </div>
-
-        <!-- Storage Card -->
-        <div class="integration-card">
-          <div class="integration-card-header">
-            <div class="integration-card-title">
-              <el-icon :size="20"><FolderOpened /></el-icon>
-              <h3>{{ t('integrations.storage.title') }}</h3>
+                </el-collapse-item>
+              </el-collapse>
             </div>
-            <span class="status-badge status-badge--active">
-              {{ status.storage?.provider === 's3' ? 'S3' : t('integrations.storage.database') }}
-            </span>
           </div>
+        </template>
+      </el-tab-pane>
 
-          <div class="integration-card-body">
-            <div class="config-grid">
-              <div class="config-item">
-                <span class="config-label">{{ t('integrations.storage.provider') }}</span>
-                <span class="config-value">{{ status.storage?.provider === 's3' ? 'S3 Compatible' : 'Database' }}</span>
+      <!-- Storage Tab -->
+      <el-tab-pane :label="t('integrations.tabs.storage')" name="storage">
+        <div v-if="loading" class="loading-container">
+          <el-icon class="is-loading" :size="24"><Loading /></el-icon>
+          <span>{{ t('common.loading') }}</span>
+        </div>
+        <div v-else-if="error" class="error-container">
+          <el-alert :title="t('common.error')" :description="error" type="error" :closable="false" />
+          <el-button @click="fetchStatus" class="retry-button">{{ t('common.retry') }}</el-button>
+        </div>
+        <template v-else>
+          <div class="integration-card">
+            <div class="integration-card-header">
+              <div class="integration-card-title">
+                <h3>{{ t('integrations.storage.title') }}</h3>
               </div>
-              <template v-if="status.storage?.provider === 's3' && status.storage.s3">
+              <span class="status-badge status-badge--active">
+                {{ status.storage?.provider === 's3' ? 'S3' : t('integrations.storage.database') }}
+              </span>
+            </div>
+
+            <div class="integration-card-body">
+              <div class="config-grid">
                 <div class="config-item">
-                  <span class="config-label">{{ t('integrations.storage.bucket') }}</span>
-                  <span class="config-value">{{ status.storage.s3.bucket }}</span>
+                  <span class="config-label">{{ t('integrations.storage.provider') }}</span>
+                  <span class="config-value">{{ status.storage?.provider === 's3' ? 'S3 Compatible' : 'Database' }}</span>
                 </div>
+                <template v-if="status.storage?.provider === 's3' && status.storage.s3">
+                  <div class="config-item">
+                    <span class="config-label">{{ t('integrations.storage.bucket') }}</span>
+                    <span class="config-value">{{ status.storage.s3.bucket }}</span>
+                  </div>
+                  <div class="config-item">
+                    <span class="config-label">{{ t('integrations.storage.region') }}</span>
+                    <span class="config-value">{{ status.storage.s3.region }}</span>
+                  </div>
+                  <div class="config-item">
+                    <span class="config-label">{{ t('integrations.storage.endpoint') }}</span>
+                    <span class="config-value">{{ status.storage.s3.endpoint || t('integrations.storage.defaultEndpoint') }}</span>
+                  </div>
+                  <div class="config-item">
+                    <span class="config-label">{{ t('integrations.storage.accessKey') }}</span>
+                    <span class="config-value">{{ status.storage.s3.accessKeyConfigured ? t('integrations.configured') : t('integrations.notConfigured') }}</span>
+                  </div>
+                </template>
                 <div class="config-item">
-                  <span class="config-label">{{ t('integrations.storage.region') }}</span>
-                  <span class="config-value">{{ status.storage.s3.region }}</span>
+                  <span class="config-label">{{ t('integrations.storage.maxFileSize') }}</span>
+                  <span class="config-value">{{ formatFileSize(status.storage?.maxFileSize) }}</span>
                 </div>
-                <div class="config-item">
-                  <span class="config-label">{{ t('integrations.storage.endpoint') }}</span>
-                  <span class="config-value">{{ status.storage.s3.endpoint || t('integrations.storage.defaultEndpoint') }}</span>
-                </div>
-                <div class="config-item">
-                  <span class="config-label">{{ t('integrations.storage.accessKey') }}</span>
-                  <span class="config-value">{{ status.storage.s3.accessKeyConfigured ? t('integrations.configured') : t('integrations.notConfigured') }}</span>
-                </div>
+              </div>
+
+              <template v-if="status.storage?.provider !== 's3'">
+                <el-collapse>
+                  <el-collapse-item :title="t('integrations.storage.setupGuide')">
+                    <div class="setup-guide">
+                      <p>{{ t('integrations.storage.setupGuideIntro') }}</p>
+                      <pre class="env-example">STORAGE_PROVIDER=s3
+S3_BUCKET=my-evidence-bucket
+S3_REGION=us-east-1
+S3_ACCESS_KEY_ID=your-access-key
+S3_SECRET_ACCESS_KEY=your-secret-key
+
+# Optional: custom endpoint for MinIO, Ceph, etc.
+# S3_ENDPOINT=https://minio.example.com:9000
+# S3_FORCE_PATH_STYLE=true</pre>
+                      <p class="provider-examples-title">{{ t('integrations.storage.providerExamples') }}</p>
+                      <div class="provider-example">
+                        <strong>Amazon S3:</strong> {{ t('integrations.storage.awsExample') }}
+                      </div>
+                      <div class="provider-example">
+                        <strong>MinIO:</strong> {{ t('integrations.storage.minioExample') }}
+                      </div>
+                      <div class="provider-example">
+                        <strong>DigitalOcean Spaces:</strong> {{ t('integrations.storage.doExample') }}
+                      </div>
+                    </div>
+                  </el-collapse-item>
+                </el-collapse>
               </template>
-              <div class="config-item">
-                <span class="config-label">{{ t('integrations.storage.maxFileSize') }}</span>
-                <span class="config-value">{{ formatFileSize(status.storage?.maxFileSize) }}</span>
-              </div>
             </div>
           </div>
+        </template>
+      </el-tab-pane>
+
+      <!-- Webhooks Tab -->
+      <el-tab-pane :label="t('integrations.tabs.webhooks')" name="webhooks" lazy>
+        <AdminWebhooksView :embedded="true" />
+      </el-tab-pane>
+
+      <!-- Chat Tab -->
+      <el-tab-pane :label="t('integrations.tabs.chat')" name="chat" lazy>
+        <AdminChatIntegrationsView :embedded="true" />
+      </el-tab-pane>
+
+      <!-- Metrics Tab -->
+      <el-tab-pane :label="t('integrations.tabs.metrics')" name="metrics">
+        <div v-if="loading" class="loading-container">
+          <el-icon class="is-loading" :size="24"><Loading /></el-icon>
+          <span>{{ t('common.loading') }}</span>
         </div>
-
-        <!-- Webhook Card -->
-        <div class="integration-card">
-          <div class="integration-card-header">
-            <div class="integration-card-title">
-              <el-icon :size="20"><Connection /></el-icon>
-              <h3>{{ t('integrations.webhook.title') }}</h3>
-            </div>
-            <span class="status-badge" :class="status.webhook?.enabled ? 'status-badge--active' : 'status-badge--disabled'">
-              {{ status.webhook?.enabled ? t('common.active') : t('common.inactive') }}
-            </span>
-          </div>
-
-          <div class="integration-card-body">
-            <p v-if="status.webhook?.enabled" class="integration-hint">
-              {{ t('integrations.webhook.enabledHint') }}
-            </p>
-            <p v-else class="integration-hint">
-              {{ t('integrations.webhook.disabledHint') }}
-            </p>
-            <div v-if="status.webhook?.enabled" class="integration-card-actions">
-              <RouterLink to="/admin/webhooks">
-                <el-button type="primary" plain>{{ t('integrations.webhook.manageWebhooks') }}</el-button>
-              </RouterLink>
-            </div>
-          </div>
+        <div v-else-if="error" class="error-container">
+          <el-alert :title="t('common.error')" :description="error" type="error" :closable="false" />
+          <el-button @click="fetchStatus" class="retry-button">{{ t('common.retry') }}</el-button>
         </div>
-        <!-- Slack Card -->
-        <div class="integration-card">
-          <div class="integration-card-header">
-            <div class="integration-card-title">
-              <el-icon :size="20"><ChatLineSquare /></el-icon>
-              <h3>{{ t('integrations.slack.title') }}</h3>
-            </div>
-            <span class="status-badge" :class="status.slack?.enabled ? 'status-badge--active' : 'status-badge--disabled'">
-              {{ status.slack?.enabled ? t('common.active') : t('common.inactive') }}
-            </span>
-          </div>
-          <div class="integration-card-body">
-            <template v-if="status.slack?.enabled">
-              <p class="integration-hint">
-                {{ t('integrations.slack.enabledHint', { count: status.slack.integrationCount || 0 }) }}
-              </p>
-              <div class="integration-card-actions">
-                <RouterLink to="/admin/chat-integrations">
-                  <el-button type="primary" plain>{{ t('integrations.slack.manage') }}</el-button>
-                </RouterLink>
+        <template v-else>
+          <div class="integration-card">
+            <div class="integration-card-header">
+              <div class="integration-card-title">
+                <h3>{{ t('integrations.metrics.title') }}</h3>
               </div>
-            </template>
-            <template v-else>
-              <p class="integration-hint">{{ t('integrations.slack.disabledHint') }}</p>
-              <el-collapse>
-                <el-collapse-item :title="t('integrations.smtp.setupGuide')">
-                  <div class="setup-guide">
-                    <p>{{ t('integrations.slack.setupGuideText') }}</p>
-                    <pre class="env-example">SLACK_ENABLED=true</pre>
-                  </div>
-                </el-collapse-item>
-              </el-collapse>
-            </template>
-          </div>
-        </div>
+              <span class="status-badge" :class="status.metrics?.enabled ? 'status-badge--active' : 'status-badge--disabled'">
+                {{ status.metrics?.enabled ? t('common.active') : t('common.inactive') }}
+              </span>
+            </div>
+            <div v-if="status.metrics?.enabled" class="integration-card-body">
+              <div class="config-grid">
+                <div class="config-item">
+                  <span class="config-label">{{ t('integrations.metrics.endpointUrl') }}</span>
+                  <span class="config-value">{{ t('integrations.metrics.endpointPath') }}</span>
+                </div>
+                <div class="config-item">
+                  <span class="config-label">{{ t('integrations.metrics.prefix') }}</span>
+                  <span class="config-value">{{ status.metrics.prefix }}</span>
+                </div>
+                <div class="config-item">
+                  <span class="config-label">{{ t('integrations.metrics.refreshInterval') }}</span>
+                  <span class="config-value">{{ t('integrations.metrics.refreshIntervalValue', { seconds: status.metrics.domainRefreshInterval }) }}</span>
+                </div>
+                <div class="config-item">
+                  <span class="config-label">{{ t('integrations.metrics.token') }}</span>
+                  <span class="config-value">
+                    <el-icon v-if="status.metrics.tokenConfigured" :size="14"><Lock /></el-icon>
+                    {{ status.metrics.tokenConfigured ? t('integrations.configured') : t('integrations.notConfigured') }}
+                  </span>
+                </div>
+              </div>
 
-        <!-- Teams Card -->
-        <div class="integration-card">
-          <div class="integration-card-header">
-            <div class="integration-card-title">
-              <el-icon :size="20"><ChatLineSquare /></el-icon>
-              <h3>{{ t('integrations.teams.title') }}</h3>
-            </div>
-            <span class="status-badge" :class="status.teams?.enabled ? 'status-badge--active' : 'status-badge--disabled'">
-              {{ status.teams?.enabled ? t('common.active') : t('common.inactive') }}
-            </span>
-          </div>
-          <div class="integration-card-body">
-            <template v-if="status.teams?.enabled">
-              <p class="integration-hint">
-                {{ t('integrations.teams.enabledHint', { count: status.teams.integrationCount || 0 }) }}
-              </p>
-              <div class="integration-card-actions">
-                <RouterLink to="/admin/chat-integrations">
-                  <el-button type="primary" plain>{{ t('integrations.teams.manage') }}</el-button>
-                </RouterLink>
-              </div>
-            </template>
-            <template v-else>
-              <p class="integration-hint">{{ t('integrations.teams.disabledHint') }}</p>
-              <el-collapse>
-                <el-collapse-item :title="t('integrations.smtp.setupGuide')">
-                  <div class="setup-guide">
-                    <p>{{ t('integrations.teams.setupGuideText') }}</p>
-                    <pre class="env-example">TEAMS_ENABLED=true</pre>
-                  </div>
-                </el-collapse-item>
-              </el-collapse>
-            </template>
-          </div>
-        </div>
-
-        <!-- Mattermost Card -->
-        <div class="integration-card">
-          <div class="integration-card-header">
-            <div class="integration-card-title">
-              <el-icon :size="20"><ChatLineSquare /></el-icon>
-              <h3>{{ t('integrations.mattermost.title') }}</h3>
-            </div>
-            <span class="status-badge" :class="status.mattermost?.enabled ? 'status-badge--active' : 'status-badge--disabled'">
-              {{ status.mattermost?.enabled ? t('common.active') : t('common.inactive') }}
-            </span>
-          </div>
-          <div class="integration-card-body">
-            <template v-if="status.mattermost?.enabled">
-              <p class="integration-hint">
-                {{ t('integrations.mattermost.enabledHint', { count: status.mattermost.integrationCount || 0 }) }}
-              </p>
-              <div class="integration-card-actions">
-                <RouterLink to="/admin/chat-integrations">
-                  <el-button type="primary" plain>{{ t('integrations.mattermost.manage') }}</el-button>
-                </RouterLink>
-              </div>
-            </template>
-            <template v-else>
-              <p class="integration-hint">{{ t('integrations.mattermost.disabledHint') }}</p>
-              <el-collapse>
-                <el-collapse-item :title="t('integrations.smtp.setupGuide')">
-                  <div class="setup-guide">
-                    <p>{{ t('integrations.mattermost.setupGuideText') }}</p>
-                    <pre class="env-example">MATTERMOST_ENABLED=true</pre>
-                  </div>
-                </el-collapse-item>
-              </el-collapse>
-            </template>
-          </div>
-        </div>
-
-        <!-- Prometheus Metrics Card -->
-        <div class="integration-card">
-          <div class="integration-card-header">
-            <div class="integration-card-title">
-              <el-icon :size="20"><DataLine /></el-icon>
-              <h3>{{ t('integrations.metrics.title') }}</h3>
-            </div>
-            <span class="status-badge" :class="status.metrics?.enabled ? 'status-badge--active' : 'status-badge--disabled'">
-              {{ status.metrics?.enabled ? t('common.active') : t('common.inactive') }}
-            </span>
-          </div>
-          <div v-if="status.metrics?.enabled" class="integration-card-body">
-            <div class="config-grid">
-              <div class="config-item">
-                <span class="config-label">{{ t('integrations.metrics.endpointUrl') }}</span>
-                <span class="config-value">{{ t('integrations.metrics.endpointPath') }}</span>
-              </div>
-              <div class="config-item">
-                <span class="config-label">{{ t('integrations.metrics.prefix') }}</span>
-                <span class="config-value">{{ status.metrics.prefix }}</span>
-              </div>
-              <div class="config-item">
-                <span class="config-label">{{ t('integrations.metrics.refreshInterval') }}</span>
-                <span class="config-value">{{ t('integrations.metrics.refreshIntervalValue', { seconds: status.metrics.domainRefreshInterval }) }}</span>
-              </div>
-              <div class="config-item">
-                <span class="config-label">{{ t('integrations.metrics.token') }}</span>
-                <span class="config-value">
-                  <el-icon v-if="status.metrics.tokenConfigured" :size="14"><Lock /></el-icon>
-                  {{ status.metrics.tokenConfigured ? t('integrations.configured') : t('integrations.notConfigured') }}
-                </span>
-              </div>
-            </div>
-
-            <div class="prometheus-config-section">
-              <p class="config-note">{{ t('integrations.metrics.prometheusConfig') }}</p>
-              <pre class="env-example">scrape_configs:
+              <div class="prometheus-config-section">
+                <p class="config-note">{{ t('integrations.metrics.prometheusConfig') }}</p>
+                <pre class="env-example">scrape_configs:
   - job_name: 'assessors-studio'
     metrics_path: '/metrics'
     static_configs:
@@ -323,26 +248,26 @@ SMTP_TLS_REJECT_UNAUTHORIZED=true</pre>
     # Uncomment if METRICS_TOKEN is set:
     # authorization:
     #   credentials: 'your-metrics-token'</pre>
+              </div>
             </div>
-          </div>
-          <div v-else class="integration-card-body">
-            <p class="integration-hint">{{ t('integrations.metrics.disabledHint') }}</p>
-            <el-collapse>
-              <el-collapse-item :title="t('integrations.metrics.setupGuide')">
-                <div class="setup-guide">
-                  <p>{{ t('integrations.metrics.setupGuideText') }}</p>
-                  <pre class="env-example">METRICS_ENABLED=true
+            <div v-else class="integration-card-body">
+              <p class="integration-hint">{{ t('integrations.metrics.disabledHint') }}</p>
+              <el-collapse>
+                <el-collapse-item :title="t('integrations.metrics.setupGuide')">
+                  <div class="setup-guide">
+                    <p>{{ t('integrations.metrics.setupGuideText') }}</p>
+                    <pre class="env-example">METRICS_ENABLED=true
 METRICS_TOKEN=your-secret-token  # Optional
 METRICS_PREFIX=cdxa_             # Default
 METRICS_DOMAIN_REFRESH_INTERVAL=60  # Seconds</pre>
-                </div>
-              </el-collapse-item>
-            </el-collapse>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
+            </div>
           </div>
-        </div>
-
-      </template>
-    </div>
+        </template>
+      </el-tab-pane>
+    </el-tabs>
   </div>
 </template>
 
@@ -351,18 +276,16 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import PageHeader from '@/components/shared/PageHeader.vue'
+import AdminWebhooksView from '@/views/AdminWebhooksView.vue'
+import AdminChatIntegrationsView from '@/views/AdminChatIntegrationsView.vue'
 import {
-  Message,
-  FolderOpened,
-  Connection,
-  ChatLineSquare,
-  DataLine,
   Lock,
   Loading,
 } from '@element-plus/icons-vue'
 
 const { t } = useI18n()
 
+const activeTab = ref('email')
 const loading = ref(true)
 const error = ref<string | null>(null)
 const testingSmtp = ref(false)
@@ -455,14 +378,24 @@ onMounted(fetchStatus)
 
 <style scoped lang="scss">
 .admin-integrations-container {
-  padding: var(--cat-spacing-4);
-  max-width: 900px;
+  padding: 0;
 }
 
-.admin-integrations-content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cat-spacing-4);
+.integrations-tabs {
+  padding: 0 var(--cat-spacing-6);
+
+  :deep(.el-tabs__header) {
+    margin-bottom: var(--cat-spacing-4);
+  }
+
+  :deep(.el-tabs__item) {
+    font-size: var(--cat-font-size-sm);
+    font-weight: var(--cat-font-weight-medium);
+  }
+
+  :deep(.el-tab-pane) {
+    padding-bottom: var(--cat-spacing-6);
+  }
 }
 
 .loading-container {
@@ -514,6 +447,14 @@ onMounted(fetchStatus)
 
 .integration-card-body {
   padding: var(--cat-spacing-4);
+
+  > .el-collapse {
+    margin-top: var(--cat-spacing-4);
+  }
+
+  :deep(.el-collapse-item__header) {
+    padding-left: var(--cat-spacing-4);
+  }
 }
 
 .integration-card-actions {
@@ -557,19 +498,21 @@ onMounted(fetchStatus)
   display: inline-flex;
   align-items: center;
   padding: 2px 10px;
-  border-radius: var(--cat-radius-full);
+  border-radius: 4px;
   font-size: var(--cat-font-size-xs);
-  font-weight: var(--cat-font-weight-semibold);
-}
+  font-weight: var(--cat-font-weight-medium);
+  line-height: 1.6;
+  white-space: nowrap;
 
-.status-badge--active {
-  background-color: var(--el-color-success-light-9, #f0f9eb);
-  color: var(--el-color-success, #67c23a);
-}
+  &--active {
+    background-color: rgba(63, 185, 80, 0.15);
+    color: #3fb950;
+  }
 
-.status-badge--disabled {
-  background-color: var(--el-color-info-light-9, #f4f4f5);
-  color: var(--el-color-info, #909399);
+  &--disabled {
+    background-color: rgba(248, 81, 73, 0.15);
+    color: #f85149;
+  }
 }
 
 .integration-hint {
@@ -594,6 +537,7 @@ onMounted(fetchStatus)
 .setup-guide {
   font-size: var(--cat-font-size-sm);
   color: var(--cat-text-secondary);
+  padding: var(--cat-spacing-3) var(--cat-spacing-4);
 }
 
 .env-example {

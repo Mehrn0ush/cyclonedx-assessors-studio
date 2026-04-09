@@ -19,8 +19,8 @@ const createRuleSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   channel: z.enum(['in_app', 'email', 'slack', 'teams', 'mattermost', 'webhook']),
   eventTypes: z.array(z.string()).min(1, 'At least one event type is required'),
-  filters: z.record(z.unknown()).optional().default({}),
-  destination: z.record(z.unknown()).optional().default({}),
+  filters: z.record(z.string(), z.unknown()).optional().default({}),
+  destination: z.record(z.string(), z.unknown()).optional().default({}),
   enabled: z.boolean().optional().default(true),
 });
 

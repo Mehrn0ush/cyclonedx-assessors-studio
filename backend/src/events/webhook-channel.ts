@@ -338,7 +338,8 @@ export class WebhookChannel implements NotificationChannel {
     const config = getConfig();
     const now = new Date();
 
-    // Find failed deliveries ready for retry
+    // Find failed deliveries ready for retry (capped to prevent memory exhaustion)
+    const RETRY_BATCH_SIZE = 100;
     const pendingRetries = await db
       .selectFrom('webhook_delivery')
       .innerJoin('webhook', 'webhook.id', 'webhook_delivery.webhook_id')
@@ -355,6 +356,8 @@ export class WebhookChannel implements NotificationChannel {
         'webhook.secret',
         'webhook.consecutive_failures',
       ])
+      .orderBy('webhook_delivery.next_retry_at', 'asc')
+      .limit(RETRY_BATCH_SIZE)
       .execute();
 
     for (const row of pendingRetries) {

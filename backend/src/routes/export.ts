@@ -666,10 +666,15 @@ router.get('/assessment/:assessmentId/pdf', requireAuth, async (req: AuthRequest
     // Generate PDF
     const pdfBuffer = await generateAssessmentPDF(assessmentId);
 
-    // Set response headers
-    const filename = `assessment-${assessment.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-report.pdf`;
+    // Set response headers (sanitize title to prevent header injection)
+    const safeSlug = assessment.title.replace(/[^a-z0-9]/gi, '-').toLowerCase().substring(0, 200);
+    const filename = `assessment-${safeSlug}-report.pdf`;
+    const encodedFilename = encodeURIComponent(filename);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${filename}"; filename*=UTF-8''${encodedFilename}`
+    );
     res.setHeader('Content-Length', pdfBuffer.length);
 
     res.send(pdfBuffer);

@@ -493,6 +493,36 @@ export function getOpenAPISpec(): OpenAPISpec {
             },
           },
         },
+        patch: {
+          tags: ['Auth'],
+          summary: 'Update user preferences',
+          operationId: 'updateUserPreferences',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    chatIdentities: { type: 'object' },
+                    notificationPreferences: { type: 'object' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'User preferences updated',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
       },
       '/v1/auth/change-password': {
         put: {
@@ -828,6 +858,44 @@ export function getOpenAPISpec(): OpenAPISpec {
               content: {
                 'application/json': {
                   schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/projects/{id}/stats': {
+        get: {
+          tags: ['Projects'],
+          summary: 'Get project statistics',
+          operationId: 'getProjectStats',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Project statistics',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      totalAssessments: { type: 'integer' },
+                      completedAssessments: { type: 'integer' },
+                      completionPercentage: { type: 'number' },
+                      totalEvidence: { type: 'integer' },
+                      approvedEvidence: { type: 'integer' },
+                    },
+                  },
+                },
+              },
+            },
+            '404': {
+              description: 'Project not found',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
                 },
               },
             },
@@ -1322,13 +1390,17 @@ export function getOpenAPISpec(): OpenAPISpec {
                 schema: {
                   type: 'object',
                   properties: {
-                    projectId: { type: 'string' },
-                    standardId: { type: 'string' },
-                    name: { type: 'string' },
+                    title: { type: 'string' },
                     description: { type: 'string' },
+                    projectId: { type: 'string' },
+                    entityId: { type: 'string' },
+                    standardId: { type: 'string' },
                     dueDate: { type: 'string', format: 'date' },
+                    assessorIds: { type: 'array', items: { type: 'string' } },
+                    assesseeIds: { type: 'array', items: { type: 'string' } },
+                    tags: { type: 'array', items: { type: 'string' } },
                   },
-                  required: ['projectId', 'standardId', 'name'],
+                  required: ['title'],
                 },
               },
             },
@@ -1548,6 +1620,48 @@ export function getOpenAPISpec(): OpenAPISpec {
           responses: {
             '200': {
               description: 'Assessment completed',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Assessment' },
+                },
+              },
+            },
+            '403': {
+              description: 'Insufficient permissions',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+            '404': {
+              description: 'Assessment not found',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/assessments/{id}/reopen': {
+        post: {
+          tags: ['Assessments'],
+          summary: 'Reopen completed assessment',
+          operationId: 'reopenAssessment',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Assessment reopened',
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/Assessment' },
@@ -2242,6 +2356,40 @@ export function getOpenAPISpec(): OpenAPISpec {
           responses: {
             '204': {
               description: 'Attachment deleted',
+            },
+          },
+        },
+      },
+      '/v1/evidence/{id}/claims': {
+        get: {
+          tags: ['Evidence'],
+          summary: 'Get claims linked to evidence',
+          operationId: 'getEvidenceClaims',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Claims retrieved',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: { type: 'array', items: { type: 'object' } },
+                    },
+                  },
+                },
+              },
+            },
+            '404': {
+              description: 'Evidence not found',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
             },
           },
         },
@@ -4355,6 +4503,40 @@ export function getOpenAPISpec(): OpenAPISpec {
           },
         },
       },
+      '/v1/dashboard/progress': {
+        get: {
+          tags: ['Dashboard'],
+          summary: 'Get overall progress',
+          operationId: 'getProgress',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Overall progress retrieved',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      totalAssessments: { type: 'integer' },
+                      completedAssessments: { type: 'integer' },
+                      inProgressAssessments: { type: 'integer' },
+                      completionPercentage: { type: 'number' },
+                    },
+                  },
+                },
+              },
+            },
+            '401': {
+              description: 'Not authenticated',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+      },
       '/v1/import/attestation': {
         post: {
           tags: ['Import'],
@@ -4586,6 +4768,925 @@ export function getOpenAPISpec(): OpenAPISpec {
           responses: {
             '200': {
               description: 'Project exported',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/webhooks': {
+        get: {
+          tags: ['Webhooks'],
+          summary: 'List webhooks',
+          operationId: 'listWebhooks',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Webhooks retrieved',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string' },
+                            name: { type: 'string' },
+                            url: { type: 'string' },
+                            eventTypes: { type: 'array', items: { type: 'string' } },
+                            isActive: { type: 'boolean' },
+                            consecutiveFailures: { type: 'integer' },
+                            createdAt: { type: 'string', format: 'date-time' },
+                            updatedAt: { type: 'string', format: 'date-time' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            '401': {
+              description: 'Not authenticated',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          tags: ['Webhooks'],
+          summary: 'Create webhook',
+          operationId: 'createWebhook',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    url: { type: 'string' },
+                    eventTypes: { type: 'array', items: { type: 'string' } },
+                  },
+                  required: ['name', 'url', 'eventTypes'],
+                },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'Webhook created',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+            '401': {
+              description: 'Not authenticated',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/webhooks/{id}': {
+        get: {
+          tags: ['Webhooks'],
+          summary: 'Get webhook details',
+          operationId: 'getWebhook',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Webhook retrieved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+            '404': {
+              description: 'Webhook not found',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+        put: {
+          tags: ['Webhooks'],
+          summary: 'Update webhook',
+          operationId: 'updateWebhook',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    url: { type: 'string' },
+                    eventTypes: { type: 'array', items: { type: 'string' } },
+                    isActive: { type: 'boolean' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Webhook updated',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+        delete: {
+          tags: ['Webhooks'],
+          summary: 'Delete webhook',
+          operationId: 'deleteWebhook',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Webhook deleted',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+            '404': {
+              description: 'Webhook not found',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/webhooks/{id}/test': {
+        post: {
+          tags: ['Webhooks'],
+          summary: 'Test webhook delivery',
+          operationId: 'testWebhook',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Webhook tested',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/webhooks/{id}/enable': {
+        post: {
+          tags: ['Webhooks'],
+          summary: 'Re-enable webhook',
+          operationId: 'enableWebhook',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Webhook enabled',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/webhooks/{id}/deliveries': {
+        get: {
+          tags: ['Webhooks'],
+          summary: 'Get webhook deliveries',
+          operationId: 'getWebhookDeliveries',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+            {
+              name: 'limit',
+              in: 'query',
+              schema: { type: 'integer', default: 50 },
+            },
+            {
+              name: 'offset',
+              in: 'query',
+              schema: { type: 'integer', default: 0 },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Webhook deliveries retrieved',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: { type: 'array', items: { type: 'object' } },
+                      pagination: { $ref: '#/components/schemas/Pagination' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/integrations/chat': {
+        get: {
+          tags: ['Chat Integrations'],
+          summary: 'List chat integrations',
+          operationId: 'listChatIntegrations',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Chat integrations retrieved',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: { type: 'array', items: { type: 'object' } },
+                    },
+                  },
+                },
+              },
+            },
+            '401': {
+              description: 'Not authenticated',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          tags: ['Chat Integrations'],
+          summary: 'Create chat integration',
+          operationId: 'createChatIntegration',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    type: { type: 'string', enum: ['slack', 'msteams', 'discord'] },
+                    config: { type: 'object' },
+                  },
+                  required: ['type', 'config'],
+                },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'Chat integration created',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/integrations/chat/{id}': {
+        get: {
+          tags: ['Chat Integrations'],
+          summary: 'Get chat integration',
+          operationId: 'getChatIntegration',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Chat integration retrieved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+            '404': {
+              description: 'Chat integration not found',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+        put: {
+          tags: ['Chat Integrations'],
+          summary: 'Update chat integration',
+          operationId: 'updateChatIntegration',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    config: { type: 'object' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Chat integration updated',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+        delete: {
+          tags: ['Chat Integrations'],
+          summary: 'Delete chat integration',
+          operationId: 'deleteChatIntegration',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Chat integration deleted',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/integrations/chat/{id}/test': {
+        post: {
+          tags: ['Chat Integrations'],
+          summary: 'Test chat integration',
+          operationId: 'testChatIntegration',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Chat integration tested',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/integrations/chat/{id}/disconnect': {
+        post: {
+          tags: ['Chat Integrations'],
+          summary: 'Disconnect chat integration',
+          operationId: 'disconnectChatIntegration',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Chat integration disconnected',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/admin/notification-rules': {
+        get: {
+          tags: ['Admin Notification Rules'],
+          summary: 'List system notification rules',
+          operationId: 'listAdminNotificationRules',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'System notification rules retrieved',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: { type: 'array', items: { type: 'object' } },
+                    },
+                  },
+                },
+              },
+            },
+            '401': {
+              description: 'Not authenticated',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          tags: ['Admin Notification Rules'],
+          summary: 'Create system notification rule',
+          operationId: 'createAdminNotificationRule',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    eventType: { type: 'string' },
+                    channels: { type: 'array', items: { type: 'string' } },
+                    enabled: { type: 'boolean' },
+                  },
+                  required: ['eventType', 'channels'],
+                },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'System notification rule created',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/admin/notification-rules/{id}': {
+        get: {
+          tags: ['Admin Notification Rules'],
+          summary: 'Get system notification rule',
+          operationId: 'getAdminNotificationRule',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'System notification rule retrieved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+            '404': {
+              description: 'System notification rule not found',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+        put: {
+          tags: ['Admin Notification Rules'],
+          summary: 'Update system notification rule',
+          operationId: 'updateAdminNotificationRule',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    eventType: { type: 'string' },
+                    channels: { type: 'array', items: { type: 'string' } },
+                    enabled: { type: 'boolean' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'System notification rule updated',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+        delete: {
+          tags: ['Admin Notification Rules'],
+          summary: 'Delete system notification rule',
+          operationId: 'deleteAdminNotificationRule',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'System notification rule deleted',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/notification-rules': {
+        get: {
+          tags: ['Notification Rules'],
+          summary: 'List user notification rules',
+          operationId: 'listNotificationRules',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'User notification rules retrieved',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: { type: 'array', items: { type: 'object' } },
+                    },
+                  },
+                },
+              },
+            },
+            '401': {
+              description: 'Not authenticated',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          tags: ['Notification Rules'],
+          summary: 'Create user notification rule',
+          operationId: 'createNotificationRule',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    eventType: { type: 'string' },
+                    channels: { type: 'array', items: { type: 'string' } },
+                    enabled: { type: 'boolean' },
+                  },
+                  required: ['eventType', 'channels'],
+                },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'User notification rule created',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/notification-rules/{id}': {
+        get: {
+          tags: ['Notification Rules'],
+          summary: 'Get user notification rule',
+          operationId: 'getNotificationRule',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'User notification rule retrieved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+            '404': {
+              description: 'User notification rule not found',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+        put: {
+          tags: ['Notification Rules'],
+          summary: 'Update user notification rule',
+          operationId: 'updateNotificationRule',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    eventType: { type: 'string' },
+                    channels: { type: 'array', items: { type: 'string' } },
+                    enabled: { type: 'boolean' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'User notification rule updated',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+        delete: {
+          tags: ['Notification Rules'],
+          summary: 'Delete user notification rule',
+          operationId: 'deleteNotificationRule',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'User notification rule deleted',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/assessors': {
+        get: {
+          tags: ['Assessors'],
+          summary: 'List assessors',
+          operationId: 'listAssessors',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Assessors retrieved',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: { type: 'array', items: { type: 'object' } },
+                    },
+                  },
+                },
+              },
+            },
+            '401': {
+              description: 'Not authenticated',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          tags: ['Assessors'],
+          summary: 'Create assessor',
+          operationId: 'createAssessor',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    thirdParty: { type: 'boolean' },
+                    entityId: { type: 'string' },
+                    userId: { type: 'string' },
+                  },
+                  required: ['thirdParty'],
+                },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'Assessor created',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/assessors/{id}': {
+        get: {
+          tags: ['Assessors'],
+          summary: 'Get assessor',
+          operationId: 'getAssessor',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Assessor retrieved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+            '404': {
+              description: 'Assessor not found',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+        put: {
+          tags: ['Assessors'],
+          summary: 'Update assessor',
+          operationId: 'updateAssessor',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    thirdParty: { type: 'boolean' },
+                    entityId: { type: 'string' },
+                    userId: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Assessor updated',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+        delete: {
+          tags: ['Assessors'],
+          summary: 'Delete assessor',
+          operationId: 'deleteAssessor',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Assessor deleted',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/admin/encryption/status': {
+        get: {
+          tags: ['Admin Encryption'],
+          summary: 'Get encryption status',
+          operationId: 'getEncryptionStatus',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Encryption status retrieved',
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                },
+              },
+            },
+            '401': {
+              description: 'Not authenticated',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/v1/admin/encryption/rotate': {
+        post: {
+          tags: ['Admin Encryption'],
+          summary: 'Rotate encryption key',
+          operationId: 'rotateEncryptionKey',
+          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Encryption key rotated',
               content: {
                 'application/json': {
                   schema: { type: 'object' },
@@ -4831,6 +5932,30 @@ export function getOpenAPISpec(): OpenAPISpec {
       {
         name: 'Import',
         description: 'Import external data',
+      },
+      {
+        name: 'Webhooks',
+        description: 'Webhook management (admin only)',
+      },
+      {
+        name: 'Chat Integrations',
+        description: 'Chat platform integrations (admin only)',
+      },
+      {
+        name: 'Notification Rules',
+        description: 'User notification rules',
+      },
+      {
+        name: 'Admin Notification Rules',
+        description: 'System notification rules (admin only)',
+      },
+      {
+        name: 'Assessors',
+        description: 'Assessor management',
+      },
+      {
+        name: 'Admin Encryption',
+        description: 'Encryption management (admin only)',
       },
     ],
   };

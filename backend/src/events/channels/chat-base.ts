@@ -108,8 +108,14 @@ export abstract class BaseChatChannel implements NotificationChannel {
       for (const integration of integrations) {
         const categories = this.parseEventCategories(integration.event_categories);
 
-        // Check category filter
-        if (!categories.includes('*') && !categories.includes(envelope.category)) {
+        // Check category or event type filter
+        // Stored values can be category names (e.g. "assessment") or specific
+        // event types (e.g. "assessment.created"). Match against either.
+        if (
+          !categories.includes('*') &&
+          !categories.includes(envelope.category) &&
+          !categories.includes(envelope.type)
+        ) {
           continue;
         }
 
