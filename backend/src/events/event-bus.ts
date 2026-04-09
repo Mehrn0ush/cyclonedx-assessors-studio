@@ -1,5 +1,5 @@
 /**
- * In-process event bus built on Node.js EventEmitter (spec 003).
+ * In-process event bus built on Node.js EventEmitter.
  *
  * Decouples event emission from event consumption. Listeners run
  * asynchronously and errors in one listener do not affect others.

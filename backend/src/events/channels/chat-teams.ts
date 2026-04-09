@@ -1,5 +1,5 @@
 /**
- * Microsoft Teams notification channel (spec 006).
+ * Microsoft Teams notification channel.
  *
  * Sends event notifications to Teams channels via incoming webhooks
  * using Adaptive Card message format.

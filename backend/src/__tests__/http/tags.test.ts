@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { setupHttpTests, getAgent, loginAs, testUsers } from '../helpers/http.js';
+import { setupHttpTests, getAgent, loginAs } from '../helpers/http.js';
 
 describe('Tags HTTP Routes', () => {
   setupHttpTests();

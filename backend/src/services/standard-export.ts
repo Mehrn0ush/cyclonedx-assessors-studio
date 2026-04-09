@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
-import { buildRequirementTree, RequirementTreeNode, topologicalSort, compareIdentifiers } from './requirement-utils.js';
+import { topologicalSort, compareIdentifiers } from './requirement-utils.js';
 
 /**
  * Generate a CycloneDX 1.6 JSON document for a single standard.

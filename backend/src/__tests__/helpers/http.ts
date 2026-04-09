@@ -22,7 +22,7 @@
  *   });
  */
 
-import { beforeAll, afterAll } from 'vitest';
+import { beforeAll } from 'vitest';
 import supertest, { SuperAgentTest } from 'supertest';
 import http from 'http';
 import { Express } from 'express';

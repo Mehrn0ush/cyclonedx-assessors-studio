@@ -1,9 +1,9 @@
 /**
- * HTTP integration tests for webhook management API (spec 004).
+ * HTTP integration tests for webhook management API.
  */
 
 import { describe, it, expect } from 'vitest';
-import { setupHttpTests, loginAs, getAgent, testUsers } from '../helpers/http.js';
+import { setupHttpTests, loginAs, getAgent } from '../helpers/http.js';
 import { getDatabase } from '../../db/connection.js';
 import { v4 as uuidv4 } from 'uuid';
 

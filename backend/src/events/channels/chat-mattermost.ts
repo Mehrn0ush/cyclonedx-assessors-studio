@@ -1,5 +1,5 @@
 /**
- * Mattermost notification channel (spec 006).
+ * Mattermost notification channel.
  *
  * Sends event notifications to Mattermost channels via incoming webhooks
  * using Markdown attachment format.

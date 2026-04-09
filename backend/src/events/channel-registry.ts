@@ -1,5 +1,5 @@
 /**
- * Channel registry: manages notification channel lifecycle (spec 003).
+ * Channel registry: manages notification channel lifecycle.
  *
  * Channels register at startup. The registry initializes them all,
  * wires them into the event bus, and shuts them down gracefully.

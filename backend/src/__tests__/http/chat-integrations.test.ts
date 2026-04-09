@@ -1,5 +1,5 @@
 /**
- * HTTP integration tests for chat integrations management API (spec 006).
+ * HTTP integration tests for chat integrations management API.
  */
 
 import { describe, it, expect } from 'vitest';

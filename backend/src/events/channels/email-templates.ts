@@ -1,5 +1,5 @@
 /**
- * Email templates for the email notification channel (spec 005).
+ * Email templates for the email notification channel.
  *
  * Each template function returns { subject, text, html } for an event
  * type. Templates produce clean plain text and a minimal HTML

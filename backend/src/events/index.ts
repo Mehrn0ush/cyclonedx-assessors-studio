@@ -1,5 +1,5 @@
 /**
- * Event system barrel export (spec 003).
+ * Event system barrel export.
  *
  * Provides a singleton event bus and channel registry, along with
  * initialization and shutdown functions for application lifecycle.
@@ -48,7 +48,7 @@ export async function initializeEventSystem(): Promise<void> {
   const inAppChannel = new InAppChannel(() => getDatabase());
   channelRegistry.register(inAppChannel);
 
-  // Webhook channel (spec 004): registered when WEBHOOK_ENABLED=true
+  // Webhook channel: registered when WEBHOOK_ENABLED=true
   const config = getConfig();
   if (config.WEBHOOK_ENABLED) {
     const webhookChannel = new WebhookChannel(() => getDatabase());
@@ -65,13 +65,13 @@ export async function initializeEventSystem(): Promise<void> {
     await channelRegistry.initializeAll(eventBus!);
   }
 
-  // Email channel (spec 005): registered when SMTP_ENABLED=true
+  // Email channel: registered when SMTP_ENABLED=true
   if (config.SMTP_ENABLED) {
     const emailChannel = new EmailChannel(() => getDatabase());
     channelRegistry.register(emailChannel);
   }
 
-  // Chat channels (spec 006): registered when *_ENABLED=true
+  // Chat channels: registered when *_ENABLED=true
   if (config.SLACK_ENABLED) {
     const slackChannel = new SlackChannel(() => getDatabase());
     channelRegistry.register(slackChannel);
@@ -96,7 +96,7 @@ export async function initializeEventSystem(): Promise<void> {
     });
   }
 
-  // Initialize rules engine (spec 008)
+  // Initialize rules engine
   rulesEngine = new RulesEngine(() => getDatabase());
   rulesEngine.setChannelRegistry(channelRegistry);
 

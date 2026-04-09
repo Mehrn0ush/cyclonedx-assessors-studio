@@ -1,5 +1,5 @@
 /**
- * Chat integration management API routes (spec 006).
+ * Chat integration management API routes.
  *
  * Admin-only endpoints for creating, updating, deleting, testing,
  * and re-enabling chat integrations for Slack, Teams, and Mattermost,
@@ -18,7 +18,6 @@ import { TeamsChannel } from '../events/channels/chat-teams.js';
 import { MattermostChannel } from '../events/channels/chat-mattermost.js';
 import { BaseChatChannel } from '../events/channels/chat-base.js';
 import { validatePagination } from '../utils/pagination.js';
-import { ALL_CATEGORIES } from '../events/catalog.js';
 
 const router = Router();
 

@@ -10,7 +10,7 @@ import type { StorageProvider } from './types.js';
  * raw bytes and the content_type column holds the MIME type.
  */
 export class DatabaseStorageProvider implements StorageProvider {
-  async put(key: string, data: Buffer, metadata: { contentType: string }): Promise<void> {
+  async put(key: string, data: Buffer, _metadata: { contentType: string }): Promise<void> {
     // The actual INSERT happens in the evidence route. This provider is
     // used for migration scenarios where we need to write content into
     // the binary_content column of an existing record.

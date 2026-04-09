@@ -1,12 +1,12 @@
 /**
- * Integration tests for evidence storage abstraction (spec 002).
+ * Integration tests for evidence storage abstraction.
  *
  * Exercises upload, download, file size limit enforcement, and mixed
  * storage scenarios through the full HTTP stack using the database
  * storage provider (the default).
  */
 import { describe, it, expect } from 'vitest';
-import { setupHttpTests, loginAs, testUsers } from '../helpers/http.js';
+import { setupHttpTests, loginAs } from '../helpers/http.js';
 
 describe('Evidence Storage (HTTP integration)', () => {
   setupHttpTests();

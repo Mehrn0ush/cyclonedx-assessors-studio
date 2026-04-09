@@ -1,5 +1,5 @@
 /**
- * Admin encryption management routes (spec 009).
+ * Admin encryption management routes.
  *
  * Provides endpoints for viewing encryption status and rotating
  * encryption key versions.
@@ -12,7 +12,6 @@ import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
 import {
   encryptionService,
   rotateKeyVersion,
-  loadKeyVersions,
   isEncryptedEnvelope,
 } from '../utils/encryption.js';
 

@@ -1,5 +1,5 @@
 /**
- * Webhook management API routes (spec 004).
+ * Webhook management API routes.
  *
  * Admin-only endpoints for creating, updating, deleting, testing,
  * and re-enabling webhook subscriptions, plus delivery log access.

@@ -1,6 +1,6 @@
 /**
  * Event catalog: the single source of truth for every domain event in
- * the application (spec 003).
+ * the application.
  *
  * Each event has a dot-separated type string ({domain}.{action}) and
  * belongs to a category used for notification rule grouping.

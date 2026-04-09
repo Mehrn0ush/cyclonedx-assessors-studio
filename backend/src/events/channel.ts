@@ -1,5 +1,5 @@
 /**
- * Notification channel abstraction (spec 003).
+ * Notification channel abstraction.
  *
  * Every delivery channel (in-app, email, webhook, chat) implements
  * this interface. The channel registry manages their lifecycle and

@@ -2,12 +2,10 @@ import { Router, Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { getConfig } from '../config/index.js';
 import { getDatabase } from '../db/connection.js';
 import { tryAuthenticate } from '../middleware/auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const config = getConfig();
 const router = Router();
 
 const serverStartTime = Date.now();
@@ -65,7 +63,7 @@ export function stopHealthChecks(): void {
  * Unauthenticated callers receive a simple status check (liveness probe).
  * Authenticated callers receive version, uptime, and database status
  * (readiness probe). Detailed system metrics are now served via the
- * Prometheus endpoint at /metrics (spec 007).
+ * Prometheus endpoint at /metrics.
  */
 router.get('/', async (req: Request, res: Response) => {
   const user = await tryAuthenticate(req as any);

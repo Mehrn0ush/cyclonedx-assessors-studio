@@ -1,5 +1,5 @@
 /**
- * Chat message formatters for Slack, Microsoft Teams, and Mattermost (spec 006).
+ * Chat message formatters for Slack, Microsoft Teams, and Mattermost.
  *
  * Each platform uses a different message structure:
  *   - Slack: Block Kit JSON

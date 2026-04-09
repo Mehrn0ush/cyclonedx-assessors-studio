@@ -1,5 +1,5 @@
 /**
- * User notification rules CRUD API (spec 008).
+ * User notification rules CRUD API.
  *
  * Routes for managing user-level notification rules.
  * Each user can only manage their own rules.

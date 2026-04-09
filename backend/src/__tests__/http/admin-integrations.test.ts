@@ -1,5 +1,5 @@
 /**
- * HTTP integration tests for admin integrations endpoints (spec 005).
+ * HTTP integration tests for admin integrations endpoints.
  */
 
 import { describe, it, expect } from 'vitest';

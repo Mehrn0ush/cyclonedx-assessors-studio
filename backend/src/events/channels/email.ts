@@ -1,5 +1,5 @@
 /**
- * Email notification channel (spec 005).
+ * Email notification channel.
  *
  * Sends emails via SMTP for events that have mapped templates.
  * Includes rate limiting (10 emails/sec), a 500 message queue cap,
@@ -183,7 +183,7 @@ export class EmailChannel implements NotificationChannel {
     try {
       const db = this.getDb();
 
-      // Resolve recipients using the shared resolver from spec 003
+      // Resolve recipients using the shared resolver
       const recipientIds = await resolveRecipients(envelope, db);
       if (recipientIds.length === 0) {
         logger.debug('No email recipients for event', { eventId: envelope.id });

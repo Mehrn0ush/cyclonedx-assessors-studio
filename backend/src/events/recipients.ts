@@ -1,9 +1,9 @@
 /**
- * Recipient resolution for in-app notifications (spec 003).
+ * Recipient resolution for in-app notifications.
  *
  * Each event type has a resolver that returns the user IDs who
  * should receive a notification. These hardcoded resolvers will
- * be replaced by the notification rules engine in spec 008.
+ * be replaced by the notification rules engine.
  */
 
 import type { Kysely } from 'kysely';
@@ -24,7 +24,7 @@ const resolvers: Record<string, RecipientResolver> = {};
  * evidence.state_changed: notify the author when approved/rejected,
  * or the reviewer when submitted for review.
  */
-resolvers['evidence.state_changed'] = async (envelope, db) => {
+resolvers['evidence.state_changed'] = async (envelope, _db) => {
   const { newState, authorId, reviewerId } = envelope.data as {
     newState?: string;
     authorId?: string;

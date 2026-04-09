@@ -44,17 +44,6 @@ async function isAssessmentParticipant(db: any, userId: string, userRole: string
   return !!assessee;
 }
 
-/**
- * Get the assessment ID from an assessment_requirement ID.
- */
-async function getAssessmentIdFromRequirement(db: any, assessmentRequirementId: string): Promise<string | null> {
-  const row = await db
-    .selectFrom('assessment_requirement')
-    .where('id', '=', assessmentRequirementId)
-    .select('assessment_id')
-    .executeTakeFirst();
-  return row?.assessment_id || null;
-}
 
 const createEvidenceSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -1173,7 +1162,7 @@ router.post(
       const attachments: any[] = [];
       let fileSizeLimitHit = false;
 
-      bb.on('file', async (fieldname, file, info) => {
+      bb.on('file', async (_fieldname, file, info) => {
         try {
           const attachmentId = uuidv4();
           const filename = info.filename;

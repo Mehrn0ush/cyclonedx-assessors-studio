@@ -1,5 +1,5 @@
 /**
- * Slack notification channel (spec 006).
+ * Slack notification channel.
  *
  * Sends event notifications to Slack channels via incoming webhooks
  * using Block Kit message format.

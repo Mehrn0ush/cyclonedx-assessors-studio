@@ -1,16 +1,14 @@
 /**
- * Unit tests for the webhook notification channel (spec 004).
+ * Unit tests for the webhook notification channel.
  *
  * Tests HMAC signature, delivery creation, retry logic, auto-disable,
  * wildcard subscriptions, and delivery cleanup.
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { computeSignature, WebhookChannel } from '../../events/webhook-channel.js';
-import { EventBus } from '../../events/event-bus.js';
-import { ChannelRegistry } from '../../events/channel-registry.js';
 import { CHANNEL_WEBHOOK_DISABLED, EVIDENCE_STATE_CHANGED } from '../../events/catalog.js';
 import type { EventEnvelope } from '../../events/types.js';
 import {
@@ -351,7 +349,7 @@ describe('WebhookChannel with database', () => {
 
     let disabledEventEmitted = false;
     const channel = new WebhookChannel(() => db);
-    channel.setEmitter((type, data) => {
+    channel.setEmitter((type, _data) => {
       if (type === CHANNEL_WEBHOOK_DISABLED) {
         disabledEventEmitted = true;
       }

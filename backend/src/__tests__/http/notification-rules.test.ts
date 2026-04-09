@@ -1,5 +1,5 @@
 /**
- * Integration tests for notification rules API (spec 008).
+ * Integration tests for notification rules API.
  *
  * Tests system rule CRUD, user rule CRUD, validation, user profile updates,
  * and rule evaluation against events.
@@ -9,7 +9,6 @@ import { describe, it, expect } from 'vitest';
 import {
   setupHttpTests,
   loginAs,
-  testUsers,
 } from '../helpers/http.js';
 
 setupHttpTests();

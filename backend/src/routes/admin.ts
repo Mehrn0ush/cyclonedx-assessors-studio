@@ -85,7 +85,7 @@ router.post(
       } else {
         // Database provider: verify a small round-trip write/read
         const db = getDatabase();
-        const testId = `_storage-test-${Date.now()}`;
+        const _testId = `_storage-test-${Date.now()}`;
 
         try {
           // Write a small value using a raw query
@@ -115,7 +115,7 @@ router.post(
 );
 
 // ---------------------------------------------------------------------------
-// SMTP / Email integrations (spec 005)
+// SMTP / Email integrations
 // ---------------------------------------------------------------------------
 
 /**

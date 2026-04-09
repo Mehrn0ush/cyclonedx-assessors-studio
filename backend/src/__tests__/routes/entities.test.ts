@@ -21,7 +21,7 @@ describe('Entities', () => {
     it('should create an entity with all fields', async () => {
       const db = getTestDatabase();
       const projectId = (await createTestProject()).id;
-      const entityId = uuidv4();
+      const _entityId = uuidv4();
 
       await db.selectFrom('project').where('id', '=', projectId).selectAll().executeTakeFirst();
 
@@ -52,7 +52,7 @@ describe('Entities', () => {
       const db = getTestDatabase();
       const project = await createTestProject();
 
-      const assessment = (await db.insertInto('assessment').values({
+      const _assessment = (await db.insertInto('assessment').values({
         id: uuidv4(),
         title: 'Test Assessment',
         project_id: project.id,

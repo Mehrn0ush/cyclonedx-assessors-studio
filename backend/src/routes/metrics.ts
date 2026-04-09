@@ -1,5 +1,5 @@
 /**
- * GET /metrics endpoint (spec 007).
+ * GET /metrics endpoint.
  *
  * Returns metrics in Prometheus exposition format. Supports optional
  * bearer token authentication via the METRICS_TOKEN environment variable.

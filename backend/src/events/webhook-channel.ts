@@ -1,5 +1,5 @@
 /**
- * Webhook notification channel (spec 004).
+ * Webhook notification channel.
  *
  * Fans out event envelopes to registered webhook subscriptions with
  * HMAC-SHA256 signed payloads, exponential backoff retries, and

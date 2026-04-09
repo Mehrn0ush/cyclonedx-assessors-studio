@@ -1,5 +1,5 @@
 /**
- * Unit and integration tests for the encryption at rest service (spec 009).
+ * Unit and integration tests for the encryption at rest service.
  *
  * Covers envelope encoding/decoding, encrypt/decrypt round trips,
  * passthrough mode, tamper detection, key rotation, and migration
@@ -16,9 +16,7 @@ import {
   _resetForTesting,
   _setKeyVersionForTesting,
   initializeEncryption,
-  loadKeyVersions,
   rotateKeyVersion,
-  ensureKeyVersion,
 } from '../../utils/encryption.js';
 import {
   setupTestDb,
@@ -286,7 +284,7 @@ describe('Encryption with Database Integration', () => {
     }).execute();
 
     // Note the current key version in the envelope
-    const parsedBefore = parseEnvelope(encryptedSecret);
+    const _parsedBefore = parseEnvelope(encryptedSecret);
 
     // Rotate to a new key version
     const newVersion = await rotateKeyVersion(db);

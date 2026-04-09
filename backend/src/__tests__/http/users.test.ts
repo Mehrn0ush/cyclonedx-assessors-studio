@@ -191,7 +191,7 @@ describe('Users Routes (HTTP Integration)', () => {
     });
 
     it('should be accessible to any authenticated user', async () => {
-      const adminAgent = await loginAs('admin');
+      const _adminAgent = await loginAs('admin');
       const adminId = testUsers.admin.id;
 
       const assessorRes = await (await loginAs('assessor')).get(`/api/v1/users/${adminId}`);

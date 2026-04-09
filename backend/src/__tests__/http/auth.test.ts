@@ -581,7 +581,7 @@ describe('Auth Routes (HTTP Integration)', () => {
 
     it('should allow updating other users do not see the change until re-login', async () => {
       const agent = await loginAs('assessee');
-      const originalName = testUsers.assessee.id;
+      const _originalName = testUsers.assessee.id;
 
       const res = await agent
         .put('/api/v1/auth/profile')

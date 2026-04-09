@@ -1,5 +1,5 @@
 /**
- * Base class for chat notification channels (spec 006).
+ * Base class for chat notification channels.
  *
  * Shared delivery, retry, and auto-disable logic for Slack, Teams,
  * and Mattermost. Each platform subclass provides:

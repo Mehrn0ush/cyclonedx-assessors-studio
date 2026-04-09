@@ -570,7 +570,7 @@ describe('Business Logic - Claims, Assessments, and API Keys', () => {
     it('should enforce key uniqueness by hash', async () => {
       const db = getTestDatabase();
       const user1 = await createTestUser();
-      const user2 = await createTestUser();
+      const _user2 = await createTestUser();
       const duplicateHash = 'duplicate_hash_' + uuidv4();
 
       // Insert first key
@@ -700,7 +700,7 @@ describe('Business Logic - Claims, Assessments, and API Keys', () => {
     it('should prevent non-admin from creating keys for other users', async () => {
       const db = getTestDatabase();
       const regularUser = await createTestUser({ role: 'assessee' });
-      const otherUser = await createTestUser();
+      const _otherUser = await createTestUser();
 
       // Regular user can only create keys for themselves
       // This is enforced in the route logic:

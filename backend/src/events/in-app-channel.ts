@@ -1,8 +1,8 @@
 /**
- * In-app notification channel (spec 003).
+ * In-app notification channel.
  *
- * Thin wrapper for creating in-app notifications. In spec 008, the rules
- * engine handles recipient resolution and calls deliverToUser() directly.
+ * Thin wrapper for creating in-app notifications. The rules engine
+ * handles recipient resolution and calls deliverToUser() directly.
  * This channel also supports the old hardcoded recipient resolution for
  * backwards compatibility.
  */

@@ -313,7 +313,7 @@ describe('Evidence Authorization Business Logic', () => {
       const evidence = await createTestEvidence(author.id);
 
       // Create link
-      const linkId = uuidv4();
+      const _linkId = uuidv4();
       await db
         .insertInto('assessment_requirement_evidence')
         .values({
@@ -455,7 +455,7 @@ describe('Evidence Authorization Business Logic', () => {
 
     it('should unlink evidence from assessment requirement', async () => {
       const db = getTestDatabase();
-      const user = await createTestUser();
+      const _user = await createTestUser();
       const author = await createTestUser();
       const project = await createTestProject();
       const assessment = await createTestAssessment(project.id);
@@ -952,7 +952,7 @@ describe('Evidence Authorization Business Logic', () => {
         .execute();
 
       // Reject evidence
-      const result = await db
+      const _result = await db
         .updateTable('evidence')
         .set({
           state: 'in_progress',
@@ -1022,7 +1022,7 @@ describe('Evidence Authorization Business Logic', () => {
       const evidence = await createTestEvidence(author.id, { state: 'claimed' });
 
       // Try to update claimed evidence
-      const result = await db
+      const _result = await db
         .updateTable('evidence')
         .set({
           name: 'Updated Name',

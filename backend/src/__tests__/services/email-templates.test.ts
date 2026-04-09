@@ -1,5 +1,5 @@
 /**
- * Unit tests for email templates (spec 005).
+ * Unit tests for email templates.
  *
  * Verifies subject, body content, link construction, and footer
  * rendering for every mapped event type.

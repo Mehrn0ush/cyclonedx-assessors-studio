@@ -107,7 +107,7 @@ export function createApp() {
   // Request middleware
   app.use(requestIdMiddleware);
 
-  // Prometheus metrics instrumentation (spec 007)
+  // Prometheus metrics instrumentation
   const metricsConfig = getConfig();
   if (metricsConfig.METRICS_ENABLED) {
     app.use(metricsMiddleware);
@@ -146,11 +146,11 @@ export function createApp() {
   // Health check
   app.use('/api/health', healthRoutes);
 
-  // Prometheus metrics endpoint (spec 007)
+  // Prometheus metrics endpoint
   app.use('/metrics', metricsRoutes);
 
   // OpenAPI specification
-  app.get('/api/openapi.json', (req: Request, res: Response) => {
+  app.get('/api/openapi.json', (_req: Request, res: Response) => {
     res.json(getOpenAPISpec());
   });
 
@@ -198,13 +198,13 @@ export function createApp() {
       res.sendFile(path.join(frontendDistPath, 'index.html'));
     });
   } else {
-    app.use((req: Request, res: Response) => {
+    app.use((_req: Request, res: Response) => {
       res.status(404).json({ error: 'Not found' });
     });
   }
 
   // Error handling
-  app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
+  app.use((error: Error, req: Request, res: Response, _next: NextFunction) => {
     logger.error('Unhandled error', {
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,

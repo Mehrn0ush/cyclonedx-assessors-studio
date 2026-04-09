@@ -156,7 +156,7 @@ describe('Projects', () => {
 
   it('should enforce valid project states', async () => {
     const db = getTestDatabase();
-    const projectId = uuidv4();
+    const _projectId = uuidv4();
 
     const validStates = ['new', 'in_progress', 'on_hold', 'complete', 'operational', 'retired'];
 

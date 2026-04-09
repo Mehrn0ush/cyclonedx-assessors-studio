@@ -63,8 +63,8 @@ describe('Standards', () => {
     const db = getTestDatabase();
     const standard = await createTestStandard();
 
-    const req1 = await createTestRequirement(standard.id, { name: 'Requirement 1' });
-    const req2 = await createTestRequirement(standard.id, { name: 'Requirement 2' });
+    const _req1 = await createTestRequirement(standard.id, { name: 'Requirement 1' });
+    const _req2 = await createTestRequirement(standard.id, { name: 'Requirement 2' });
 
     const requirements = await db.selectFrom('requirement')
       .where('standard_id', '=', standard.id)
@@ -98,9 +98,9 @@ describe('Standards', () => {
     const db = getTestDatabase();
     const standard = await createTestStandard();
 
-    const level1 = await createTestLevel(standard.id, { identifier: 'L1', title: 'Level 1' });
-    const level2 = await createTestLevel(standard.id, { identifier: 'L2', title: 'Level 2' });
-    const level3 = await createTestLevel(standard.id, { identifier: 'L3', title: 'Level 3' });
+    const _level1 = await createTestLevel(standard.id, { identifier: 'L1', title: 'Level 1' });
+    const _level2 = await createTestLevel(standard.id, { identifier: 'L2', title: 'Level 2' });
+    const _level3 = await createTestLevel(standard.id, { identifier: 'L3', title: 'Level 3' });
 
     const levels = await db.selectFrom('level')
       .where('standard_id', '=', standard.id)
@@ -119,7 +119,7 @@ describe('Standards', () => {
 
     const req1 = await createTestRequirement(standard.id, { name: 'Req 1' });
     const req2 = await createTestRequirement(standard.id, { name: 'Req 2' });
-    const req3 = await createTestRequirement(standard.id, { name: 'Req 3' });
+    const _req3 = await createTestRequirement(standard.id, { name: 'Req 3' });
 
     const level1 = await createTestLevel(standard.id, { identifier: 'L1' });
     const level2 = await createTestLevel(standard.id, { identifier: 'L2' });
@@ -162,11 +162,11 @@ describe('Standards', () => {
       name: 'Child 1',
       parentId: root.id,
     });
-    const child2 = await createTestRequirement(standard.id, {
+    const _child2 = await createTestRequirement(standard.id, {
       name: 'Child 2',
       parentId: root.id,
     });
-    const grandchild = await createTestRequirement(standard.id, {
+    const _grandchild = await createTestRequirement(standard.id, {
       name: 'Grandchild',
       parentId: child1.id,
     });
@@ -186,7 +186,7 @@ describe('Standards', () => {
   });
 
   it('should enforce unique identifier within a standard', async () => {
-    const db = getTestDatabase();
+    const _db = getTestDatabase();
     const standard = await createTestStandard();
 
     await createTestRequirement(standard.id, { identifier: 'REQ-1' });
@@ -227,8 +227,8 @@ describe('Standards', () => {
     const db = getTestDatabase();
     const standard = await createTestStandard();
 
-    const req1 = await createTestRequirement(standard.id);
-    const req2 = await createTestRequirement(standard.id);
+    const _req1 = await createTestRequirement(standard.id);
+    const _req2 = await createTestRequirement(standard.id);
 
     await db.deleteFrom('standard')
       .where('id', '=', standard.id)

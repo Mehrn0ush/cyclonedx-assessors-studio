@@ -1,5 +1,5 @@
 /**
- * Notification Rules Engine (spec 008).
+ * Notification Rules Engine.
  *
  * Evaluates notification rules against events to determine which users
  * should receive notifications via which channels. Replaces hardcoded

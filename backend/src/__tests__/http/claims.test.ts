@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   setupHttpTests,
   loginAs,
-  testUsers,
 } from '../helpers/http.js';
 
 describe('Claims HTTP Routes', () => {
@@ -173,8 +172,8 @@ describe('Claims HTTP Routes', () => {
     });
 
     it('should require authentication', async () => {
-      const agent = await loginAs('admin');
-      const { closeDatabase } = await import('../../db/connection.js');
+      const _agent = await loginAs('admin');
+      const { closeDatabase: _closeDatabase } = await import('../../db/connection.js');
 
       // Make a fresh unauthenticated request
       const { getAgent } = await import('../helpers/http.js');

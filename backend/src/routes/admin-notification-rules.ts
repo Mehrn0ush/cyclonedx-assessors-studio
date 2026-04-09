@@ -1,5 +1,5 @@
 /**
- * Admin notification rules CRUD API (spec 008).
+ * Admin notification rules CRUD API.
  *
  * Routes for managing system-level notification rules.
  * All routes require admin role.
@@ -11,7 +11,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
-import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
 

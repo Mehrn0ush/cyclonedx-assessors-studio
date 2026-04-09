@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import {
   setupTestDb,
   teardownTestDb,
@@ -10,8 +8,6 @@ import {
   createTestEvidence,
   getTestDatabase,
 } from '../helpers/setup.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ---------------------------------------------------------------------------
 // DatabaseStorageProvider

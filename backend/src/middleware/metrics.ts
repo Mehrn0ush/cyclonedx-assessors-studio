@@ -1,5 +1,5 @@
 /**
- * Express middleware for HTTP request metrics instrumentation (spec 007).
+ * Express middleware for HTTP request metrics instrumentation.
  *
  * Wraps every request to collect counters and histograms for request
  * rate, latency, and body sizes. The `route` label uses the Express

@@ -1,5 +1,5 @@
 /**
- * Encryption at rest service (spec 009).
+ * Encryption at rest service.
  *
  * Provides envelope encryption with AES-256-GCM, HKDF-SHA-512 key derivation,
  * and quantum-resistant symmetric-only primitives. No RSA, ECDH, or other
@@ -181,13 +181,6 @@ function getMasterKey(): Buffer | null {
 function deriveKEK(masterKey: Buffer, salt: Buffer, keyVersion: number): Buffer {
   const info = `assessors-studio-kek-v${keyVersion}`;
   return crypto.hkdfSync(HKDF_HASH, masterKey, salt, info, HKDF_KEY_LENGTH) as unknown as Buffer;
-}
-
-/**
- * Derive a KEK from an arbitrary master key (used during MEK rotation).
- */
-function deriveKEKWithKey(masterKey: Buffer, salt: Buffer, keyVersion: number): Buffer {
-  return deriveKEK(masterKey, salt, keyVersion);
 }
 
 // ---------------------------------------------------------------------------

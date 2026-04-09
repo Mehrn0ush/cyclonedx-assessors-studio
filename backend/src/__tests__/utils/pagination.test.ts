@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { validatePagination, paginationSchema } from '../../utils/pagination.js';
-import { z } from 'zod';
 
 describe('Pagination Utils', () => {
   describe('paginationSchema', () => {

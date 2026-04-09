@@ -1,11 +1,11 @@
 /**
- * Unit tests for the event system (spec 003).
+ * Unit tests for the event system.
  *
  * Tests the event bus, catalog, channel registry, and in-app channel
  * in isolation using PGlite.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { EventBus } from '../../events/event-bus.js';
 import { ChannelRegistry } from '../../events/channel-registry.js';
 import { InAppChannel } from '../../events/in-app-channel.js';
@@ -26,7 +26,6 @@ import {
   createTestUser,
   createTestProject,
   createTestAssessment,
-  createTestEvidence,
 } from '../helpers/setup.js';
 
 describe('Event Catalog', () => {

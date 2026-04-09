@@ -213,7 +213,7 @@ describe('CamelCase Middleware', () => {
     it('should wrap res.json to transform response', () => {
       const mockReq = {} as Request;
       const mockRes = {
-        json: function (body: any) {
+        json: function (_body: any) {
           return this;
         },
       } as any as Response;
@@ -228,7 +228,7 @@ describe('CamelCase Middleware', () => {
     it('should call next function', () => {
       const mockReq = {} as Request;
       const mockRes = {
-        json: function (body: any) {
+        json: function (_body: any) {
           return this;
         },
       } as any as Response;

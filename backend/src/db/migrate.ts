@@ -655,7 +655,7 @@ ALTER TABLE entity_relationship ADD CONSTRAINT entity_relationship_relationship_
   CHECK(relationship_type IN ('owns', 'supplies', 'depends_on', 'governs', 'contains', 'consumes', 'assesses', 'produces'));
 
 -- =====================================================================
--- Evidence Storage Abstraction (spec 002)
+-- Evidence Storage Abstraction
 -- =====================================================================
 
 -- Add storage_provider column to track where each attachment is stored
@@ -683,7 +683,7 @@ UPDATE evidence_attachment
     AND storage_provider = 'database';
 
 -- =====================================================================
--- Webhook Notification Channel (spec 004)
+-- Webhook Notification Channel
 -- =====================================================================
 
 CREATE TABLE IF NOT EXISTS webhook (
@@ -719,7 +719,7 @@ CREATE INDEX IF NOT EXISTS idx_webhook_delivery_webhook ON webhook_delivery(webh
 CREATE INDEX IF NOT EXISTS idx_webhook_delivery_status ON webhook_delivery(status, next_retry_at);
 
 -- =====================================================================
--- Chat Notification Channels (spec 006)
+-- Chat Notification Channels
 -- =====================================================================
 
 -- User chat identity fields for direct message delivery
@@ -763,7 +763,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_delivery_integration ON chat_delivery(integr
 CREATE INDEX IF NOT EXISTS idx_chat_delivery_status ON chat_delivery(status, next_retry_at);
 
 -- =====================================================================
--- Notification Rules Engine (spec 008)
+-- Notification Rules Engine
 -- =====================================================================
 
 -- Add email_notifications opt-in flag to app_user
@@ -790,7 +790,7 @@ CREATE INDEX IF NOT EXISTS idx_notification_rule_user ON notification_rule(user_
 CREATE INDEX IF NOT EXISTS idx_notification_rule_enabled ON notification_rule(enabled);
 
 -- =====================================================================
--- Encryption at Rest (spec 009)
+-- Encryption at Rest
 -- =====================================================================
 
 CREATE TABLE IF NOT EXISTS encryption_key_version (

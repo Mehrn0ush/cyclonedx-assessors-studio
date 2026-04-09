@@ -1,8 +1,8 @@
 /**
- * HTTP integration tests for the Prometheus metrics endpoint (spec 007).
+ * HTTP integration tests for the Prometheus metrics endpoint.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { setupHttpTests, loginAs } from '../helpers/http.js';
 
 describe('Prometheus Metrics Endpoint', () => {

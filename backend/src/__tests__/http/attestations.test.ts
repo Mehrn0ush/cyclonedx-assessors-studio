@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   setupHttpTests,
   loginAs,
-  testUsers,
 } from '../helpers/http.js';
 
 describe('Attestations HTTP Routes', () => {

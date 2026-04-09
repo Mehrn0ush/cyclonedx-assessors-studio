@@ -1,5 +1,5 @@
 /**
- * Prometheus metrics registry and catalog (spec 007).
+ * Prometheus metrics registry and catalog.
  *
  * Uses prom-client to define application level metrics. The registry
  * is a singleton; all metric objects are created once and reused

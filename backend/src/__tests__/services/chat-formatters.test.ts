@@ -1,5 +1,5 @@
 /**
- * Unit tests for chat message formatters (spec 006).
+ * Unit tests for chat message formatters.
  */
 
 import { describe, it, expect } from 'vitest';

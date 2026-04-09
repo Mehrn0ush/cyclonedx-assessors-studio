@@ -98,12 +98,12 @@ describe('Standard Export', () => {
       identifier: 'REQ-1',
       name: 'Parent',
     });
-    const child1 = await createTestRequirement(standard.id, {
+    const _child1 = await createTestRequirement(standard.id, {
       identifier: 'REQ-2',
       name: 'Child 1',
       parentId: parent.id,
     });
-    const child2 = await createTestRequirement(standard.id, {
+    const _child2 = await createTestRequirement(standard.id, {
       identifier: 'REQ-10',
       name: 'Child 2',
       parentId: parent.id,
@@ -178,12 +178,12 @@ describe('Standard Export', () => {
   it('should handle OpenCRE references', async () => {
     const standard = await createTestStandard();
 
-    const req1 = await createTestRequirement(standard.id, {
+    const _req1 = await createTestRequirement(standard.id, {
       identifier: 'REQ-WITH-CRE',
       open_cre: 'CRE:123',
     });
 
-    const req2 = await createTestRequirement(standard.id, {
+    const _req2 = await createTestRequirement(standard.id, {
       identifier: 'REQ-WITH-MULTIPLE',
       open_cre: 'CRE:456, CRE:789',
     });
@@ -202,9 +202,9 @@ describe('Standard Export', () => {
   it('should export levels sorted by identifier', async () => {
     const standard = await createTestStandard();
 
-    const level3 = await createTestLevel(standard.id, { identifier: 'L3' });
-    const level1 = await createTestLevel(standard.id, { identifier: 'L1' });
-    const level2 = await createTestLevel(standard.id, { identifier: 'L2' });
+    const _level3 = await createTestLevel(standard.id, { identifier: 'L3' });
+    const _level1 = await createTestLevel(standard.id, { identifier: 'L1' });
+    const _level2 = await createTestLevel(standard.id, { identifier: 'L2' });
 
     const jsonStr = await generateStandardCycloneDX(standard.id);
     const bom = JSON.parse(jsonStr);
@@ -244,7 +244,7 @@ describe('Standard Export', () => {
     const req2 = await createTestRequirement(standard.id, {
       identifier: 'REQ-2',
     });
-    const req3 = await createTestRequirement(standard.id, {
+    const _req3 = await createTestRequirement(standard.id, {
       identifier: 'REQ-3',
     });
 

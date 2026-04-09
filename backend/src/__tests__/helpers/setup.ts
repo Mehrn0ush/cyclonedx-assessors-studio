@@ -1,7 +1,5 @@
 import { Kysely } from 'kysely';
 import { KyselyPGlite } from 'kysely-pglite';
-import { runMigrations } from '../../db/migrate.js';
-import { seedDefaultRolesAndPermissions } from '../../db/seed.js';
 import { hashPassword } from '../../utils/crypto.js';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
@@ -472,7 +470,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
 -- Add role_id column to app_user for new RBAC system
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS role_id UUID REFERENCES role(id) ON DELETE SET NULL;
 
--- Webhook tables (spec 004)
+-- Webhook tables
 CREATE TABLE IF NOT EXISTS webhook (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
@@ -502,7 +500,7 @@ CREATE TABLE IF NOT EXISTS webhook_delivery (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Encryption at Rest (spec 009)
+-- Encryption at Rest
 CREATE TABLE IF NOT EXISTS encryption_key_version (
   version INTEGER PRIMARY KEY,
   salt TEXT NOT NULL,

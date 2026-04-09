@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../db/connection.js';
-import { logger } from '../utils/logger.js';
 
 let setupComplete: boolean | null = null;
 

@@ -384,7 +384,7 @@ describe('Assessments', () => {
     it('should delete assessments when project is deleted', async () => {
       const db = getTestDatabase();
       const project = await createTestProject();
-      const assessment = await createTestAssessment(project.id);
+      const _assessment = await createTestAssessment(project.id);
 
       await db.deleteFrom('project').where('id', '=', project.id).execute();
 
@@ -400,7 +400,7 @@ describe('Assessments', () => {
       const db = getTestDatabase();
       const project = await createTestProject();
       const assessmentId = uuidv4();
-      const now = new Date();
+      const _now = new Date();
 
       await db.insertInto('assessment').values({
         id: assessmentId,

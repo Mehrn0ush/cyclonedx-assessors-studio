@@ -146,7 +146,7 @@ describe('Notifications HTTP Routes', () => {
     });
 
     it('should return 403 if not user\'s notification', async () => {
-      const adminAgent = await loginAs('admin');
+      const _adminAgent = await loginAs('admin');
       const assessorAgent = await loginAs('assessor');
 
       // Try to mark someone else's (non-existent) notification as read

@@ -29,7 +29,7 @@ const envSchema = z.object({
   // Application URL (required for external notification channels)
   APP_URL: z.string().default('http://localhost:5173'),
 
-  // Email / SMTP channel (spec 005)
+  // Email / SMTP channel
   SMTP_ENABLED: z.coerce.boolean().default(false),
   SMTP_HOST: z.string().default(''),
   SMTP_PORT: z.coerce.number().int().default(587),
@@ -39,24 +39,24 @@ const envSchema = z.object({
   SMTP_FROM: z.string().default(''),
   SMTP_TLS_REJECT_UNAUTHORIZED: z.coerce.boolean().default(true),
 
-  // Webhook channel (spec 004)
+  // Webhook channel
   WEBHOOK_ENABLED: z.coerce.boolean().default(true),
   WEBHOOK_TIMEOUT: z.coerce.number().int().positive().default(10000),
   WEBHOOK_MAX_RETRIES: z.coerce.number().int().positive().default(5),
   WEBHOOK_DELIVERY_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
 
-  // Chat channels (spec 006)
+  // Chat channels
   SLACK_ENABLED: z.coerce.boolean().default(false),
   TEAMS_ENABLED: z.coerce.boolean().default(false),
   MATTERMOST_ENABLED: z.coerce.boolean().default(false),
   CHAT_TIMEOUT: z.coerce.number().int().positive().default(10000),
   CHAT_DELIVERY_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
 
-  // Encryption at rest (spec 009)
+  // Encryption at rest
   MASTER_ENCRYPTION_KEY: z.string().default(''),
   REQUIRE_ENCRYPTION: z.coerce.boolean().default(false),
 
-  // Prometheus metrics (spec 007)
+  // Prometheus metrics
   METRICS_ENABLED: z.coerce.boolean().default(true),
   METRICS_TOKEN: z.string().default(''),
   METRICS_PREFIX: z.string().default('cdxa_'),

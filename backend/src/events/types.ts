@@ -1,5 +1,5 @@
 /**
- * Core types for the event system (spec 003).
+ * Core types for the event system.
  */
 
 /**

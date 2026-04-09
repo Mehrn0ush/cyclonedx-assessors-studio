@@ -310,7 +310,7 @@ describe('Roles and Permissions', () => {
       is_system: false,
     }).execute();
 
-    const tempRoleId = (customRole as any).id || uuidv4();
+    const _tempRoleId = (customRole as any).id || uuidv4();
 
     const created = await db.selectFrom('role')
       .where('key', '=', 'temp_role')

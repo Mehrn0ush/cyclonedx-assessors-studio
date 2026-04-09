@@ -1,5 +1,5 @@
 /**
- * Integration tests for the admin storage endpoints (spec 002).
+ * Integration tests for the admin storage endpoints.
  */
 import { describe, it, expect } from 'vitest';
 import { setupHttpTests, loginAs } from '../helpers/http.js';
