@@ -1,9 +1,10 @@
 /**
  * In-app notification channel (spec 003).
  *
- * Wraps the existing notification table and replaces direct
- * createNotification() calls. For each event, resolves recipients
- * and creates a notification record per recipient.
+ * Thin wrapper for creating in-app notifications. In spec 008, the rules
+ * engine handles recipient resolution and calls deliverToUser() directly.
+ * This channel also supports the old hardcoded recipient resolution for
+ * backwards compatibility.
  */
 
 import { v4 as uuidv4 } from 'uuid';
@@ -130,31 +131,40 @@ export class InAppChannel implements NotificationChannel {
       return;
     }
 
+    for (const userId of recipients) {
+      await this.deliverToUser(envelope, userId);
+    }
+  }
+
+  /**
+   * Deliver an in-app notification to a specific user.
+   * Called by the rules engine when a rule matches.
+   */
+  async deliverToUser(envelope: EventEnvelope, userId: string): Promise<void> {
+    const db = this.getDb();
     const title = buildTitle(envelope);
     const message = buildMessage(envelope);
     const link = buildLink(envelope);
 
-    for (const userId of recipients) {
-      try {
-        await db
-          .insertInto('notification')
-          .values({
-            id: uuidv4(),
-            user_id: userId,
-            type: envelope.type.replace(/\./g, '_'),
-            title,
-            message,
-            link: link || undefined,
-            is_read: false,
-          })
-          .execute();
-      } catch (error) {
-        logger.error('Failed to create in-app notification', {
-          eventId: envelope.id,
-          userId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
+    try {
+      await db
+        .insertInto('notification')
+        .values({
+          id: uuidv4(),
+          user_id: userId,
+          type: envelope.type.replace(/\./g, '_'),
+          title,
+          message,
+          link: link || undefined,
+          is_read: false,
+        })
+        .execute();
+    } catch (error) {
+      logger.error('Failed to create in-app notification', {
+        eventId: envelope.id,
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

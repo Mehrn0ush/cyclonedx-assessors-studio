@@ -158,6 +158,12 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAuth: true, requiresRole: 'admin' }
   },
   {
+    path: '/admin/notification-rules',
+    name: 'AdminNotificationRules',
+    component: () => import('@/views/AdminNotificationRulesView.vue'),
+    meta: { requiresAuth: true, requiresRole: 'admin' }
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: () => import('@/views/SettingsView.vue'),

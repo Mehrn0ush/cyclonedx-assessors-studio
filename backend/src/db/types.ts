@@ -136,7 +136,23 @@ export interface AppUser {
   slack_user_id?: string | null;
   teams_user_id?: string | null;
   mattermost_username?: string | null;
+  email_notifications?: boolean;
   last_login_at?: Date | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface NotificationRule {
+  id: Generated<string>;
+  name: string;
+  scope: 'system' | 'user';
+  user_id?: string | null;
+  channel: 'in_app' | 'email' | 'slack' | 'teams' | 'mattermost' | 'webhook';
+  event_types: any; // JSONB: string[]
+  filters: any; // JSONB: Record<string, any>
+  destination: any; // JSONB: channel-specific config
+  enabled: boolean;
+  created_by?: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -723,4 +739,8 @@ export interface Database {
   chat_delivery: Selectable<ChatDelivery>;
   chat_delivery_insert: Insertable<ChatDelivery>;
   chat_delivery_update: Updateable<ChatDelivery>;
+
+  notification_rule: Selectable<NotificationRule>;
+  notification_rule_insert: Insertable<NotificationRule>;
+  notification_rule_update: Updateable<NotificationRule>;
 }

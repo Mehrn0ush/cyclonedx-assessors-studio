@@ -80,6 +80,135 @@
         </el-form>
       </el-card>
 
+      <!-- Chat Identities Section -->
+      <el-card class="settings-card">
+        <template #header>
+          <span>{{ t('settings.chatIdentities.title') }}</span>
+        </template>
+
+        <el-form :model="chatIdentities" label-width="150px">
+          <el-form-item :label="t('settings.chatIdentities.slackMemberId')">
+            <div class="help-input-wrapper">
+              <el-input
+                v-model="chatIdentities.slackUserId"
+                :placeholder="t('settings.chatIdentities.slackMemberIdPlaceholder')"
+              />
+              <el-popover trigger="hover" :width="280" :content="t('settings.chatIdentities.slackMemberIdHelp')" />
+              <el-button link type="info" style="margin-left: var(--cat-spacing-2)">?</el-button>
+            </div>
+          </el-form-item>
+
+          <el-form-item :label="t('settings.chatIdentities.teamUserId')">
+            <div class="help-input-wrapper">
+              <el-input
+                v-model="chatIdentities.teamsUserId"
+                :placeholder="t('settings.chatIdentities.teamUserIdPlaceholder')"
+              />
+              <el-button link type="info" style="margin-left: var(--cat-spacing-2)">?</el-button>
+            </div>
+          </el-form-item>
+
+          <el-form-item :label="t('settings.chatIdentities.mattermostUsername')">
+            <div class="help-input-wrapper">
+              <el-input
+                v-model="chatIdentities.mattermostUsername"
+                :placeholder="t('settings.chatIdentities.mattermostUsernamePlaceholder')"
+              />
+              <el-button link type="info" style="margin-left: var(--cat-spacing-2)">?</el-button>
+            </div>
+          </el-form-item>
+
+          <el-form-item :label="t('settings.chatIdentities.emailNotifications')">
+            <el-switch v-model="chatIdentities.emailNotificationsEnabled" />
+          </el-form-item>
+
+          <el-form-item>
+            <el-button type="primary" :loading="savingChatIdentities" @click="handleSaveChatIdentities">{{ t('common.save') }}</el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+      <!-- Notification Rules Section -->
+      <el-card class="settings-card">
+        <template #header>
+          <span>{{ t('settings.notificationRules.title') }}</span>
+        </template>
+
+        <div class="notification-rules-wrapper">
+          <!-- Warning banner if Slack DM selected but no Slack ID -->
+          <el-alert
+            v-if="showSlackWarning"
+            :title="t('settings.notificationRules.slackWarning')"
+            type="warning"
+            :closable="false"
+            style="margin-bottom: var(--cat-spacing-4)"
+          >
+            <RouterLink to="/settings">{{ t('settings.notificationRules.configureChatIdentities') }}</RouterLink>
+          </el-alert>
+
+          <div class="rules-header">
+            <el-button type="primary" size="small" @click="openUserRuleDialog">{{ t('settings.notificationRules.addRule') }}</el-button>
+          </div>
+
+          <div v-if="userRulesLoading" class="loading-container">
+            <el-icon class="is-loading" :size="20"><Loading /></el-icon>
+            <span>{{ t('common.loading') }}</span>
+          </div>
+
+          <div v-else-if="userRules.length === 0" class="empty-state-small">
+            <p>{{ t('settings.notificationRules.noRules') }}</p>
+          </div>
+
+          <el-table v-else :data="userRules" stripe border style="margin-top: var(--cat-spacing-3)">
+            <el-table-column prop="name" :label="t('common.name')" min-width="140" />
+            <el-table-column :label="t('notificationRules.channel')" min-width="100">
+              <template #default="{ row }">
+                <el-tag>{{ t(`settings.notificationRules.channels.${row.channel}`) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('notificationRules.eventTypes')" min-width="150">
+              <template #default="{ row }">
+                <div class="event-types-cell">
+                  <el-tag
+                    v-for="eventType in (row.eventTypes || row.event_types || []).slice(0, 2)"
+                    :key="eventType"
+                    size="small"
+                    style="margin-right: 4px"
+                  >
+                    {{ eventType }}
+                  </el-tag>
+                  <el-tag
+                    v-if="(row.eventTypes || row.event_types || []).length > 2"
+                    size="small"
+                  >
+                    +{{ (row.eventTypes || row.event_types || []).length - 2 }}
+                  </el-tag>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('notificationRules.filters')" min-width="120">
+              <template #default="{ row }">
+                {{ formatUserRuleFilters(row) }}
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('common.status')" min-width="100">
+              <template #default="{ row }">
+                <el-switch
+                  v-model="row.enabled"
+                  @change="handleToggleUserRuleEnabled(row)"
+                />
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('common.actions')" min-width="140">
+              <template #default="{ row }">
+                <el-button link type="primary" size="small" @click="openUserRuleDialog(row)">{{ t('common.edit') }}</el-button>
+                <el-button link type="danger" size="small" @click="handleDeleteUserRule(row)">{{ t('common.delete') }}</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </el-card>
+
       <!-- Session Management -->
       <el-card class="settings-card">
         <template #header>
@@ -99,19 +228,128 @@
         <el-button type="danger" style="margin-top: var(--cat-spacing-4)" @click="handleLogoutAll">{{ t('settings.logoutAllSessions') }}</el-button>
       </el-card>
     </div>
+
+    <!-- User Notification Rule Dialog -->
+    <el-dialog
+      v-model="showUserRuleDialog"
+      :title="editingUserRuleId ? t('settings.notificationRules.editRule') : t('settings.notificationRules.createRule')"
+      width="650px"
+      @close="editingUserRuleId = null"
+    >
+      <el-form :model="userRuleForm" label-width="140px">
+        <!-- Rule Name -->
+        <el-form-item :label="t('common.name')" required>
+          <el-input
+            v-model="userRuleForm.name"
+            :placeholder="t('settings.notificationRules.namePlaceholder')"
+          />
+        </el-form-item>
+
+        <!-- Channel -->
+        <el-form-item :label="t('notificationRules.channel')" required>
+          <el-select v-model="userRuleForm.channel">
+            <el-option label="In App" value="in-app" />
+            <el-option label="Email" value="email" />
+            <el-option label="Slack DM" value="slack-dm" />
+            <el-option label="Teams DM" value="teams-dm" />
+            <el-option label="Mattermost DM" value="mattermost-dm" />
+          </el-select>
+        </el-form-item>
+
+        <!-- Event Types -->
+        <el-form-item :label="t('notificationRules.eventTypes')" required>
+          <el-select v-model="userRuleForm.eventTypes" multiple placeholder="Select event types">
+            <el-option-group
+              v-for="(eventTypeGroup, category) in userRuleEventTypes"
+              :key="category"
+              :label="category"
+            >
+              <el-option
+                v-for="eventType in eventTypeGroup"
+                :key="eventType"
+                :label="eventType"
+                :value="eventType"
+              />
+            </el-option-group>
+          </el-select>
+        </el-form-item>
+
+        <!-- Filters -->
+        <el-form-item :label="t('settings.notificationRules.filterMyContent')">
+          <div class="filter-toggles">
+            <el-checkbox v-model="userRuleForm.onlyMyAssessments">{{ t('settings.notificationRules.onlyMyAssessments') }}</el-checkbox>
+            <el-checkbox v-model="userRuleForm.onlyMyEvidence">{{ t('settings.notificationRules.onlyMyEvidence') }}</el-checkbox>
+            <el-checkbox v-model="userRuleForm.onlyMyProjects">{{ t('settings.notificationRules.onlyMyProjects') }}</el-checkbox>
+          </div>
+        </el-form-item>
+
+        <!-- Specific Filters -->
+        <el-form-item :label="t('settings.notificationRules.specificFilters')">
+          <div class="specific-filters">
+            <div class="filter-row">
+              <label>{{ t('notificationRules.filterProject') }}</label>
+              <SearchSelect
+                v-model="userRuleForm.filterProjectId"
+                :options="projectOptionsUserRule"
+                :placeholder="t('notificationRules.selectProject')"
+                :loading="projectsLoadingUserRule"
+                @search="handleProjectSearchUserRule"
+              />
+            </div>
+
+            <div class="filter-row">
+              <label>{{ t('notificationRules.filterStandard') }}</label>
+              <SearchSelect
+                v-model="userRuleForm.filterStandardId"
+                :options="standardOptionsUserRule"
+                :placeholder="t('notificationRules.selectStandard')"
+                :loading="standardsLoadingUserRule"
+                @search="handleStandardSearchUserRule"
+              />
+            </div>
+
+            <div class="filter-row">
+              <label>{{ t('settings.notificationRules.filterAssessment') }}</label>
+              <SearchSelect
+                v-model="userRuleForm.filterAssessmentId"
+                :options="assessmentOptionsUserRule"
+                :placeholder="t('settings.notificationRules.selectAssessment')"
+                :loading="assessmentsLoadingUserRule"
+                @search="handleAssessmentSearchUserRule"
+              />
+            </div>
+          </div>
+        </el-form-item>
+
+        <!-- Enabled -->
+        <el-form-item :label="t('notificationRules.enabled')">
+          <el-switch v-model="userRuleForm.enabled" />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showUserRuleDialog = false">{{ t('common.cancel') }}</el-button>
+          <el-button type="primary" :loading="savingUserRule" @click="handleSaveUserRule">{{ t('common.save') }}</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, watch, onMounted, computed } from 'vue'
+import { useRouter, RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Loading } from '@element-plus/icons-vue'
 import axios from 'axios'
 import { AVAILABLE_LOCALES, loadLocaleMessages } from '@/i18n'
 import PageHeader from '@/components/shared/PageHeader.vue'
+import SearchSelect from '@/components/shared/SearchSelect.vue'
+import type { SelectOption } from '@/components/shared/SearchSelect.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -158,8 +396,8 @@ watch(() => preferences.value.theme, (newTheme) => {
   if (newTheme === 'auto') {
     const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
     uiStore.setTheme(systemDark ? 'dark' : 'light')
-  } else {
-    uiStore.setTheme(newTheme as 'dark' | 'light')
+  } else if (newTheme === 'dark' || newTheme === 'light') {
+    uiStore.setTheme(newTheme)
   }
 })
 
@@ -219,6 +457,269 @@ const handleChangePassword = async () => {
   }
 }
 
+// Chat Identities
+const savingChatIdentities = ref(false)
+const chatIdentities = ref({
+  slackUserId: '',
+  teamsUserId: '',
+  mattermostUsername: '',
+  emailNotificationsEnabled: true
+})
+
+const handleSaveChatIdentities = async () => {
+  savingChatIdentities.value = true
+  try {
+    await axios.patch('/api/v1/auth/profile/chat-identities', {
+      slackUserId: chatIdentities.value.slackUserId || null,
+      teamsUserId: chatIdentities.value.teamsUserId || null,
+      mattermostUsername: chatIdentities.value.mattermostUsername || null,
+      emailNotificationsEnabled: chatIdentities.value.emailNotificationsEnabled
+    })
+    ElMessage.success(t('settings.chatIdentities.saved'))
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.error || 'Failed to save chat identities')
+  } finally {
+    savingChatIdentities.value = false
+  }
+}
+
+// User Notification Rules
+interface UserNotificationRule {
+  id: string
+  name: string
+  channel: string
+  eventTypes?: string[]
+  event_types?: string[]
+  onlyMyAssessments?: boolean
+  only_my_assessments?: boolean
+  onlyMyEvidence?: boolean
+  only_my_evidence?: boolean
+  onlyMyProjects?: boolean
+  only_my_projects?: boolean
+  filterProjectId?: string
+  filter_project_id?: string
+  filterStandardId?: string
+  filter_standard_id?: string
+  filterAssessmentId?: string
+  filter_assessment_id?: string
+  enabled: boolean
+}
+
+const userRules = ref<UserNotificationRule[]>([])
+const userRulesLoading = ref(false)
+const showUserRuleDialog = ref(false)
+const editingUserRuleId = ref<string | null>(null)
+const savingUserRule = ref(false)
+
+const userRuleForm = ref({
+  name: '',
+  channel: 'in-app',
+  eventTypes: [] as string[],
+  onlyMyAssessments: false,
+  onlyMyEvidence: false,
+  onlyMyProjects: false,
+  filterProjectId: '',
+  filterStandardId: '',
+  filterAssessmentId: '',
+  enabled: true
+})
+
+const userRuleEventTypes = ref({
+  'Assessment': ['assessment.created', 'assessment.state_changed', 'assessment.deleted', 'assessment.assigned'],
+  'Evidence': ['evidence.created', 'evidence.state_changed', 'evidence.attachment_added', 'evidence.attachment_removed'],
+  'Claim': ['claim.created', 'claim.updated'],
+  'Attestation': ['attestation.created', 'attestation.signed', 'attestation.exported'],
+  'Project': ['project.created', 'project.state_changed', 'project.archived'],
+  'Standard': ['standard.imported', 'standard.state_changed'],
+  'System': ['user.created', 'user.deactivated', 'apikey.created']
+})
+
+const projectOptionsUserRule = ref<SelectOption[]>([])
+const projectsLoadingUserRule = ref(false)
+
+const standardOptionsUserRule = ref<SelectOption[]>([])
+const standardsLoadingUserRule = ref(false)
+
+const assessmentOptionsUserRule = ref<SelectOption[]>([])
+const assessmentsLoadingUserRule = ref(false)
+
+const showSlackWarning = computed(() => {
+  return userRuleForm.value.channel === 'slack-dm' && !chatIdentities.value.slackUserId
+})
+
+const fetchUserRules = async () => {
+  userRulesLoading.value = true
+  try {
+    const { data } = await axios.get('/api/v1/notification-rules')
+    userRules.value = data.rules || data
+  } catch (err: any) {
+    ElMessage.error('Failed to load notification rules')
+  } finally {
+    userRulesLoading.value = false
+  }
+}
+
+const handleProjectSearchUserRule = async (query: string) => {
+  projectsLoadingUserRule.value = true
+  try {
+    const { data } = await axios.get('/api/v1/projects', {
+      params: { search: query }
+    })
+    projectOptionsUserRule.value = (data.projects || data).map((project: any) => ({
+      value: project.id,
+      label: project.name
+    }))
+  } catch (err: any) {
+    ElMessage.error('Failed to load projects')
+  } finally {
+    projectsLoadingUserRule.value = false
+  }
+}
+
+const handleStandardSearchUserRule = async (query: string) => {
+  standardsLoadingUserRule.value = true
+  try {
+    const { data } = await axios.get('/api/v1/standards', {
+      params: { search: query }
+    })
+    standardOptionsUserRule.value = (data.standards || data).map((standard: any) => ({
+      value: standard.id,
+      label: standard.name
+    }))
+  } catch (err: any) {
+    ElMessage.error('Failed to load standards')
+  } finally {
+    standardsLoadingUserRule.value = false
+  }
+}
+
+const handleAssessmentSearchUserRule = async (query: string) => {
+  assessmentsLoadingUserRule.value = true
+  try {
+    const { data } = await axios.get('/api/v1/assessments', {
+      params: { search: query }
+    })
+    assessmentOptionsUserRule.value = (data.assessments || data).map((assessment: any) => ({
+      value: assessment.id,
+      label: assessment.name
+    }))
+  } catch (err: any) {
+    ElMessage.error('Failed to load assessments')
+  } finally {
+    assessmentsLoadingUserRule.value = false
+  }
+}
+
+const openUserRuleDialog = (rule?: UserNotificationRule) => {
+  if (rule) {
+    editingUserRuleId.value = rule.id
+    userRuleForm.value = {
+      name: rule.name,
+      channel: rule.channel,
+      eventTypes: rule.eventTypes || rule.event_types || [],
+      onlyMyAssessments: rule.onlyMyAssessments || rule.only_my_assessments || false,
+      onlyMyEvidence: rule.onlyMyEvidence || rule.only_my_evidence || false,
+      onlyMyProjects: rule.onlyMyProjects || rule.only_my_projects || false,
+      filterProjectId: rule.filterProjectId || rule.filter_project_id || '',
+      filterStandardId: rule.filterStandardId || rule.filter_standard_id || '',
+      filterAssessmentId: rule.filterAssessmentId || rule.filter_assessment_id || '',
+      enabled: rule.enabled
+    }
+  } else {
+    editingUserRuleId.value = null
+    userRuleForm.value = {
+      name: '',
+      channel: 'in-app',
+      eventTypes: [],
+      onlyMyAssessments: false,
+      onlyMyEvidence: false,
+      onlyMyProjects: false,
+      filterProjectId: '',
+      filterStandardId: '',
+      filterAssessmentId: '',
+      enabled: true
+    }
+  }
+  showUserRuleDialog.value = true
+}
+
+const handleSaveUserRule = async () => {
+  if (!userRuleForm.value.name || !userRuleForm.value.channel || userRuleForm.value.eventTypes.length === 0) {
+    ElMessage.error('Please fill in all required fields')
+    return
+  }
+
+  savingUserRule.value = true
+  try {
+    const payload = {
+      name: userRuleForm.value.name,
+      channel: userRuleForm.value.channel,
+      eventTypes: userRuleForm.value.eventTypes,
+      onlyMyAssessments: userRuleForm.value.onlyMyAssessments,
+      onlyMyEvidence: userRuleForm.value.onlyMyEvidence,
+      onlyMyProjects: userRuleForm.value.onlyMyProjects,
+      filterProjectId: userRuleForm.value.filterProjectId || null,
+      filterStandardId: userRuleForm.value.filterStandardId || null,
+      filterAssessmentId: userRuleForm.value.filterAssessmentId || null,
+      enabled: userRuleForm.value.enabled
+    }
+
+    if (editingUserRuleId.value) {
+      await axios.put(`/api/v1/notification-rules/${editingUserRuleId.value}`, payload)
+      ElMessage.success('Rule updated successfully')
+    } else {
+      await axios.post('/api/v1/notification-rules', payload)
+      ElMessage.success('Rule created successfully')
+    }
+
+    showUserRuleDialog.value = false
+    await fetchUserRules()
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.error || 'Failed to save rule')
+  } finally {
+    savingUserRule.value = false
+  }
+}
+
+const handleToggleUserRuleEnabled = async (rule: UserNotificationRule) => {
+  try {
+    await axios.patch(`/api/v1/notification-rules/${rule.id}`, {
+      enabled: rule.enabled
+    })
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.error || 'Failed to update rule')
+    rule.enabled = !rule.enabled
+  }
+}
+
+const handleDeleteUserRule = async (rule: UserNotificationRule) => {
+  try {
+    await ElMessageBox.confirm(
+      t('common.confirmDelete'),
+      t('common.delete'),
+      { confirmButtonText: t('common.delete'), cancelButtonText: t('common.cancel'), type: 'warning' }
+    )
+    await axios.delete(`/api/v1/notification-rules/${rule.id}`)
+    ElMessage.success('Rule deleted successfully')
+    await fetchUserRules()
+  } catch (err: any) {
+    if (err !== 'cancel') {
+      ElMessage.error(err.response?.data?.error || 'Failed to delete rule')
+    }
+  }
+}
+
+const formatUserRuleFilters = (rule: UserNotificationRule): string => {
+  const filters: string[] = []
+  if (rule.onlyMyAssessments || rule.only_my_assessments) filters.push('My assessments')
+  if (rule.onlyMyEvidence || rule.only_my_evidence) filters.push('My evidence')
+  if (rule.onlyMyProjects || rule.only_my_projects) filters.push('My projects')
+  if (rule.filterProjectId || rule.filter_project_id) filters.push('Project')
+  if (rule.filterStandardId || rule.filter_standard_id) filters.push('Standard')
+  if (rule.filterAssessmentId || rule.filter_assessment_id) filters.push('Assessment')
+  return filters.length > 0 ? filters.join(', ') : 'None'
+}
+
 const handleLogoutAll = async () => {
   try {
     await ElMessageBox.confirm(
@@ -236,6 +737,10 @@ const handleLogoutAll = async () => {
     }
   }
 }
+
+onMounted(async () => {
+  await fetchUserRules()
+})
 </script>
 
 <style scoped lang="scss">
@@ -281,5 +786,89 @@ const handleLogoutAll = async () => {
   font-size: var(--cat-font-size-sm);
   color: var(--cat-text-tertiary);
   font-style: italic;
+}
+
+.help-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--cat-spacing-2);
+  width: 100%;
+
+  :deep(.el-input) {
+    flex: 1;
+  }
+}
+
+.notification-rules-wrapper {
+  width: 100%;
+}
+
+.rules-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--cat-spacing-4);
+}
+
+.loading-container {
+  display: flex;
+  align-items: center;
+  gap: var(--cat-spacing-3);
+  padding: var(--cat-spacing-4);
+  color: var(--cat-text-secondary);
+}
+
+.empty-state-small {
+  padding: var(--cat-spacing-4);
+  text-align: center;
+  color: var(--cat-text-tertiary);
+  font-size: var(--cat-font-size-sm);
+
+  p {
+    margin: 0;
+  }
+}
+
+.event-types-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.filter-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cat-spacing-3);
+
+  :deep(.el-checkbox) {
+    margin: 0;
+  }
+}
+
+.specific-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cat-spacing-3);
+  padding: var(--cat-spacing-3);
+  background-color: var(--cat-bg-surface);
+  border-radius: var(--cat-radius-md);
+}
+
+.filter-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cat-spacing-2);
+
+  label {
+    font-size: var(--cat-font-size-sm);
+    font-weight: var(--cat-font-weight-medium);
+    color: var(--cat-text-secondary);
+  }
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--cat-spacing-2);
 }
 </style>

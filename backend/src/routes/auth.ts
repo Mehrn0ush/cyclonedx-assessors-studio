@@ -469,4 +469,84 @@ router.post('/complete-onboarding', requireAuth, async (req: AuthRequest, res: R
   }
 });
 
+/**
+ * PATCH /me
+ * Update current user's profile fields (chat identities, notification prefs)
+ */
+const updateUserProfileSchema = z.object({
+  slackUserId: z.string().optional().nullable(),
+  teamsUserId: z.string().optional().nullable(),
+  mattermostUsername: z.string().optional().nullable(),
+  emailNotifications: z.boolean().optional(),
+});
+
+router.patch('/me', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    const data = updateUserProfileSchema.parse(req.body);
+    const db = getDatabase();
+
+    const updates: Record<string, any> = {};
+    if (data.slackUserId !== undefined) {
+      updates.slack_user_id = data.slackUserId;
+    }
+    if (data.teamsUserId !== undefined) {
+      updates.teams_user_id = data.teamsUserId;
+    }
+    if (data.mattermostUsername !== undefined) {
+      updates.mattermost_username = data.mattermostUsername;
+    }
+    if (data.emailNotifications !== undefined) {
+      updates.email_notifications = data.emailNotifications;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      // No updates requested
+      const user = await db
+        .selectFrom('app_user')
+        .where('id', '=', req.user.id)
+        .selectAll()
+        .executeTakeFirst();
+
+      res.json({ user });
+      return;
+    }
+
+    updates.updated_at = new Date();
+
+    await db
+      .updateTable('app_user')
+      .set(updates)
+      .where('id', '=', req.user.id)
+      .execute();
+
+    const updatedUser = await db
+      .selectFrom('app_user')
+      .where('id', '=', req.user.id)
+      .selectAll()
+      .executeTakeFirst();
+
+    logger.info('Updated user profile', {
+      userId: req.user.id,
+    });
+
+    res.json({ user: updatedUser });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Validation failed', details: error.errors });
+      return;
+    }
+    logger.error('Update profile error', {
+      userId: req.user?.id,
+      error: error instanceof Error ? error.message : String(error),
+      requestId: req.requestId,
+    });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

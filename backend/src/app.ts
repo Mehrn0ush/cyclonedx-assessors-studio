@@ -32,6 +32,8 @@ import importRoutes from './routes/import.js';
 import exportRoutes from './routes/export.js';
 import auditRoutes from './routes/audit.js';
 import notificationRoutes from './routes/notifications.js';
+import notificationRulesRoutes from './routes/notification-rules.js';
+import adminNotificationRulesRoutes from './routes/admin-notification-rules.js';
 import assessorRoutes from './routes/assessors.js';
 import adminRoutes from './routes/admin.js';
 import webhookRoutes from './routes/webhooks.js';
@@ -174,6 +176,8 @@ export function createApp() {
   app.use('/api/v1/import', importRoutes);
   app.use('/api/v1/audit', auditRoutes);
   app.use('/api/v1/notifications', notificationRoutes);
+  app.use('/api/v1/notification-rules', notificationRulesRoutes);
+  app.use('/api/v1/admin/notification-rules', adminNotificationRulesRoutes);
   app.use('/api/v1/export', exportRoutes);
   app.use('/api/v1/assessors', assessorRoutes);
   app.use('/api/v1/admin', adminRoutes);

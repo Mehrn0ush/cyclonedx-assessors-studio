@@ -136,6 +136,20 @@
             <span class="nav-label">{{ t('nav.chatIntegrations') }}</span>
           </RouterLink>
         </div>
+
+        <div class="nav-item-wrapper">
+          <RouterLink
+            to="/admin/notification-rules"
+            class="nav-item"
+            :class="{ active: isActive('/admin/notification-rules') }"
+            :title="uiStore.sidebarCollapsed ? t('nav.notificationRules') : ''"
+            :aria-label="t('nav.notificationRules')"
+            @click="closeMobileMenu"
+          >
+            <el-icon class="nav-icon"><Bell /></el-icon>
+            <span class="nav-label">{{ t('nav.notificationRules') }}</span>
+          </RouterLink>
+        </div>
       </div>
 
     </nav>
@@ -161,7 +175,7 @@ import {
   Collection,
   ChatLineSquare,
   Stamp,
-
+  Bell,
   User,
   Connection,
   Setting,

@@ -762,6 +762,33 @@ CREATE TABLE IF NOT EXISTS chat_delivery (
 CREATE INDEX IF NOT EXISTS idx_chat_delivery_integration ON chat_delivery(integration_id);
 CREATE INDEX IF NOT EXISTS idx_chat_delivery_status ON chat_delivery(status, next_retry_at);
 
+-- =====================================================================
+-- Notification Rules Engine (spec 008)
+-- =====================================================================
+
+-- Add email_notifications opt-in flag to app_user
+ALTER TABLE app_user ADD COLUMN IF NOT EXISTS email_notifications BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- Notification rules (system and user scoped)
+CREATE TABLE IF NOT EXISTS notification_rule (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  scope VARCHAR(20) NOT NULL CHECK(scope IN ('system', 'user')),
+  user_id UUID REFERENCES app_user(id) ON DELETE CASCADE,
+  channel VARCHAR(20) NOT NULL CHECK(channel IN ('in_app', 'email', 'slack', 'teams', 'mattermost', 'webhook')),
+  event_types JSONB NOT NULL DEFAULT '[]',
+  filters JSONB NOT NULL DEFAULT '{}',
+  destination JSONB NOT NULL DEFAULT '{}',
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  created_by UUID REFERENCES app_user(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_notification_rule_scope ON notification_rule(scope);
+CREATE INDEX IF NOT EXISTS idx_notification_rule_user ON notification_rule(user_id);
+CREATE INDEX IF NOT EXISTS idx_notification_rule_enabled ON notification_rule(enabled);
+
 `;
 
 export async function runMigrations(): Promise<void> {
