@@ -15,11 +15,13 @@
           </span>
         </div>
 
-        <div class="progress-track">
-          <div
-            class="progress-fill"
-            :style="{ width: std.latestScore + '%', backgroundColor: scoreColor(std.latestScore) }"
-          ></div>
+        <div class="standard-progress">
+          <el-progress
+            :percentage="std.latestScore"
+            :stroke-width="8"
+            :show-text="false"
+            :status="scoreStatus(std.latestScore)"
+          />
         </div>
 
         <div class="history-section">
@@ -76,6 +78,12 @@ function scoreColor(score: number): string {
   if (score >= 80) return '#3fb950'
   if (score >= 60) return '#d29922'
   return '#f85149'
+}
+
+function scoreStatus(score: number): string {
+  if (score >= 80) return 'success'
+  if (score >= 60) return 'warning'
+  return 'exception'
 }
 
 function formatDate(d: string): string {
@@ -142,17 +150,8 @@ function formatDate(d: string): string {
   font-size: 13px;
 }
 
-.progress-track {
-  height: 8px;
-  background: rgba(255,255,255,0.06);
-  border-radius: 4px;
-  overflow: hidden;
+.standard-progress {
   margin-bottom: 16px;
-}
-.progress-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.3s ease;
 }
 
 .history-section {

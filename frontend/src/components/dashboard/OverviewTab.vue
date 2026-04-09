@@ -151,7 +151,7 @@
             <el-progress
               :percentage="item.coveragePercent"
               :stroke-width="8"
-              :color="getProgressColor(item.coveragePercent)"
+              :status="getProgressStatus(item.coveragePercent)"
               :show-text="false"
             />
             <div class="coverage-detail">
@@ -186,7 +186,7 @@
             <el-progress
               :percentage="project.completionRate"
               :stroke-width="6"
-              :color="getProgressColor(project.completionRate)"
+              :status="getProgressStatus(project.completionRate)"
               :show-text="false"
             />
             <div class="project-health-meta">
@@ -397,6 +397,12 @@ const getProgressColor = (percent: number): string => {
   if (percent >= 80) return 'var(--cat-chart-green)'
   if (percent >= 50) return 'var(--cat-chart-amber)'
   return 'var(--cat-chart-red)'
+}
+
+const getProgressStatus = (percent: number): string => {
+  if (percent >= 80) return 'success'
+  if (percent >= 50) return 'warning'
+  return 'exception'
 }
 
 const getEvidenceHealthColor = (state: string): string => {

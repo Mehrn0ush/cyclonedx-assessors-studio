@@ -180,7 +180,7 @@
                   <span>{{ assessedCount }} of {{ requirements.length }} requirements assessed</span>
                   <span class="progress-percentage">{{ Math.round((assessedCount / requirements.length) * 100) }}%</span>
                 </div>
-                <el-progress :percentage="Math.round((assessedCount / requirements.length) * 100)" :stroke-width="8" :show-text="false" />
+                <el-progress :percentage="Math.round((assessedCount / requirements.length) * 100)" :stroke-width="8" :show-text="false" :status="getProgressStatus(Math.round((assessedCount / requirements.length) * 100))" />
                 <div class="progress-breakdown">
                   <span class="result-yes">{{ resultCounts.yes }} Yes</span>
                   <span class="result-no">{{ resultCounts.no }} No</span>
@@ -1012,6 +1012,12 @@ const getScoreColor = (score: number): string => {
   if (score >= 80) return style.getPropertyValue('--cat-chart-green').trim() || '#3fb950'
   if (score >= 60) return style.getPropertyValue('--cat-chart-amber').trim() || '#d29922'
   return style.getPropertyValue('--cat-chart-red').trim() || '#f85149'
+}
+
+const getProgressStatus = (percent: number): string => {
+  if (percent >= 80) return 'success'
+  if (percent >= 60) return 'warning'
+  return 'exception'
 }
 
 const assessedCount = computed(() => requirements.value.filter(r => r.result).length)

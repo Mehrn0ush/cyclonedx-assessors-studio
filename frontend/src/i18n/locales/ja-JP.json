@@ -198,7 +198,28 @@
     "assessmentsCompleted": "完了",
     "assessmentsOverdueCount": "期限超過",
     "attestations": "証明",
-    "noProjectData": "まだアクティブなプロジェクトがありません。開始するにはプロジェクトを作成してください。"
+    "noProjectData": "まだアクティブなプロジェクトがありません。開始するにはプロジェクトを作成してください。",
+    "widgets": {
+      "noCompletedAssessments": "完了した評価はまだありません。",
+      "noRecentAssessments": "最近の評価がありません",
+      "allAssessmentsOnSchedule": "すべての評価はスケジュール通りです。",
+      "noActiveRisks": "アクティブなリスクなし",
+      "noProjectsAvailable": "利用可能なプロジェクトがありません",
+      "noEvidenceDataAvailable": "利用可能な証拠データがありません",
+      "noStandardsAvailable": "利用可能な標準がありません",
+      "assessmentHistory": "評価の履歴",
+      "expiringWithin30Days": "30 日以内に期限切れ",
+      "tableHeaders": {
+        "assessment": "評価",
+        "entity": "エンティティ",
+        "standard": "標準",
+        "completed": "完了",
+        "score": "スコア",
+        "state": "状態",
+        "date": "日付",
+        "title": "タイトル"
+      }
+    }
   },
   "projects": {
     "title": "プロジェクト",
@@ -545,29 +566,6 @@
     "previous": "前へ",
     "next": "次へ",
     "getStarted": "開始する"
-  },
-  "dashboard": {
-    "widgets": {
-      "noCompletedAssessments": "完了した評価はまだありません。",
-      "noRecentAssessments": "最近の評価がありません",
-      "allAssessmentsOnSchedule": "すべての評価はスケジュール通りです。",
-      "noActiveRisks": "アクティブなリスクなし",
-      "noProjectsAvailable": "利用可能なプロジェクトがありません",
-      "noEvidenceDataAvailable": "利用可能な証拠データがありません",
-      "noStandardsAvailable": "利用可能な標準がありません",
-      "assessmentHistory": "評価の履歴",
-      "expiringWithin30Days": "30 日以内に期限切れ",
-      "tableHeaders": {
-        "assessment": "評価",
-        "entity": "エンティティ",
-        "standard": "標準",
-        "completed": "完了",
-        "score": "スコア",
-        "state": "状態",
-        "date": "日付",
-        "title": "タイトル"
-      }
-    }
   },
   "projectDashboard": {
     "assessments": "評価",

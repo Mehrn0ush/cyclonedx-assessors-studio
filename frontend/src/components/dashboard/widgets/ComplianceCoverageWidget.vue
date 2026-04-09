@@ -18,14 +18,10 @@ interface ComplianceStandard {
 const loading = ref(false)
 const standards = ref<ComplianceStandard[]>([])
 
-const getProgressColor = (percent: number): string => {
-  if (percent >= 80) {
-    return '#3fb950'
-  } else if (percent >= 50) {
-    return '#d29922'
-  } else {
-    return '#f85149'
-  }
+const getProgressStatus = (percent: number): string => {
+  if (percent >= 80) return 'success'
+  if (percent >= 50) return 'warning'
+  return 'exception'
 }
 
 const fetchCoverage = async () => {
@@ -67,7 +63,7 @@ onMounted(() => {
         <div class="standard-progress">
           <el-progress
             :percentage="standard.coveragePercent"
-            :color="getProgressColor(standard.coveragePercent)"
+            :status="getProgressStatus(standard.coveragePercent)"
             :show-text="true"
           />
         </div>

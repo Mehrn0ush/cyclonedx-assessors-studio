@@ -198,7 +198,28 @@
     "assessmentsCompleted": "已完成",
     "assessmentsOverdueCount": "逾期",
     "attestations": "证明",
-    "noProjectData": "尚无活跃项目。创建一个项目以开始。"
+    "noProjectData": "尚无活跃项目。创建一个项目以开始。",
+    "widgets": {
+      "noCompletedAssessments": "尚无完成的评估。",
+      "noRecentAssessments": "无最近评估",
+      "allAssessmentsOnSchedule": "所有评估都按计划进行。",
+      "noActiveRisks": "无活跃风险",
+      "noProjectsAvailable": "无可用项目",
+      "noEvidenceDataAvailable": "无可用证据数据",
+      "noStandardsAvailable": "无可用标准",
+      "assessmentHistory": "评估历史",
+      "expiringWithin30Days": "在30天内过期",
+      "tableHeaders": {
+        "assessment": "评估",
+        "entity": "实体",
+        "standard": "标准",
+        "completed": "已完成",
+        "score": "分数",
+        "state": "状态",
+        "date": "日期",
+        "title": "标题"
+      }
+    }
   },
   "projects": {
     "title": "项目",
@@ -545,29 +566,6 @@
     "previous": "上一页",
     "next": "下一页",
     "getStarted": "开始使用"
-  },
-  "dashboard": {
-    "widgets": {
-      "noCompletedAssessments": "尚无完成的评估。",
-      "noRecentAssessments": "无最近评估",
-      "allAssessmentsOnSchedule": "所有评估都按计划进行。",
-      "noActiveRisks": "无活跃风险",
-      "noProjectsAvailable": "无可用项目",
-      "noEvidenceDataAvailable": "无可用证据数据",
-      "noStandardsAvailable": "无可用标准",
-      "assessmentHistory": "评估历史",
-      "expiringWithin30Days": "在30天内过期",
-      "tableHeaders": {
-        "assessment": "评估",
-        "entity": "实体",
-        "standard": "标准",
-        "completed": "已完成",
-        "score": "分数",
-        "state": "状态",
-        "date": "日期",
-        "title": "标题"
-      }
-    }
   },
   "projectDashboard": {
     "assessments": "评估",

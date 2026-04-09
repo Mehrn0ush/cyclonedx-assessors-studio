@@ -58,7 +58,12 @@
     "archive": "Archive",
     "date": "Date",
     "remove": "Remove",
-    "warning": "Warning"
+    "warning": "Warning",
+    "apply": "Apply",
+    "proceed": "Proceed",
+    "selected": "Selected",
+    "user": "User",
+    "users": "Users"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -202,7 +207,28 @@
     "assessmentsCompleted": "completed",
     "assessmentsOverdueCount": "overdue",
     "attestations": "attestations",
-    "noProjectData": "No active projects yet. Create a project to get started."
+    "noProjectData": "No active projects yet. Create a project to get started.",
+    "widgets": {
+      "noCompletedAssessments": "No completed assessments yet.",
+      "noRecentAssessments": "No recent assessments",
+      "allAssessmentsOnSchedule": "All assessments are on schedule.",
+      "noActiveRisks": "No active risks",
+      "noProjectsAvailable": "No projects available",
+      "noEvidenceDataAvailable": "No evidence data available",
+      "noStandardsAvailable": "No standards available",
+      "assessmentHistory": "Assessment History",
+      "expiringWithin30Days": "Expiring within 30 days",
+      "tableHeaders": {
+        "assessment": "Assessment",
+        "entity": "Entity",
+        "standard": "Standard",
+        "completed": "Completed",
+        "score": "Score",
+        "state": "State",
+        "date": "Date",
+        "title": "Title"
+      }
+    }
   },
   "projects": {
     "title": "Projects",
@@ -312,7 +338,9 @@
     "createNewEvidence": "Create New",
     "standalone": "Standalone",
     "projectHint": "Leave blank to create a standalone ad hoc assessment.",
-    "standardsHint": "Select the standards to assess against for this standalone assessment."
+    "standardsHint": "Select the standards to assess against for this standalone assessment.",
+    "exportAssessment": "Export Assessment",
+    "linkedStandards": "Linked Standards"
   },
   "evidence": {
     "title": "Evidence",
@@ -350,7 +378,8 @@
     "noItemsDescription": "Create evidence to support your assessment claims and attestations.",
     "counterEvidenceDescription": "Counter evidence provides information that challenges or contradicts a claim.",
     "loadError": "Failed to load evidence details",
-    "noteAdded": "Note added successfully"
+    "noteAdded": "Note added successfully",
+    "noteAddError": "Failed to add note"
   },
   "claims": {
     "title": "Claims",
@@ -416,7 +445,29 @@
     "requirements": "Requirements",
     "requirementCount": "Requirements",
     "description": "Description",
-    "levels": "Levels"
+    "levels": "Levels",
+    "edit": "Edit",
+    "submitForApproval": "Submit for Approval",
+    "approve": "Approve",
+    "reject": "Reject",
+    "exportCycloneDX": "Export CycloneDX",
+    "duplicate": "Duplicate",
+    "retire": "Retire",
+    "more": "More",
+    "addLevel": "Add Level",
+    "newStandard": "New Standard",
+    "createDraft": "Create Draft",
+    "back": "Back",
+    "filterByState": "Filter by state",
+    "all": "All",
+    "draft": "Draft",
+    "inReview": "In Review",
+    "published": "Published",
+    "retired": "Retired",
+    "identifier": "Identifier",
+    "importing": "Importing...",
+    "dropCycloneDXFile": "Drop a CycloneDX JSON file here, or click to browse",
+    "acceptsJsonFiles": "Accepts .json and .cdx.json files"
   },
   "admin": {
     "userManagement": "User Management",
@@ -449,7 +500,9 @@
     "userDeactivated": "User deactivated successfully",
     "userActivated": "User activated successfully",
     "password": "Password",
-    "confirmPassword": "Confirm Password"
+    "confirmPassword": "Confirm Password",
+    "changeRole": "Change Role",
+    "deactivateSelected": "Deactivate Selected"
   },
   "settings": {
     "title": "Settings",
@@ -487,30 +540,6 @@
       "mattermostUsernameHelp": "Your Mattermost username",
       "emailNotifications": "Enable Email Notifications",
       "saved": "Chat identities saved successfully"
-    },
-    "notificationRules": {
-      "title": "Notification Rules",
-      "addRule": "Add Rule",
-      "createRule": "Create Rule",
-      "editRule": "Edit Rule",
-      "noRules": "No notification rules configured",
-      "namePlaceholder": "e.g., Assessment Completion Alerts",
-      "channels": {
-        "in-app": "In App",
-        "email": "Email",
-        "slack-dm": "Slack DM",
-        "teams-dm": "Teams DM",
-        "mattermost-dm": "Mattermost DM"
-      },
-      "filterMyContent": "Filter by My Content",
-      "onlyMyAssessments": "Only my assessments",
-      "onlyMyEvidence": "Only my evidence",
-      "onlyMyProjects": "Only my projects",
-      "specificFilters": "Specific Filters",
-      "filterAssessment": "Filter by Assessment",
-      "selectAssessment": "Select an assessment",
-      "slackWarning": "Slack DM notifications require a Slack Member ID",
-      "configureChatIdentities": "Configure your chat identities"
     },
     "sessionManagement": "Session Management",
     "currentSession": "Current Session Information",
@@ -569,29 +598,6 @@
     "next": "Next",
     "getStarted": "Get Started"
   },
-  "dashboard": {
-    "widgets": {
-      "noCompletedAssessments": "No completed assessments yet.",
-      "noRecentAssessments": "No recent assessments",
-      "allAssessmentsOnSchedule": "All assessments are on schedule.",
-      "noActiveRisks": "No active risks",
-      "noProjectsAvailable": "No projects available",
-      "noEvidenceDataAvailable": "No evidence data available",
-      "noStandardsAvailable": "No standards available",
-      "assessmentHistory": "Assessment History",
-      "expiringWithin30Days": "Expiring within 30 days",
-      "tableHeaders": {
-        "assessment": "Assessment",
-        "entity": "Entity",
-        "standard": "Standard",
-        "completed": "Completed",
-        "score": "Score",
-        "state": "State",
-        "date": "Date",
-        "title": "Title"
-      }
-    }
-  },
   "projectDashboard": {
     "assessments": "Assessments",
     "timeline": "Timeline",
@@ -608,35 +614,6 @@
   },
   "dropZones": {
     "makeRootLevel": "Drop here to make root level"
-  },
-  "standards": {
-    "edit": "Edit",
-    "submitForApproval": "Submit for Approval",
-    "approve": "Approve",
-    "reject": "Reject",
-    "exportCycloneDX": "Export CycloneDX",
-    "duplicate": "Duplicate",
-    "retire": "Retire",
-    "more": "More",
-    "addLevel": "Add Level",
-    "newStandard": "New Standard",
-    "createDraft": "Create Draft",
-    "back": "Back",
-    "filterByState": "Filter by state",
-    "all": "All",
-    "draft": "Draft",
-    "inReview": "In Review",
-    "published": "Published",
-    "retired": "Retired",
-    "name": "Name",
-    "identifier": "Identifier",
-    "version": "Version",
-    "owner": "Owner",
-    "description": "Description",
-    "requirements": "Requirements",
-    "importing": "Importing...",
-    "dropCycloneDXFile": "Drop a CycloneDX JSON file here, or click to browse",
-    "acceptsJsonFiles": "Accepts .json and .cdx.json files"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -793,21 +770,35 @@
   },
   "notificationRules": {
     "title": "Notification Rules",
-    "subtitle": "Manage system notification rules",
+    "addRule": "Add Rule",
     "createRule": "Create Rule",
     "editRule": "Edit Rule",
     "noRules": "No notification rules configured",
-    "noRulesDescription": "Create your first notification rule to set up system alerts",
-    "name": "Rule Name",
     "namePlaceholder": "e.g., Assessment Completion Alerts",
-    "channel": "Channel",
     "channels": {
+      "in-app": "In App",
       "email": "Email",
+      "slack-dm": "Slack DM",
+      "teams-dm": "Teams DM",
+      "mattermost-dm": "Mattermost DM",
       "slack": "Slack",
       "teams": "Teams",
       "mattermost": "Mattermost",
       "webhook": "Webhook"
     },
+    "filterMyContent": "Filter by My Content",
+    "onlyMyAssessments": "Only my assessments",
+    "onlyMyEvidence": "Only my evidence",
+    "onlyMyProjects": "Only my projects",
+    "specificFilters": "Specific Filters",
+    "filterAssessment": "Filter by Assessment",
+    "selectAssessment": "Select an assessment",
+    "slackWarning": "Slack DM notifications require a Slack Member ID",
+    "configureChatIdentities": "Configure your chat identities",
+    "subtitle": "Manage system notification rules",
+    "noRulesDescription": "Create your first notification rule to set up system alerts",
+    "name": "Rule Name",
+    "channel": "Channel",
     "eventTypes": "Event Types",
     "emailAddresses": "Email Addresses",
     "emailAddressesPlaceholder": "user1@example.com, user2@example.com",

@@ -88,15 +88,12 @@
 
           <!-- Conformance Progress Bar -->
           <div class="conformance-bar-container">
-            <div class="conformance-bar-wrapper">
-              <div
-                class="conformance-bar-fill"
-                :class="`conformance-bar-fill--${getScoreLevel(standard.latestScore)}`"
-                :style="{ width: standard.latestScore + '%' }"
-                role="progressbar"
-                :aria-valuenow="standard.latestScore"
-                aria-valuemin="0"
-                aria-valuemax="100"
+            <div class="conformance-bar-progress">
+              <el-progress
+                :percentage="standard.latestScore"
+                :stroke-width="6"
+                :show-text="false"
+                :status="getProgressStatus(standard.latestScore)"
               />
             </div>
             <div class="conformance-bar-label">
@@ -283,10 +280,10 @@ function getScoreColorTranslucent(score: number): string {
   return 'rgba(248, 81, 73, 0.2)'
 }
 
-function getScoreLevel(score: number): string {
-  if (score >= 80) return 'good'
+function getProgressStatus(score: number): string {
+  if (score >= 80) return 'success'
   if (score >= 60) return 'warning'
-  return 'danger'
+  return 'exception'
 }
 
 function getConformanceColor(score: number): string {
@@ -440,30 +437,8 @@ function formatDate(date: Date | string): string {
   gap: var(--cat-spacing-3);
 }
 
-.conformance-bar-wrapper {
+.conformance-bar-progress {
   flex: 1;
-  height: 6px;
-  background-color: var(--cat-bg-input);
-  border-radius: var(--cat-radius-full);
-  overflow: hidden;
-}
-
-.conformance-bar-fill {
-  height: 100%;
-  transition: width 0.6s ease;
-  border-radius: var(--cat-radius-full);
-
-  &--good {
-    background: linear-gradient(90deg, #238636, #39d353);
-  }
-
-  &--warning {
-    background: linear-gradient(90deg, #9e6a03, #d29922);
-  }
-
-  &--danger {
-    background: linear-gradient(90deg, #da3633, #f85149);
-  }
 }
 
 .conformance-bar-label {

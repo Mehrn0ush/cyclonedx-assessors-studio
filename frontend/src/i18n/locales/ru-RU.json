@@ -198,7 +198,28 @@
     "assessmentsCompleted": "завершено",
     "assessmentsOverdueCount": "просрочено",
     "attestations": "аттестации",
-    "noProjectData": "Активных проектов еще нет. Создайте проект, чтобы начать."
+    "noProjectData": "Активных проектов еще нет. Создайте проект, чтобы начать.",
+    "widgets": {
+      "noCompletedAssessments": "Завершенных оценок еще нет.",
+      "noRecentAssessments": "Нет недавних оценок",
+      "allAssessmentsOnSchedule": "Все оценки выполняются по графику.",
+      "noActiveRisks": "Нет активных рисков",
+      "noProjectsAvailable": "Нет доступных проектов",
+      "noEvidenceDataAvailable": "Нет доступных данных доказательств",
+      "noStandardsAvailable": "Нет доступных стандартов",
+      "assessmentHistory": "История Оценок",
+      "expiringWithin30Days": "Истечение в течение 30 дней",
+      "tableHeaders": {
+        "assessment": "Оценка",
+        "entity": "Сущность",
+        "standard": "Стандарт",
+        "completed": "Завершено",
+        "score": "Оценка",
+        "state": "Состояние",
+        "date": "Дата",
+        "title": "Название"
+      }
+    }
   },
   "projects": {
     "title": "Проекты",
@@ -545,29 +566,6 @@
     "previous": "Предыдущий",
     "next": "Следующий",
     "getStarted": "Начать"
-  },
-  "dashboard": {
-    "widgets": {
-      "noCompletedAssessments": "Завершенных оценок еще нет.",
-      "noRecentAssessments": "Нет недавних оценок",
-      "allAssessmentsOnSchedule": "Все оценки выполняются по графику.",
-      "noActiveRisks": "Нет активных рисков",
-      "noProjectsAvailable": "Нет доступных проектов",
-      "noEvidenceDataAvailable": "Нет доступных данных доказательств",
-      "noStandardsAvailable": "Нет доступных стандартов",
-      "assessmentHistory": "История Оценок",
-      "expiringWithin30Days": "Истечение в течение 30 дней",
-      "tableHeaders": {
-        "assessment": "Оценка",
-        "entity": "Сущность",
-        "standard": "Стандарт",
-        "completed": "Завершено",
-        "score": "Оценка",
-        "state": "Состояние",
-        "date": "Дата",
-        "title": "Название"
-      }
-    }
   },
   "projectDashboard": {
     "assessments": "Оценки",

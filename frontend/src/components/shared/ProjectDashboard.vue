@@ -78,7 +78,7 @@
                     :percentage="stats.evidenceCoverage.percent"
                     :stroke-width="6"
                     :show-text="false"
-                    :color="evidenceCoverageColor"
+                    :status="evidenceCoverageStatus"
                     style="margin-top: 8px"
                   />
                   <div class="stat-sub" style="margin-top: 4px">{{ stats.evidenceCoverage.totalEvidenceItems }} evidence items</div>
@@ -288,6 +288,15 @@ const evidenceCoverageColor = computed(() => {
   if (pct >= 80) return 'var(--cat-success)'
   if (pct >= 50) return 'var(--cat-warning)'
   return 'var(--cat-danger)'
+})
+
+const evidenceCoverageStatus = computed(() => {
+  if (!stats.value) return undefined
+  const pct = stats.value.evidenceCoverage.percent
+  if (pct === null) return undefined
+  if (pct >= 80) return 'success'
+  if (pct >= 50) return 'warning'
+  return 'exception'
 })
 
 const conformanceColor = computed(() => {

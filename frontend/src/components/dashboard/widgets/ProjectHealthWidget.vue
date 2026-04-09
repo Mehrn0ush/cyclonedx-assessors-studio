@@ -22,14 +22,10 @@ const loading = ref(false)
 const projects = ref<ProjectHealth[]>([])
 const router = useRouter()
 
-const getProgressColor = (percent: number): string => {
-  if (percent >= 80) {
-    return '#3fb950'
-  } else if (percent >= 50) {
-    return '#d29922'
-  } else {
-    return '#f85149'
-  }
+const getProgressStatus = (percent: number): string => {
+  if (percent >= 80) return 'success'
+  if (percent >= 50) return 'warning'
+  return 'exception'
 }
 
 const fetchProjects = async () => {
@@ -75,7 +71,7 @@ onMounted(() => {
         <div class="project-progress">
           <el-progress
             :percentage="project.completionRate"
-            :color="getProgressColor(project.completionRate)"
+            :status="getProgressStatus(project.completionRate)"
             :show-text="false"
           />
         </div>

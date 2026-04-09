@@ -198,7 +198,28 @@
     "assessmentsCompleted": "completadas",
     "assessmentsOverdueCount": "vencidas",
     "attestations": "atestaciones",
-    "noProjectData": "Sin proyectos activos aún. Cree un proyecto para comenzar."
+    "noProjectData": "Sin proyectos activos aún. Cree un proyecto para comenzar.",
+    "widgets": {
+      "noCompletedAssessments": "Sin evaluaciones completadas aún.",
+      "noRecentAssessments": "Sin evaluaciones recientes",
+      "allAssessmentsOnSchedule": "Todas las evaluaciones están en cronograma.",
+      "noActiveRisks": "Sin riesgos activos",
+      "noProjectsAvailable": "Sin proyectos disponibles",
+      "noEvidenceDataAvailable": "Sin datos de evidencia disponibles",
+      "noStandardsAvailable": "Sin estándares disponibles",
+      "assessmentHistory": "Historial de Evaluaciones",
+      "expiringWithin30Days": "Vencimiento en 30 días",
+      "tableHeaders": {
+        "assessment": "Evaluación",
+        "entity": "Entidad",
+        "standard": "Estándar",
+        "completed": "Completada",
+        "score": "Puntuación",
+        "state": "Estado",
+        "date": "Fecha",
+        "title": "Título"
+      }
+    }
   },
   "projects": {
     "title": "Proyectos",
@@ -545,29 +566,6 @@
     "previous": "Anterior",
     "next": "Siguiente",
     "getStarted": "Comenzar"
-  },
-  "dashboard": {
-    "widgets": {
-      "noCompletedAssessments": "Sin evaluaciones completadas aún.",
-      "noRecentAssessments": "Sin evaluaciones recientes",
-      "allAssessmentsOnSchedule": "Todas las evaluaciones están en cronograma.",
-      "noActiveRisks": "Sin riesgos activos",
-      "noProjectsAvailable": "Sin proyectos disponibles",
-      "noEvidenceDataAvailable": "Sin datos de evidencia disponibles",
-      "noStandardsAvailable": "Sin estándares disponibles",
-      "assessmentHistory": "Historial de Evaluaciones",
-      "expiringWithin30Days": "Vencimiento en 30 días",
-      "tableHeaders": {
-        "assessment": "Evaluación",
-        "entity": "Entidad",
-        "standard": "Estándar",
-        "completed": "Completada",
-        "score": "Puntuación",
-        "state": "Estado",
-        "date": "Fecha",
-        "title": "Título"
-      }
-    }
   },
   "projectDashboard": {
     "assessments": "Evaluaciones",

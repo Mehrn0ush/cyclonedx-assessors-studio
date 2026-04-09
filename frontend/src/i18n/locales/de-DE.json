@@ -198,7 +198,28 @@
     "assessmentsCompleted": "abgeschlossen",
     "assessmentsOverdueCount": "überfällig",
     "attestations": "Bestätigungen",
-    "noProjectData": "Noch keine aktiven Projekte. Erstellen Sie ein Projekt, um zu beginnen."
+    "noProjectData": "Noch keine aktiven Projekte. Erstellen Sie ein Projekt, um zu beginnen.",
+    "widgets": {
+      "noCompletedAssessments": "Noch keine abgeschlossenen Bewertungen.",
+      "noRecentAssessments": "Keine aktuellen Bewertungen",
+      "allAssessmentsOnSchedule": "Alle Bewertungen sind pünktlich.",
+      "noActiveRisks": "Keine aktiven Risiken",
+      "noProjectsAvailable": "Keine Projekte verfügbar",
+      "noEvidenceDataAvailable": "Keine Nachweisdaten verfügbar",
+      "noStandardsAvailable": "Keine Normen verfügbar",
+      "assessmentHistory": "Bewertungsverlauf",
+      "expiringWithin30Days": "Läuft in 30 Tagen ab",
+      "tableHeaders": {
+        "assessment": "Bewertung",
+        "entity": "Entität",
+        "standard": "Norm",
+        "completed": "Abgeschlossen",
+        "score": "Bewertung",
+        "state": "Status",
+        "date": "Datum",
+        "title": "Titel"
+      }
+    }
   },
   "projects": {
     "title": "Projekte",
@@ -541,29 +562,6 @@
     "previous": "Zurück",
     "next": "Weiter",
     "getStarted": "Erste Schritte"
-  },
-  "dashboard": {
-    "widgets": {
-      "noCompletedAssessments": "Noch keine abgeschlossenen Bewertungen.",
-      "noRecentAssessments": "Keine aktuellen Bewertungen",
-      "allAssessmentsOnSchedule": "Alle Bewertungen sind pünktlich.",
-      "noActiveRisks": "Keine aktiven Risiken",
-      "noProjectsAvailable": "Keine Projekte verfügbar",
-      "noEvidenceDataAvailable": "Keine Nachweisdaten verfügbar",
-      "noStandardsAvailable": "Keine Normen verfügbar",
-      "assessmentHistory": "Bewertungsverlauf",
-      "expiringWithin30Days": "Läuft in 30 Tagen ab",
-      "tableHeaders": {
-        "assessment": "Bewertung",
-        "entity": "Entität",
-        "standard": "Norm",
-        "completed": "Abgeschlossen",
-        "score": "Bewertung",
-        "state": "Status",
-        "date": "Datum",
-        "title": "Titel"
-      }
-    }
   },
   "projectDashboard": {
     "assessments": "Bewertungen",

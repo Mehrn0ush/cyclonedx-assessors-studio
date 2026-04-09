@@ -198,7 +198,28 @@
     "assessmentsCompleted": "terminées",
     "assessmentsOverdueCount": "en retard",
     "attestations": "attestations",
-    "noProjectData": "Aucun projet actif pour le moment. Créez un projet pour commencer."
+    "noProjectData": "Aucun projet actif pour le moment. Créez un projet pour commencer.",
+    "widgets": {
+      "noCompletedAssessments": "Aucune évaluation complétée pour le moment.",
+      "noRecentAssessments": "Aucune évaluation récente",
+      "allAssessmentsOnSchedule": "Toutes les évaluations sont à jour.",
+      "noActiveRisks": "Aucun risque actif",
+      "noProjectsAvailable": "Aucun projet disponible",
+      "noEvidenceDataAvailable": "Aucune donnée de preuve disponible",
+      "noStandardsAvailable": "Aucune norme disponible",
+      "assessmentHistory": "Historique des Évaluations",
+      "expiringWithin30Days": "Expiration dans 30 jours",
+      "tableHeaders": {
+        "assessment": "Évaluation",
+        "entity": "Entité",
+        "standard": "Norme",
+        "completed": "Complétée",
+        "score": "Score",
+        "state": "État",
+        "date": "Date",
+        "title": "Titre"
+      }
+    }
   },
   "projects": {
     "title": "Projets",
@@ -545,29 +566,6 @@
     "previous": "Précédent",
     "next": "Suivant",
     "getStarted": "Commencer"
-  },
-  "dashboard": {
-    "widgets": {
-      "noCompletedAssessments": "Aucune évaluation complétée pour le moment.",
-      "noRecentAssessments": "Aucune évaluation récente",
-      "allAssessmentsOnSchedule": "Toutes les évaluations sont à jour.",
-      "noActiveRisks": "Aucun risque actif",
-      "noProjectsAvailable": "Aucun projet disponible",
-      "noEvidenceDataAvailable": "Aucune donnée de preuve disponible",
-      "noStandardsAvailable": "Aucune norme disponible",
-      "assessmentHistory": "Historique des Évaluations",
-      "expiringWithin30Days": "Expiration dans 30 jours",
-      "tableHeaders": {
-        "assessment": "Évaluation",
-        "entity": "Entité",
-        "standard": "Norme",
-        "completed": "Complétée",
-        "score": "Score",
-        "state": "État",
-        "date": "Date",
-        "title": "Titre"
-      }
-    }
   },
   "projectDashboard": {
     "assessments": "Évaluations",

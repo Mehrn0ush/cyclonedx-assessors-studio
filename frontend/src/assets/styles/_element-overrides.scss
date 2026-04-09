@@ -201,7 +201,7 @@ html.dark {
   padding-inline: 0;
 }
 
-// Progress bar gradient
+// Progress bar gradients
 .el-progress-bar__inner {
   background: linear-gradient(90deg, #2f81f7, #58a6ff, #79c0ff) !important;
   transition: width 0.4s ease;
@@ -209,4 +209,12 @@ html.dark {
 
 .el-progress--success .el-progress-bar__inner {
   background: linear-gradient(90deg, #238636, #3fb950, #56d364) !important;
+}
+
+.el-progress--warning .el-progress-bar__inner {
+  background: linear-gradient(90deg, #9e6a03, #d29922, #e3b341) !important;
+}
+
+.el-progress--exception .el-progress-bar__inner {
+  background: linear-gradient(90deg, #da3633, #f85149, #ff7b72) !important;
 }
