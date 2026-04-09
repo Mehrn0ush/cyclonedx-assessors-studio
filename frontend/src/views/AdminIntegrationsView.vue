@@ -171,6 +171,114 @@ SMTP_TLS_REJECT_UNAUTHORIZED=true</pre>
             </div>
           </div>
         </div>
+        <!-- Slack Card -->
+        <div class="integration-card">
+          <div class="integration-card-header">
+            <div class="integration-card-title">
+              <el-icon :size="20"><ChatLineSquare /></el-icon>
+              <h3>{{ t('integrations.slack.title') }}</h3>
+            </div>
+            <span class="status-badge" :class="status.slack?.enabled ? 'status-badge--active' : 'status-badge--disabled'">
+              {{ status.slack?.enabled ? t('common.active') : t('common.inactive') }}
+            </span>
+          </div>
+          <div class="integration-card-body">
+            <template v-if="status.slack?.enabled">
+              <p class="integration-hint">
+                {{ t('integrations.slack.enabledHint', { count: status.slack.integrationCount || 0 }) }}
+              </p>
+              <div class="integration-card-actions">
+                <RouterLink to="/admin/chat-integrations">
+                  <el-button type="primary" plain>{{ t('integrations.slack.manage') }}</el-button>
+                </RouterLink>
+              </div>
+            </template>
+            <template v-else>
+              <p class="integration-hint">{{ t('integrations.slack.disabledHint') }}</p>
+              <el-collapse>
+                <el-collapse-item :title="t('integrations.smtp.setupGuide')">
+                  <div class="setup-guide">
+                    <p>{{ t('integrations.slack.setupGuideText') }}</p>
+                    <pre class="env-example">SLACK_ENABLED=true</pre>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
+            </template>
+          </div>
+        </div>
+
+        <!-- Teams Card -->
+        <div class="integration-card">
+          <div class="integration-card-header">
+            <div class="integration-card-title">
+              <el-icon :size="20"><ChatLineSquare /></el-icon>
+              <h3>{{ t('integrations.teams.title') }}</h3>
+            </div>
+            <span class="status-badge" :class="status.teams?.enabled ? 'status-badge--active' : 'status-badge--disabled'">
+              {{ status.teams?.enabled ? t('common.active') : t('common.inactive') }}
+            </span>
+          </div>
+          <div class="integration-card-body">
+            <template v-if="status.teams?.enabled">
+              <p class="integration-hint">
+                {{ t('integrations.teams.enabledHint', { count: status.teams.integrationCount || 0 }) }}
+              </p>
+              <div class="integration-card-actions">
+                <RouterLink to="/admin/chat-integrations">
+                  <el-button type="primary" plain>{{ t('integrations.teams.manage') }}</el-button>
+                </RouterLink>
+              </div>
+            </template>
+            <template v-else>
+              <p class="integration-hint">{{ t('integrations.teams.disabledHint') }}</p>
+              <el-collapse>
+                <el-collapse-item :title="t('integrations.smtp.setupGuide')">
+                  <div class="setup-guide">
+                    <p>{{ t('integrations.teams.setupGuideText') }}</p>
+                    <pre class="env-example">TEAMS_ENABLED=true</pre>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
+            </template>
+          </div>
+        </div>
+
+        <!-- Mattermost Card -->
+        <div class="integration-card">
+          <div class="integration-card-header">
+            <div class="integration-card-title">
+              <el-icon :size="20"><ChatLineSquare /></el-icon>
+              <h3>{{ t('integrations.mattermost.title') }}</h3>
+            </div>
+            <span class="status-badge" :class="status.mattermost?.enabled ? 'status-badge--active' : 'status-badge--disabled'">
+              {{ status.mattermost?.enabled ? t('common.active') : t('common.inactive') }}
+            </span>
+          </div>
+          <div class="integration-card-body">
+            <template v-if="status.mattermost?.enabled">
+              <p class="integration-hint">
+                {{ t('integrations.mattermost.enabledHint', { count: status.mattermost.integrationCount || 0 }) }}
+              </p>
+              <div class="integration-card-actions">
+                <RouterLink to="/admin/chat-integrations">
+                  <el-button type="primary" plain>{{ t('integrations.mattermost.manage') }}</el-button>
+                </RouterLink>
+              </div>
+            </template>
+            <template v-else>
+              <p class="integration-hint">{{ t('integrations.mattermost.disabledHint') }}</p>
+              <el-collapse>
+                <el-collapse-item :title="t('integrations.smtp.setupGuide')">
+                  <div class="setup-guide">
+                    <p>{{ t('integrations.mattermost.setupGuideText') }}</p>
+                    <pre class="env-example">MATTERMOST_ENABLED=true</pre>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
+            </template>
+          </div>
+        </div>
+
       </template>
     </div>
   </div>
@@ -185,6 +293,7 @@ import {
   Message,
   FolderOpened,
   Connection,
+  ChatLineSquare,
   Lock,
   Loading,
 } from '@element-plus/icons-vue'
@@ -220,6 +329,18 @@ interface IntegrationStatus {
   }
   webhook: {
     enabled: boolean
+  }
+  slack: {
+    enabled: boolean
+    integrationCount: number
+  }
+  teams: {
+    enabled: boolean
+    integrationCount: number
+  }
+  mattermost: {
+    enabled: boolean
+    integrationCount: number
   }
 }
 

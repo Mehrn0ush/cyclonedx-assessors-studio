@@ -133,6 +133,9 @@ export interface AppUser {
   role_id?: string | null;
   is_active: boolean;
   has_completed_onboarding: boolean;
+  slack_user_id?: string | null;
+  teams_user_id?: string | null;
+  mattermost_username?: string | null;
   last_login_at?: Date | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
@@ -501,6 +504,34 @@ export interface WebhookDelivery {
   created_at: Generated<Date>;
 }
 
+export interface ChatIntegration {
+  id: Generated<string>;
+  name: string;
+  platform: 'slack' | 'teams' | 'mattermost';
+  webhook_url: string;
+  event_categories: string;
+  channel_name?: string | null;
+  is_active: Generated<boolean>;
+  consecutive_failures: Generated<number>;
+  created_by?: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface ChatDelivery {
+  id: Generated<string>;
+  integration_id: string;
+  event_id: string;
+  event_type: string;
+  status: Generated<string>;
+  http_status?: number | null;
+  attempt: Generated<number>;
+  next_retry_at?: Date | null;
+  error_message?: string | null;
+  delivered_at?: Date | null;
+  created_at: Generated<Date>;
+}
+
 export interface Database {
   permission: Selectable<Permission>;
   permission_insert: Insertable<Permission>;
@@ -684,4 +715,12 @@ export interface Database {
   webhook_delivery: Selectable<WebhookDelivery>;
   webhook_delivery_insert: Insertable<WebhookDelivery>;
   webhook_delivery_update: Updateable<WebhookDelivery>;
+
+  chat_integration: Selectable<ChatIntegration>;
+  chat_integration_insert: Insertable<ChatIntegration>;
+  chat_integration_update: Updateable<ChatIntegration>;
+
+  chat_delivery: Selectable<ChatDelivery>;
+  chat_delivery_insert: Insertable<ChatDelivery>;
+  chat_delivery_update: Updateable<ChatDelivery>;
 }

@@ -44,6 +44,13 @@ const envSchema = z.object({
   WEBHOOK_TIMEOUT: z.coerce.number().int().positive().default(10000),
   WEBHOOK_MAX_RETRIES: z.coerce.number().int().positive().default(5),
   WEBHOOK_DELIVERY_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
+
+  // Chat channels (spec 006)
+  SLACK_ENABLED: z.coerce.boolean().default(false),
+  TEAMS_ENABLED: z.coerce.boolean().default(false),
+  MATTERMOST_ENABLED: z.coerce.boolean().default(false),
+  CHAT_TIMEOUT: z.coerce.number().int().positive().default(10000),
+  CHAT_DELIVERY_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
 });
 
 type Env = z.infer<typeof envSchema>;

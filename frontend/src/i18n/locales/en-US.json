@@ -77,7 +77,8 @@
     "activity": "Activity",
     "admin": "Admin",
     "webhooks": "Webhooks",
-    "integrations": "Integrations"
+    "integrations": "Integrations",
+    "chatIntegrations": "Chat"
   },
   "topbar": {
     "lightMode": "Light mode",
@@ -679,6 +680,62 @@
       "enabledHint": "Webhook delivery is active. Manage individual webhooks from the Webhooks page.",
       "disabledHint": "Webhook delivery is disabled. Set WEBHOOK_ENABLED=true to enable.",
       "manageWebhooks": "Manage Webhooks"
+    },
+    "slack": {
+      "title": "Slack",
+      "enabledHint": "{count} integration(s) configured. Manage Slack integrations from the Chat Integrations page.",
+      "disabledHint": "Slack notifications are disabled. Set SLACK_ENABLED=true to enable.",
+      "manage": "Manage Slack",
+      "setupGuideText": "Set the SLACK_ENABLED environment variable to true, then create incoming webhooks in your Slack workspace under Apps > Incoming Webhooks."
+    },
+    "teams": {
+      "title": "Microsoft Teams",
+      "enabledHint": "{count} integration(s) configured. Manage Teams integrations from the Chat Integrations page.",
+      "disabledHint": "Teams notifications are disabled. Set TEAMS_ENABLED=true to enable.",
+      "manage": "Manage Teams",
+      "setupGuideText": "Set the TEAMS_ENABLED environment variable to true, then create incoming webhooks via your Teams channel Connectors or the Workflows app."
+    },
+    "mattermost": {
+      "title": "Mattermost",
+      "enabledHint": "{count} integration(s) configured. Manage Mattermost integrations from the Chat Integrations page.",
+      "disabledHint": "Mattermost notifications are disabled. Set MATTERMOST_ENABLED=true to enable.",
+      "manage": "Manage Mattermost",
+      "setupGuideText": "Set the MATTERMOST_ENABLED environment variable to true, then create incoming webhooks in your Mattermost instance under Integrations > Incoming Webhooks."
     }
+  },
+  "chatIntegrations": {
+    "title": "Chat Integrations",
+    "subtitle": "Manage Slack, Microsoft Teams, and Mattermost notification channels",
+    "name": "Name",
+    "namePlaceholder": "e.g., Security Team Slack",
+    "platform": "Platform",
+    "webhookUrl": "Webhook URL",
+    "channelName": "Channel Name",
+    "channelNamePlaceholder": "e.g., #security-alerts (display only)",
+    "channelNameHint": "Optional display name for admin reference. Does not affect delivery.",
+    "categories": "Event Categories",
+    "create": "New Integration",
+    "createTitle": "Create Chat Integration",
+    "editTitle": "Edit Chat Integration",
+    "sendTest": "Send Test",
+    "enable": "Re-enable",
+    "deliveryLog": "Delivery Log",
+    "eventType": "Event Type",
+    "noIntegrations": "No {platform} integrations configured yet.",
+    "setupGuide": "Setup Guide",
+    "created": "Integration created successfully",
+    "updated": "Integration updated successfully",
+    "enabled": "Integration re-enabled",
+    "deleted": "Integration deleted successfully",
+    "deleteConfirm": "Delete integration \"{name}\"? This will also remove all delivery history.",
+    "testResult": "Test Result",
+    "testSuccess": "Test message sent",
+    "testFailed": "Test message failed",
+    "slackSetupGuide": "Create an incoming webhook in your Slack workspace: Apps > Incoming Webhooks. Copy the webhook URL and paste it below.",
+    "teamsSetupGuide": "Create an incoming webhook in your Teams channel: Connectors > Incoming Webhook (or use the Workflows app for newer deployments).",
+    "mattermostSetupGuide": "Create an incoming webhook in Mattermost: Integrations > Incoming Webhooks.",
+    "slackUrlHint": "Must start with https://hooks.slack.com/",
+    "teamsUrlHint": "Must contain .webhook.office.com/ or .logic.azure.com/",
+    "mattermostUrlHint": "Must start with https://"
   }
 }

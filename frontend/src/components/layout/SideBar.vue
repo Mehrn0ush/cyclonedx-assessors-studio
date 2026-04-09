@@ -122,6 +122,20 @@
             <span class="nav-label">{{ t('nav.integrations') }}</span>
           </RouterLink>
         </div>
+
+        <div class="nav-item-wrapper">
+          <RouterLink
+            to="/admin/chat-integrations"
+            class="nav-item"
+            :class="{ active: isActive('/admin/chat-integrations') }"
+            :title="uiStore.sidebarCollapsed ? t('nav.chatIntegrations') : ''"
+            :aria-label="t('nav.chatIntegrations')"
+            @click="closeMobileMenu"
+          >
+            <el-icon class="nav-icon"><ChatLineSquare /></el-icon>
+            <span class="nav-label">{{ t('nav.chatIntegrations') }}</span>
+          </RouterLink>
+        </div>
       </div>
 
     </nav>

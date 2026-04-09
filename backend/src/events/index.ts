@@ -10,6 +10,9 @@ export { ChannelRegistry } from './channel-registry.js';
 export { InAppChannel } from './in-app-channel.js';
 export { WebhookChannel } from './webhook-channel.js';
 export { EmailChannel } from './channels/email.js';
+export { SlackChannel } from './channels/chat-slack.js';
+export { TeamsChannel } from './channels/chat-teams.js';
+export { MattermostChannel } from './channels/chat-mattermost.js';
 export type { NotificationChannel } from './channel.js';
 export type { EventEnvelope, Actor, EventOptions } from './types.js';
 export * from './catalog.js';
@@ -19,6 +22,9 @@ import { ChannelRegistry } from './channel-registry.js';
 import { InAppChannel } from './in-app-channel.js';
 import { WebhookChannel } from './webhook-channel.js';
 import { EmailChannel } from './channels/email.js';
+import { SlackChannel } from './channels/chat-slack.js';
+import { TeamsChannel } from './channels/chat-teams.js';
+import { MattermostChannel } from './channels/chat-mattermost.js';
 import { getDatabase } from '../db/connection.js';
 import { getConfig } from '../config/index.js';
 import { logger } from '../utils/logger.js';
@@ -61,8 +67,31 @@ export async function initializeEventSystem(): Promise<void> {
     channelRegistry.register(emailChannel);
   }
 
-  // Future channels (slack, teams, mattermost) will be
-  // conditionally registered here based on config flags.
+  // Chat channels (spec 006): registered when *_ENABLED=true
+  if (config.SLACK_ENABLED) {
+    const slackChannel = new SlackChannel(() => getDatabase());
+    channelRegistry.register(slackChannel);
+    slackChannel.setEmitter((type, data) => {
+      eventBus.emit(type, data, { userId: null, displayName: 'System' });
+    });
+  }
+
+  if (config.TEAMS_ENABLED) {
+    const teamsChannel = new TeamsChannel(() => getDatabase());
+    channelRegistry.register(teamsChannel);
+    teamsChannel.setEmitter((type, data) => {
+      eventBus.emit(type, data, { userId: null, displayName: 'System' });
+    });
+  }
+
+  if (config.MATTERMOST_ENABLED) {
+    const mattermostChannel = new MattermostChannel(() => getDatabase());
+    channelRegistry.register(mattermostChannel);
+    mattermostChannel.setEmitter((type, data) => {
+      eventBus.emit(type, data, { userId: null, displayName: 'System' });
+    });
+  }
+
   logger.info('Event system initialized', {
     channels: channelRegistry.getChannelNames(),
   });

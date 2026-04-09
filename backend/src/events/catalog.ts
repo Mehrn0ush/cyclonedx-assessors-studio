@@ -47,6 +47,7 @@ export const APIKEY_CREATED = 'apikey.created';
 
 // Channel lifecycle events
 export const CHANNEL_WEBHOOK_DISABLED = 'channel.webhook.disabled';
+export const CHANNEL_CHAT_DISABLED = 'channel.chat.disabled';
 export const CHANNEL_TEST = 'channel.test';
 
 // ---------------------------------------------------------------------------
@@ -83,6 +84,7 @@ const TYPE_CATEGORY_MAP: Record<string, string> = {
   [APIKEY_CREATED]: 'system',
 
   [CHANNEL_WEBHOOK_DISABLED]: 'system',
+  [CHANNEL_CHAT_DISABLED]: 'system',
   [CHANNEL_TEST]: 'system',
 };
 

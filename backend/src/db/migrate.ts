@@ -718,6 +718,50 @@ CREATE TABLE IF NOT EXISTS webhook_delivery (
 CREATE INDEX IF NOT EXISTS idx_webhook_delivery_webhook ON webhook_delivery(webhook_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_delivery_status ON webhook_delivery(status, next_retry_at);
 
+-- =====================================================================
+-- Chat Notification Channels (spec 006)
+-- =====================================================================
+
+-- User chat identity fields for direct message delivery
+ALTER TABLE app_user ADD COLUMN IF NOT EXISTS slack_user_id VARCHAR(64);
+ALTER TABLE app_user ADD COLUMN IF NOT EXISTS teams_user_id VARCHAR(128);
+ALTER TABLE app_user ADD COLUMN IF NOT EXISTS mattermost_username VARCHAR(64);
+
+-- Chat integration registrations (one per webhook URL per platform)
+CREATE TABLE IF NOT EXISTS chat_integration (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  platform TEXT NOT NULL CHECK(platform IN ('slack', 'teams', 'mattermost')),
+  webhook_url TEXT NOT NULL,
+  event_categories TEXT NOT NULL DEFAULT 'assessment,evidence,attestation',
+  channel_name TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  consecutive_failures INTEGER NOT NULL DEFAULT 0,
+  created_by UUID REFERENCES app_user(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_integration_platform ON chat_integration(platform);
+
+-- Chat delivery tracking (same pattern as webhook_delivery)
+CREATE TABLE IF NOT EXISTS chat_delivery (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  integration_id UUID NOT NULL REFERENCES chat_integration(id) ON DELETE CASCADE,
+  event_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'success', 'failed', 'exhausted')),
+  http_status INTEGER,
+  attempt INTEGER NOT NULL DEFAULT 1,
+  next_retry_at TIMESTAMP WITH TIME ZONE,
+  error_message TEXT,
+  delivered_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_delivery_integration ON chat_delivery(integration_id);
+CREATE INDEX IF NOT EXISTS idx_chat_delivery_status ON chat_delivery(status, next_retry_at);
+
 `;
 
 export async function runMigrations(): Promise<void> {

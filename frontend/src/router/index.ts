@@ -152,6 +152,12 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAuth: true, requiresRole: 'admin' }
   },
   {
+    path: '/admin/chat-integrations',
+    name: 'AdminChatIntegrations',
+    component: () => import('@/views/AdminChatIntegrationsView.vue'),
+    meta: { requiresAuth: true, requiresRole: 'admin' }
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: () => import('@/views/SettingsView.vue'),

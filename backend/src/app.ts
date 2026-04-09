@@ -35,6 +35,7 @@ import notificationRoutes from './routes/notifications.js';
 import assessorRoutes from './routes/assessors.js';
 import adminRoutes from './routes/admin.js';
 import webhookRoutes from './routes/webhooks.js';
+import chatIntegrationRoutes from './routes/chat-integrations.js';
 import { getOpenAPISpec } from './openapi.js';
 import { getEventBus } from './events/index.js';
 
@@ -166,6 +167,7 @@ export function createApp() {
   app.use('/api/v1/assessors', assessorRoutes);
   app.use('/api/v1/admin', adminRoutes);
   app.use('/api/v1/webhooks', webhookRoutes);
+  app.use('/api/v1/integrations/chat', chatIntegrationRoutes);
 
   // Production static serving
   if (config.NODE_ENV === 'production') {

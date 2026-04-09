@@ -239,6 +239,22 @@ router.get(
       }
       storageConfig.maxFileSize = config.UPLOAD_MAX_FILE_SIZE;
 
+      // Count chat integrations per platform
+      const db = getDatabase();
+      const chatCounts: Record<string, number> = { slack: 0, teams: 0, mattermost: 0 };
+      try {
+        const rows = await db
+          .selectFrom('chat_integration')
+          .select(['platform', db.fn.count<number>('id').as('count')])
+          .groupBy('platform')
+          .execute();
+        for (const row of rows) {
+          chatCounts[row.platform] = Number(row.count);
+        }
+      } catch {
+        // Table may not exist yet on first run before migration
+      }
+
       res.json({
         storage: storageConfig,
         smtp: {
@@ -253,6 +269,18 @@ router.get(
         },
         webhook: {
           enabled: config.WEBHOOK_ENABLED,
+        },
+        slack: {
+          enabled: config.SLACK_ENABLED,
+          integrationCount: chatCounts.slack,
+        },
+        teams: {
+          enabled: config.TEAMS_ENABLED,
+          integrationCount: chatCounts.teams,
+        },
+        mattermost: {
+          enabled: config.MATTERMOST_ENABLED,
+          integrationCount: chatCounts.mattermost,
         },
       });
     } catch (error) {
