@@ -209,7 +209,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Run tests with coverage
-        run: npx vitest run --reporter=verbose --coverage
+        run: npx vitest run --reporter=verbose --coverage.enabled --coverage.reporter=text --coverage.reporter=lcov --coverage.reportsDirectory=./coverage
 
       - name: List coverage files (debug)
         if: always()
