@@ -9,6 +9,7 @@ export default defineConfig({
     hookTimeout: 120000,
     maxConcurrency: 1,
     fileParallelism: false,
+    globalSetup: ['src/__tests__/global-teardown.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

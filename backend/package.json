@@ -14,6 +14,8 @@
     "migrate": "tsx src/db/migrate.ts",
     "db:reset": "rm -rf data/pglite && echo 'Database reset. It will be recreated on next server start.'",
     "test": "vitest",
+    "test:run": "vitest run; EXIT_CODE=$?; rm -rf data ../data; exit $EXIT_CODE",
+    "posttest": "rm -rf data ../data",
     "encrypt-secrets": "tsx src/scripts/encrypt-secrets.ts",
     "rotate-encryption-key": "tsx src/scripts/rotate-encryption-key.ts",
     "rekey-master": "tsx src/scripts/rekey-master.ts"
