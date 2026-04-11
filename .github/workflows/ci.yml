@@ -246,14 +246,14 @@ jobs:
         continue-on-error: true
 
       - name: Upload backend coverage to Codacy
-        uses: codacy/codacy-coverage-reporter-action@a6e93c66de3c919a2c1ab9872cf2e52defc3e59e  # v1.3.0
+        uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699  # v1.3.0
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           coverage-reports: backend-coverage/lcov.info
 
       - name: Upload frontend coverage to Codacy
         if: always()
-        uses: codacy/codacy-coverage-reporter-action@a6e93c66de3c919a2c1ab9872cf2e52defc3e59e  # v1.3.0
+        uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699  # v1.3.0
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           coverage-reports: frontend-coverage/lcov.info
