@@ -118,6 +118,13 @@ CREATE TABLE IF NOT EXISTS standard (
   owner VARCHAR(255),
   version VARCHAR(20),
   license_id UUID REFERENCES license(id) ON DELETE SET NULL,
+  state VARCHAR(20) NOT NULL DEFAULT 'published' CHECK(state IN ('draft', 'in_review', 'published', 'retired')),
+  authored_by UUID,
+  approved_by UUID,
+  approved_at TIMESTAMP WITH TIME ZONE,
+  submitted_at TIMESTAMP WITH TIME ZONE,
+  is_imported BOOLEAN NOT NULL DEFAULT FALSE,
+  source_json TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -656,7 +663,11 @@ export async function teardownTestDb() {
     testDb = null;
   }
   if (testDbDir && fs.existsSync(testDbDir)) {
-    fs.rmSync(testDbDir, { recursive: true, force: true });
+    try {
+      fs.rmSync(testDbDir, { recursive: true, force: true });
+    } catch {
+      // Ignore EPERM errors in sandboxed environments
+    }
   }
 }
 
