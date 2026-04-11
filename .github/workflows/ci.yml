@@ -116,6 +116,15 @@ jobs:
           LOG_LEVEL: error
           CORS_ORIGIN: http://localhost:5173
 
+      - name: Upload backend coverage
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: backend-coverage
+          path: backend/coverage/lcov.info
+          retention-days: 5
+          if-no-files-found: warn
+
   # ---------------------------------------------------------------------------
   # Frontend
   # ---------------------------------------------------------------------------
@@ -201,6 +210,54 @@ jobs:
       - name: Run tests with coverage
         run: npx vitest run --reporter=verbose --coverage
 
+      - name: Upload frontend coverage
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/lcov.info
+          retention-days: 5
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------------------
+  # Codacy coverage (main branch only) - upload coverage from test jobs
+  # ---------------------------------------------------------------------------
+  codacy-coverage:
+    name: "Codacy / Upload Coverage"
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [backend-test, frontend-test]
+    permissions:
+      contents: read
+
+    steps:
+      - name: Download backend coverage
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16  # v4.1.8
+        with:
+          name: backend-coverage
+          path: backend-coverage
+
+      - name: Download frontend coverage
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16  # v4.1.8
+        with:
+          name: frontend-coverage
+          path: frontend-coverage
+        continue-on-error: true
+
+      - name: Upload backend coverage to Codacy
+        uses: codacy/codacy-coverage-reporter-action@a6e93c66de3c919a2c1ab9872cf2e52defc3e59e  # v1.3.0
+        with:
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          coverage-reports: backend-coverage/lcov.info
+
+      - name: Upload frontend coverage to Codacy
+        if: always()
+        uses: codacy/codacy-coverage-reporter-action@a6e93c66de3c919a2c1ab9872cf2e52defc3e59e  # v1.3.0
+        with:
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          coverage-reports: frontend-coverage/lcov.info
+
   # ---------------------------------------------------------------------------
   # Dependency review (PR only) - block PRs that introduce known vulns
   # ---------------------------------------------------------------------------
@@ -245,13 +302,13 @@ jobs:
           persist-credentials: false
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392  # v3.6.0
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a  # v4.0.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2  # v3.10.0
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd  # v4.0.0
 
       - name: Build Docker image (no push)
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198e19c816612b  # v6.18.0
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f  # v7.1.0
         with:
           context: .
           file: deploy/docker/Dockerfile
