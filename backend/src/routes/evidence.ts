@@ -1,8 +1,9 @@
-import { Router, Response } from 'express';
+import { Router } from 'express';
+import type { Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import busboy from 'busboy';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requirePermission, getPermissionsForRole } from '../middleware/auth.js';
@@ -11,6 +12,7 @@ import { logAudit } from '../utils/audit.js';
 import { EVIDENCE_STATE_CHANGED } from '../events/catalog.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { validatePagination } from '../utils/pagination.js';
+import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import {
   getStorageProvider,
   getStorageProviderName,
@@ -42,6 +44,75 @@ async function isAssessmentParticipant(db: any, userId: string, userRole: string
     .selectAll()
     .executeTakeFirst();
   return !!assessee;
+}
+
+/**
+ * Fetch evidence by ID with validation
+ */
+async function fetchEvidence(db: any, evidenceId: string): Promise<any> {
+  return db
+    .selectFrom('evidence')
+    .where('id', '=', evidenceId)
+    .selectAll()
+    .executeTakeFirst();
+}
+
+/**
+ * Fetch assessment requirement by ID with validation
+ */
+async function fetchAssessmentRequirement(db: any, assessmentRequirementId: string): Promise<any> {
+  return db
+    .selectFrom('assessment_requirement')
+    .where('id', '=', assessmentRequirementId)
+    .selectAll()
+    .executeTakeFirst();
+}
+
+/**
+ * Validate evidence submission for review
+ */
+async function validateEvidenceSubmission(
+  evidence: any,
+  reviewerId: string,
+  authorId: string,
+  userId: string,
+): Promise<{ valid: boolean; error?: string }> {
+  if (!evidence) {
+    return { valid: false, error: 'Evidence not found' };
+  }
+  if (evidence.state !== 'in_progress') {
+    return { valid: false, error: 'Evidence can only be submitted for review from the in_progress state' };
+  }
+  if (reviewerId === userId) {
+    return { valid: false, error: 'You cannot assign yourself as the reviewer' };
+  }
+  if (authorId === reviewerId) {
+    return { valid: false, error: 'Reviewer cannot be the same as the author' };
+  }
+  return { valid: true };
+}
+
+/**
+ * Validate evidence approval
+ */
+async function validateEvidenceApproval(
+  evidence: any,
+  userId: string,
+  hasReviewAccess: boolean,
+): Promise<{ valid: boolean; error?: string }> {
+  if (!evidence) {
+    return { valid: false, error: 'Evidence not found' };
+  }
+  if (evidence.state !== 'in_review') {
+    return { valid: false, error: 'Evidence must be in review status to approve' };
+  }
+  if (!hasReviewAccess && evidence.reviewer_id !== userId) {
+    return { valid: false, error: 'Only the assigned reviewer or an admin can approve evidence' };
+  }
+  if (evidence.author_id === userId) {
+    return { valid: false, error: 'Evidence authors cannot approve their own evidence' };
+  }
+  return { valid: true };
 }
 
 
@@ -313,13 +384,13 @@ router.get('/:id/claims', requireAuth, async (req: AuthRequest, res: Response): 
   }
 });
 
-router.post('/', requireAuth, requirePermission('evidence.create'), async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    if (!req.user) {
-      res.status(401).json({ error: 'Authentication required' });
-      return;
-    }
+router.post('/', requireAuth, requirePermission('evidence.create'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
 
+  try {
     const data = createEvidenceSchema.parse(req.body);
     const db = getDatabase();
     const evidenceId = uuidv4();
@@ -371,15 +442,12 @@ router.post('/', requireAuth, requirePermission('evidence.create'), async (req: 
       isCounterEvidence: data.isCounterEvidence,
     });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: 'Invalid input', details: error.issues });
-      return;
-    }
+    if (handleValidationError(res, error)) return;
 
     logger.error('Create evidence error', { error, requestId: req.requestId });
     res.status(500).json({ error: 'Internal server error' });
   }
-});
+}));
 
 // Update evidence
 const updateEvidenceSchema = z.object({
@@ -392,7 +460,7 @@ const updateEvidenceSchema = z.object({
   tags: z.array(z.string()).optional(),
 });
 
-router.put('/:id', requireAuth, requirePermission('evidence.edit'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/:id', requireAuth, requirePermission('evidence.edit'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = updateEvidenceSchema.parse(req.body);
     const db = getDatabase();
@@ -460,27 +528,24 @@ router.put('/:id', requireAuth, requirePermission('evidence.edit'), async (req: 
       tags: tagsByEvidence[req.params.id as string] || [],
     });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: 'Invalid input', details: error.issues });
-      return;
-    }
+    if (handleValidationError(res, error)) return;
 
     logger.error('Update evidence error', { error, requestId: req.requestId });
     res.status(500).json({ error: 'Internal server error' });
   }
-});
+}));
 
 router.post(
   '/:id/notes',
   requireAuth,
   requirePermission('evidence.edit'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      if (!req.user) {
-        res.status(401).json({ error: 'Authentication required' });
-        return;
-      }
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
 
+    try {
       const data = addNoteSchema.parse(req.body);
       const db = getDatabase();
 
@@ -506,7 +571,7 @@ router.post(
           content: data.content,
           createdAt: new Date(),
           updatedAt: new Date(),
-        }))
+        }) as unknown as any)
         .execute();
 
       logger.info('Evidence note added', {
@@ -523,15 +588,12 @@ router.post(
         createdAt: new Date(),
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
+      if (handleValidationError(res, error)) return;
 
       logger.error('Add evidence note error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 const linkEvidenceSchema = z.object({
@@ -542,36 +604,24 @@ router.post(
   '/:id/link',
   requireAuth,
   requirePermission('evidence.edit'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = linkEvidenceSchema.parse(req.body);
       const db = getDatabase();
 
-      const evidence = await db
-        .selectFrom('evidence')
-        .where('id', '=', req.params.id as string)
-        .selectAll()
-        .executeTakeFirst();
-
+      const evidence = await fetchEvidence(db, req.params.id as string);
       if (!evidence) {
         res.status(404).json({ error: 'Evidence not found' });
         return;
       }
 
-      const assessmentReq = await db
-        .selectFrom('assessment_requirement')
-        .where('id', '=', data.assessmentRequirementId)
-        .selectAll()
-        .executeTakeFirst();
-
+      const assessmentReq = await fetchAssessmentRequirement(db, data.assessmentRequirementId);
       if (!assessmentReq) {
         res.status(404).json({ error: 'Assessment requirement not found' });
         return;
       }
 
-      // Authorization check: user must be a participant in the assessment
-      const assessmentId = assessmentReq.assessment_id;
-      const isParticipant = await isAssessmentParticipant(db, req.user!.id, req.user!.role, assessmentId);
+      const isParticipant = await isAssessmentParticipant(db, req.user!.id, req.user!.role, assessmentReq.assessment_id);
       if (!isParticipant) {
         res.status(403).json({ error: 'You are not a participant in this assessment' });
         return;
@@ -595,7 +645,7 @@ router.post(
           assessmentRequirementId: data.assessmentRequirementId,
           evidenceId: req.params.id as string,
           createdAt: new Date(),
-        }))
+        }) as unknown as any)
         .execute();
 
       logger.info('Evidence linked to requirement', {
@@ -607,15 +657,12 @@ router.post(
 
       res.status(201).json({ message: 'Evidence linked successfully' });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
+      if (handleValidationError(res, error)) return;
 
       logger.error('Link evidence error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 const unlinkEvidenceSchema = z.object({
@@ -626,38 +673,24 @@ router.delete(
   '/:id/unlink',
   requireAuth,
   requirePermission('evidence.edit'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = unlinkEvidenceSchema.parse(req.body);
       const db = getDatabase();
 
-      // Validate evidence exists
-      const evidence = await db
-        .selectFrom('evidence')
-        .where('id', '=', req.params.id as string)
-        .selectAll()
-        .executeTakeFirst();
-
+      const evidence = await fetchEvidence(db, req.params.id as string);
       if (!evidence) {
         res.status(404).json({ error: 'Evidence not found' });
         return;
       }
 
-      // Validate assessment_requirement exists and get assessment_id
-      const assessmentReq = await db
-        .selectFrom('assessment_requirement')
-        .where('id', '=', data.assessmentRequirementId)
-        .selectAll()
-        .executeTakeFirst();
-
+      const assessmentReq = await fetchAssessmentRequirement(db, data.assessmentRequirementId);
       if (!assessmentReq) {
         res.status(404).json({ error: 'Assessment requirement not found' });
         return;
       }
 
-      // Authorization check: user must be a participant in the assessment
-      const assessmentId = assessmentReq.assessment_id;
-      const isParticipant = await isAssessmentParticipant(db, req.user!.id, req.user!.role, assessmentId);
+      const isParticipant = await isAssessmentParticipant(db, req.user!.id, req.user!.role, assessmentReq.assessment_id);
       if (!isParticipant) {
         res.status(403).json({ error: 'You are not a participant in this assessment' });
         return;
@@ -683,15 +716,12 @@ router.delete(
 
       res.json({ message: 'Evidence unlinked successfully' });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
+      if (handleValidationError(res, error)) return;
 
       logger.error('Unlink evidence error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 const submitForReviewSchema = z.object({
@@ -702,7 +732,7 @@ router.post(
   '/:id/submit-for-review',
   requireAuth,
   requirePermission('evidence.submit'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = submitForReviewSchema.parse(req.body);
       const db = getDatabase();
@@ -712,39 +742,24 @@ router.post(
         return;
       }
 
-      const evidence = await db
-        .selectFrom('evidence')
-        .where('id', '=', req.params.id as string)
-        .selectAll()
-        .executeTakeFirst();
-
-      if (!evidence) {
-        res.status(404).json({ error: 'Evidence not found' });
-        return;
-      }
-
-      // Ownership check: only the evidence author or someone with evidence.submit permission can submit for review
+      const evidence = await fetchEvidence(db, req.params.id as string);
       const userPermissions = await getPermissionsForRole(req.user.role);
       const hasSubmitAccess = userPermissions.includes('evidence.submit');
-      if (!hasSubmitAccess && evidence.author_id !== req.user.id) {
+
+      if (!hasSubmitAccess && evidence?.author_id !== req.user.id) {
         res.status(403).json({ error: 'Only the evidence author or an admin can submit evidence for review' });
         return;
       }
 
-      // State check: evidence must be in 'in_progress' state
-      if (evidence.state !== 'in_progress') {
-        res.status(409).json({ error: 'Evidence can only be submitted for review from the in_progress state' });
-        return;
-      }
-
-      // Self-review prevention
-      if (data.reviewerId === req.user.id) {
-        res.status(400).json({ error: 'You cannot assign yourself as the reviewer' });
-        return;
-      }
-
-      if (evidence.author_id === data.reviewerId) {
-        res.status(400).json({ error: 'Reviewer cannot be the same as the author' });
+      const validation = await validateEvidenceSubmission(
+        evidence,
+        data.reviewerId,
+        evidence?.author_id,
+        req.user.id,
+      );
+      if (!validation.valid) {
+        const statusCode = validation.error?.includes('not found') ? 404 : 409;
+        res.status(statusCode).json({ error: validation.error });
         return;
       }
 
@@ -799,107 +814,79 @@ router.post(
 
       res.json({ message: 'Evidence submitted for review successfully' });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
+      if (handleValidationError(res, error)) return;
 
       logger.error('Submit for review error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 router.post(
   '/:id/approve',
   requireAuth,
   requirePermission('evidence.review'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      if (!req.user) {
-        res.status(401).json({ error: 'Authentication required' });
-        return;
-      }
-
-      const evidence = await db
-        .selectFrom('evidence')
-        .where('id', '=', req.params.id as string)
-        .selectAll()
-        .executeTakeFirst();
-
-      if (!evidence) {
-        res.status(404).json({ error: 'Evidence not found' });
-        return;
-      }
-
-      if (evidence.state !== 'in_review') {
-        res.status(409).json({ error: 'Evidence must be in review status to approve' });
-        return;
-      }
-
-      const userPermissions = await getPermissionsForRole(req.user.role);
-      const hasReviewAccess = userPermissions.includes('evidence.review');
-      if (!hasReviewAccess && evidence.reviewer_id !== req.user.id) {
-        res.status(403).json({ error: 'Only the assigned reviewer or an admin can approve evidence' });
-        return;
-      }
-
-      // Self-approval prevention: evidence authors cannot approve their own evidence
-      if (evidence.author_id === req.user.id) {
-        res.status(403).json({ error: 'Evidence authors cannot approve their own evidence' });
-        return;
-      }
-
-      const result = await db
-        .updateTable('evidence')
-        .set({
-          state: 'claimed',
-        })
-        .where('id', '=', req.params.id as string)
-        .where('state', '=', 'in_review')
-        .execute();
-
-      if (Number(result[0].numUpdatedRows) === 0) {
-        res.status(409).json({ error: 'Evidence state has changed. Please refresh and try again.' });
-        return;
-      }
-
-      await logAudit(db, {
-        entityType: 'evidence',
-        entityId: req.params.id as string,
-        action: 'state_change',
-        userId: req.user.id,
-        changes: { state: 'claimed' },
-      });
-
-      req.eventBus?.emit(
-        EVIDENCE_STATE_CHANGED,
-        {
-          evidenceId: req.params.id as string,
-          evidenceName: evidence.name,
-          previousState: 'in_review',
-          newState: 'claimed',
-          authorId: evidence.author_id,
-          reviewerId: evidence.reviewer_id,
-          assessmentId: null,
-        },
-        { userId: req.user.id, displayName: req.user.displayName },
-      );
-
-      logger.info('Evidence approved', {
-        evidenceId: req.params.id as string,
-        reviewerId: req.user.id,
-        requestId: req.requestId,
-      });
-
-      res.json({ message: 'Evidence approved successfully' });
-    } catch (error) {
-      logger.error('Approve evidence error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
     }
-  }
+
+    const evidence = await fetchEvidence(db, req.params.id as string);
+    const userPermissions = await getPermissionsForRole(req.user.role);
+    const hasReviewAccess = userPermissions.includes('evidence.review');
+
+    const validation = await validateEvidenceApproval(evidence, req.user.id, hasReviewAccess);
+    if (!validation.valid) {
+      const statusCode = validation.error?.includes('not found') ? 404 : 409;
+      res.status(statusCode).json({ error: validation.error });
+      return;
+    }
+
+    const result = await db
+      .updateTable('evidence')
+      .set({ state: 'claimed' })
+      .where('id', '=', req.params.id as string)
+      .where('state', '=', 'in_review')
+      .execute();
+
+    if (Number(result[0].numUpdatedRows) === 0) {
+      res.status(409).json({ error: 'Evidence state has changed. Please refresh and try again.' });
+      return;
+    }
+
+    await logAudit(db, {
+      entityType: 'evidence',
+      entityId: req.params.id as string,
+      action: 'state_change',
+      userId: req.user.id,
+      changes: { state: 'claimed' },
+    });
+
+    req.eventBus?.emit(
+      EVIDENCE_STATE_CHANGED,
+      {
+        evidenceId: req.params.id as string,
+        evidenceName: evidence.name,
+        previousState: 'in_review',
+        newState: 'claimed',
+        authorId: evidence.author_id,
+        reviewerId: evidence.reviewer_id,
+        assessmentId: null,
+      },
+      { userId: req.user.id, displayName: req.user.displayName },
+    );
+
+    logger.info('Evidence approved', {
+      evidenceId: req.params.id as string,
+      reviewerId: req.user.id,
+      requestId: req.requestId,
+    });
+
+    res.json({ message: 'Evidence approved successfully' });
+  })
 );
 
 const rejectEvidenceSchema = z.object({
@@ -910,7 +897,7 @@ router.post(
   '/:id/reject',
   requireAuth,
   requirePermission('evidence.review'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = rejectEvidenceSchema.parse(req.body);
       const db = getDatabase();
@@ -920,30 +907,25 @@ router.post(
         return;
       }
 
-      const evidence = await db
-        .selectFrom('evidence')
-        .where('id', '=', req.params.id as string)
-        .selectAll()
-        .executeTakeFirst();
-
+      const evidence = await fetchEvidence(db, req.params.id as string);
       if (!evidence) {
         res.status(404).json({ error: 'Evidence not found' });
         return;
       }
+
+      const userPermissions = await getPermissionsForRole(req.user.role);
+      const hasReviewAccess = userPermissions.includes('evidence.review');
 
       if (evidence.state !== 'in_review') {
         res.status(409).json({ error: 'Evidence must be in review status to reject' });
         return;
       }
 
-      const userPermissions = await getPermissionsForRole(req.user.role);
-      const hasReviewAccess = userPermissions.includes('evidence.review');
       if (!hasReviewAccess && evidence.reviewer_id !== req.user.id) {
         res.status(403).json({ error: 'Only the assigned reviewer or an admin can reject evidence' });
         return;
       }
 
-      // Self-rejection prevention: evidence authors cannot reject their own evidence
       if (evidence.author_id === req.user.id) {
         res.status(403).json({ error: 'Evidence authors cannot reject their own evidence' });
         return;
@@ -951,9 +933,7 @@ router.post(
 
       const result = await db
         .updateTable('evidence')
-        .set(toSnakeCase({
-          state: 'in_progress',
-        }))
+        .set(toSnakeCase({ state: 'in_progress' }))
         .where('id', '=', req.params.id as string)
         .where('state', '=', 'in_review')
         .execute();
@@ -981,7 +961,7 @@ router.post(
           content: `REJECTED: ${data.note}`,
           createdAt: new Date(),
           updatedAt: new Date(),
-        }))
+        }) as unknown as any)
         .execute();
 
       req.eventBus?.emit(
@@ -1008,15 +988,12 @@ router.post(
 
       res.json({ message: 'Evidence rejected successfully' });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
+      if (handleValidationError(res, error)) return;
 
       logger.error('Reject evidence error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 /**
@@ -1060,108 +1037,104 @@ router.post(
   '/:id/attachments',
   requireAuth,
   requirePermission('evidence.edit'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      if (!req.user) {
-        res.status(401).json({ error: 'Authentication required' });
-        return;
-      }
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
 
-      const db = getDatabase();
+    const db = getDatabase();
 
-      const evidence = await db
-        .selectFrom('evidence')
-        .where('id', '=', req.params.id as string)
-        .selectAll()
-        .executeTakeFirst();
+    const evidence = await db
+      .selectFrom('evidence')
+      .where('id', '=', req.params.id as string)
+      .selectAll()
+      .executeTakeFirst();
 
-      if (!evidence) {
-        res.status(404).json({ error: 'Evidence not found' });
-        return;
-      }
+    if (!evidence) {
+      res.status(404).json({ error: 'Evidence not found' });
+      return;
+    }
 
-      const maxFileSize = getMaxFileSize();
-      const storageProviderName = getStorageProviderName();
-      const storageProvider = getStorageProvider();
+    const maxFileSize = getMaxFileSize();
+    const storageProviderName = getStorageProviderName();
+    const storageProvider = getStorageProvider();
 
-      // Check if this is JSON body upload or multipart upload
-      const contentType = req.headers['content-type'] || '';
-      if (contentType.includes('application/json')) {
-        // JSON body upload (for demo data seeding)
-        try {
-          const data = createAttachmentSchema.parse(req.body);
-          const attachmentId = uuidv4();
+    // Check if this is JSON body upload or multipart upload
+    const contentType = req.headers['content-type'] || '';
+    if (contentType.includes('application/json')) {
+      // JSON body upload (for demo data seeding)
+      try {
+        const data = createAttachmentSchema.parse(req.body);
+        const attachmentId = uuidv4();
 
-          // Decode base64 content
-          const buffer = Buffer.from(data.binaryContent, 'base64');
+        // Decode base64 content
+        const buffer = Buffer.from(data.binaryContent, 'base64');
 
-          if (buffer.length > maxFileSize) {
-            res.status(413).json({ error: `File exceeds maximum size of ${maxFileSize} bytes` });
-            return;
-          }
+        if (buffer.length > maxFileSize) {
+          res.status(413).json({ error: `File exceeds maximum size of ${maxFileSize} bytes` });
+          return;
+        }
 
-          const contentHash = computeContentHash(buffer);
-          const sizeBytes = buffer.length;
-          const resolvedContentType = detectCycloneDXMediaType(data.filename, data.contentType, buffer);
-          const storageKey = `evidence/${req.params.id as string}/${attachmentId}-${data.filename}`;
+        const contentHash = computeContentHash(buffer);
+        const sizeBytes = buffer.length;
+        const resolvedContentType = detectCycloneDXMediaType(data.filename, data.contentType, buffer);
+        const storageKey = `evidence/${req.params.id as string}/${attachmentId}-${data.filename}`;
 
-          // Build the row based on provider
-          const row: any = {
+        // Build the row based on provider
+        const row: any = {
+          id: attachmentId,
+          evidenceId: req.params.id as string,
+          filename: data.filename,
+          contentType: resolvedContentType,
+          sizeBytes,
+          contentHash,
+          storageProvider: storageProviderName,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        if (storageProviderName === 'database') {
+          row.binaryContent = buffer;
+          row.storagePath = storageKey;
+        } else {
+          // S3: write to object storage, store the key
+          await storageProvider.put(storageKey, buffer, { contentType: resolvedContentType });
+          row.storagePath = storageKey;
+          row.binaryContent = null;
+        }
+
+        await db
+          .insertInto('evidence_attachment')
+          .values(toSnakeCase(row))
+          .execute();
+
+        logger.info('Attachment created from JSON body', {
+          evidenceId: req.params.id as string,
+          attachmentId,
+          filename: data.filename,
+          storageProvider: storageProviderName,
+          userId: req.user?.id,
+          requestId: req.requestId,
+        });
+
+        res.status(201).json({
+          message: 'Attachment created successfully',
+          attachments: [{
             id: attachmentId,
-            evidenceId: req.params.id as string,
             filename: data.filename,
             contentType: resolvedContentType,
             sizeBytes,
+            storagePath: storageKey,
             contentHash,
-            storageProvider: storageProviderName,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-
-          if (storageProviderName === 'database') {
-            row.binaryContent = buffer;
-            row.storagePath = storageKey;
-          } else {
-            // S3: write to object storage, store the key
-            await storageProvider.put(storageKey, buffer, { contentType: resolvedContentType });
-            row.storagePath = storageKey;
-            row.binaryContent = null;
-          }
-
-          await db
-            .insertInto('evidence_attachment')
-            .values(toSnakeCase(row))
-            .execute();
-
-          logger.info('Attachment created from JSON body', {
-            evidenceId: req.params.id as string,
-            attachmentId,
-            filename: data.filename,
-            storageProvider: storageProviderName,
-            userId: req.user?.id,
-            requestId: req.requestId,
-          });
-
-          res.status(201).json({
-            message: 'Attachment created successfully',
-            attachments: [{
-              id: attachmentId,
-              filename: data.filename,
-              contentType: resolvedContentType,
-              sizeBytes,
-              storagePath: storageKey,
-              contentHash,
-            }],
-          });
-          return;
-        } catch (error) {
-          if (error instanceof z.ZodError) {
-            res.status(400).json({ error: 'Invalid input', details: error.issues });
-            return;
-          }
-          throw error;
-        }
+          }],
+        });
+        return;
+      } catch (error) {
+        if (handleValidationError(res, error)) return;
+        throw error;
       }
+    }
 
       // Multipart form upload
       const bb = busboy({
@@ -1279,144 +1252,130 @@ router.post(
         res.status(400).json({ error: 'Error processing upload' });
       });
 
-      req.pipe(bb);
-    } catch (error) {
-      logger.error('Upload attachments error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  }
+    req.pipe(bb);
+  })
 );
 
 router.get(
   '/:id/attachments/:attachmentId/download',
   requireAuth,
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      const attachment = await db
-        .selectFrom('evidence_attachment')
-        .where('evidence_attachment.id', '=', req.params.attachmentId)
-        .where('evidence_attachment.evidence_id', '=', req.params.id as string)
-        .selectAll()
-        .executeTakeFirst();
+    const attachment = await db
+      .selectFrom('evidence_attachment')
+      .where('evidence_attachment.id', '=', req.params.attachmentId)
+      .where('evidence_attachment.evidence_id', '=', req.params.id as string)
+      .selectAll()
+      .executeTakeFirst();
 
-      if (!attachment) {
-        res.status(404).json({ error: 'Attachment not found' });
-        return;
-      }
-
-      res.setHeader('Content-Type', attachment.content_type);
-      // Sanitize filename to prevent header injection (CWE-113) and path traversal
-      const sanitizedFilename = attachment.filename
-        .replace(/[\r\n]/g, '')           // Strip newlines (header injection)
-        .replace(/[/\\]/g, '_')           // Strip path separators (traversal)
-        .replace(/[^\w\s.\-()]/g, '_')    // Keep only safe characters
-        .substring(0, 255);               // Enforce length limit
-      const encodedFilename = encodeURIComponent(sanitizedFilename);
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="${sanitizedFilename}"; filename*=UTF-8''${encodedFilename}`
-      );
-
-      // Resolve the provider that was used to store this particular attachment,
-      // not the currently configured provider. This ensures mixed-storage
-      // deployments can still serve all files.
-      const recordProvider = (attachment.storage_provider || 'database') as StorageProviderName;
-
-      try {
-        if (recordProvider === 'database') {
-          // For database provider, content is already in the row
-          if (attachment.binary_content) {
-            const data = Buffer.isBuffer(attachment.binary_content)
-              ? attachment.binary_content
-              : Buffer.from(attachment.binary_content as any, 'base64');
-            res.send(data);
-          } else {
-            res.status(404).json({ error: 'File content not found in database' });
-          }
-        } else {
-          // S3: use the provider abstraction
-          const provider = resolveProvider(recordProvider);
-          const storageKey = attachment.storage_path || `evidence/${attachment.evidence_id}/${attachment.id}-${attachment.filename}`;
-          const result = await provider.get(storageKey);
-          res.send(result.data);
-        }
-
-        logger.info('Attachment downloaded', {
-          evidenceId: req.params.id as string,
-          attachmentId: req.params.attachmentId,
-          storageProvider: recordProvider,
-          userId: req.user?.id,
-          requestId: req.requestId,
-        });
-      } catch (error) {
-        logger.error('Error retrieving attachment content', { error, provider: recordProvider, requestId: req.requestId });
-        if (!res.headersSent) {
-          res.status(500).json({ error: 'Error downloading file' });
-        }
-      }
-    } catch (error) {
-      logger.error('Download attachment error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!attachment) {
+      res.status(404).json({ error: 'Attachment not found' });
+      return;
     }
-  }
-);
 
-router.delete(
-  '/:id/attachments/:attachmentId',
-  requireAuth,
-  requirePermission('evidence.delete'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+    res.setHeader('Content-Type', attachment.content_type);
+    // Sanitize filename to prevent header injection (CWE-113) and path traversal
+    const sanitizedFilename = attachment.filename
+      .replace(/[\r\n]/g, '')           // Strip newlines (header injection)
+      .replace(/[/\\]/g, '_')           // Strip path separators (traversal)
+      .replace(/[^\w\s.\-()]/g, '_')    // Keep only safe characters
+      .substring(0, 255);               // Enforce length limit
+    const encodedFilename = encodeURIComponent(sanitizedFilename);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${sanitizedFilename}"; filename*=UTF-8''${encodedFilename}`
+    );
+
+    // Resolve the provider that was used to store this particular attachment,
+    // not the currently configured provider. This ensures mixed-storage
+    // deployments can still serve all files.
+    const recordProvider = (attachment.storage_provider || 'database') as StorageProviderName;
+
     try {
-      const db = getDatabase();
-
-      const attachment = await db
-        .selectFrom('evidence_attachment')
-        .where('evidence_attachment.id', '=', req.params.attachmentId)
-        .where('evidence_attachment.evidence_id', '=', req.params.id as string)
-        .selectAll()
-        .executeTakeFirst();
-
-      if (!attachment) {
-        res.status(404).json({ error: 'Attachment not found' });
-        return;
-      }
-
-      // Delete from external storage if applicable (S3)
-      const recordProvider = (attachment.storage_provider || 'database') as StorageProviderName;
-      if (recordProvider !== 'database' && attachment.storage_path) {
-        try {
-          const provider = resolveProvider(recordProvider);
-          await provider.delete(attachment.storage_path);
-        } catch (error) {
-          logger.error('Error deleting from storage provider', {
-            error,
-            provider: recordProvider,
-            requestId: req.requestId,
-          });
+      if (recordProvider === 'database') {
+        // For database provider, content is already in the row
+        if (attachment.binary_content) {
+          const data = Buffer.isBuffer(attachment.binary_content)
+            ? attachment.binary_content
+            : Buffer.from(attachment.binary_content as any, 'base64');
+          res.send(data);
+        } else {
+          res.status(404).json({ error: 'File content not found in database' });
         }
+      } else {
+        // S3: use the provider abstraction
+        const provider = resolveProvider(recordProvider);
+        const storageKey = attachment.storage_path || `evidence/${attachment.evidence_id}/${attachment.id}-${attachment.filename}`;
+        const result = await provider.get(storageKey);
+        res.send(result.data);
       }
 
-      await db
-        .deleteFrom('evidence_attachment')
-        .where('id', '=', req.params.attachmentId)
-        .execute();
-
-      logger.info('Attachment deleted', {
+      logger.info('Attachment downloaded', {
         evidenceId: req.params.id as string,
         attachmentId: req.params.attachmentId,
         storageProvider: recordProvider,
         userId: req.user?.id,
         requestId: req.requestId,
       });
-
-      res.json({ message: 'Attachment deleted successfully' });
     } catch (error) {
-      logger.error('Delete attachment error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      logger.error('Error retrieving attachment content', { error, provider: recordProvider, requestId: req.requestId });
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Error downloading file' });
+      }
     }
-  }
+  })
+);
+
+router.delete(
+  '/:id/attachments/:attachmentId',
+  requireAuth,
+  requirePermission('evidence.delete'),
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
+
+    const attachment = await db
+      .selectFrom('evidence_attachment')
+      .where('evidence_attachment.id', '=', req.params.attachmentId)
+      .where('evidence_attachment.evidence_id', '=', req.params.id as string)
+      .selectAll()
+      .executeTakeFirst();
+
+    if (!attachment) {
+      res.status(404).json({ error: 'Attachment not found' });
+      return;
+    }
+
+    // Delete from external storage if applicable (S3)
+    const recordProvider = (attachment.storage_provider || 'database') as StorageProviderName;
+    if (recordProvider !== 'database' && attachment.storage_path) {
+      try {
+        const provider = resolveProvider(recordProvider);
+        await provider.delete(attachment.storage_path);
+      } catch (error) {
+        logger.error('Error deleting from storage provider', {
+          error,
+          provider: recordProvider,
+          requestId: req.requestId,
+        });
+      }
+    }
+
+    await db
+      .deleteFrom('evidence_attachment')
+      .where('id', '=', req.params.attachmentId)
+      .execute();
+
+    logger.info('Attachment deleted', {
+      evidenceId: req.params.id as string,
+      attachmentId: req.params.attachmentId,
+      storageProvider: recordProvider,
+      userId: req.user?.id,
+      requestId: req.requestId,
+    });
+
+    res.json({ message: 'Attachment deleted successfully' });
+  })
 );
 
 export default router;

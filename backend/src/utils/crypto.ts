@@ -1,5 +1,5 @@
 import argon2 from 'argon2';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 const ARGON2_OPTIONS = {
   type: argon2.argon2id,
@@ -15,7 +15,7 @@ export async function hashPassword(password: string): Promise<string> {
 export async function verifyPassword(hash: string, password: string): Promise<boolean> {
   try {
     return await argon2.verify(hash, password);
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }

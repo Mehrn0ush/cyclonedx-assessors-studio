@@ -1,7 +1,7 @@
 import { Kysely, PostgresDialect } from 'kysely';
 import { KyselyPGlite } from 'kysely-pglite';
 import { Pool } from 'pg';
-import fs from 'fs';
+import fs from 'node:fs';
 import { getConfig } from '../config/index.js';
 import { Database } from './types.js';
 import { logger } from '../utils/logger.js';

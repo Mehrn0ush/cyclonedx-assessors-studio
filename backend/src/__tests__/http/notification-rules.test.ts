@@ -332,7 +332,7 @@ describe('Notification Rules API', () => {
       });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toContain('Validation failed');
+      expect(res.body.error).toContain('Invalid input');
     });
 
     it('should allow wildcard event type', async () => {

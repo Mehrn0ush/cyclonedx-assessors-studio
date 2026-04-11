@@ -6,7 +6,7 @@
  * route pattern (e.g., `/api/v1/projects/:id`) to keep cardinality bounded.
  */
 
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import {
   httpRequestsTotal,
   httpRequestDuration,

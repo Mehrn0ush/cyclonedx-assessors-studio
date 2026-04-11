@@ -1,10 +1,12 @@
-import { Router, Response } from 'express';
+import { Router } from 'express';
+import type { Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
+import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 
 const router = Router();
 
@@ -53,113 +55,103 @@ const updateRequirementSchema = z.object({
   confidenceRationale: z.string().optional(),
 });
 
-router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const db = getDatabase();
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const offset = Number(req.query.offset) || 0;
+router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const db = getDatabase();
+  const limit = Math.min(Number(req.query.limit) || 50, 100);
+  const offset = Number(req.query.offset) || 0;
 
-    const total = await db
-      .selectFrom('attestation')
-      .select(db.fn.count<number>('id').as('count'))
-      .executeTakeFirstOrThrow()
-      .then(r => r.count);
+  const total = await db
+    .selectFrom('attestation')
+    .select(db.fn.count<number>('id').as('count'))
+    .executeTakeFirstOrThrow()
+    .then(r => r.count);
 
-    const attestations = (await db
-      .selectFrom('attestation')
-      .leftJoin('assessment', 'assessment.id', 'attestation.assessment_id')
-      .leftJoin('signatory', 'signatory.id', 'attestation.signatory_id')
-      .leftJoin('assessor', (join) =>
-        join.onRef('assessor.id' as any, '=', 'attestation.assessor_id' as any)
-      )
-      .leftJoin('entity as assessor_entity', (join) =>
-        join.onRef('assessor_entity.id' as any, '=', 'assessor.entity_id' as any)
-      )
-      .select([
-        'attestation.id',
-        'attestation.summary',
-        'attestation.assessment_id',
-        'attestation.signatory_id',
-        'attestation.assessor_id',
-        'attestation.created_at',
-        'attestation.updated_at',
-        'assessment.title as assessment_title',
-        'signatory.name as signatory_name',
-        'assessor.bom_ref as assessor_bom_ref',
-        'assessor.third_party as assessor_third_party',
-        'assessor_entity.name as assessor_entity_name',
-      ])
-      .limit(limit)
-      .offset(offset)
-      .execute()) as any[];
+  const attestations = (await db
+    .selectFrom('attestation')
+    .leftJoin('assessment', 'assessment.id', 'attestation.assessment_id')
+    .leftJoin('signatory', 'signatory.id', 'attestation.signatory_id')
+    .leftJoin('assessor', (join) =>
+      join.onRef('assessor.id' as any, '=', 'attestation.assessor_id' as any)
+    )
+    .leftJoin('entity as assessor_entity', (join) =>
+      join.onRef('assessor_entity.id' as any, '=', 'assessor.entity_id' as any)
+    )
+    .select([
+      'attestation.id',
+      'attestation.summary',
+      'attestation.assessment_id',
+      'attestation.signatory_id',
+      'attestation.assessor_id',
+      'attestation.created_at',
+      'attestation.updated_at',
+      'assessment.title as assessment_title',
+      'signatory.name as signatory_name',
+      'assessor.bom_ref as assessor_bom_ref',
+      'assessor.third_party as assessor_third_party',
+      'assessor_entity.name as assessor_entity_name',
+    ])
+    .limit(limit)
+    .offset(offset)
+    .execute()) as any[];
 
-    res.json({
-      data: attestations,
-      pagination: {
-        limit,
-        offset,
-        total,
-      },
-    });
-  } catch (error) {
-    logger.error('Get attestations error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
+  res.json({
+    data: attestations,
+    pagination: {
+      limit,
+      offset,
+      total,
+    },
+  });
+}));
+
+router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const db = getDatabase();
+
+  const attestation = await db
+    .selectFrom('attestation')
+    .where('id', '=', req.params.id)
+    .selectAll()
+    .executeTakeFirst();
+
+  if (!attestation) {
+    res.status(404).json({ error: 'Attestation not found' });
+    return;
   }
-});
 
-router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const db = getDatabase();
+  const requirements = await db
+    .selectFrom('attestation_requirement')
+    .innerJoin('requirement', 'requirement.id', 'attestation_requirement.requirement_id')
+    .where('attestation_requirement.attestation_id', '=', req.params.id)
+    .selectAll()
+    .execute();
 
-    const attestation = await db
-      .selectFrom('attestation')
-      .where('id', '=', req.params.id)
-      .selectAll()
-      .executeTakeFirst();
+  const claims = await db
+    .selectFrom('claim')
+    .where('attestation_id', '=', req.params.id)
+    .selectAll()
+    .execute();
 
-    if (!attestation) {
-      res.status(404).json({ error: 'Attestation not found' });
-      return;
-    }
+  const signatory = attestation.signatory_id
+    ? await db
+        .selectFrom('signatory')
+        .where('id', '=', attestation.signatory_id)
+        .selectAll()
+        .executeTakeFirst()
+    : null;
 
-    const requirements = await db
-      .selectFrom('attestation_requirement')
-      .innerJoin('requirement', 'requirement.id', 'attestation_requirement.requirement_id')
-      .where('attestation_requirement.attestation_id', '=', req.params.id)
-      .selectAll()
-      .execute();
-
-    const claims = await db
-      .selectFrom('claim')
-      .where('attestation_id', '=', req.params.id)
-      .selectAll()
-      .execute();
-
-    const signatory = attestation.signatory_id
-      ? await db
-          .selectFrom('signatory')
-          .where('id', '=', attestation.signatory_id)
-          .selectAll()
-          .executeTakeFirst()
-      : null;
-
-    res.json({
-      attestation,
-      requirements,
-      claims,
-      signatory,
-    });
-  } catch (error) {
-    logger.error('Get attestation error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+  res.json({
+    attestation,
+    requirements,
+    claims,
+    signatory,
+  });
+}));
 
 router.post(
   '/',
   requireAuth,
   requirePermission('attestations.create'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createAttestationSchema.parse(req.body);
       const db = getDatabase();
@@ -206,22 +198,17 @@ router.post(
         signatoryId: data.signatoryId,
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-
-      logger.error('Create attestation error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  }
+  })
 );
 
 router.put(
   '/:id',
   requireAuth,
   requirePermission('attestations.create'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateAttestationSchema.parse(req.body);
       const db = getDatabase();
@@ -271,22 +258,17 @@ router.put(
 
       res.json(updatedAttestation);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-
-      logger.error('Update attestation error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  }
+  })
 );
 
 router.post(
   '/:id/requirements',
   requireAuth,
   requirePermission('attestations.create'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = addRequirementSchema.parse(req.body);
       const db = getDatabase();
@@ -362,22 +344,17 @@ router.post(
 
       res.status(201).json({ message: 'Requirement added/updated successfully' });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-
-      logger.error('Add attestation requirement error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  }
+  })
 );
 
 router.put(
   '/:id/requirements/:requirementId',
   requireAuth,
   requirePermission('attestations.create'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateRequirementSchema.parse(req.body);
       const db = getDatabase();
@@ -428,55 +405,45 @@ router.put(
 
       res.json({ message: 'Requirement updated successfully' });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-
-      logger.error('Update attestation requirement error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  }
+  })
 );
 
 router.get(
   '/:id/requirements',
   requireAuth,
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      const attestation = await db
-        .selectFrom('attestation')
-        .where('id', '=', req.params.id)
-        .selectAll()
-        .executeTakeFirst();
+    const attestation = await db
+      .selectFrom('attestation')
+      .where('id', '=', req.params.id)
+      .selectAll()
+      .executeTakeFirst();
 
-      if (!attestation) {
-        res.status(404).json({ error: 'Attestation not found' });
-        return;
-      }
-
-      const requirements = await db
-        .selectFrom('attestation_requirement')
-        .innerJoin('requirement', 'requirement.id', 'attestation_requirement.requirement_id')
-        .where('attestation_requirement.attestation_id', '=', req.params.id)
-        .selectAll()
-        .execute();
-
-      res.json({ data: requirements });
-    } catch (error) {
-      logger.error('Get attestation requirements error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!attestation) {
+      res.status(404).json({ error: 'Attestation not found' });
+      return;
     }
-  }
+
+    const requirements = await db
+      .selectFrom('attestation_requirement')
+      .innerJoin('requirement', 'requirement.id', 'attestation_requirement.requirement_id')
+      .where('attestation_requirement.attestation_id', '=', req.params.id)
+      .selectAll()
+      .execute();
+
+    res.json({ data: requirements });
+  })
 );
 
 router.post(
   '/:id/sign',
   requireAuth,
   requirePermission('attestations.sign'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { signatoryId } = z.object({ signatoryId: z.string().uuid() }).parse(req.body);
       const db = getDatabase();
@@ -517,15 +484,10 @@ router.post(
 
       res.json({ message: 'Attestation signed successfully' });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-
-      logger.error('Sign attestation error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  }
+  })
 );
 
 export default router;

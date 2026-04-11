@@ -1,10 +1,12 @@
+import { Kysely } from 'kysely';
+import type { Database } from '../db/types.js';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Resolve an array of tag name strings into tag IDs, creating any that
  * do not already exist. Names are forced to lowercase and trimmed.
  */
-export async function resolveTagIds(db: any, tagNames: string[]): Promise<string[]> {
+export async function resolveTagIds(db: Kysely<Database>, tagNames: string[]): Promise<string[]> {
   const tagIds: string[] = [];
   for (const raw of tagNames) {
     const name = raw.trim().toLowerCase();
@@ -32,19 +34,19 @@ export async function resolveTagIds(db: any, tagNames: string[]): Promise<string
  * Sync tags for a given entity. Deletes old associations and inserts new ones.
  */
 export async function syncEntityTags(
-  db: any,
+  db: Kysely<Database>,
   junctionTable: string,
   entityColumn: string,
   entityId: string,
   tagNames: string[]
 ): Promise<void> {
-  await db.deleteFrom(junctionTable).where(entityColumn, '=', entityId).execute();
+  await (db.deleteFrom(junctionTable as any) as any).where(entityColumn, '=', entityId).execute();
 
   if (tagNames.length > 0) {
     const tagIds = await resolveTagIds(db, tagNames);
     if (tagIds.length > 0) {
-      await db
-        .insertInto(junctionTable)
+      await (db
+        .insertInto(junctionTable as any) as any)
         .values(
           tagIds.map(tagId => ({
             [entityColumn]: entityId,
@@ -62,15 +64,15 @@ export async function syncEntityTags(
  * Returns a map of entityId -> tag name array.
  */
 export async function fetchTagsForEntities(
-  db: any,
+  db: Kysely<Database>,
   junctionTable: string,
   entityColumn: string,
   entityIds: string[]
 ): Promise<Record<string, { name: string; color: string }[]>> {
   if (entityIds.length === 0) return {};
 
-  const rows = await db
-    .selectFrom(junctionTable)
+  const rows = await (db
+    .selectFrom(junctionTable as any) as any)
     .innerJoin('tag', (join: any) => join.onRef('tag.id', '=', `${junctionTable}.tag_id`))
     .where(`${junctionTable}.${entityColumn}`, 'in', entityIds)
     .selectAll()
@@ -78,9 +80,10 @@ export async function fetchTagsForEntities(
 
   const result: Record<string, { name: string; color: string }[]> = {};
   for (const row of rows) {
-    const eid = (row as any)[entityColumn];
+    const record = row as Record<string, unknown>;
+    const eid = record[entityColumn] as string;
     if (!result[eid]) result[eid] = [];
-    result[eid].push({ name: (row as any).name, color: (row as any).color });
+    result[eid].push({ name: record.name as string, color: record.color as string });
   }
   return result;
 }

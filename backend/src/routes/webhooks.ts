@@ -5,12 +5,14 @@
  * and re-enabling webhook subscriptions, plus delivery log access.
  */
 
-import { Router, Response } from 'express';
+import { Router } from 'express';
+import type { Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
+import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { getEventBus } from '../events/index.js';
 import { CHANNEL_TEST } from '../events/catalog.js';
@@ -107,25 +109,20 @@ router.get(
   '/',
   requireAuth,
   requirePermission('admin.webhooks'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      const webhooks = await db
-        .selectFrom('webhook')
-        .select([
-          'id', 'name', 'url', 'event_types', 'is_active',
-          'consecutive_failures', 'created_by', 'created_at', 'updated_at',
-        ])
-        .orderBy('created_at', 'desc')
-        .execute();
+    const webhooks = await db
+      .selectFrom('webhook')
+      .select([
+        'id', 'name', 'url', 'event_types', 'is_active',
+        'consecutive_failures', 'created_by', 'created_at', 'updated_at',
+      ])
+      .orderBy('created_at', 'desc')
+      .execute();
 
-      res.json({ data: webhooks });
-    } catch (error) {
-      logger.error('List webhooks error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  },
+    res.json({ data: webhooks });
+  }),
 );
 
 /**
@@ -136,7 +133,7 @@ router.post(
   '/',
   requireAuth,
   requirePermission('admin.webhooks'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createWebhookSchema.parse(req.body);
       const db = getDatabase();
@@ -172,14 +169,10 @@ router.post(
         consecutiveFailures: 0,
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-      logger.error('Create webhook error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  },
+  }),
 );
 
 /**
@@ -190,61 +183,56 @@ router.get(
   '/:id',
   requireAuth,
   requirePermission('admin.webhooks'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      const webhook = await db
-        .selectFrom('webhook')
-        .where('id', '=', req.params.id)
-        .select([
-          'id', 'name', 'url', 'event_types', 'is_active',
-          'consecutive_failures', 'created_by', 'created_at', 'updated_at',
-        ])
-        .executeTakeFirst();
+    const webhook = await db
+      .selectFrom('webhook')
+      .where('id', '=', req.params.id)
+      .select([
+        'id', 'name', 'url', 'event_types', 'is_active',
+        'consecutive_failures', 'created_by', 'created_at', 'updated_at',
+      ])
+      .executeTakeFirst();
 
-      if (!webhook) {
-        res.status(404).json({ error: 'Webhook not found' });
-        return;
-      }
-
-      // Get recent delivery stats
-      const stats = await db
-        .selectFrom('webhook_delivery')
-        .where('webhook_id', '=', req.params.id)
-        .select([
-          db.fn.count<number>('id').as('total_deliveries'),
-        ])
-        .executeTakeFirst();
-
-      const successCount = await db
-        .selectFrom('webhook_delivery')
-        .where('webhook_id', '=', req.params.id)
-        .where('status', '=', 'success')
-        .select(db.fn.count<number>('id').as('count'))
-        .executeTakeFirst();
-
-      const lastSuccess = await db
-        .selectFrom('webhook_delivery')
-        .where('webhook_id', '=', req.params.id)
-        .where('status', '=', 'success')
-        .orderBy('delivered_at', 'desc')
-        .select('delivered_at')
-        .executeTakeFirst();
-
-      res.json({
-        ...webhook,
-        deliveryStats: {
-          totalDeliveries: Number(stats?.total_deliveries ?? 0),
-          successfulDeliveries: Number(successCount?.count ?? 0),
-          lastSuccessAt: lastSuccess?.delivered_at || null,
-        },
-      });
-    } catch (error) {
-      logger.error('Get webhook error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!webhook) {
+      res.status(404).json({ error: 'Webhook not found' });
+      return;
     }
-  },
+
+    // Get recent delivery stats
+    const stats = await db
+      .selectFrom('webhook_delivery')
+      .where('webhook_id', '=', req.params.id)
+      .select([
+        db.fn.count<number>('id').as('total_deliveries'),
+      ])
+      .executeTakeFirst();
+
+    const successCount = await db
+      .selectFrom('webhook_delivery')
+      .where('webhook_id', '=', req.params.id)
+      .where('status', '=', 'success')
+      .select(db.fn.count<number>('id').as('count'))
+      .executeTakeFirst();
+
+    const lastSuccess = await db
+      .selectFrom('webhook_delivery')
+      .where('webhook_id', '=', req.params.id)
+      .where('status', '=', 'success')
+      .orderBy('delivered_at', 'desc')
+      .select('delivered_at')
+      .executeTakeFirst();
+
+    res.json({
+      ...webhook,
+      deliveryStats: {
+        totalDeliveries: Number(stats?.total_deliveries ?? 0),
+        successfulDeliveries: Number(successCount?.count ?? 0),
+        lastSuccessAt: lastSuccess?.delivered_at || null,
+      },
+    });
+  }),
 );
 
 /**
@@ -255,7 +243,7 @@ router.put(
   '/:id',
   requireAuth,
   requirePermission('admin.webhooks'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateWebhookSchema.parse(req.body);
       const db = getDatabase();
@@ -307,14 +295,10 @@ router.put(
 
       res.json(result);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-      logger.error('Update webhook error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  },
+  }),
 );
 
 /**
@@ -325,33 +309,28 @@ router.delete(
   '/:id',
   requireAuth,
   requirePermission('admin.webhooks'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      // Verify the webhook exists before deleting
-      const existing = await db
-        .selectFrom('webhook')
-        .select('id')
-        .where('id', '=', req.params.id)
-        .executeTakeFirst();
+    // Verify the webhook exists before deleting
+    const existing = await db
+      .selectFrom('webhook')
+      .select('id')
+      .where('id', '=', req.params.id)
+      .executeTakeFirst();
 
-      if (!existing) {
-        res.status(404).json({ error: 'Webhook not found' });
-        return;
-      }
-
-      await db
-        .deleteFrom('webhook')
-        .where('id', '=', req.params.id)
-        .execute();
-
-      res.json({ message: 'Webhook deleted successfully' });
-    } catch (error) {
-      logger.error('Delete webhook error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!existing) {
+      res.status(404).json({ error: 'Webhook not found' });
+      return;
     }
-  },
+
+    await db
+      .deleteFrom('webhook')
+      .where('id', '=', req.params.id)
+      .execute();
+
+    res.json({ message: 'Webhook deleted successfully' });
+  }),
 );
 
 /**
@@ -362,42 +341,37 @@ router.post(
   '/:id/test',
   requireAuth,
   requirePermission('admin.webhooks'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      const webhook = await db
-        .selectFrom('webhook')
-        .where('id', '=', req.params.id)
-        .selectAll()
-        .executeTakeFirst();
+    const webhook = await db
+      .selectFrom('webhook')
+      .where('id', '=', req.params.id)
+      .selectAll()
+      .executeTakeFirst();
 
-      if (!webhook) {
-        res.status(404).json({ error: 'Webhook not found' });
-        return;
-      }
-
-      // Emit a test event through the event bus
-      const eventBus = getEventBus();
-      const envelope = eventBus.emit(
-        CHANNEL_TEST,
-        {
-          webhookId: webhook.id,
-          webhookName: webhook.name,
-          message: 'This is a test delivery from CycloneDX Assessors Studio',
-        },
-        { userId: req.user!.id, displayName: req.user!.displayName },
-      );
-
-      res.json({
-        message: 'Test event emitted',
-        eventId: envelope?.id || null,
-      });
-    } catch (error) {
-      logger.error('Test webhook error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!webhook) {
+      res.status(404).json({ error: 'Webhook not found' });
+      return;
     }
-  },
+
+    // Emit a test event through the event bus
+    const eventBus = getEventBus();
+    const envelope = eventBus.emit(
+      CHANNEL_TEST,
+      {
+        webhookId: webhook.id,
+        webhookName: webhook.name,
+        message: 'This is a test delivery from CycloneDX Assessors Studio',
+      },
+      { userId: req.user!.id, displayName: req.user!.displayName },
+    );
+
+    res.json({
+      message: 'Test event emitted',
+      eventId: envelope?.id || null,
+    });
+  }),
 );
 
 /**
@@ -408,42 +382,37 @@ router.post(
   '/:id/enable',
   requireAuth,
   requirePermission('admin.webhooks'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      const webhook = await db
-        .selectFrom('webhook')
-        .where('id', '=', req.params.id)
-        .selectAll()
-        .executeTakeFirst();
+    const webhook = await db
+      .selectFrom('webhook')
+      .where('id', '=', req.params.id)
+      .selectAll()
+      .executeTakeFirst();
 
-      if (!webhook) {
-        res.status(404).json({ error: 'Webhook not found' });
-        return;
-      }
-
-      await db
-        .updateTable('webhook')
-        .set({
-          is_active: true,
-          consecutive_failures: 0,
-          updated_at: new Date(),
-        })
-        .where('id', '=', req.params.id)
-        .execute();
-
-      res.json({
-        message: 'Webhook re-enabled',
-        id: webhook.id,
-        isActive: true,
-        consecutiveFailures: 0,
-      });
-    } catch (error) {
-      logger.error('Enable webhook error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!webhook) {
+      res.status(404).json({ error: 'Webhook not found' });
+      return;
     }
-  },
+
+    await db
+      .updateTable('webhook')
+      .set({
+        is_active: true,
+        consecutive_failures: 0,
+        updated_at: new Date(),
+      })
+      .where('id', '=', req.params.id)
+      .execute();
+
+    res.json({
+      message: 'Webhook re-enabled',
+      id: webhook.id,
+      isActive: true,
+      consecutiveFailures: 0,
+    });
+  }),
 );
 
 /**
@@ -454,53 +423,48 @@ router.get(
   '/:id/deliveries',
   requireAuth,
   requirePermission('admin.webhooks'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
-      const { limit, offset } = validatePagination(req.query);
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
+    const { limit, offset } = validatePagination(req.query);
 
-      // Verify webhook exists
-      const webhook = await db
-        .selectFrom('webhook')
-        .where('id', '=', req.params.id)
-        .select('id')
-        .executeTakeFirst();
+    // Verify webhook exists
+    const webhook = await db
+      .selectFrom('webhook')
+      .where('id', '=', req.params.id)
+      .select('id')
+      .executeTakeFirst();
 
-      if (!webhook) {
-        res.status(404).json({ error: 'Webhook not found' });
-        return;
-      }
-
-      const totalResult = await db
-        .selectFrom('webhook_delivery')
-        .where('webhook_id', '=', req.params.id)
-        .select(db.fn.count<number>('id').as('count'))
-        .executeTakeFirst();
-
-      const total = Number(totalResult?.count ?? 0);
-
-      const deliveries = await db
-        .selectFrom('webhook_delivery')
-        .where('webhook_id', '=', req.params.id)
-        .selectAll()
-        .orderBy('created_at', 'desc')
-        .offset(offset)
-        .limit(limit)
-        .execute();
-
-      res.json({
-        data: deliveries,
-        pagination: {
-          limit,
-          offset,
-          total,
-        },
-      });
-    } catch (error) {
-      logger.error('List webhook deliveries error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!webhook) {
+      res.status(404).json({ error: 'Webhook not found' });
+      return;
     }
-  },
+
+    const totalResult = await db
+      .selectFrom('webhook_delivery')
+      .where('webhook_id', '=', req.params.id)
+      .select(db.fn.count<number>('id').as('count'))
+      .executeTakeFirst();
+
+    const total = Number(totalResult?.count ?? 0);
+
+    const deliveries = await db
+      .selectFrom('webhook_delivery')
+      .where('webhook_id', '=', req.params.id)
+      .selectAll()
+      .orderBy('created_at', 'desc')
+      .offset(offset)
+      .limit(limit)
+      .execute();
+
+    res.json({
+      data: deliveries,
+      pagination: {
+        limit,
+        offset,
+        total,
+      },
+    });
+  }),
 );
 
 export default router;

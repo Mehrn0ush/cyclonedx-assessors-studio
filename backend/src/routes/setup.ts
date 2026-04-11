@@ -1,13 +1,15 @@
-import { Router, Request, Response } from 'express';
+import { Router } from 'express';
+import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { URL } from 'url';
+import { URL } from 'node:url';
 import { getDatabase } from '../db/connection.js';
 import { hashPassword } from '../utils/crypto.js';
 import { logger } from '../utils/logger.js';
 import { checkSetupComplete, markSetupComplete } from '../middleware/setup.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { importStandard } from '../services/standard-import.js';
+import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 
 const router = Router();
 
@@ -137,7 +139,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
  * Fetches the CycloneDX standards feed so the frontend can display what will be imported.
  * Only available during setup (before setup is complete).
  */
-router.get('/standards-feed', async (_req: Request, res: Response): Promise<void> => {
+router.get('/standards-feed', async (__req: Request, res: Response): Promise<void> => {
   try {
     const feedResponse = await fetch('https://cyclonedx.org/standards/feed.json');
     if (!feedResponse.ok) {
@@ -272,7 +274,7 @@ router.post('/import-standard', async (req: Request, res: Response): Promise<voi
  * Seeds the database with comprehensive demo data.
  * Only available during/after setup. Requires that admin and standards exist.
  */
-router.post('/seed-demo', async (_req: Request, res: Response): Promise<void> => {
+router.post('/seed-demo', async (__req: Request, res: Response): Promise<void> => {
   try {
     const { seedDemoData } = await import('../db/seed-demo.js');
     const seeded = await seedDemoData();

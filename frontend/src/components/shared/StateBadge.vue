@@ -7,8 +7,6 @@
 </template>
 
 <script setup lang="ts">
-import { ElTooltip } from 'element-plus'
-
 defineProps<{
   state: string
   type?: 'project' | 'assessment' | 'evidence'

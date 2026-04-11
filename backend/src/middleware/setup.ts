@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../db/connection.js';
 
 let setupComplete: boolean | null = null;

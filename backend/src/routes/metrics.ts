@@ -5,7 +5,8 @@
  * bearer token authentication via the METRICS_TOKEN environment variable.
  */
 
-import { Router, Request, Response } from 'express';
+import { Router } from 'express';
+import type { Request, Response } from 'express';
 import { getConfig } from '../config/index.js';
 import { registry } from '../metrics/index.js';
 

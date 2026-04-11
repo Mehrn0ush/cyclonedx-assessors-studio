@@ -1,13 +1,15 @@
+import { Kysely } from 'kysely';
+import type { Database } from '../db/types.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function logAudit(
-  db: any,
+  db: Kysely<Database>,
   params: {
     entityType: string;
     entityId: string;
     action: 'create' | 'create_for_other' | 'update' | 'delete' | 'state_change' | 'link' | 'unlink';
     userId: string;
-    changes?: any;
+    changes?: Record<string, unknown>;
   }
 ): Promise<void> {
   try {

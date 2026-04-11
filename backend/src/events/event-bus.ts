@@ -5,7 +5,7 @@
  * asynchronously and errors in one listener do not affect others.
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger.js';
 import { getCategoryForType } from './catalog.js';

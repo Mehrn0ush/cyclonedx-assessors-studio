@@ -122,7 +122,6 @@ import { AVAILABLE_LOCALES, loadLocaleMessages } from '@/i18n'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { Sunny, Moon, CaretBottom, UserFilled, InfoFilled, Menu, Close, Bell } from '@element-plus/icons-vue'
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
 import { version } from '../../../package.json'
 
 const { logoSrc } = useLogo()

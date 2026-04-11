@@ -1,7 +1,9 @@
-import { Router, Response } from 'express';
+import { Router } from 'express';
+import type { Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
+import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { hashPassword } from '../utils/crypto.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
@@ -24,103 +26,88 @@ const updateUserSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-router.get('/', requireAuth, requirePermission('admin.users'), async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const db = getDatabase();
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const offset = Number(req.query.offset) || 0;
+router.get('/', requireAuth, requirePermission('admin.users'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const db = getDatabase();
+  const limit = Math.min(Number(req.query.limit) || 50, 100);
+  const offset = Number(req.query.offset) || 0;
 
-    const total = await db
-      .selectFrom('app_user')
-      .select(db.fn.count<number>('id').as('count'))
-      .executeTakeFirstOrThrow()
-      .then(r => r.count);
+  const total = await db
+    .selectFrom('app_user')
+    .select(db.fn.count<number>('id').as('count'))
+    .executeTakeFirstOrThrow()
+    .then(r => r.count);
 
-    const users = await db
-      .selectFrom('app_user')
-      .select([
-        'id',
-        'username',
-        'email',
-        'display_name',
-        'role',
-        'is_active',
-        'last_login_at',
-        'created_at',
-      ])
-      .limit(limit)
-      .offset(offset)
-      .execute();
+  const users = await db
+    .selectFrom('app_user')
+    .select([
+      'id',
+      'username',
+      'email',
+      'display_name',
+      'role',
+      'is_active',
+      'last_login_at',
+      'created_at',
+    ])
+    .limit(limit)
+    .offset(offset)
+    .execute();
 
-    res.json({
-      data: users,
-      pagination: {
-        limit,
-        offset,
-        total,
-      },
-    });
-  } catch (error) {
-    logger.error('Get users error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+  res.json({
+    data: users,
+    pagination: {
+      limit,
+      offset,
+      total,
+    },
+  });
+}));
 
 // Lightweight list for assignment pickers (any authenticated user)
-router.get('/assignable', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const db = getDatabase();
+router.get('/assignable', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const db = getDatabase();
 
-    const users = await db
-      .selectFrom('app_user')
-      .where('is_active', '=', true)
-      .select(['id', 'display_name', 'username', 'role'])
-      .orderBy('display_name', 'asc')
-      .execute();
+  const users = await db
+    .selectFrom('app_user')
+    .where('is_active', '=', true)
+    .select(['id', 'display_name', 'username', 'role'])
+    .orderBy('display_name', 'asc')
+    .execute();
 
-    res.json({ data: users });
-  } catch (error) {
-    logger.error('Get assignable users error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
+  res.json({ data: users });
+}));
+
+router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const db = getDatabase();
+
+  const user = await db
+    .selectFrom('app_user')
+    .where('id', '=', req.params.id)
+    .select([
+      'id',
+      'username',
+      'email',
+      'display_name',
+      'role',
+      'is_active',
+      'last_login_at',
+      'created_at',
+    ])
+    .executeTakeFirst();
+
+  if (!user) {
+    res.status(404).json({ error: 'User not found' });
+    return;
   }
-});
 
-router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const db = getDatabase();
-
-    const user = await db
-      .selectFrom('app_user')
-      .where('id', '=', req.params.id)
-      .select([
-        'id',
-        'username',
-        'email',
-        'display_name',
-        'role',
-        'is_active',
-        'last_login_at',
-        'created_at',
-      ])
-      .executeTakeFirst();
-
-    if (!user) {
-      res.status(404).json({ error: 'User not found' });
-      return;
-    }
-
-    res.json(user);
-  } catch (error) {
-    logger.error('Get user error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+  res.json(user);
+}));
 
 router.post(
   '/',
   requireAuth,
   requirePermission('admin.users'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createUserSchema.parse(req.body);
       const db = getDatabase();
@@ -179,22 +166,17 @@ router.post(
         isActive: true,
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-
-      logger.error('Create user error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  }
+  })
 );
 
 router.put(
   '/:id',
   requireAuth,
   requirePermission('admin.users'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateUserSchema.parse(req.body);
       const db = getDatabase();
@@ -261,128 +243,113 @@ router.put(
 
       res.json(updatedUser);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-
-      logger.error('Update user error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  }
+  })
 );
 
 router.put(
   '/:id/activate',
   requireAuth,
   requirePermission('admin.users'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      const user = await db
-        .selectFrom('app_user')
-        .where('id', '=', req.params.id)
-        .selectAll()
-        .executeTakeFirst();
+    const user = await db
+      .selectFrom('app_user')
+      .where('id', '=', req.params.id)
+      .selectAll()
+      .executeTakeFirst();
 
-      if (!user) {
-        res.status(404).json({ error: 'User not found' });
-        return;
-      }
-
-      await db
-        .updateTable('app_user')
-        .set({ is_active: true })
-        .where('id', '=', req.params.id)
-        .execute();
-
-      logger.info('User activated', {
-        userId: req.params.id,
-        requestId: req.requestId,
-      });
-
-      // Fetch and return the updated user
-      const updatedUser = await db
-        .selectFrom('app_user')
-        .where('id', '=', req.params.id)
-        .select([
-          'id',
-          'username',
-          'email',
-          'display_name',
-          'role',
-          'is_active',
-          'last_login_at',
-          'created_at',
-        ])
-        .executeTakeFirst();
-
-      res.json(updatedUser);
-    } catch (error) {
-      logger.error('Activate user error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
     }
-  }
+
+    await db
+      .updateTable('app_user')
+      .set({ is_active: true })
+      .where('id', '=', req.params.id)
+      .execute();
+
+    logger.info('User activated', {
+      userId: req.params.id,
+      requestId: req.requestId,
+    });
+
+    // Fetch and return the updated user
+    const updatedUser = await db
+      .selectFrom('app_user')
+      .where('id', '=', req.params.id)
+      .select([
+        'id',
+        'username',
+        'email',
+        'display_name',
+        'role',
+        'is_active',
+        'last_login_at',
+        'created_at',
+      ])
+      .executeTakeFirst();
+
+    res.json(updatedUser);
+  })
 );
 
 router.put(
   '/:id/deactivate',
   requireAuth,
   requirePermission('admin.users'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      const user = await db
-        .selectFrom('app_user')
-        .where('id', '=', req.params.id)
-        .selectAll()
-        .executeTakeFirst();
+    const user = await db
+      .selectFrom('app_user')
+      .where('id', '=', req.params.id)
+      .selectAll()
+      .executeTakeFirst();
 
-      if (!user) {
-        res.status(404).json({ error: 'User not found' });
-        return;
-      }
-
-      if (user.id === req.user?.id) {
-        res.status(400).json({ error: 'Cannot deactivate your own account' });
-        return;
-      }
-
-      await db
-        .updateTable('app_user')
-        .set({ is_active: false })
-        .where('id', '=', req.params.id)
-        .execute();
-
-      logger.info('User deactivated', {
-        userId: req.params.id,
-        requestId: req.requestId,
-      });
-
-      // Fetch and return the updated user
-      const updatedUser = await db
-        .selectFrom('app_user')
-        .where('id', '=', req.params.id)
-        .select([
-          'id',
-          'username',
-          'email',
-          'display_name',
-          'role',
-          'is_active',
-          'last_login_at',
-          'created_at',
-        ])
-        .executeTakeFirst();
-
-      res.json(updatedUser);
-    } catch (error) {
-      logger.error('Deactivate user error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
     }
-  }
+
+    if (user.id === req.user?.id) {
+      res.status(400).json({ error: 'Cannot deactivate your own account' });
+      return;
+    }
+
+    await db
+      .updateTable('app_user')
+      .set({ is_active: false })
+      .where('id', '=', req.params.id)
+      .execute();
+
+    logger.info('User deactivated', {
+      userId: req.params.id,
+      requestId: req.requestId,
+    });
+
+    // Fetch and return the updated user
+    const updatedUser = await db
+      .selectFrom('app_user')
+      .where('id', '=', req.params.id)
+      .select([
+        'id',
+        'username',
+        'email',
+        'display_name',
+        'role',
+        'is_active',
+        'last_login_at',
+        'created_at',
+      ])
+      .executeTakeFirst();
+
+    res.json(updatedUser);
+  })
 );
 
 export default router;

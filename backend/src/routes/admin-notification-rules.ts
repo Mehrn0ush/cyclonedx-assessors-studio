@@ -5,12 +5,14 @@
  * All routes require admin role.
  */
 
-import { Router, Response } from 'express';
+import { Router } from 'express';
+import type { Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
+import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 
 const router = Router();
 
@@ -30,31 +32,23 @@ const updateRuleSchema = createRuleSchema.partial();
  * GET /admin/notification-rules
  * List all system notification rules
  */
-router.get('/', requireAuth, requirePermission('admin.notification_rules'), async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const db = getDatabase();
-    const rules = await db
-      .selectFrom('notification_rule')
-      .where('scope', '=', 'system')
-      .selectAll()
-      .orderBy('created_at', 'desc')
-      .execute();
+router.get('/', requireAuth, requirePermission('admin.notification_rules'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const db = getDatabase();
+  const rules = await db
+    .selectFrom('notification_rule')
+    .where('scope', '=', 'system')
+    .selectAll()
+    .orderBy('created_at', 'desc')
+    .execute();
 
-    res.json(rules);
-  } catch (error) {
-    logger.error('Failed to list notification rules', {
-      userId: req.user?.id,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    res.status(500).json({ error: 'Failed to list notification rules' });
-  }
-});
+  res.json(rules);
+}));
 
 /**
  * POST /admin/notification-rules
  * Create a new system notification rule
  */
-router.post('/', requireAuth, requirePermission('admin.notification_rules'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/', requireAuth, requirePermission('admin.notification_rules'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = createRuleSchema.parse(req.body);
     const db = getDatabase();
@@ -130,55 +124,39 @@ router.post('/', requireAuth, requirePermission('admin.notification_rules'), asy
 
     res.status(201).json(rule);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: 'Validation failed', details: error.issues });
-      return;
-    }
-    logger.error('Failed to create notification rule', {
-      userId: req.user?.id,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    res.status(500).json({ error: 'Failed to create notification rule' });
+    if (handleValidationError(res, error)) return;
+    throw error;
   }
-});
+}));
 
 /**
  * GET /admin/notification-rules/:id
  * Get a single system notification rule
  */
-router.get('/:id', requireAuth, requirePermission('admin.notification_rules'), async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const db = getDatabase();
+router.get('/:id', requireAuth, requirePermission('admin.notification_rules'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const db = getDatabase();
 
-    const rule = await db
-      .selectFrom('notification_rule')
-      .where('id', '=', id)
-      .where('scope', '=', 'system')
-      .selectAll()
-      .executeTakeFirst();
+  const rule = await db
+    .selectFrom('notification_rule')
+    .where('id', '=', id)
+    .where('scope', '=', 'system')
+    .selectAll()
+    .executeTakeFirst();
 
-    if (!rule) {
-      res.status(404).json({ error: 'Notification rule not found' });
-      return;
-    }
-
-    res.json(rule);
-  } catch (error) {
-    logger.error('Failed to get notification rule', {
-      ruleId: req.params.id,
-      userId: req.user?.id,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    res.status(500).json({ error: 'Failed to get notification rule' });
+  if (!rule) {
+    res.status(404).json({ error: 'Notification rule not found' });
+    return;
   }
-});
+
+  res.json(rule);
+}));
 
 /**
  * PUT /admin/notification-rules/:id
  * Update a system notification rule
  */
-router.put('/:id', requireAuth, requirePermission('admin.notification_rules'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/:id', requireAuth, requirePermission('admin.notification_rules'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const data = updateRuleSchema.parse(req.body);
@@ -247,61 +225,44 @@ router.put('/:id', requireAuth, requirePermission('admin.notification_rules'), a
 
     res.json(rule);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: 'Validation failed', details: error.issues });
-      return;
-    }
-    logger.error('Failed to update notification rule', {
-      ruleId: req.params.id,
-      userId: req.user?.id,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    res.status(500).json({ error: 'Failed to update notification rule' });
+    if (handleValidationError(res, error)) return;
+    throw error;
   }
-});
+}));
 
 /**
  * DELETE /admin/notification-rules/:id
  * Delete a system notification rule
  */
-router.delete('/:id', requireAuth, requirePermission('admin.notification_rules'), async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const db = getDatabase();
+router.delete('/:id', requireAuth, requirePermission('admin.notification_rules'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const db = getDatabase();
 
-    // Check rule exists
-    const existing = await db
-      .selectFrom('notification_rule')
-      .where('id', '=', id)
-      .where('scope', '=', 'system')
-      .selectAll()
-      .executeTakeFirst();
+  // Check rule exists
+  const existing = await db
+    .selectFrom('notification_rule')
+    .where('id', '=', id)
+    .where('scope', '=', 'system')
+    .selectAll()
+    .executeTakeFirst();
 
-    if (!existing) {
-      res.status(404).json({ error: 'Notification rule not found' });
-      return;
-    }
-
-    // Delete rule
-    await db
-      .deleteFrom('notification_rule')
-      .where('id', '=', id)
-      .execute();
-
-    logger.info('Deleted notification rule', {
-      ruleId: id,
-      userId: req.user?.id,
-    });
-
-    res.status(204).send();
-  } catch (error) {
-    logger.error('Failed to delete notification rule', {
-      ruleId: req.params.id,
-      userId: req.user?.id,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    res.status(500).json({ error: 'Failed to delete notification rule' });
+  if (!existing) {
+    res.status(404).json({ error: 'Notification rule not found' });
+    return;
   }
-});
+
+  // Delete rule
+  await db
+    .deleteFrom('notification_rule')
+    .where('id', '=', id)
+    .execute();
+
+  logger.info('Deleted notification rule', {
+    ruleId: id,
+    userId: req.user?.id,
+  });
+
+  res.status(204).send();
+}));
 
 export default router;

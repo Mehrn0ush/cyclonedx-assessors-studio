@@ -1,7 +1,8 @@
-import { Router, Request, Response } from 'express';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { Router } from 'express';
+import type { Request, Response } from 'express';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { getDatabase } from '../db/connection.js';
 import { tryAuthenticate } from '../middleware/auth.js';
 

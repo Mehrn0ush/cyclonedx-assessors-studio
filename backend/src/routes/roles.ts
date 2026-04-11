@@ -1,7 +1,9 @@
-import { Router, Response } from 'express';
+import { Router } from 'express';
+import type { Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
+import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
@@ -21,111 +23,96 @@ const updateRoleSchema = z.object({
   permissionIds: z.array(z.string().uuid()).optional(),
 });
 
-router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const db = getDatabase();
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const offset = Number(req.query.offset) || 0;
+router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const db = getDatabase();
+  const limit = Math.min(Number(req.query.limit) || 50, 100);
+  const offset = Number(req.query.offset) || 0;
 
-    const total = await db
-      .selectFrom('role')
-      .select(db.fn.count<number>('id').as('count'))
-      .executeTakeFirstOrThrow()
-      .then(r => r.count);
+  const total = await db
+    .selectFrom('role')
+    .select(db.fn.count<number>('id').as('count'))
+    .executeTakeFirstOrThrow()
+    .then(r => r.count);
 
-    const roles = await db
-      .selectFrom('role')
-      .selectAll()
-      .limit(limit)
-      .offset(offset)
-      .execute();
+  const roles = await db
+    .selectFrom('role')
+    .selectAll()
+    .limit(limit)
+    .offset(offset)
+    .execute();
 
-    const rolesWithCounts = await Promise.all(
-      roles.map(async (role) => {
-        const permCount = await db
-          .selectFrom('role_permission')
-          .where('role_id', '=', role.id)
-          .select(db.fn.count<number>('permission_id').as('count'))
-          .executeTakeFirstOrThrow()
-          .then(r => Number(r.count));
+  const rolesWithCounts = await Promise.all(
+    roles.map(async (role) => {
+      const permCount = await db
+        .selectFrom('role_permission')
+        .where('role_id', '=', role.id)
+        .select(db.fn.count<number>('permission_id').as('count'))
+        .executeTakeFirstOrThrow()
+        .then(r => Number(r.count));
 
-        return {
-          ...role,
-          permissionCount: permCount,
-        };
-      })
-    );
+      return {
+        ...role,
+        permissionCount: permCount,
+      };
+    })
+  );
 
-    res.json({
-      data: rolesWithCounts,
-      pagination: {
-        limit,
-        offset,
-        total,
-      },
-    });
-  } catch (error) {
-    logger.error('Get roles error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+  res.json({
+    data: rolesWithCounts,
+    pagination: {
+      limit,
+      offset,
+      total,
+    },
+  });
+}));
 
 // IMPORTANT: This route must be registered BEFORE /:id to avoid being caught by the param route
-router.get('/permissions', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const db = getDatabase();
+router.get('/permissions', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const db = getDatabase();
 
-    const permissions = await db
-      .selectFrom('permission')
-      .selectAll()
-      .orderBy('category')
-      .orderBy('name')
-      .execute();
+  const permissions = await db
+    .selectFrom('permission')
+    .selectAll()
+    .orderBy('category')
+    .orderBy('name')
+    .execute();
 
-    res.json({ data: permissions });
-  } catch (error) {
-    logger.error('Get permissions error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
+  res.json({ data: permissions });
+}));
+
+router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const db = getDatabase();
+
+  const role = await db
+    .selectFrom('role')
+    .where('id', '=', req.params.id as string)
+    .selectAll()
+    .executeTakeFirst();
+
+  if (!role) {
+    res.status(404).json({ error: 'Role not found' });
+    return;
   }
-});
 
-router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const db = getDatabase();
+  const permissions = await db
+    .selectFrom('role_permission')
+    .innerJoin('permission', 'permission.id', 'role_permission.permission_id')
+    .where('role_permission.role_id', '=', req.params.id as string)
+    .select(['permission.id', 'permission.key', 'permission.name', 'permission.description', 'permission.category'])
+    .execute();
 
-    const role = await db
-      .selectFrom('role')
-      .where('id', '=', req.params.id as string)
-      .selectAll()
-      .executeTakeFirst();
-
-    if (!role) {
-      res.status(404).json({ error: 'Role not found' });
-      return;
-    }
-
-    const permissions = await db
-      .selectFrom('role_permission')
-      .innerJoin('permission', 'permission.id', 'role_permission.permission_id')
-      .where('role_permission.role_id', '=', req.params.id as string)
-      .select(['permission.id', 'permission.key', 'permission.name', 'permission.description', 'permission.category'])
-      .execute();
-
-    res.json({
-      role,
-      permissions,
-    });
-  } catch (error) {
-    logger.error('Get role error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+  res.json({
+    role,
+    permissions,
+  });
+}));
 
 router.post(
   '/',
   requireAuth,
   requirePermission('admin.roles'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createRoleSchema.parse(req.body);
       const db = getDatabase();
@@ -180,22 +167,17 @@ router.post(
         description: data.description,
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-
-      logger.error('Create role error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  }
+  })
 );
 
 router.put(
   '/:id',
   requireAuth,
   requirePermission('admin.roles'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateRoleSchema.parse(req.body);
       const db = getDatabase();
@@ -273,54 +255,44 @@ router.put(
         permissions,
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-
-      logger.error('Update role error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  }
+  })
 );
 
 router.delete(
   '/:id',
   requireAuth,
   requirePermission('admin.roles'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      const role = await db
-        .selectFrom('role')
-        .where('id', '=', req.params.id as string)
-        .selectAll()
-        .executeTakeFirst();
+    const role = await db
+      .selectFrom('role')
+      .where('id', '=', req.params.id as string)
+      .selectAll()
+      .executeTakeFirst();
 
-      if (!role) {
-        res.status(404).json({ error: 'Role not found' });
-        return;
-      }
-
-      if (role.is_system) {
-        res.status(400).json({ error: 'Cannot delete system roles' });
-        return;
-      }
-
-      await db.deleteFrom('role').where('id', '=', req.params.id as string).execute();
-
-      logger.info('Role deleted', {
-        roleId: req.params.id as string,
-        requestId: req.requestId,
-      });
-
-      res.status(204).send();
-    } catch (error) {
-      logger.error('Delete role error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!role) {
+      res.status(404).json({ error: 'Role not found' });
+      return;
     }
-  }
+
+    if (role.is_system) {
+      res.status(400).json({ error: 'Cannot delete system roles' });
+      return;
+    }
+
+    await db.deleteFrom('role').where('id', '=', req.params.id as string).execute();
+
+    logger.info('Role deleted', {
+      roleId: req.params.id as string,
+      requestId: req.requestId,
+    });
+
+    res.status(204).send();
+  })
 );
 
 export default router;

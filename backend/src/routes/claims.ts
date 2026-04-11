@@ -1,10 +1,12 @@
-import { Router, Response } from 'express';
+import { Router } from 'express';
+import type { Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
+import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 
 const router = Router();
 
@@ -99,79 +101,74 @@ const updateClaimSchema = z.object({
   counterEvidenceIds: z.array(z.string().uuid()).optional(),
 });
 
-router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const db = getDatabase();
+router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const db = getDatabase();
 
-    const claim = await db
-      .selectFrom('claim')
-      .where('id', '=', req.params.id)
-      .selectAll()
-      .executeTakeFirst();
+  const claim = await db
+    .selectFrom('claim')
+    .where('id', '=', req.params.id)
+    .selectAll()
+    .executeTakeFirst();
 
-    if (!claim) {
-      res.status(404).json({ error: 'Claim not found' });
-      return;
-    }
-
-    const evidence = await db
-      .selectFrom('claim_evidence')
-      .innerJoin('evidence', 'evidence.id', 'claim_evidence.evidence_id')
-      .where('claim_evidence.claim_id', '=', req.params.id)
-      .select(['evidence.id', 'evidence.name', 'evidence.description', 'evidence.state'])
-      .execute();
-
-    const counterEvidence = await db
-      .selectFrom('claim_counter_evidence')
-      .innerJoin('evidence', 'evidence.id', 'claim_counter_evidence.evidence_id')
-      .where('claim_counter_evidence.claim_id', '=', req.params.id)
-      .select(['evidence.id', 'evidence.name', 'evidence.description', 'evidence.state'])
-      .execute();
-
-    const mitigationStrategies = await db
-      .selectFrom('claim_mitigation_strategy')
-      .innerJoin('evidence', 'evidence.id', 'claim_mitigation_strategy.evidence_id')
-      .where('claim_mitigation_strategy.claim_id', '=', req.params.id)
-      .select(['evidence.id', 'evidence.name', 'evidence.description', 'evidence.state'])
-      .execute();
-
-    // Fetch target entity details if linked
-    let targetEntity = null;
-    if ((claim as any).target_entity_id) {
-      targetEntity = await db
-        .selectFrom('entity')
-        .where('id', '=', (claim as any).target_entity_id)
-        .select(['id', 'name', 'entity_type', 'bom_ref'])
-        .executeTakeFirst() || null;
-    }
-
-    // Fetch external references
-    const externalReferences = await db
-      .selectFrom('claim_external_reference')
-      .where('claim_id', '=', req.params.id)
-      .selectAll()
-      .orderBy('created_at', 'asc')
-      .execute();
-
-    res.json({
-      claim,
-      evidence,
-      counterEvidence,
-      mitigationStrategies,
-      targetEntity,
-      externalReferences,
-    });
-  } catch (error) {
-    logger.error('Get claim error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
+  if (!claim) {
+    res.status(404).json({ error: 'Claim not found' });
+    return;
   }
-});
+
+  const evidence = await db
+    .selectFrom('claim_evidence')
+    .innerJoin('evidence', 'evidence.id', 'claim_evidence.evidence_id')
+    .where('claim_evidence.claim_id', '=', req.params.id)
+    .select(['evidence.id', 'evidence.name', 'evidence.description', 'evidence.state'])
+    .execute();
+
+  const counterEvidence = await db
+    .selectFrom('claim_counter_evidence')
+    .innerJoin('evidence', 'evidence.id', 'claim_counter_evidence.evidence_id')
+    .where('claim_counter_evidence.claim_id', '=', req.params.id)
+    .select(['evidence.id', 'evidence.name', 'evidence.description', 'evidence.state'])
+    .execute();
+
+  const mitigationStrategies = await db
+    .selectFrom('claim_mitigation_strategy')
+    .innerJoin('evidence', 'evidence.id', 'claim_mitigation_strategy.evidence_id')
+    .where('claim_mitigation_strategy.claim_id', '=', req.params.id)
+    .select(['evidence.id', 'evidence.name', 'evidence.description', 'evidence.state'])
+    .execute();
+
+  // Fetch target entity details if linked
+  let targetEntity = null;
+  if ((claim as any).target_entity_id) {
+    targetEntity = await db
+      .selectFrom('entity')
+      .where('id', '=', (claim as any).target_entity_id)
+      .select(['id', 'name', 'entity_type', 'bom_ref'])
+      .executeTakeFirst() || null;
+  }
+
+  // Fetch external references
+  const externalReferences = await db
+    .selectFrom('claim_external_reference')
+    .where('claim_id', '=', req.params.id)
+    .selectAll()
+    .orderBy('created_at', 'asc')
+    .execute();
+
+  res.json({
+    claim,
+    evidence,
+    counterEvidence,
+    mitigationStrategies,
+    targetEntity,
+    externalReferences,
+  });
+}));
 
 router.post(
   '/',
   requireAuth,
   requirePermission('claims.create'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createClaimSchema.parse(req.body);
       const db = getDatabase();
@@ -228,7 +225,7 @@ router.post(
               claimId,
               evidenceId,
               createdAt: new Date(),
-            }))
+            })) as unknown as any
           )
           .execute();
       }
@@ -241,7 +238,7 @@ router.post(
               claimId,
               evidenceId,
               createdAt: new Date(),
-            }))
+            })) as unknown as any
           )
           .execute();
       }
@@ -262,22 +259,17 @@ router.post(
         attestationId: data.attestationId,
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-
-      logger.error('Create claim error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  }
+  })
 );
 
 router.put(
   '/:id',
   requireAuth,
   requirePermission('claims.edit'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateClaimSchema.parse(req.body);
       const db = getDatabase();
@@ -358,7 +350,7 @@ router.put(
                 claimId: req.params.id,
                 evidenceId,
                 createdAt: new Date(),
-              }))
+              })) as unknown as any
             )
             .execute();
         }
@@ -378,7 +370,7 @@ router.put(
                 claimId: req.params.id,
                 evidenceId,
                 createdAt: new Date(),
-              }))
+              })) as unknown as any
             )
             .execute();
         }
@@ -398,56 +390,46 @@ router.put(
 
       res.json(updatedClaim);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-
-      logger.error('Update claim error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  }
+  })
 );
 
 router.delete(
   '/:id',
   requireAuth,
   requirePermission('claims.edit'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      const claim = await db
-        .selectFrom('claim')
-        .where('id', '=', req.params.id)
-        .selectAll()
-        .executeTakeFirst();
+    const claim = await db
+      .selectFrom('claim')
+      .where('id', '=', req.params.id)
+      .selectAll()
+      .executeTakeFirst();
 
-      if (!claim) {
-        res.status(404).json({ error: 'Claim not found' });
-        return;
-      }
-
-      // Guard: reject if parent assessment is complete/archived
-      const readOnlyError = await checkClaimAssessmentReadOnly(db, (claim as any).attestation_id);
-      if (readOnlyError) {
-        res.status(403).json({ error: readOnlyError });
-        return;
-      }
-
-      await db.deleteFrom('claim').where('id', '=', req.params.id).execute();
-
-      logger.info('Claim deleted', {
-        claimId: req.params.id,
-        requestId: req.requestId,
-      });
-
-      res.status(204).send();
-    } catch (error) {
-      logger.error('Delete claim error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!claim) {
+      res.status(404).json({ error: 'Claim not found' });
+      return;
     }
-  }
+
+    // Guard: reject if parent assessment is complete/archived
+    const readOnlyError = await checkClaimAssessmentReadOnly(db, (claim as any).attestation_id);
+    if (readOnlyError) {
+      res.status(403).json({ error: readOnlyError });
+      return;
+    }
+
+    await db.deleteFrom('claim').where('id', '=', req.params.id).execute();
+
+    logger.info('Claim deleted', {
+      claimId: req.params.id,
+      requestId: req.requestId,
+    });
+
+    res.status(204).send();
+  })
 );
 
 export default router;

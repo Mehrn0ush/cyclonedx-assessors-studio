@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import readline from 'readline';
+import readline from 'node:readline';
 import { getDatabase } from './connection.js';
 import { hashPassword } from '../utils/crypto.js';
 import { logger } from '../utils/logger.js';

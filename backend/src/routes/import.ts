@@ -1,7 +1,9 @@
-import { Router, Response } from 'express';
+import { Router } from 'express';
+import type { Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
+import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 
@@ -46,441 +48,436 @@ router.post(
   '/attestation',
   requireAuth,
   requirePermission('admin.import'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      // Validate CycloneDX BOM structure
-      const validationResult = cyclonedxBomSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        res.status(400).json({
-          error: 'Invalid CycloneDX document',
-          details: validationResult.error.issues.map((e) => ({
-            path: e.path.join('.'),
-            message: e.message,
-          })),
-        });
-        return;
-      }
-
-      const bom = validationResult.data;
-
-      // Ensure declarations exist for this import
-      if (!bom.declarations) {
-        res.status(400).json({ error: 'CycloneDX document does not contain declarations' });
-        return;
-      }
-
-      const db = getDatabase();
-      const importLog: string[] = [];
-
-      // Track bom-ref to internal ID mappings
-      const standardBomRefMap = new Map<string, string>(); // bom-ref -> standard DB id
-      const requirementBomRefMap = new Map<string, string>(); // bom-ref -> requirement DB id
-      const evidenceBomRefMap = new Map<string, string>(); // bom-ref -> evidence DB id
-      const claimBomRefMap = new Map<string, string>(); // bom-ref -> claim DB id
-      const signatoryBomRefMap = new Map<string, string>(); // bom-ref -> signatory DB id
-      const organizationBomRefMap = new Map<string, string>(); // bom-ref -> organization DB id
-
-      // ---------------------------------------------------------------
-      // 1. Import standards from definitions.standards (with dedup)
-      // ---------------------------------------------------------------
-      const standards = bom.definitions?.standards || [];
-      for (const std of standards) {
-        const identifier = std['bom-ref'] || std.name || '';
-        const version = std.version || '';
-
-        // Look for existing standard by identifier + version
-        const existing = await db
-          .selectFrom('standard')
-          .where('identifier', '=', identifier)
-          .selectAll()
-          .executeTakeFirst();
-
-        let standardId: string;
-        if (existing && (!version || existing.version === version)) {
-          // Deduplicate: use existing standard
-          standardId = existing.id;
-          importLog.push(`Standard "${std.name}" (${identifier}) already exists, reusing`);
-        } else if (existing && version && existing.version !== version) {
-          // Different version: create new
-          const newIdentifier = `${identifier}-${version}`;
-          standardId = uuidv4();
-          await db.insertInto('standard').values({
-            id: standardId,
-            identifier: newIdentifier,
-            name: std.name || identifier,
-            description: std.description || null,
-            owner: std.owner || null,
-            version: version || null,
-          }).execute();
-          importLog.push(`Standard "${std.name}" version ${version} imported as new (different version from existing)`);
-        } else {
-          // Brand new standard
-          standardId = uuidv4();
-          await db.insertInto('standard').values({
-            id: standardId,
-            identifier: identifier,
-            name: std.name || identifier,
-            description: std.description || null,
-            owner: std.owner || null,
-            version: version || null,
-          }).execute();
-          importLog.push(`Standard "${std.name}" imported`);
-        }
-
-        if (std['bom-ref']) {
-          standardBomRefMap.set(std['bom-ref'], standardId);
-        }
-
-        // Import requirements for this standard
-        if (std.requirements && Array.isArray(std.requirements)) {
-          // First pass: create all requirements (without parent links)
-          const reqIdByBomRef = new Map<string, string>();
-          for (const req of std.requirements) {
-            const reqId = uuidv4();
-            const reqBomRef = req['bom-ref'] || '';
-            reqIdByBomRef.set(reqBomRef, reqId);
-
-            await db.insertInto('requirement').values({
-              id: reqId,
-              identifier: req.identifier || reqBomRef,
-              name: req.title || req.text?.substring(0, 200) || req.identifier || 'Untitled',
-              description: req.text || null,
-              open_cre: req.openCre || null,
-              standard_id: standardId,
-            }).execute();
-
-            if (reqBomRef) {
-              requirementBomRefMap.set(reqBomRef, reqId);
-            }
-          }
-
-          // Second pass: set parent references
-          for (const req of std.requirements) {
-            if (req.parent) {
-              const childId = reqIdByBomRef.get(req['bom-ref'] || '');
-              const parentId = reqIdByBomRef.get(req.parent) || requirementBomRefMap.get(req.parent);
-              if (childId && parentId) {
-                await db.updateTable('requirement')
-                  .set({ parent_id: parentId })
-                  .where('id', '=', childId)
-                  .execute();
-              }
-            }
-          }
-
-          importLog.push(`  ${std.requirements.length} requirements imported for "${std.name}"`);
-        }
-      }
-
-      // ---------------------------------------------------------------
-      // 2. Import target organizations
-      // ---------------------------------------------------------------
-      const targets = bom.declarations.targets || {};
-      const targetOrgs = targets.organizations || [];
-      for (const org of targetOrgs) {
-        const orgId = uuidv4();
-        await db.insertInto('organization').values({
-          id: orgId,
-          name: org.name || 'Unknown Organization',
-          website: org.url?.[0] || null,
-        }).execute();
-
-        if (org['bom-ref']) {
-          organizationBomRefMap.set(org['bom-ref'], orgId);
-        }
-        importLog.push(`Organization "${org.name}" imported`);
-      }
-
-      // ---------------------------------------------------------------
-      // 3. Import evidence from declarations.evidence
-      // ---------------------------------------------------------------
-      const evidenceItems = bom.declarations.evidence || [];
-      for (const ev of evidenceItems) {
-        const evidenceId = uuidv4();
-
-        // Determine classification from evidence data
-        let classification: string | null = null;
-        if (ev.data && ev.data.length > 0) {
-          classification = ev.data[0].classification || null;
-        }
-
-        await db.insertInto('evidence').values({
-          id: evidenceId,
-          bom_ref: ev['bom-ref'] || null,
-          name: ev.description?.substring(0, 200) || ev.propertyName || 'Imported evidence',
-          property_name: ev.propertyName || null,
-          description: ev.description || null,
-          state: 'in_progress',
-          author_id: req.user!.id,
-          classification: classification,
-          expires_on: ev.expires ? new Date(ev.expires) : null,
-          is_counter_evidence: false,
-        }).execute();
-
-        if (ev['bom-ref']) {
-          evidenceBomRefMap.set(ev['bom-ref'], evidenceId);
-        }
-      }
-      if (evidenceItems.length > 0) {
-        importLog.push(`${evidenceItems.length} evidence items imported`);
-      }
-
-      // ---------------------------------------------------------------
-      // 4. Create project to house the import
-      // ---------------------------------------------------------------
-      const projectId = uuidv4();
-      const projectName = bom.metadata?.component?.name
-        || (targetOrgs.length > 0 ? `${targetOrgs[0].name} Attestation` : 'Imported Attestation')
-        + ` (${new Date().toISOString().split('T')[0]})`;
-
-      await db.insertInto('project').values({
-        id: projectId,
-        name: projectName,
-        description: `Imported from CycloneDX attestation ${bom.serialNumber || ''}`.trim(),
-        state: 'operational',
-        workflow_type: 'evidence_driven',
-      }).execute();
-
-      // Link standards to project
-      for (const [, stdId] of standardBomRefMap) {
-        await db.insertInto('project_standard').values({
-          project_id: projectId,
-          standard_id: stdId,
-          created_at: new Date(),
-        }).execute();
-      }
-
-      importLog.push(`Project "${projectName}" created`);
-
-      // ---------------------------------------------------------------
-      // 5. Create assessment for the attestation
-      // ---------------------------------------------------------------
-      const assessmentId = uuidv4();
-      await db.insertInto('assessment').values({
-        id: assessmentId,
-        title: bom.declarations.attestations?.[0]?.summary || 'Imported Assessment',
-        description: `Assessment imported from CycloneDX attestation document`,
-        project_id: projectId,
-        state: 'complete',
-      }).execute();
-
-      importLog.push(`Assessment created`);
-
-      // ---------------------------------------------------------------
-      // 6. Import claims from declarations.claims
-      // ---------------------------------------------------------------
-      const claims = bom.declarations.claims || [];
-      for (const claim of claims) {
-        const claimId = uuidv4();
-        const targetRef = claim.target || '';
-        const targetName = organizationBomRefMap.has(targetRef) ? targetRef : targetRef;
-
-        await db.insertInto('claim').values({
-          id: claimId,
-          bom_ref: claim['bom-ref'] || null,
-          name: claim.predicate?.substring(0, 200) || 'Imported claim',
-          target: targetName,
-          predicate: claim.predicate || '',
-          reasoning: claim.reasoning || null,
-          is_counter_claim: false,
-        }).execute();
-
-        if (claim['bom-ref']) {
-          claimBomRefMap.set(claim['bom-ref'], claimId);
-        }
-
-        // Link claim to evidence
-        if (claim.evidence && Array.isArray(claim.evidence)) {
-          for (const evRef of claim.evidence) {
-            const evId = evidenceBomRefMap.get(evRef);
-            if (evId) {
-              await db.insertInto('claim_evidence').values({
-                claim_id: claimId,
-                evidence_id: evId,
-                created_at: new Date(),
-              }).execute();
-            }
-          }
-        }
-
-        // Link claim to counter evidence
-        if (claim.counterEvidence && Array.isArray(claim.counterEvidence)) {
-          for (const evRef of claim.counterEvidence) {
-            const evId = evidenceBomRefMap.get(evRef);
-            if (evId) {
-              await db.insertInto('claim_counter_evidence').values({
-                claim_id: claimId,
-                evidence_id: evId,
-                created_at: new Date(),
-              }).execute();
-            }
-          }
-        }
-
-        // Link claim to mitigation strategies
-        if (claim.mitigationStrategies && Array.isArray(claim.mitigationStrategies)) {
-          for (const msRef of claim.mitigationStrategies) {
-            const evId = evidenceBomRefMap.get(msRef);
-            if (evId) {
-              await db.insertInto('claim_mitigation_strategy').values({
-                claim_id: claimId,
-                evidence_id: evId,
-                created_at: new Date(),
-              }).execute();
-            }
-          }
-        }
-      }
-      if (claims.length > 0) {
-        importLog.push(`${claims.length} claims imported`);
-      }
-
-      // ---------------------------------------------------------------
-      // 7. Import signatories from declarations.affirmation
-      // ---------------------------------------------------------------
-      const affirmation = bom.declarations.affirmation;
-      if (affirmation) {
-        const signatories = affirmation.signatories || [];
-        for (const sig of signatories) {
-          const sigId = uuidv4();
-
-          let orgId: string | null = null;
-          if (sig.organization) {
-            const sigOrgId = uuidv4();
-            await db.insertInto('organization').values({
-              id: sigOrgId,
-              name: sig.organization.name || 'Unknown',
-            }).execute();
-            orgId = sigOrgId;
-          }
-
-          await db.insertInto('signatory').values({
-            id: sigId,
-            name: sig.name || 'Unknown',
-            role: sig.role || null,
-            organization_id: orgId,
-          }).execute();
-
-          if (sig['bom-ref']) {
-            signatoryBomRefMap.set(sig['bom-ref'], sigId);
-          }
-        }
-        if (signatories.length > 0) {
-          importLog.push(`${signatories.length} signatories imported`);
-        }
-
-        // Create affirmation record
-        if (affirmation.statement) {
-          const affirmationId = uuidv4();
-          await db.insertInto('affirmation').values({
-            id: affirmationId,
-            statement: affirmation.statement,
-            project_id: projectId,
-            created_at: new Date(),
-            updated_at: new Date(),
-          }).execute();
-
-          // Link signatories to affirmation
-          for (const sig of signatories) {
-            const sigRef = sig['bom-ref'] || sig.name;
-            const sigId = signatoryBomRefMap.get(sigRef);
-            if (sigId) {
-              await db.insertInto('affirmation_signatory').values({
-                affirmation_id: affirmationId,
-                signatory_id: sigId,
-                created_at: new Date(),
-              }).execute();
-            }
-          }
-          importLog.push(`Affirmation imported with ${signatories.length} signatories`);
-        }
-      }
-
-      // ---------------------------------------------------------------
-      // 8. Import attestations and their requirement mappings
-      // ---------------------------------------------------------------
-      const attestations = bom.declarations.attestations || [];
-      for (const att of attestations) {
-        const attestationId = uuidv4();
-
-        await db.insertInto('attestation').values({
-          id: attestationId,
-          summary: att.summary || null,
-          assessment_id: assessmentId,
-        }).execute();
-
-        // Process attestation map (requirement -> claims/conformance/confidence)
-        const attMap = att.map || [];
-        for (const mapping of attMap) {
-          const reqRef = mapping.requirement;
-          const reqId = requirementBomRefMap.get(reqRef);
-
-          if (reqId && mapping.conformance) {
-            const attReqId = uuidv4();
-            await db.insertInto('attestation_requirement').values({
-              id: attReqId,
-              attestation_id: attestationId,
-              requirement_id: reqId,
-              conformance_score: mapping.conformance.score ?? 0,
-              conformance_rationale: mapping.conformance.rationale || '',
-              confidence_score: mapping.confidence?.score ?? null,
-              confidence_rationale: mapping.confidence?.rationale || null,
-            }).execute();
-
-            // Link mitigation strategies
-            if (mapping.conformance.mitigationStrategies) {
-              for (const msRef of mapping.conformance.mitigationStrategies) {
-                const evId = evidenceBomRefMap.get(msRef);
-                if (evId) {
-                  await db.insertInto('attestation_requirement_mitigation').values({
-                    attestation_requirement_id: attReqId,
-                    evidence_id: evId,
-                    created_at: new Date(),
-                  }).execute();
-                }
-              }
-            }
-          }
-
-          // Link claims to attestation via the claim table's attestation_id
-          if (mapping.claims && Array.isArray(mapping.claims)) {
-            for (const claimRef of mapping.claims) {
-              const claimId = claimBomRefMap.get(claimRef);
-              if (claimId) {
-                await db.updateTable('claim')
-                  .set({ attestation_id: attestationId })
-                  .where('id', '=', claimId)
-                  .execute();
-              }
-            }
-          }
-        }
-      }
-      if (attestations.length > 0) {
-        importLog.push(`${attestations.length} attestations imported with requirement mappings`);
-      }
-
-      logger.info('Attestation import completed', {
-        projectId,
-        assessmentId,
-        standards: standards.length,
-        claims: claims.length,
-        evidence: evidenceItems.length,
-        attestations: attestations.length,
-        requestId: req.requestId,
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    // Validate CycloneDX BOM structure
+    const validationResult = cyclonedxBomSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      res.status(400).json({
+        error: 'Invalid CycloneDX document',
+        details: validationResult.error.issues.map((e) => ({
+          path: e.path.join('.'),
+          message: e.message,
+        })),
       });
-
-      res.status(201).json({
-        message: 'Attestation imported successfully',
-        projectId,
-        assessmentId,
-        importLog,
-      });
-    } catch (error: any) {
-      logger.error('Attestation import error', { error: error.message, requestId: req.requestId });
-      res.status(500).json({ error: 'Import failed: ' + (error.message || 'Internal server error') });
+      return;
     }
-  }
+
+    const bom = validationResult.data;
+
+    // Ensure declarations exist for this import
+    if (!bom.declarations) {
+      res.status(400).json({ error: 'CycloneDX document does not contain declarations' });
+      return;
+    }
+
+    const db = getDatabase();
+    const importLog: string[] = [];
+
+    // Track bom-ref to internal ID mappings
+    const standardBomRefMap = new Map<string, string>(); // bom-ref -> standard DB id
+    const requirementBomRefMap = new Map<string, string>(); // bom-ref -> requirement DB id
+    const evidenceBomRefMap = new Map<string, string>(); // bom-ref -> evidence DB id
+    const claimBomRefMap = new Map<string, string>(); // bom-ref -> claim DB id
+    const signatoryBomRefMap = new Map<string, string>(); // bom-ref -> signatory DB id
+    const organizationBomRefMap = new Map<string, string>(); // bom-ref -> organization DB id
+
+    // ---------------------------------------------------------------
+    // 1. Import standards from definitions.standards (with dedup)
+    // ---------------------------------------------------------------
+    const standards = bom.definitions?.standards || [];
+    for (const std of standards) {
+      const identifier = std['bom-ref'] || std.name || '';
+      const version = std.version || '';
+
+      // Look for existing standard by identifier + version
+      const existing = await db
+        .selectFrom('standard')
+        .where('identifier', '=', identifier)
+        .selectAll()
+        .executeTakeFirst();
+
+      let standardId: string;
+      if (existing && (!version || existing.version === version)) {
+        // Deduplicate: use existing standard
+        standardId = existing.id;
+        importLog.push(`Standard "${std.name}" (${identifier}) already exists, reusing`);
+      } else if (existing && version && existing.version !== version) {
+        // Different version: create new
+        const newIdentifier = `${identifier}-${version}`;
+        standardId = uuidv4();
+        await db.insertInto('standard').values({
+          id: standardId,
+          identifier: newIdentifier,
+          name: std.name || identifier,
+          description: std.description || null,
+          owner: std.owner || null,
+          version: version || null,
+        }).execute();
+        importLog.push(`Standard "${std.name}" version ${version} imported as new (different version from existing)`);
+      } else {
+        // Brand new standard
+        standardId = uuidv4();
+        await db.insertInto('standard').values({
+          id: standardId,
+          identifier: identifier,
+          name: std.name || identifier,
+          description: std.description || null,
+          owner: std.owner || null,
+          version: version || null,
+        }).execute();
+        importLog.push(`Standard "${std.name}" imported`);
+      }
+
+      if (std['bom-ref']) {
+        standardBomRefMap.set(std['bom-ref'], standardId);
+      }
+
+      // Import requirements for this standard
+      if (std.requirements && Array.isArray(std.requirements)) {
+        // First pass: create all requirements (without parent links)
+        const reqIdByBomRef = new Map<string, string>();
+        for (const req of std.requirements) {
+          const reqId = uuidv4();
+          const reqBomRef = req['bom-ref'] || '';
+          reqIdByBomRef.set(reqBomRef, reqId);
+
+          await db.insertInto('requirement').values({
+            id: reqId,
+            identifier: req.identifier || reqBomRef,
+            name: req.title || req.text?.substring(0, 200) || req.identifier || 'Untitled',
+            description: req.text || null,
+            open_cre: req.openCre || null,
+            standard_id: standardId,
+          }).execute();
+
+          if (reqBomRef) {
+            requirementBomRefMap.set(reqBomRef, reqId);
+          }
+        }
+
+        // Second pass: set parent references
+        for (const req of std.requirements) {
+          if (req.parent) {
+            const childId = reqIdByBomRef.get(req['bom-ref'] || '');
+            const parentId = reqIdByBomRef.get(req.parent) || requirementBomRefMap.get(req.parent);
+            if (childId && parentId) {
+              await db.updateTable('requirement')
+                .set({ parent_id: parentId })
+                .where('id', '=', childId)
+                .execute();
+            }
+          }
+        }
+
+        importLog.push(`  ${std.requirements.length} requirements imported for "${std.name}"`);
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // 2. Import target organizations
+    // ---------------------------------------------------------------
+    const targets = bom.declarations.targets || {};
+    const targetOrgs = targets.organizations || [];
+    for (const org of targetOrgs) {
+      const orgId = uuidv4();
+      await db.insertInto('organization').values({
+        id: orgId,
+        name: org.name || 'Unknown Organization',
+        website: org.url?.[0] || null,
+      }).execute();
+
+      if (org['bom-ref']) {
+        organizationBomRefMap.set(org['bom-ref'], orgId);
+      }
+      importLog.push(`Organization "${org.name}" imported`);
+    }
+
+    // ---------------------------------------------------------------
+    // 3. Import evidence from declarations.evidence
+    // ---------------------------------------------------------------
+    const evidenceItems = bom.declarations.evidence || [];
+    for (const ev of evidenceItems) {
+      const evidenceId = uuidv4();
+
+      // Determine classification from evidence data
+      let classification: string | null = null;
+      if (ev.data && ev.data.length > 0) {
+        classification = ev.data[0].classification || null;
+      }
+
+      await db.insertInto('evidence').values({
+        id: evidenceId,
+        bom_ref: ev['bom-ref'] || null,
+        name: ev.description?.substring(0, 200) || ev.propertyName || 'Imported evidence',
+        property_name: ev.propertyName || null,
+        description: ev.description || null,
+        state: 'in_progress',
+        author_id: req.user!.id,
+        classification: classification,
+        expires_on: ev.expires ? new Date(ev.expires) : null,
+        is_counter_evidence: false,
+      }).execute();
+
+      if (ev['bom-ref']) {
+        evidenceBomRefMap.set(ev['bom-ref'], evidenceId);
+      }
+    }
+    if (evidenceItems.length > 0) {
+      importLog.push(`${evidenceItems.length} evidence items imported`);
+    }
+
+    // ---------------------------------------------------------------
+    // 4. Create project to house the import
+    // ---------------------------------------------------------------
+    const projectId = uuidv4();
+    const projectName = bom.metadata?.component?.name
+      || (targetOrgs.length > 0 ? `${targetOrgs[0].name} Attestation` : 'Imported Attestation')
+      + ` (${new Date().toISOString().split('T')[0]})`;
+
+    await db.insertInto('project').values({
+      id: projectId,
+      name: projectName,
+      description: `Imported from CycloneDX attestation ${bom.serialNumber || ''}`.trim(),
+      state: 'operational',
+      workflow_type: 'evidence_driven',
+    }).execute();
+
+    // Link standards to project
+    for (const [, stdId] of standardBomRefMap) {
+      await db.insertInto('project_standard').values({
+        project_id: projectId,
+        standard_id: stdId,
+        created_at: new Date(),
+      }).execute();
+    }
+
+    importLog.push(`Project "${projectName}" created`);
+
+    // ---------------------------------------------------------------
+    // 5. Create assessment for the attestation
+    // ---------------------------------------------------------------
+    const assessmentId = uuidv4();
+    await db.insertInto('assessment').values({
+      id: assessmentId,
+      title: bom.declarations.attestations?.[0]?.summary || 'Imported Assessment',
+      description: `Assessment imported from CycloneDX attestation document`,
+      project_id: projectId,
+      state: 'complete',
+    }).execute();
+
+    importLog.push(`Assessment created`);
+
+    // ---------------------------------------------------------------
+    // 6. Import claims from declarations.claims
+    // ---------------------------------------------------------------
+    const claims = bom.declarations.claims || [];
+    for (const claim of claims) {
+      const claimId = uuidv4();
+      const targetRef = claim.target || '';
+      const targetName = organizationBomRefMap.has(targetRef) ? targetRef : targetRef;
+
+      await db.insertInto('claim').values({
+        id: claimId,
+        bom_ref: claim['bom-ref'] || null,
+        name: claim.predicate?.substring(0, 200) || 'Imported claim',
+        target: targetName,
+        predicate: claim.predicate || '',
+        reasoning: claim.reasoning || null,
+        is_counter_claim: false,
+      }).execute();
+
+      if (claim['bom-ref']) {
+        claimBomRefMap.set(claim['bom-ref'], claimId);
+      }
+
+      // Link claim to evidence
+      if (claim.evidence && Array.isArray(claim.evidence)) {
+        for (const evRef of claim.evidence) {
+          const evId = evidenceBomRefMap.get(evRef);
+          if (evId) {
+            await db.insertInto('claim_evidence').values({
+              claim_id: claimId,
+              evidence_id: evId,
+              created_at: new Date(),
+            }).execute();
+          }
+        }
+      }
+
+      // Link claim to counter evidence
+      if (claim.counterEvidence && Array.isArray(claim.counterEvidence)) {
+        for (const evRef of claim.counterEvidence) {
+          const evId = evidenceBomRefMap.get(evRef);
+          if (evId) {
+            await db.insertInto('claim_counter_evidence').values({
+              claim_id: claimId,
+              evidence_id: evId,
+              created_at: new Date(),
+            }).execute();
+          }
+        }
+      }
+
+      // Link claim to mitigation strategies
+      if (claim.mitigationStrategies && Array.isArray(claim.mitigationStrategies)) {
+        for (const msRef of claim.mitigationStrategies) {
+          const evId = evidenceBomRefMap.get(msRef);
+          if (evId) {
+            await db.insertInto('claim_mitigation_strategy').values({
+              claim_id: claimId,
+              evidence_id: evId,
+              created_at: new Date(),
+            }).execute();
+          }
+        }
+      }
+    }
+    if (claims.length > 0) {
+      importLog.push(`${claims.length} claims imported`);
+    }
+
+    // ---------------------------------------------------------------
+    // 7. Import signatories from declarations.affirmation
+    // ---------------------------------------------------------------
+    const affirmation = bom.declarations.affirmation;
+    if (affirmation) {
+      const signatories = affirmation.signatories || [];
+      for (const sig of signatories) {
+        const sigId = uuidv4();
+
+        let orgId: string | null = null;
+        if (sig.organization) {
+          const sigOrgId = uuidv4();
+          await db.insertInto('organization').values({
+            id: sigOrgId,
+            name: sig.organization.name || 'Unknown',
+          }).execute();
+          orgId = sigOrgId;
+        }
+
+        await db.insertInto('signatory').values({
+          id: sigId,
+          name: sig.name || 'Unknown',
+          role: sig.role || null,
+          organization_id: orgId,
+        }).execute();
+
+        if (sig['bom-ref']) {
+          signatoryBomRefMap.set(sig['bom-ref'], sigId);
+        }
+      }
+      if (signatories.length > 0) {
+        importLog.push(`${signatories.length} signatories imported`);
+      }
+
+      // Create affirmation record
+      if (affirmation.statement) {
+        const affirmationId = uuidv4();
+        await db.insertInto('affirmation').values({
+          id: affirmationId,
+          statement: affirmation.statement,
+          project_id: projectId,
+          created_at: new Date(),
+          updated_at: new Date(),
+        }).execute();
+
+        // Link signatories to affirmation
+        for (const sig of signatories) {
+          const sigRef = sig['bom-ref'] || sig.name;
+          const sigId = signatoryBomRefMap.get(sigRef);
+          if (sigId) {
+            await db.insertInto('affirmation_signatory').values({
+              affirmation_id: affirmationId,
+              signatory_id: sigId,
+              created_at: new Date(),
+            }).execute();
+          }
+        }
+        importLog.push(`Affirmation imported with ${signatories.length} signatories`);
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // 8. Import attestations and their requirement mappings
+    // ---------------------------------------------------------------
+    const attestations = bom.declarations.attestations || [];
+    for (const att of attestations) {
+      const attestationId = uuidv4();
+
+      await db.insertInto('attestation').values({
+        id: attestationId,
+        summary: att.summary || null,
+        assessment_id: assessmentId,
+      }).execute();
+
+      // Process attestation map (requirement -> claims/conformance/confidence)
+      const attMap = att.map || [];
+      for (const mapping of attMap) {
+        const reqRef = mapping.requirement;
+        const reqId = requirementBomRefMap.get(reqRef);
+
+        if (reqId && mapping.conformance) {
+          const attReqId = uuidv4();
+          await db.insertInto('attestation_requirement').values({
+            id: attReqId,
+            attestation_id: attestationId,
+            requirement_id: reqId,
+            conformance_score: mapping.conformance.score ?? 0,
+            conformance_rationale: mapping.conformance.rationale || '',
+            confidence_score: mapping.confidence?.score ?? null,
+            confidence_rationale: mapping.confidence?.rationale || null,
+          }).execute();
+
+          // Link mitigation strategies
+          if (mapping.conformance.mitigationStrategies) {
+            for (const msRef of mapping.conformance.mitigationStrategies) {
+              const evId = evidenceBomRefMap.get(msRef);
+              if (evId) {
+                await db.insertInto('attestation_requirement_mitigation').values({
+                  attestation_requirement_id: attReqId,
+                  evidence_id: evId,
+                  created_at: new Date(),
+                }).execute();
+              }
+            }
+          }
+        }
+
+        // Link claims to attestation via the claim table's attestation_id
+        if (mapping.claims && Array.isArray(mapping.claims)) {
+          for (const claimRef of mapping.claims) {
+            const claimId = claimBomRefMap.get(claimRef);
+            if (claimId) {
+              await db.updateTable('claim')
+                .set({ attestation_id: attestationId })
+                .where('id', '=', claimId)
+                .execute();
+            }
+          }
+        }
+      }
+    }
+    if (attestations.length > 0) {
+      importLog.push(`${attestations.length} attestations imported with requirement mappings`);
+    }
+
+    logger.info('Attestation import completed', {
+      projectId,
+      assessmentId,
+      standards: standards.length,
+      claims: claims.length,
+      evidence: evidenceItems.length,
+      attestations: attestations.length,
+      requestId: req.requestId,
+    });
+
+    res.status(201).json({
+      message: 'Attestation imported successfully',
+      projectId,
+      assessmentId,
+      importLog,
+    });
+  })
 );
 
 export default router;

@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { getConfig } from '../config/index.js';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';

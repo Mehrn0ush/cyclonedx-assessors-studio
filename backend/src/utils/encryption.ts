@@ -12,7 +12,7 @@
  *         -> AES-256-GCM encrypt -> ciphertext
  */
 
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { logger } from './logger.js';

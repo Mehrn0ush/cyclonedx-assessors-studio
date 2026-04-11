@@ -1,10 +1,12 @@
-import { Router, Response } from 'express';
+import { Router } from 'express';
+import type { Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
 import { getDatabase } from '../db/connection.js';
 import { getConfig } from '../config/index.js';
 import { logger } from '../utils/logger.js';
+import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { AuthRequest, requireAuth, getPermissionsForRole } from '../middleware/auth.js';
 import { hashPassword, verifyPassword, generateToken, hashToken } from '../utils/crypto.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
@@ -25,7 +27,7 @@ const registerSchema = z.object({
   displayName: z.string().min(1, 'Display name is required'),
 });
 
-router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/login', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { username, password } = loginSchema.parse(req.body);
     const db = getDatabase();
@@ -124,17 +126,12 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
       permissions,
     });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: 'Invalid input', details: error.issues });
-      return;
-    }
-
-    logger.error('Login error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
+    if (handleValidationError(res, error)) return;
+    throw error;
   }
-});
+}));
 
-router.post('/register', async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/register', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = registerSchema.parse(req.body);
     const db = getDatabase();
@@ -191,53 +188,43 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
       },
     });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: 'Invalid input', details: error.issues });
-      return;
-    }
-
-    logger.error('Registration error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
+    if (handleValidationError(res, error)) return;
+    throw error;
   }
-});
+}));
 
 router.post(
   '/logout',
   requireAuth,
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      if (!req.user) {
-        res.status(401).json({ error: 'Authentication required' });
-        return;
-      }
-
-      // Extract session ID from the httpOnly cookie (same cookie used for auth).
-      const cookieToken = req.cookies?.token;
-      if (cookieToken) {
-        try {
-          const payload = jwt.verify(cookieToken, config.JWT_SECRET) as any;
-          await getDatabase()
-            .deleteFrom('session')
-            .where('id', '=', payload.sessionId)
-            .execute();
-        } catch {
-          // Token already expired or invalid; clear the cookie anyway.
-        }
-      }
-
-      res.clearCookie('token');
-
-      logger.info('User logged out', {
-        userId: req.user.id,
-        requestId: req.requestId,
-      });
-
-      res.status(204).send();
-    } catch (error) {
-      logger.error('Logout error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
     }
-  }
+
+    // Extract session ID from the httpOnly cookie (same cookie used for auth).
+    const cookieToken = req.cookies?.token;
+    if (cookieToken) {
+      try {
+        const payload = jwt.verify(cookieToken, config.JWT_SECRET) as any;
+        await getDatabase()
+          .deleteFrom('session')
+          .where('id', '=', payload.sessionId)
+          .execute();
+      } catch {
+        // Token already expired or invalid; clear the cookie anyway.
+      }
+    }
+
+    res.clearCookie('token');
+
+    logger.info('User logged out', {
+      userId: req.user.id,
+      requestId: req.requestId,
+    });
+
+    res.status(204).send();
+  })
 );
 
 router.get('/me', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {

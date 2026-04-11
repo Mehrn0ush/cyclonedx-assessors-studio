@@ -6,11 +6,13 @@
  * plus delivery log access.
  */
 
-import { Router, Response } from 'express';
+import { Router } from 'express';
+import type { Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
+import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { getChannelRegistry } from '../events/index.js';
 import { SlackChannel } from '../events/channels/chat-slack.js';
@@ -63,27 +65,22 @@ router.get(
   '/',
   requireAuth,
   requirePermission('admin.integrations'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
-      const { platform } = req.query;
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
+    const { platform } = req.query;
 
-      let query = db
-        .selectFrom('chat_integration')
-        .selectAll()
-        .orderBy('created_at', 'desc');
+    let query = db
+      .selectFrom('chat_integration')
+      .selectAll()
+      .orderBy('created_at', 'desc');
 
-      if (platform && typeof platform === 'string') {
-        query = query.where('platform', '=', platform as 'slack' | 'teams' | 'mattermost');
-      }
-
-      const integrations = await query.execute();
-      res.json({ data: integrations });
-    } catch (error) {
-      logger.error('List chat integrations error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (platform && typeof platform === 'string') {
+      query = query.where('platform', '=', platform as 'slack' | 'teams' | 'mattermost');
     }
-  },
+
+    const integrations = await query.execute();
+    res.json({ data: integrations });
+  }),
 );
 
 /**
@@ -94,7 +91,7 @@ router.post(
   '/',
   requireAuth,
   requirePermission('admin.integrations'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createChatIntegrationSchema.parse(req.body);
 
@@ -139,14 +136,10 @@ router.post(
         consecutiveFailures: 0,
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-      logger.error('Create chat integration error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  },
+  }),
 );
 
 /**
@@ -157,56 +150,51 @@ router.get(
   '/:id',
   requireAuth,
   requirePermission('admin.integrations'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      const integration = await db
-        .selectFrom('chat_integration')
-        .where('id', '=', req.params.id)
-        .selectAll()
-        .executeTakeFirst();
+    const integration = await db
+      .selectFrom('chat_integration')
+      .where('id', '=', req.params.id)
+      .selectAll()
+      .executeTakeFirst();
 
-      if (!integration) {
-        res.status(404).json({ error: 'Chat integration not found' });
-        return;
-      }
-
-      // Delivery stats
-      const totalResult = await db
-        .selectFrom('chat_delivery')
-        .where('integration_id', '=', req.params.id)
-        .select(db.fn.count<number>('id').as('count'))
-        .executeTakeFirst();
-
-      const successResult = await db
-        .selectFrom('chat_delivery')
-        .where('integration_id', '=', req.params.id)
-        .where('status', '=', 'success')
-        .select(db.fn.count<number>('id').as('count'))
-        .executeTakeFirst();
-
-      const lastSuccess = await db
-        .selectFrom('chat_delivery')
-        .where('integration_id', '=', req.params.id)
-        .where('status', '=', 'success')
-        .orderBy('delivered_at', 'desc')
-        .select('delivered_at')
-        .executeTakeFirst();
-
-      res.json({
-        ...integration,
-        deliveryStats: {
-          totalDeliveries: Number(totalResult?.count ?? 0),
-          successfulDeliveries: Number(successResult?.count ?? 0),
-          lastSuccessAt: lastSuccess?.delivered_at || null,
-        },
-      });
-    } catch (error) {
-      logger.error('Get chat integration error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!integration) {
+      res.status(404).json({ error: 'Chat integration not found' });
+      return;
     }
-  },
+
+    // Delivery stats
+    const totalResult = await db
+      .selectFrom('chat_delivery')
+      .where('integration_id', '=', req.params.id)
+      .select(db.fn.count<number>('id').as('count'))
+      .executeTakeFirst();
+
+    const successResult = await db
+      .selectFrom('chat_delivery')
+      .where('integration_id', '=', req.params.id)
+      .where('status', '=', 'success')
+      .select(db.fn.count<number>('id').as('count'))
+      .executeTakeFirst();
+
+    const lastSuccess = await db
+      .selectFrom('chat_delivery')
+      .where('integration_id', '=', req.params.id)
+      .where('status', '=', 'success')
+      .orderBy('delivered_at', 'desc')
+      .select('delivered_at')
+      .executeTakeFirst();
+
+    res.json({
+      ...integration,
+      deliveryStats: {
+        totalDeliveries: Number(totalResult?.count ?? 0),
+        successfulDeliveries: Number(successResult?.count ?? 0),
+        lastSuccessAt: lastSuccess?.delivered_at || null,
+      },
+    });
+  }),
 );
 
 /**
@@ -217,7 +205,7 @@ router.put(
   '/:id',
   requireAuth,
   requirePermission('admin.integrations'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateChatIntegrationSchema.parse(req.body);
       const db = getDatabase();
@@ -271,14 +259,10 @@ router.put(
         isActive: data.isActive ?? integration.is_active,
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-      logger.error('Update chat integration error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  },
+  }),
 );
 
 /**
@@ -289,32 +273,27 @@ router.delete(
   '/:id',
   requireAuth,
   requirePermission('admin.integrations'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      const existing = await db
-        .selectFrom('chat_integration')
-        .select('id')
-        .where('id', '=', req.params.id)
-        .executeTakeFirst();
+    const existing = await db
+      .selectFrom('chat_integration')
+      .select('id')
+      .where('id', '=', req.params.id)
+      .executeTakeFirst();
 
-      if (!existing) {
-        res.status(404).json({ error: 'Chat integration not found' });
-        return;
-      }
-
-      await db
-        .deleteFrom('chat_integration')
-        .where('id', '=', req.params.id)
-        .execute();
-
-      res.json({ message: 'Chat integration deleted successfully' });
-    } catch (error) {
-      logger.error('Delete chat integration error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!existing) {
+      res.status(404).json({ error: 'Chat integration not found' });
+      return;
     }
-  },
+
+    await db
+      .deleteFrom('chat_integration')
+      .where('id', '=', req.params.id)
+      .execute();
+
+    res.json({ message: 'Chat integration deleted successfully' });
+  }),
 );
 
 /**
@@ -325,69 +304,64 @@ router.post(
   '/:id/test',
   requireAuth,
   requirePermission('admin.integrations'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      const integration = await db
-        .selectFrom('chat_integration')
-        .where('id', '=', req.params.id)
-        .selectAll()
-        .executeTakeFirst();
+    const integration = await db
+      .selectFrom('chat_integration')
+      .where('id', '=', req.params.id)
+      .selectAll()
+      .executeTakeFirst();
 
-      if (!integration) {
-        res.status(404).json({ error: 'Chat integration not found' });
-        return;
-      }
-
-      // Find the corresponding chat channel from the registry
-      let chatChannel: BaseChatChannel | undefined;
-      try {
-        const registry = getChannelRegistry();
-        chatChannel = registry.getChannel(integration.platform) as BaseChatChannel | undefined;
-      } catch {
-        // Event system may not be initialized
-      }
-
-      if (!chatChannel) {
-        // Channel not registered (platform not enabled). Create a temporary
-        // instance just for testing.
-        const { SlackChannel: SC } = await import('../events/channels/chat-slack.js');
-        const { TeamsChannel: TC } = await import('../events/channels/chat-teams.js');
-        const { MattermostChannel: MC } = await import('../events/channels/chat-mattermost.js');
-
-        const ChannelMap: Record<string, typeof SC | typeof TC | typeof MC> = {
-          slack: SC,
-          teams: TC,
-          mattermost: MC,
-        };
-
-        const ChannelClass = ChannelMap[integration.platform];
-        if (ChannelClass) {
-          chatChannel = new ChannelClass(() => getDatabase());
-        }
-      }
-
-      if (!chatChannel) {
-        res.status(400).json({
-          success: false,
-          message: `No channel handler available for platform: ${integration.platform}`,
-        });
-        return;
-      }
-
-      const result = await chatChannel.sendTestMessage(integration.id);
-
-      if (result.success) {
-        res.json(result);
-      } else {
-        res.status(502).json(result);
-      }
-    } catch (error: any) {
-      logger.error('Test chat integration error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!integration) {
+      res.status(404).json({ error: 'Chat integration not found' });
+      return;
     }
-  },
+
+    // Find the corresponding chat channel from the registry
+    let chatChannel: BaseChatChannel | undefined;
+    try {
+      const registry = getChannelRegistry();
+      chatChannel = registry.getChannel(integration.platform) as BaseChatChannel | undefined;
+    } catch {
+      // Event system may not be initialized
+    }
+
+    if (!chatChannel) {
+      // Channel not registered (platform not enabled). Create a temporary
+      // instance just for testing.
+      const { SlackChannel: SC } = await import('../events/channels/chat-slack.js');
+      const { TeamsChannel: TC } = await import('../events/channels/chat-teams.js');
+      const { MattermostChannel: MC } = await import('../events/channels/chat-mattermost.js');
+
+      const ChannelMap: Record<string, typeof SC | typeof TC | typeof MC> = {
+        slack: SC,
+        teams: TC,
+        mattermost: MC,
+      };
+
+      const ChannelClass = ChannelMap[integration.platform];
+      if (ChannelClass) {
+        chatChannel = new ChannelClass(() => getDatabase());
+      }
+    }
+
+    if (!chatChannel) {
+      res.status(400).json({
+        success: false,
+        message: `No channel handler available for platform: ${integration.platform}`,
+      });
+      return;
+    }
+
+    const result = await chatChannel.sendTestMessage(integration.id);
+
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(502).json(result);
+    }
+  }),
 );
 
 /**
@@ -398,42 +372,37 @@ router.post(
   '/:id/enable',
   requireAuth,
   requirePermission('admin.integrations'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      const integration = await db
-        .selectFrom('chat_integration')
-        .where('id', '=', req.params.id)
-        .selectAll()
-        .executeTakeFirst();
+    const integration = await db
+      .selectFrom('chat_integration')
+      .where('id', '=', req.params.id)
+      .selectAll()
+      .executeTakeFirst();
 
-      if (!integration) {
-        res.status(404).json({ error: 'Chat integration not found' });
-        return;
-      }
-
-      await db
-        .updateTable('chat_integration')
-        .set({
-          is_active: true,
-          consecutive_failures: 0,
-          updated_at: new Date(),
-        })
-        .where('id', '=', req.params.id)
-        .execute();
-
-      res.json({
-        message: 'Chat integration re-enabled',
-        id: integration.id,
-        isActive: true,
-        consecutiveFailures: 0,
-      });
-    } catch (error) {
-      logger.error('Enable chat integration error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!integration) {
+      res.status(404).json({ error: 'Chat integration not found' });
+      return;
     }
-  },
+
+    await db
+      .updateTable('chat_integration')
+      .set({
+        is_active: true,
+        consecutive_failures: 0,
+        updated_at: new Date(),
+      })
+      .where('id', '=', req.params.id)
+      .execute();
+
+    res.json({
+      message: 'Chat integration re-enabled',
+      id: integration.id,
+      isActive: true,
+      consecutiveFailures: 0,
+    });
+  }),
 );
 
 /**
@@ -444,48 +413,43 @@ router.get(
   '/:id/deliveries',
   requireAuth,
   requirePermission('admin.integrations'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
-      const { limit, offset } = validatePagination(req.query);
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
+    const { limit, offset } = validatePagination(req.query);
 
-      const integration = await db
-        .selectFrom('chat_integration')
-        .where('id', '=', req.params.id)
-        .select('id')
-        .executeTakeFirst();
+    const integration = await db
+      .selectFrom('chat_integration')
+      .where('id', '=', req.params.id)
+      .select('id')
+      .executeTakeFirst();
 
-      if (!integration) {
-        res.status(404).json({ error: 'Chat integration not found' });
-        return;
-      }
-
-      const totalResult = await db
-        .selectFrom('chat_delivery')
-        .where('integration_id', '=', req.params.id)
-        .select(db.fn.count<number>('id').as('count'))
-        .executeTakeFirst();
-
-      const total = Number(totalResult?.count ?? 0);
-
-      const deliveries = await db
-        .selectFrom('chat_delivery')
-        .where('integration_id', '=', req.params.id)
-        .selectAll()
-        .orderBy('created_at', 'desc')
-        .offset(offset)
-        .limit(limit)
-        .execute();
-
-      res.json({
-        data: deliveries,
-        pagination: { limit, offset, total },
-      });
-    } catch (error) {
-      logger.error('List chat deliveries error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!integration) {
+      res.status(404).json({ error: 'Chat integration not found' });
+      return;
     }
-  },
+
+    const totalResult = await db
+      .selectFrom('chat_delivery')
+      .where('integration_id', '=', req.params.id)
+      .select(db.fn.count<number>('id').as('count'))
+      .executeTakeFirst();
+
+    const total = Number(totalResult?.count ?? 0);
+
+    const deliveries = await db
+      .selectFrom('chat_delivery')
+      .where('integration_id', '=', req.params.id)
+      .selectAll()
+      .orderBy('created_at', 'desc')
+      .offset(offset)
+      .limit(limit)
+      .execute();
+
+    res.json({
+      data: deliveries,
+      pagination: { limit, offset, total },
+    });
+  }),
 );
 
 export default router;

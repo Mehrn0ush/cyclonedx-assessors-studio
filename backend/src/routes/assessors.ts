@@ -1,7 +1,9 @@
-import { Router, Response } from 'express';
+import { Router } from 'express';
+import type { Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
+import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 
@@ -20,103 +22,93 @@ const updateAssessorSchema = z.object({
 });
 
 // GET / - List all assessors
-router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const db = getDatabase();
+router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const db = getDatabase();
 
-    const assessors = (await db
-      .selectFrom('assessor')
-      .leftJoin('entity', (join) =>
-        join.onRef('entity.id' as any, '=', 'assessor.entity_id' as any)
-      )
-      .leftJoin('app_user', (join) =>
-        join.onRef('app_user.id' as any, '=', 'assessor.user_id' as any)
-      )
-      .select([
-        'assessor.id',
-        'assessor.bom_ref',
-        'assessor.third_party',
-        'assessor.entity_id',
-        'assessor.user_id',
-        'assessor.created_at',
-        'assessor.updated_at',
-        'entity.name as entity_name',
-        'entity.entity_type as entity_type',
-        'app_user.display_name as user_display_name',
-      ])
-      .orderBy('assessor.created_at', 'desc')
-      .execute()) as any[];
+  const assessors = (await db
+    .selectFrom('assessor')
+    .leftJoin('entity', (join) =>
+      join.onRef('entity.id' as any, '=', 'assessor.entity_id' as any)
+    )
+    .leftJoin('app_user', (join) =>
+      join.onRef('app_user.id' as any, '=', 'assessor.user_id' as any)
+    )
+    .select([
+      'assessor.id',
+      'assessor.bom_ref',
+      'assessor.third_party',
+      'assessor.entity_id',
+      'assessor.user_id',
+      'assessor.created_at',
+      'assessor.updated_at',
+      'entity.name as entity_name',
+      'entity.entity_type as entity_type',
+      'app_user.display_name as user_display_name',
+    ])
+    .orderBy('assessor.created_at', 'desc')
+    .execute()) as any[];
 
-    res.json({ data: assessors });
-  } catch (error) {
-    logger.error('List assessors error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+  res.json({ data: assessors });
+}));
 
 // GET /:id - Get assessor detail
-router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const db = getDatabase();
+router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const db = getDatabase();
 
-    const assessor = await db
-      .selectFrom('assessor')
-      .leftJoin('entity', (join) =>
-        join.onRef('entity.id' as any, '=', 'assessor.entity_id' as any)
-      )
-      .leftJoin('app_user', (join) =>
-        join.onRef('app_user.id' as any, '=', 'assessor.user_id' as any)
-      )
-      .select([
-        'assessor.id',
-        'assessor.bom_ref',
-        'assessor.third_party',
-        'assessor.entity_id',
-        'assessor.user_id',
-        'assessor.created_at',
-        'assessor.updated_at',
-        'entity.name as entity_name',
-        'entity.entity_type as entity_type',
-        'app_user.display_name as user_display_name',
-      ])
-      .where('assessor.id', '=', req.params.id)
-      .executeTakeFirst();
+  const assessor = await db
+    .selectFrom('assessor')
+    .leftJoin('entity', (join) =>
+      join.onRef('entity.id' as any, '=', 'assessor.entity_id' as any)
+    )
+    .leftJoin('app_user', (join) =>
+      join.onRef('app_user.id' as any, '=', 'assessor.user_id' as any)
+    )
+    .select([
+      'assessor.id',
+      'assessor.bom_ref',
+      'assessor.third_party',
+      'assessor.entity_id',
+      'assessor.user_id',
+      'assessor.created_at',
+      'assessor.updated_at',
+      'entity.name as entity_name',
+      'entity.entity_type as entity_type',
+      'app_user.display_name as user_display_name',
+    ])
+    .where('assessor.id', '=', req.params.id)
+    .executeTakeFirst();
 
-    if (!assessor) {
-      res.status(404).json({ error: 'Assessor not found' });
-      return;
-    }
-
-    // Get attestations by this assessor
-    const attestations = (await db
-      .selectFrom('attestation')
-      .leftJoin('assessment', (join) =>
-        join.onRef('assessment.id' as any, '=', 'attestation.assessment_id' as any)
-      )
-      .where('attestation.assessor_id', '=', req.params.id)
-      .select([
-        'attestation.id',
-        'attestation.summary',
-        'attestation.created_at',
-        'assessment.title as assessment_title',
-        'assessment.id as assessment_id',
-      ])
-      .orderBy('attestation.created_at', 'desc')
-      .execute()) as any[];
-
-    res.json({ ...assessor, attestations });
-  } catch (error) {
-    logger.error('Get assessor error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
+  if (!assessor) {
+    res.status(404).json({ error: 'Assessor not found' });
+    return;
   }
-});
+
+  // Get attestations by this assessor
+  const attestations = (await db
+    .selectFrom('attestation')
+    .leftJoin('assessment', (join) =>
+      join.onRef('assessment.id' as any, '=', 'attestation.assessment_id' as any)
+    )
+    .where('attestation.assessor_id', '=', req.params.id)
+    .select([
+      'attestation.id',
+      'attestation.summary',
+      'attestation.created_at',
+      'assessment.title as assessment_title',
+      'assessment.id as assessment_id',
+    ])
+    .orderBy('attestation.created_at', 'desc')
+    .execute()) as any[];
+
+  res.json({ ...assessor, attestations });
+}));
 
 // POST / - Create assessor
 router.post(
   '/',
   requireAuth,
   requirePermission('assessments.manage'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createAssessorSchema.parse(req.body);
       const db = getDatabase();
@@ -135,14 +127,10 @@ router.post(
       logger.info('Assessor created', { assessorId: id, requestId: req.requestId });
       res.status(201).json({ id, bom_ref: bomRef, message: 'Assessor created successfully' });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-      logger.error('Create assessor error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  }
+  })
 );
 
 // PUT /:id - Update assessor
@@ -150,7 +138,7 @@ router.put(
   '/:id',
   requireAuth,
   requirePermission('assessments.manage'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateAssessorSchema.parse(req.body);
       const db = getDatabase();
@@ -179,14 +167,10 @@ router.put(
       logger.info('Assessor updated', { assessorId: req.params.id, requestId: req.requestId });
       res.json({ message: 'Assessor updated successfully' });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-      logger.error('Update assessor error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  }
+  })
 );
 
 // DELETE /:id - Delete assessor
@@ -194,32 +178,27 @@ router.delete(
   '/:id',
   requireAuth,
   requirePermission('assessments.manage'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      const existing = await db
-        .selectFrom('assessor')
-        .where('id', '=', req.params.id)
-        .selectAll()
-        .executeTakeFirst();
+    const existing = await db
+      .selectFrom('assessor')
+      .where('id', '=', req.params.id)
+      .selectAll()
+      .executeTakeFirst();
 
-      if (!existing) {
-        res.status(404).json({ error: 'Assessor not found' });
-        return;
-      }
-
-      await db.deleteFrom('assessor')
-        .where('id', '=', req.params.id)
-        .execute();
-
-      logger.info('Assessor deleted', { assessorId: req.params.id, requestId: req.requestId });
-      res.json({ message: 'Assessor deleted successfully' });
-    } catch (error) {
-      logger.error('Delete assessor error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!existing) {
+      res.status(404).json({ error: 'Assessor not found' });
+      return;
     }
-  }
+
+    await db.deleteFrom('assessor')
+      .where('id', '=', req.params.id)
+      .execute();
+
+    logger.info('Assessor deleted', { assessorId: req.params.id, requestId: req.requestId });
+    res.json({ message: 'Assessor deleted successfully' });
+  })
 );
 
 export default router;

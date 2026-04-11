@@ -181,7 +181,6 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import StateBadge from '@/components/shared/StateBadge.vue'
-import TagInput from '@/components/shared/TagInput.vue'
 import RowActions from '@/components/shared/RowActions.vue'
 import { formatDate } from '@/utils/dateFormat'
 

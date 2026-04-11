@@ -1,0 +1,39 @@
+---
+exclude_paths:
+  - node_modules
+  - dist
+  - coverage
+  - backend/package-lock.json
+  - frontend/package-lock.json
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.spec.ts"
+  - "**/*.spec.tsx"
+  - "**/tests/**"
+  - "**/test/**"
+
+engines:
+  biome:
+    enabled: true
+    exclude_paths:
+      - node_modules
+      - dist
+      - coverage
+    disable_rules:
+      - Biome_lint_correctness_useQwikValidLexicalScope
+      - Biome_lint_correctness_useHookAtTopLevel
+
+  securitypatterns:
+    enabled: true
+    exclude_paths:
+      - node_modules
+      - dist
+      - coverage
+      - "**/*.test.ts"
+      - "**/*.test.tsx"
+      - "**/*.spec.ts"
+      - "**/*.spec.tsx"
+      - "**/tests/**"
+      - "**/test/**"
+    disable_rules:
+      - detect-object-injection

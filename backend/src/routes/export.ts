@@ -1,7 +1,9 @@
-import { Router, Response } from 'express';
+import { Router } from 'express';
+import type { Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import PDFDocument from 'pdfkit';
 import { getDatabase } from '../db/connection.js';
+import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 
@@ -605,215 +607,185 @@ async function generateAssessmentPDF(assessmentId: string): Promise<Buffer> {
   });
 }
 
-router.get('/assessment/:assessmentId', requireAuth, requirePermission('export.cyclonedx'), async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { assessmentId } = req.params as { assessmentId: string };
-    const db = getDatabase();
+router.get('/assessment/:assessmentId', requireAuth, requirePermission('export.cyclonedx'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const { assessmentId } = req.params as { assessmentId: string };
+  const db = getDatabase();
 
-    // Verify assessment exists
-    const assessment = await db
-      .selectFrom('assessment')
-      .where('id', '=', assessmentId)
-      .selectAll()
-      .executeTakeFirst();
+  // Verify assessment exists
+  const assessment = await db
+    .selectFrom('assessment')
+    .where('id', '=', assessmentId)
+    .selectAll()
+    .executeTakeFirst();
 
-    if (!assessment) {
-      res.status(404).json({ error: 'Assessment not found' });
-      return;
-    }
-
-    // Build BOM
-    const bom = await buildAssessmentBOM(assessmentId);
-
-    // Set response headers
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="assessment-${assessmentId}-cdx.json"`);
-
-    res.json(bom);
-
-    logger.info('Assessment exported', {
-      assessmentId,
-      requestId: req.requestId,
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message === 'Assessment not found') {
-      res.status(404).json({ error: 'Assessment not found' });
-      return;
-    }
-
-    logger.error('Export assessment error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
+  if (!assessment) {
+    res.status(404).json({ error: 'Assessment not found' });
+    return;
   }
-});
 
-router.get('/assessment/:assessmentId/pdf', requireAuth, requirePermission('export.pdf'), async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { assessmentId } = req.params as { assessmentId: string };
-    const db = getDatabase();
+  // Build BOM
+  const bom = await buildAssessmentBOM(assessmentId);
 
-    // Verify assessment exists
-    const assessment = await db
-      .selectFrom('assessment')
-      .where('id', '=', assessmentId)
-      .selectAll()
-      .executeTakeFirst();
+  // Set response headers
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="assessment-${assessmentId}-cdx.json"`);
 
-    if (!assessment) {
-      res.status(404).json({ error: 'Assessment not found' });
-      return;
-    }
+  res.json(bom);
 
-    // Generate PDF
-    const pdfBuffer = await generateAssessmentPDF(assessmentId);
+  logger.info('Assessment exported', {
+    assessmentId,
+    requestId: req.requestId,
+  });
+}));
 
-    // Set response headers (sanitize title to prevent header injection)
-    const safeSlug = assessment.title.replace(/[^a-z0-9]/gi, '-').toLowerCase().substring(0, 200);
-    const filename = `assessment-${safeSlug}-report.pdf`;
-    const encodedFilename = encodeURIComponent(filename);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${filename}"; filename*=UTF-8''${encodedFilename}`
-    );
-    res.setHeader('Content-Length', pdfBuffer.length);
+router.get('/assessment/:assessmentId/pdf', requireAuth, requirePermission('export.pdf'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const { assessmentId } = req.params as { assessmentId: string };
+  const db = getDatabase();
 
-    res.send(pdfBuffer);
+  // Verify assessment exists
+  const assessment = await db
+    .selectFrom('assessment')
+    .where('id', '=', assessmentId)
+    .selectAll()
+    .executeTakeFirst();
 
-    logger.info('Assessment PDF exported', {
-      assessmentId,
-      requestId: req.requestId,
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message === 'Assessment not found') {
-      res.status(404).json({ error: 'Assessment not found' });
-      return;
-    }
-
-    logger.error('Export assessment PDF error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
+  if (!assessment) {
+    res.status(404).json({ error: 'Assessment not found' });
+    return;
   }
-});
 
-router.get('/project/:projectId', requireAuth, requirePermission('export.cyclonedx'), async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { projectId } = req.params as { projectId: string };
-    const db = getDatabase();
+  // Generate PDF
+  const pdfBuffer = await generateAssessmentPDF(assessmentId);
 
-    // Verify project exists
-    const project = await db
-      .selectFrom('project')
-      .where('id', '=', projectId)
-      .selectAll()
-      .executeTakeFirst();
+  // Set response headers (sanitize title to prevent header injection)
+  const safeSlug = assessment.title.replace(/[^a-z0-9]/gi, '-').toLowerCase().substring(0, 200);
+  const filename = `assessment-${safeSlug}-report.pdf`;
+  const encodedFilename = encodeURIComponent(filename);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="${filename}"; filename*=UTF-8''${encodedFilename}`
+  );
+  res.setHeader('Content-Length', pdfBuffer.length);
 
-    if (!project) {
-      res.status(404).json({ error: 'Project not found' });
-      return;
-    }
+  res.send(pdfBuffer);
 
-    // Fetch all assessments for this project
-    const assessments = await db
-      .selectFrom('assessment')
-      .where('project_id', '=', projectId)
-      .selectAll()
-      .execute();
+  logger.info('Assessment PDF exported', {
+    assessmentId,
+    requestId: req.requestId,
+  });
+}));
 
-    // Build BOMs for all assessments
-    const boms = await Promise.all(assessments.map(a => buildAssessmentBOM(a.id)));
+router.get('/project/:projectId', requireAuth, requirePermission('export.cyclonedx'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const { projectId } = req.params as { projectId: string };
+  const db = getDatabase();
 
-    // Create a wrapper BOM containing all assessment BOMs
-    const projectBOM: any = {
-      $schema: 'http://cyclonedx.org/schema/bom-1.6.schema.json',
-      bomFormat: 'CycloneDX',
-      specVersion: '1.6',
-      serialNumber: `urn:uuid:${uuidv4()}`,
-      version: 1,
-      metadata: {
-        timestamp: new Date().toISOString(),
-        tools: {
-          components: [
-            {
-              type: 'application',
-              name: 'CycloneDX Assessors Studio',
-            },
-          ],
-        },
-      },
-      declarations: {
-        assessors: [],
-        attestations: [],
-        claims: [],
-        evidence: [],
-        targets: {
-          organizations: [],
-        },
-      },
-      definitions: {
-        standards: [],
-      },
-    };
+  // Verify project exists
+  const project = await db
+    .selectFrom('project')
+    .where('id', '=', projectId)
+    .selectAll()
+    .executeTakeFirst();
 
-    // Merge all assessment BOMs
-    const mergedAssessors = new Map<string, CycloneDXAssessor>();
-    const mergedClaims = new Map<string, CycloneDXClaim>();
-    const mergedEvidence = new Map<string, CycloneDXEvidence>();
-    const mergedStandards = new Map<string, CycloneDXStandard>();
-
-    for (const bom of boms) {
-      // Merge assessors
-      for (const assessor of bom.declarations.assessors) {
-        mergedAssessors.set(assessor['bom-ref'], assessor);
-      }
-
-      // Merge attestations
-      projectBOM.declarations.attestations.push(...bom.declarations.attestations);
-
-      // Merge claims
-      for (const claim of bom.declarations.claims) {
-        mergedClaims.set(claim['bom-ref'], claim);
-      }
-
-      // Merge evidence
-      for (const evidence of bom.declarations.evidence) {
-        mergedEvidence.set(evidence['bom-ref'], evidence);
-      }
-
-      // Merge standards
-      for (const standard of bom.definitions.standards) {
-        mergedStandards.set(standard.identifier, standard);
-      }
-
-      // Merge affirmation if present
-      if (bom.declarations.affirmation && !projectBOM.declarations.affirmation) {
-        projectBOM.declarations.affirmation = bom.declarations.affirmation;
-      }
-    }
-
-    projectBOM.declarations.assessors = Array.from(mergedAssessors.values());
-    projectBOM.declarations.claims = Array.from(mergedClaims.values());
-    projectBOM.declarations.evidence = Array.from(mergedEvidence.values());
-    projectBOM.definitions.standards = Array.from(mergedStandards.values());
-
-    // Set response headers
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="project-${projectId}-cdx.json"`);
-
-    res.json(projectBOM);
-
-    logger.info('Project exported', {
-      projectId,
-      assessmentCount: assessments.length,
-      requestId: req.requestId,
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message === 'Project not found') {
-      res.status(404).json({ error: 'Project not found' });
-      return;
-    }
-
-    logger.error('Export project error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
+  if (!project) {
+    res.status(404).json({ error: 'Project not found' });
+    return;
   }
-});
+
+  // Fetch all assessments for this project
+  const assessments = await db
+    .selectFrom('assessment')
+    .where('project_id', '=', projectId)
+    .selectAll()
+    .execute();
+
+  // Build BOMs for all assessments
+  const boms = await Promise.all(assessments.map(a => buildAssessmentBOM(a.id)));
+
+  // Create a wrapper BOM containing all assessment BOMs
+  const projectBOM: any = {
+    $schema: 'http://cyclonedx.org/schema/bom-1.6.schema.json',
+    bomFormat: 'CycloneDX',
+    specVersion: '1.6',
+    serialNumber: `urn:uuid:${uuidv4()}`,
+    version: 1,
+    metadata: {
+      timestamp: new Date().toISOString(),
+      tools: {
+        components: [
+          {
+            type: 'application',
+            name: 'CycloneDX Assessors Studio',
+          },
+        ],
+      },
+    },
+    declarations: {
+      assessors: [],
+      attestations: [],
+      claims: [],
+      evidence: [],
+      targets: {
+        organizations: [],
+      },
+    },
+    definitions: {
+      standards: [],
+    },
+  };
+
+  // Merge all assessment BOMs
+  const mergedAssessors = new Map<string, CycloneDXAssessor>();
+  const mergedClaims = new Map<string, CycloneDXClaim>();
+  const mergedEvidence = new Map<string, CycloneDXEvidence>();
+  const mergedStandards = new Map<string, CycloneDXStandard>();
+
+  for (const bom of boms) {
+    // Merge assessors
+    for (const assessor of bom.declarations.assessors) {
+      mergedAssessors.set(assessor['bom-ref'], assessor);
+    }
+
+    // Merge attestations
+    projectBOM.declarations.attestations.push(...bom.declarations.attestations);
+
+    // Merge claims
+    for (const claim of bom.declarations.claims) {
+      mergedClaims.set(claim['bom-ref'], claim);
+    }
+
+    // Merge evidence
+    for (const evidence of bom.declarations.evidence) {
+      mergedEvidence.set(evidence['bom-ref'], evidence);
+    }
+
+    // Merge standards
+    for (const standard of bom.definitions.standards) {
+      mergedStandards.set(standard.identifier, standard);
+    }
+
+    // Merge affirmation if present
+    if (bom.declarations.affirmation && !projectBOM.declarations.affirmation) {
+      projectBOM.declarations.affirmation = bom.declarations.affirmation;
+    }
+  }
+
+  projectBOM.declarations.assessors = Array.from(mergedAssessors.values());
+  projectBOM.declarations.claims = Array.from(mergedClaims.values());
+  projectBOM.declarations.evidence = Array.from(mergedEvidence.values());
+  projectBOM.definitions.standards = Array.from(mergedStandards.values());
+
+  // Set response headers
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="project-${projectId}-cdx.json"`);
+
+  res.json(projectBOM);
+
+  logger.info('Project exported', {
+    projectId,
+    assessmentCount: assessments.length,
+    requestId: req.requestId,
+  });
+}));
 
 export default router;

@@ -1,4 +1,5 @@
-import { Router, Response } from 'express';
+import { Router } from 'express';
+import type { Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
@@ -7,6 +8,7 @@ import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.
 import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { validatePagination } from '../utils/pagination.js';
+import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 
 const router = Router();
 
@@ -45,18 +47,18 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
     let query = db.selectFrom('entity').selectAll();
 
     if (entity_type) {
-      query = query.where('entity_type', '=', entity_type as any);
+      query = query.where('entity_type', '=', entity_type as 'organization' | 'business_unit' | 'team' | 'product' | 'product_version' | 'component' | 'service' | 'project');
     }
 
     if (state) {
-      query = query.where('state', '=', state as any);
+      query = query.where('state', '=', state as 'active' | 'inactive' | 'archived');
     } else {
       // By default, exclude archived entities unless explicitly requested
-      query = query.where('state', '!=', 'archived' as any);
+      query = query.where('state', '!=', 'archived');
     }
 
     if (search) {
-      query = query.where((eb: any) =>
+      query = query.where((eb) =>
         eb.or([
           eb('name', 'ilike', `%${search}%`),
           eb('description', 'ilike', `%${search}%`),
@@ -66,15 +68,15 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
 
     let countQuery = db.selectFrom('entity').select(db.fn.count<number>('id').as('count'));
     if (entity_type) {
-      countQuery = countQuery.where('entity_type', '=', entity_type as any);
+      countQuery = countQuery.where('entity_type', '=', entity_type as 'organization' | 'business_unit' | 'team' | 'product' | 'product_version' | 'component' | 'service' | 'project');
     }
     if (state) {
-      countQuery = countQuery.where('state', '=', state as any);
+      countQuery = countQuery.where('state', '=', state as 'active' | 'inactive' | 'archived');
     } else {
-      countQuery = countQuery.where('state', '!=', 'archived' as any);
+      countQuery = countQuery.where('state', '!=', 'archived');
     }
     if (search) {
-      countQuery = countQuery.where((eb: any) =>
+      countQuery = countQuery.where((eb) =>
         eb.or([
           eb('name', 'ilike', `%${search}%`),
           eb('description', 'ilike', `%${search}%`),
@@ -85,10 +87,10 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
 
     const entities = await query.limit(limit).offset(offset).execute();
 
-    const entityIds = entities.map((e: any) => e.id);
+    const entityIds = entities.map((e) => e.id);
     const tagsByEntity = await fetchTagsForEntities(db, 'entity_tag', 'entity_id', entityIds);
 
-    const entitiesWithTags = entities.map((e: any) => ({
+    const entitiesWithTags = entities.map((e) => ({
       ...e,
       tags: tagsByEntity[e.id] || [],
     }));
@@ -116,7 +118,7 @@ router.get('/relationship-graph', requireAuth, async (req: AuthRequest, res: Res
     // Fetch all non-archived entities
     const entities = await db
       .selectFrom('entity')
-      .where('state', '!=', 'archived' as any)
+      .where('state', '!=', 'archived')
       .select(['id', 'name', 'entity_type'])
       .execute();
 
@@ -134,7 +136,7 @@ router.get('/relationship-graph', requireAuth, async (req: AuthRequest, res: Res
         'target.name as target_name',
       ]);
 
-    const relationships = await relQuery.execute() as any[];
+    const relationships = await relQuery.execute() as Record<string, unknown>[];
 
     // Categorize relationships by type
     const producerRelTypes = new Set(['owns', 'contains', 'governs']);
@@ -146,40 +148,48 @@ router.get('/relationship-graph', requireAuth, async (req: AuthRequest, res: Res
 
     if (perspective === 'producer') {
       // Producer: entities connected by organizational/structural relationships
-      filteredRelationships = relationships.filter((r: any) => producerRelTypes.has(r.relationship_type));
+      filteredRelationships = relationships.filter((r) => producerRelTypes.has((r as Record<string, unknown>).relationship_type as string));
       filteredEntityIds = new Set<string>();
       for (const rel of filteredRelationships) {
-        filteredEntityIds.add(rel.source_entity_id);
-        filteredEntityIds.add(rel.target_entity_id);
+        const relationship = rel as Record<string, unknown>;
+        filteredEntityIds.add(relationship.source_entity_id as string);
+        filteredEntityIds.add(relationship.target_entity_id as string);
       }
     } else if (perspective === 'consumer') {
       // Consumer: entities connected by supply chain relationships
-      filteredRelationships = relationships.filter((r: any) => consumerRelTypes.has(r.relationship_type));
+      filteredRelationships = relationships.filter((r) => consumerRelTypes.has((r as Record<string, unknown>).relationship_type as string));
       filteredEntityIds = new Set<string>();
       for (const rel of filteredRelationships) {
-        filteredEntityIds.add(rel.source_entity_id);
-        filteredEntityIds.add(rel.target_entity_id);
+        const relationship = rel as Record<string, unknown>;
+        filteredEntityIds.add(relationship.source_entity_id as string);
+        filteredEntityIds.add(relationship.target_entity_id as string);
       }
     }
 
     const filteredEntities = filteredEntityIds
-      ? entities.filter((e: any) => filteredEntityIds!.has(e.id))
+      ? entities.filter((e) => filteredEntityIds!.has(e.id))
       : entities;
 
-    const filteredEntityIdSet = new Set(filteredEntities.map((e: any) => e.id));
+    const filteredEntityIdSet = new Set(filteredEntities.map((e) => e.id));
     const filteredEdges = filteredRelationships
-      .filter((r: any) => filteredEntityIdSet.has(r.source_entity_id) && filteredEntityIdSet.has(r.target_entity_id))
-      .map((r: any) => ({
-        id: r.id,
-        sourceEntityId: r.source_entity_id,
-        sourceName: r.source_name,
-        targetEntityId: r.target_entity_id,
-        targetName: r.target_name,
-        relationshipType: r.relationship_type,
-      }));
+      .filter((r) => {
+        const relationship = r as Record<string, unknown>;
+        return filteredEntityIdSet.has(relationship.source_entity_id as string) && filteredEntityIdSet.has(relationship.target_entity_id as string);
+      })
+      .map((r) => {
+        const relationship = r as Record<string, unknown>;
+        return {
+          id: relationship.id as string,
+          sourceEntityId: relationship.source_entity_id as string,
+          sourceName: relationship.source_name as string,
+          targetEntityId: relationship.target_entity_id as string,
+          targetName: relationship.target_name as string,
+          relationshipType: relationship.relationship_type as string,
+        };
+      });
 
     res.json({
-      entities: filteredEntities.map((e: any) => ({
+      entities: filteredEntities.map((e) => ({
         id: e.id,
         name: e.name,
         entityType: e.entity_type,
@@ -220,7 +230,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
         'entity_relationship.relationship_type as relationship_type',
         'entity.name as source_name',
       ])
-      .execute()) as any[];
+      .execute()) as Record<string, unknown>[];
 
     // Get child entities
     const childRelationships = (await db
@@ -234,7 +244,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
         'entity_relationship.relationship_type as relationship_type',
         'entity.name as target_name',
       ])
-      .execute()) as any[];
+      .execute()) as Record<string, unknown>[];
 
     // Get associated standards
     const standards = (await db
@@ -246,7 +256,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
         'standard.name as name',
         'standard.version as version',
       ])
-      .execute()) as any[];
+      .execute()) as Record<string, unknown>[];
 
     const tagsByEntity = await fetchTagsForEntities(db, 'entity_tag', 'entity_id', [req.params.id as string]);
 
@@ -264,7 +274,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
         'standard.version as standard_version',
         'standard.description as standard_description',
       ])
-      .execute()) as any[];
+      .execute()) as Record<string, unknown>[];
 
     res.json({
       entity,
@@ -285,7 +295,7 @@ router.post(
   '/',
   requireAuth,
   requirePermission('entities.create'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createEntitySchema.parse(req.body);
       const db = getDatabase();
@@ -324,15 +334,12 @@ router.post(
         state: 'active',
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
+      if (handleValidationError(res, error)) return;
 
       logger.error('Create entity error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 // PUT /:id - Update entity (admin only)
@@ -340,7 +347,7 @@ router.put(
   '/:id',
   requireAuth,
   requirePermission('entities.edit'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateEntitySchema.parse(req.body);
       const db = getDatabase();
@@ -356,7 +363,7 @@ router.put(
         return;
       }
 
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
 
       if (data.name !== undefined) updateData.name = data.name;
       if (data.description !== undefined) updateData.description = data.description;
@@ -384,15 +391,12 @@ router.put(
 
       res.json(updatedEntity);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
+      if (handleValidationError(res, error)) return;
 
       logger.error('Update entity error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 // DELETE /:id - Soft delete (set state to 'archived')
@@ -400,38 +404,33 @@ router.delete(
   '/:id',
   requireAuth,
   requirePermission('entities.delete'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
 
-      const entity = await db
-        .selectFrom('entity')
-        .where('id', '=', req.params.id as string)
-        .selectAll()
-        .executeTakeFirst();
+    const entity = await db
+      .selectFrom('entity')
+      .where('id', '=', req.params.id as string)
+      .selectAll()
+      .executeTakeFirst();
 
-      if (!entity) {
-        res.status(404).json({ error: 'Entity not found' });
-        return;
-      }
-
-      await db
-        .updateTable('entity')
-        .set({ state: 'archived' })
-        .where('id', '=', req.params.id as string)
-        .execute();
-
-      logger.info('Entity deleted', {
-        entityId: req.params.id as string,
-        requestId: req.requestId,
-      });
-
-      res.status(204).send();
-    } catch (error) {
-      logger.error('Delete entity error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+    if (!entity) {
+      res.status(404).json({ error: 'Entity not found' });
+      return;
     }
-  }
+
+    await db
+      .updateTable('entity')
+      .set({ state: 'archived' })
+      .where('id', '=', req.params.id as string)
+      .execute();
+
+    logger.info('Entity deleted', {
+      entityId: req.params.id as string,
+      requestId: req.requestId,
+    });
+
+    res.status(204).send();
+  })
 );
 
 // GET /:id/children - Get child entities
@@ -461,7 +460,7 @@ router.get('/:id/children', requireAuth, async (req: AuthRequest, res: Response)
         'entity.state as state',
         'entity_relationship.relationship_type as relationship_type',
       ])
-      .execute()) as any[];
+      .execute()) as Record<string, unknown>[];
 
     res.json({ data: children });
   } catch (error) {
@@ -500,7 +499,7 @@ router.get('/:id/assessments', requireAuth, async (req: AuthRequest, res: Respon
         'end_date',
         'created_at',
       ])
-      .execute()) as any[];
+      .execute()) as Record<string, unknown>[];
 
     res.json({ data: assessments });
   } catch (error) {
@@ -540,25 +539,26 @@ router.get('/:id/history', requireAuth, async (req: AuthRequest, res: Response):
         'standard.version as standard_version',
       ])
       .orderBy('assessment.created_at', 'desc')
-      .execute()) as any[];
+      .execute()) as Record<string, unknown>[];
 
     // Group by standard
-    const history: Record<string, any> = {};
+    const history: Record<string, Record<string, unknown>> = {};
     for (const assessment of assessments) {
-      const standardKey = assessment.standard_name || 'unknown';
+      const assessmentRecord = assessment as Record<string, unknown>;
+      const standardKey = (assessmentRecord.standard_name as string) || 'unknown';
       if (!history[standardKey]) {
         history[standardKey] = {
-          standardName: assessment.standard_name,
-          standardVersion: assessment.standard_version,
+          standardName: assessmentRecord.standard_name,
+          standardVersion: assessmentRecord.standard_version,
           assessments: [],
         };
       }
-      history[standardKey].assessments.push({
-        id: assessment.id,
-        title: assessment.title,
-        state: assessment.state,
-        completedAt: assessment.completed_at,
-        conformanceScore: assessment.conformance_score,
+      (history[standardKey].assessments as Record<string, unknown>[]).push({
+        id: assessmentRecord.id,
+        title: assessmentRecord.title,
+        state: assessmentRecord.state,
+        completedAt: assessmentRecord.completed_at,
+        conformanceScore: assessmentRecord.conformance_score,
       });
     }
 
@@ -623,7 +623,7 @@ router.get('/:id/relationship-graph', requireAuth, async (req: AuthRequest, res:
           'target.name as target_name',
           'target.entity_type as target_entity_type',
         ])
-        .execute()) as any[];
+        .execute()) as Record<string, unknown>[];
 
       // Fetch all inbound relationships to current frontier (only at depth 0 for parents)
       const inbound = depth === 0 ? (await db
@@ -641,32 +641,36 @@ router.get('/:id/relationship-graph', requireAuth, async (req: AuthRequest, res:
           'target.name as target_name',
           'target.entity_type as target_entity_type',
         ])
-        .execute()) as any[] : [];
+        .execute()) as Record<string, unknown>[] : [];
 
       const allRels = [...outbound, ...inbound];
       for (const rel of allRels) {
+        const relRecord = rel as Record<string, unknown>;
+        const relId = relRecord.id as string;
+        const sourceEntityId = relRecord.source_entity_id as string;
+        const targetEntityId = relRecord.target_entity_id as string;
         // Deduplicate edges by id
-        if (allEdges.some(e => e.id === rel.id)) continue;
+        if (allEdges.some(e => e.id === relId)) continue;
 
         allEdges.push({
-          id: rel.id,
-          sourceEntityId: rel.source_entity_id,
-          sourceName: rel.source_name,
-          targetEntityId: rel.target_entity_id,
-          targetName: rel.target_name,
-          relationshipType: rel.relationship_type,
+          id: relId,
+          sourceEntityId: sourceEntityId,
+          sourceName: relRecord.source_name as string,
+          targetEntityId: targetEntityId,
+          targetName: relRecord.target_name as string,
+          relationshipType: relRecord.relationship_type as string,
         });
 
         // Track entities for the frontier
-        if (!entityMap.has(rel.source_entity_id)) {
-          entityMap.set(rel.source_entity_id, { id: rel.source_entity_id, name: rel.source_name, entityType: rel.source_entity_type });
+        if (!entityMap.has(sourceEntityId)) {
+          entityMap.set(sourceEntityId, { id: sourceEntityId, name: relRecord.source_name as string, entityType: relRecord.source_entity_type as string });
         }
-        if (!entityMap.has(rel.target_entity_id)) {
-          entityMap.set(rel.target_entity_id, { id: rel.target_entity_id, name: rel.target_name, entityType: rel.target_entity_type });
+        if (!entityMap.has(targetEntityId)) {
+          entityMap.set(targetEntityId, { id: targetEntityId, name: relRecord.target_name as string, entityType: relRecord.target_entity_type as string });
         }
 
         // Add newly discovered entities to the next frontier
-        for (const neighborId of [rel.source_entity_id, rel.target_entity_id]) {
+        for (const neighborId of [sourceEntityId, targetEntityId]) {
           if (!visitedEntities.has(neighborId)) {
             visitedEntities.add(neighborId);
             frontier.push(neighborId);
@@ -745,7 +749,7 @@ router.post(
           relationshipType: data.relationshipType,
           createdAt: new Date(),
           updatedAt: new Date(),
-        }))
+        }) as unknown as any)
         .execute();
 
       logger.info('Entity relationship created', {
@@ -844,24 +848,24 @@ router.get('/:id/policies', requireAuth, async (req: AuthRequest, res: Response)
         'standard.version as standard_version',
         'standard.description as standard_description',
       ])
-      .execute()) as any[];
+      .execute()) as Record<string, unknown>[];
 
     // Get parent entities via entity_relationship
     const parentEntities = (await db
       .selectFrom('entity_relationship')
-      .where((eb: any) =>
+      .where((eb) =>
         eb.and([
           eb('target_entity_id', '=', req.params.id as string),
           eb('relationship_type', 'in', ['owns', 'contains', 'governs']),
         ])
       )
       .select('source_entity_id')
-      .execute()) as any[];
+      .execute()) as Record<string, unknown>[];
 
     // Get inherited policies from parents
-    let inheritedPolicies: any[] = [];
+    let inheritedPolicies: Record<string, unknown>[] = [];
     if (parentEntities.length > 0) {
-      const parentIds = parentEntities.map((p: any) => p.source_entity_id);
+      const parentIds = parentEntities.map((p) => (p as Record<string, unknown>).source_entity_id as string);
       inheritedPolicies = (await db
         .selectFrom('compliance_policy')
         .innerJoin('standard', 'standard.id', 'compliance_policy.standard_id')
@@ -875,7 +879,7 @@ router.get('/:id/policies', requireAuth, async (req: AuthRequest, res: Response)
           'standard.version as standard_version',
           'standard.description as standard_description',
         ])
-        .execute()) as any[];
+        .execute()) as Record<string, unknown>[];
     }
 
     // Mark inherited policies
@@ -984,7 +988,7 @@ router.put(
         return;
       }
 
-      const updates: Record<string, any> = {
+      const updates: Record<string, unknown> = {
         updated_at: new Date(),
       };
 
@@ -1129,24 +1133,25 @@ router.get('/:id/progress', requireAuth, async (req: AuthRequest, res: Response)
         'standard.version as standard_version',
       ])
       .orderBy('assessment.end_date', 'desc')
-      .execute()) as any[];
+      .execute()) as Record<string, unknown>[];
 
     // Group by standard
-    const progress: Record<string, any> = {};
+    const progress: Record<string, Record<string, unknown>> = {};
     for (const assessment of assessments) {
-      const standardKey = assessment.standard_name || 'unknown';
+      const assessmentRecord = assessment as Record<string, unknown>;
+      const standardKey = (assessmentRecord.standard_name as string) || 'unknown';
       if (!progress[standardKey]) {
         progress[standardKey] = {
-          standardName: assessment.standard_name,
-          standardVersion: assessment.standard_version,
+          standardName: assessmentRecord.standard_name,
+          standardVersion: assessmentRecord.standard_version,
           assessments: [],
         };
       }
-      progress[standardKey].assessments.push({
-        id: assessment.id,
-        title: assessment.title,
-        completedAt: assessment.completed_at,
-        conformanceScore: assessment.conformance_score,
+      (progress[standardKey].assessments as Record<string, unknown>[]).push({
+        id: assessmentRecord.id,
+        title: assessmentRecord.title,
+        completedAt: assessmentRecord.completed_at,
+        conformanceScore: assessmentRecord.conformance_score,
       });
     }
 

@@ -1,7 +1,9 @@
-import { Router, Response } from 'express';
+import { Router } from 'express';
+import type { Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
+import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 
@@ -18,44 +20,34 @@ const updateTagSchema = z.object({
 });
 
 // List all tags
-router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const db = getDatabase();
-    const tags = await db.selectFrom('tag').selectAll().orderBy('name', 'asc').execute();
-    res.json({ data: tags });
-  } catch (error) {
-    logger.error('Get tags error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const db = getDatabase();
+  const tags = await db.selectFrom('tag').selectAll().orderBy('name', 'asc').execute();
+  res.json({ data: tags });
+}));
 
 // Tag autocomplete
-router.get('/autocomplete', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const query = (req.query.q as string) || '';
-    const db = getDatabase();
+router.get('/autocomplete', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const query = (req.query.q as string) || '';
+  const db = getDatabase();
 
-    const tags = await db
-      .selectFrom('tag')
-      .where('name', 'ilike', `%${query}%`)
-      .selectAll()
-      .orderBy('name', 'asc')
-      .limit(10)
-      .execute();
+  const tags = await db
+    .selectFrom('tag')
+    .where('name', 'ilike', `%${query}%`)
+    .selectAll()
+    .orderBy('name', 'asc')
+    .limit(10)
+    .execute();
 
-    res.json({ data: tags });
-  } catch (error) {
-    logger.error('Tag autocomplete error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+  res.json({ data: tags });
+}));
 
 // Create tag
 router.post(
   '/',
   requireAuth,
   requirePermission('admin.tags'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createTagSchema.parse(req.body);
       const db = getDatabase();
@@ -69,14 +61,10 @@ router.post(
       logger.info('Tag created', { tagId, name: data.name, requestId: req.requestId });
       res.status(201).json({ id: tagId, name: data.name, color: data.color });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-      logger.error('Create tag error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  }
+  })
 );
 
 // Update tag
@@ -84,7 +72,7 @@ router.put(
   '/:id',
   requireAuth,
   requirePermission('admin.tags'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateTagSchema.parse(req.body);
       const db = getDatabase();
@@ -108,14 +96,10 @@ router.put(
 
       res.json(updatedTag);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
-      logger.error('Update tag error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      if (handleValidationError(res, error)) return;
+      throw error;
     }
-  }
+  })
 );
 
 // Delete tag
@@ -123,25 +107,20 @@ router.delete(
   '/:id',
   requireAuth,
   requirePermission('admin.tags'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const db = getDatabase();
-      const tag = await db.selectFrom('tag').where('id', '=', req.params.id).selectAll().executeTakeFirst();
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
+    const tag = await db.selectFrom('tag').where('id', '=', req.params.id).selectAll().executeTakeFirst();
 
-      // Idempotent: return 204 whether resource exists or not
-      if (!tag) {
-        res.status(204).send();
-        return;
-      }
-
-      await db.deleteFrom('tag').where('id', '=', req.params.id).execute();
-      logger.info('Tag deleted', { tagId: req.params.id, requestId: req.requestId });
+    // Idempotent: return 204 whether resource exists or not
+    if (!tag) {
       res.status(204).send();
-    } catch (error) {
-      logger.error('Delete tag error', { error, requestId: req.requestId });
-      res.status(500).json({ error: 'Internal server error' });
+      return;
     }
-  }
+
+    await db.deleteFrom('tag').where('id', '=', req.params.id).execute();
+    logger.info('Tag deleted', { tagId: req.params.id, requestId: req.requestId });
+    res.status(204).send();
+  })
 );
 
 export default router;

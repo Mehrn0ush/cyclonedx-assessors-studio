@@ -1,6 +1,7 @@
-import express, { Request, Response, NextFunction } from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import express from 'express';
+import type { Request, Response, NextFunction, Express } from 'express';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
@@ -44,11 +45,9 @@ import { getOpenAPISpec } from './openapi.js';
 import { getEventBus } from './events/index.js';
 import { metricsMiddleware } from './middleware/metrics.js';
 
-export function createApp() {
+// Helper: Configure security middleware
+function configureSecurityMiddleware(app: Express): void {
   const config = getConfig();
-  const app = express();
-
-  // Security middleware
   app.use(helmet({
     contentSecurityPolicy: config.NODE_ENV === 'production' ? {
       directives: {
@@ -72,66 +71,73 @@ export function createApp() {
       policy: 'strict-origin-when-cross-origin',
     },
   }));
+}
 
-  // CORS
+// Helper: Configure CORS
+function configureCORS(app: Express): void {
+  const config = getConfig();
   app.use(cors({
     origin: config.CORS_ORIGIN,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'X-Api-Key'],
   }));
+}
 
-  // Rate limiting (skip in test environment to avoid flaky tests)
-  if (config.NODE_ENV !== 'test') {
-    const generalLimiter = rateLimit({
-      windowMs: 15 * 60 * 1000,
-      max: 1000,
-      message: 'Too many requests from this IP, please try again later.',
-    });
+// Helper: Configure rate limiters
+function configureRateLimiters(app: Express): void {
+  const config = getConfig();
+  if (config.NODE_ENV === 'test') return;
 
-    const authLimiter = rateLimit({
-      windowMs: 15 * 60 * 1000,
-      max: 100,
-      message: 'Too many authentication attempts, please try again later.',
-    });
+  const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 1000,
+    message: 'Too many requests from this IP, please try again later.',
+  });
 
-    // Stricter limiter for resource-intensive operations (uploads, imports, exports)
-    const heavyOpLimiter = rateLimit({
-      windowMs: 60 * 60 * 1000, // 1 hour window
-      max: 120,
-      message: 'Too many resource-intensive requests, please try again later.',
-    });
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: 'Too many authentication attempts, please try again later.',
+  });
 
-    // Stricter limiter for setup endpoints (prevent abuse once setup is complete)
-    const setupLimiter = rateLimit({
-      windowMs: 15 * 60 * 1000,
-      max: 30,
-      message: 'Too many setup requests, please try again later.',
-    });
+  const heavyOpLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 120,
+    message: 'Too many resource-intensive requests, please try again later.',
+  });
 
-    app.use(generalLimiter);
-    app.use('/api/v1/auth', authLimiter);
-    app.use('/api/v1/import', heavyOpLimiter);
-    app.use('/api/v1/export', heavyOpLimiter);
-    app.use('/api/v1/evidence', heavyOpLimiter);
-    app.use('/api/v1/setup', setupLimiter);
-  }
+  const setupLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    message: 'Too many setup requests, please try again later.',
+  });
 
-  // Body parsing
+  app.use(generalLimiter);
+  app.use('/api/v1/auth', authLimiter);
+  app.use('/api/v1/import', heavyOpLimiter);
+  app.use('/api/v1/export', heavyOpLimiter);
+  app.use('/api/v1/evidence', heavyOpLimiter);
+  app.use('/api/v1/setup', setupLimiter);
+}
+
+// Helper: Configure body parsing and cookies
+function configureBodyParsing(app: Express): void {
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ limit: '1mb', extended: true }));
   app.use(cookieParser());
+}
 
-  // Request middleware
+// Helper: Configure request-level middleware
+function configureRequestMiddleware(app: Express): void {
+  const config = getConfig();
   app.use(requestIdMiddleware);
 
-  // Prometheus metrics instrumentation
   const metricsConfig = getConfig();
   if (metricsConfig.METRICS_ENABLED) {
     app.use(metricsMiddleware);
   }
 
-  // Inject event bus into every request
   app.use((req: any, _res: Response, next: NextFunction) => {
     try {
       req.eventBus = getEventBus();
@@ -143,7 +149,6 @@ export function createApp() {
 
   app.use('/api/v1', camelCaseResponse);
 
-  // Request logging (skip in test to reduce noise)
   if (config.NODE_ENV !== 'test') {
     app.use((req: any, res: Response, next: NextFunction) => {
       const start = Date.now();
@@ -160,25 +165,10 @@ export function createApp() {
       next();
     });
   }
+}
 
-  // Health check
-  app.use('/api/health', healthRoutes);
-
-  // Prometheus metrics endpoint
-  app.use('/metrics', metricsRoutes);
-
-  // OpenAPI specification
-  app.get('/api/openapi.json', (_req: Request, res: Response) => {
-    res.json(getOpenAPISpec());
-  });
-
-  // Setup route
-  app.use('/api/v1/setup', setupRoutes);
-
-  // Setup gate
-  app.use(requireSetup);
-
-  // API routes
+// Helper: Register API routes
+function registerAPIRoutes(app: Express): void {
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/projects', projectRoutes);
   app.use('/api/v1/standards', standardRoutes);
@@ -203,8 +193,11 @@ export function createApp() {
   app.use('/api/v1/webhooks', webhookRoutes);
   app.use('/api/v1/admin/encryption', adminEncryptionRoutes);
   app.use('/api/v1/integrations/chat', chatIntegrationRoutes);
+}
 
-  // Production static serving
+// Helper: Configure static file serving and 404 handling
+function configureStaticAndErrorRoutes(app: Express): void {
+  const config = getConfig();
   if (config.NODE_ENV === 'production') {
     const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
     app.use(express.static(frontendDistPath));
@@ -220,8 +213,10 @@ export function createApp() {
       res.status(404).json({ error: 'Not found' });
     });
   }
+}
 
-  // Error handling
+// Helper: Configure error handling
+function configureErrorHandling(app: Express): void {
   app.use((error: Error, req: Request, res: Response, _next: NextFunction) => {
     logger.error('Unhandled error', {
       error: error.message,
@@ -231,6 +226,43 @@ export function createApp() {
     });
     res.status(500).json({ error: 'Internal server error' });
   });
+}
+
+export function createApp() {
+  const app = express();
+
+  // Configure middleware in order
+  configureSecurityMiddleware(app);
+  configureCORS(app);
+  configureRateLimiters(app);
+  configureBodyParsing(app);
+  configureRequestMiddleware(app);
+
+  // Health check
+  app.use('/api/health', healthRoutes);
+
+  // Prometheus metrics endpoint
+  app.use('/metrics', metricsRoutes);
+
+  // OpenAPI specification
+  app.get('/api/openapi.json', (_req: Request, res: Response) => {
+    res.json(getOpenAPISpec());
+  });
+
+  // Setup route
+  app.use('/api/v1/setup', setupRoutes);
+
+  // Setup gate
+  app.use(requireSetup);
+
+  // Register all API routes
+  registerAPIRoutes(app);
+
+  // Configure static files and error routes
+  configureStaticAndErrorRoutes(app);
+
+  // Configure error handling
+  configureErrorHandling(app);
 
   return app;
 }

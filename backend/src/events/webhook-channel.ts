@@ -6,7 +6,7 @@
  * auto-disable after consecutive failures.
  */
 
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';

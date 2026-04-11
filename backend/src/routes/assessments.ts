@@ -1,7 +1,10 @@
-import { Router, Response } from 'express';
+import { Router } from 'express';
+import type { Response } from 'express';
+import { Kysely } from 'kysely';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
+import type { Database } from '../db/types.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
@@ -9,6 +12,7 @@ import { ASSESSMENT_STATE_CHANGED } from '../events/catalog.js';
 import { createNotification } from '../utils/notifications.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { validatePagination } from '../utils/pagination.js';
+import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 
 const router = Router();
 
@@ -51,10 +55,10 @@ function getReadOnlyError(state: string): string | null {
  * Returns the assessment if mutable, or null if response was already sent.
  */
 async function requireMutableAssessment(
-  db: any,
+  db: Kysely<Database>,
   assessmentId: string,
   res: Response
-): Promise<any | null> {
+): Promise<Record<string, unknown> | null> {
   const assessment = await db
     .selectFrom('assessment')
     .where('id', '=', assessmentId)
@@ -108,7 +112,7 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
       ]);
 
     if (state) {
-      query = query.where('assessment.state', '=', state as any);
+      query = query.where('assessment.state', '=', state as 'new' | 'pending' | 'in_progress' | 'on_hold' | 'cancelled' | 'complete' | 'archived');
     }
 
     if (projectId) {
@@ -117,7 +121,7 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
 
     if (myOnly && req.user?.id) {
       const userId = req.user.id;
-      query = query.where((eb: any) =>
+      query = query.where((eb) =>
         eb.or([
           eb('assessment.id', 'in',
             eb.selectFrom('assessment_assessor')
@@ -141,11 +145,11 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
 
     const assessments = await query.limit(limit).offset(offset).execute();
 
-    const assessmentIds = assessments.map((a: any) => a.id);
+    const assessmentIds = assessments.map((a) => (a as Record<string, unknown>).id as string);
     const tagsByAssessment = await fetchTagsForEntities(db, 'assessment_tag', 'assessment_id', assessmentIds);
-    const assessmentsWithTags = assessments.map((a: any) => ({
+    const assessmentsWithTags = assessments.map((a) => ({
       ...a,
-      tags: tagsByAssessment[a.id] || [],
+      tags: tagsByAssessment[(a as Record<string, unknown>).id as string] || [],
     }));
 
     res.json({
@@ -205,14 +209,14 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
         'requirement',
         (join) =>
           join.onRef(
-            'requirement.id' as any,
+            'requirement.id',
             '=',
-            'assessment_requirement.requirement_id' as any
+            'assessment_requirement.requirement_id'
           )
       )
-      .where('assessment_requirement.assessment_id' as any, '=', req.params.id as string)
+      .where('assessment_requirement.assessment_id', '=', req.params.id as string)
       .selectAll()
-      .execute()) as any[];
+      .execute()) as Record<string, unknown>[];
 
     const assessors = (await db
       .selectFrom('assessment_assessor')
@@ -220,14 +224,14 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
         'app_user',
         (join) =>
           join.onRef(
-            'app_user.id' as any,
+            'app_user.id',
             '=',
-            'assessment_assessor.user_id' as any
+            'assessment_assessor.user_id'
           )
       )
       .where('assessment_assessor.assessment_id', '=', req.params.id as string)
       .selectAll()
-      .execute()) as any[];
+      .execute()) as Record<string, unknown>[];
 
     const assessees = (await db
       .selectFrom('assessment_assessee')
@@ -235,14 +239,14 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
         'app_user',
         (join) =>
           join.onRef(
-            'app_user.id' as any,
+            'app_user.id',
             '=',
-            'assessment_assessee.user_id' as any
+            'assessment_assessee.user_id'
           )
       )
       .where('assessment_assessee.assessment_id', '=', req.params.id as string)
       .selectAll()
-      .execute()) as any[];
+      .execute()) as Record<string, unknown>[];
 
     res.json({
       assessment,
@@ -260,7 +264,7 @@ router.post(
   '/',
   requireAuth,
   requirePermission('assessments.create'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createAssessmentSchema.parse(req.body);
       const db = getDatabase();
@@ -340,18 +344,15 @@ router.post(
         state: 'new',
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.issues });
-        return;
-      }
+      if (handleValidationError(res, error)) return;
 
       logger.error('Create assessment error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
-router.put('/:id', requireAuth, requirePermission('assessments.edit'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/:id', requireAuth, requirePermission('assessments.edit'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = updateAssessmentSchema.parse(req.body);
     const db = getDatabase();
@@ -388,7 +389,7 @@ router.put('/:id', requireAuth, requirePermission('assessments.edit'), async (re
       }
     }
 
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
 
     if (data.title !== undefined) updateData.title = data.title;
     if (data.description !== undefined) updateData.description = data.description;
@@ -468,15 +469,12 @@ router.put('/:id', requireAuth, requirePermission('assessments.edit'), async (re
       tags: tagsByAssessment[req.params.id as string] || [],
     });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: 'Invalid input', details: error.issues });
-      return;
-    }
+    if (handleValidationError(res, error)) return;
 
     logger.error('Update assessment error', { error, requestId: req.requestId });
     res.status(500).json({ error: 'Internal server error' });
   }
-});
+}));
 
 router.post(
   '/:id/start',
@@ -521,7 +519,7 @@ router.post(
           .selectFrom('requirement')
           .where('requirement.standard_id', '=', assessment.standard_id)
           .selectAll()
-          .execute()) as any[];
+          .execute()) as Record<string, unknown>[];
       } else if (assessment.entity_id) {
         // Load requirements from entity's associated standards
         requirements = (await db
@@ -530,14 +528,14 @@ router.post(
             'entity_standard',
             (join) =>
               join.onRef(
-                'entity_standard.standard_id' as any,
+                'entity_standard.standard_id',
                 '=',
-                'requirement.standard_id' as any
+                'requirement.standard_id'
               )
           )
           .where('entity_standard.entity_id', '=', assessment.entity_id)
           .selectAll()
-          .execute()) as any[];
+          .execute()) as Record<string, unknown>[];
       } else if (assessment.project_id && assessment.project_id.trim() !== '') {
         // Load requirements from project's associated standards
         requirements = (await db
@@ -546,14 +544,14 @@ router.post(
             'project_standard',
             (join) =>
               join.onRef(
-                'project_standard.standard_id' as any,
+                'project_standard.standard_id',
                 '=',
-                'requirement.standard_id' as any
+                'requirement.standard_id'
               )
           )
           .where('project_standard.project_id', '=', assessment.project_id)
           .selectAll()
-          .execute()) as any[];
+          .execute()) as Record<string, unknown>[];
       } else {
         // Fallback to body data
         if (!bodyData.standardIds || bodyData.standardIds.length === 0) {
@@ -565,7 +563,7 @@ router.post(
           .selectFrom('requirement')
           .where('requirement.standard_id', 'in', bodyData.standardIds)
           .selectAll()
-          .execute()) as any[];
+          .execute()) as Record<string, unknown>[];
       }
 
       for (const requirement of requirements) {
@@ -875,7 +873,7 @@ router.put(
         }
       }
 
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
       if (data.result !== undefined) updateData.result = data.result;
       if (data.rationale !== undefined) updateData.rationale = data.rationale;
 
@@ -943,9 +941,9 @@ router.get(
           'evidence',
           (join) =>
             join.onRef(
-              'evidence.id' as any,
+              'evidence.id',
               '=',
-              'assessment_requirement_evidence.evidence_id' as any
+              'assessment_requirement_evidence.evidence_id'
             )
         )
         .innerJoin(
@@ -999,13 +997,13 @@ router.get(
       const evidence = (await db
         .selectFrom('assessment_requirement_evidence')
         .innerJoin('evidence', (join) =>
-          join.onRef('evidence.id' as any, '=', 'assessment_requirement_evidence.evidence_id' as any)
+          join.onRef('evidence.id', '=', 'assessment_requirement_evidence.evidence_id')
         )
         .innerJoin('assessment_requirement', (join) =>
-          join.onRef('assessment_requirement.id' as any, '=', 'assessment_requirement_evidence.assessment_requirement_id' as any)
+          join.onRef('assessment_requirement.id', '=', 'assessment_requirement_evidence.assessment_requirement_id')
         )
         .leftJoin('app_user as author', (join) =>
-          join.onRef('author.id' as any, '=', 'evidence.author_id' as any)
+          join.onRef('author.id', '=', 'evidence.author_id')
         )
         .where('assessment_requirement.assessment_id', '=', req.params.id as string)
         .select([
@@ -1020,7 +1018,7 @@ router.get(
           'evidence.expires_on',
           'author.display_name as author_name',
           'assessment_requirement.requirement_id',
-        ] as any[])
+        ] as const)
         .execute()) as any[];
 
       // Deduplicate evidence (one item can be linked to multiple requirements)
@@ -1164,12 +1162,14 @@ router.get(
           .where('claim_id', 'in', claimIds)
           .selectAll()
           .orderBy('created_at', 'asc')
-          .execute()) as any[];
+          .execute()) as Record<string, unknown>[];
         for (const ref of extRefs) {
-          if (!externalRefsByClaimId.has(ref.claim_id)) {
-            externalRefsByClaimId.set(ref.claim_id, []);
+          const refRecord = ref as Record<string, unknown>;
+          const claimId = refRecord.claim_id as string;
+          if (!externalRefsByClaimId.has(claimId)) {
+            externalRefsByClaimId.set(claimId, []);
           }
-          externalRefsByClaimId.get(ref.claim_id)!.push(ref);
+          externalRefsByClaimId.get(claimId)!.push(ref);
         }
       }
 
@@ -1218,7 +1218,7 @@ router.get(
       const assessors = (await db
         .selectFrom('assessment_assessor')
         .innerJoin('app_user', (join) =>
-          join.onRef('app_user.id' as any, '=', 'assessment_assessor.user_id' as any)
+          join.onRef('app_user.id', '=', 'assessment_assessor.user_id')
         )
         .where('assessment_assessor.assessment_id', '=', req.params.id as string)
         .select([
@@ -1232,7 +1232,7 @@ router.get(
       const assessees = (await db
         .selectFrom('assessment_assessee')
         .innerJoin('app_user', (join) =>
-          join.onRef('app_user.id' as any, '=', 'assessment_assessee.user_id' as any)
+          join.onRef('app_user.id', '=', 'assessment_assessee.user_id')
         )
         .where('assessment_assessee.assessment_id', '=', req.params.id as string)
         .select([
@@ -1286,9 +1286,9 @@ router.get(
           'app_user',
           (join) =>
             join.onRef(
-              'app_user.id' as any,
+              'app_user.id',
               '=',
-              'work_note.user_id' as any
+              'work_note.user_id'
             )
         )
         .where('work_note.assessment_id', '=', req.params.id as string)

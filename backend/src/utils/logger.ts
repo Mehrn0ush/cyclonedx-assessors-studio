@@ -6,7 +6,7 @@ const config = getConfig();
 // Sensitive fields to redact
 const SENSITIVE_FIELDS = ['password', 'token', 'authorization', 'cookie', 'secret'];
 
-function redactSensitiveData(obj: any): any {
+function redactSensitiveData(obj: unknown): unknown {
   if (typeof obj !== 'object' || obj === null) {
     return obj;
   }
@@ -15,7 +15,7 @@ function redactSensitiveData(obj: any): any {
     return obj.map(redactSensitiveData);
   }
 
-  const result = { ...obj };
+  const result = { ...(obj as Record<string, unknown>) };
 
   for (const key in result) {
     if (SENSITIVE_FIELDS.some(field => key.toLowerCase().includes(field))) {
@@ -34,16 +34,29 @@ export const logger = winston.createLogger({
     winston.format.timestamp(),
     winston.format.errors({ stack: true }),
     winston.format.json(),
-    winston.format.printf((info: any) => {
-      const { timestamp, level, message, requestId, ...meta } = info;
+    winston.format.printf((info: Record<string, unknown>) => {
+      const timestamp = info.timestamp;
+      const level = info.level;
+      const message = info.message;
+      const requestId = info.requestId;
+      const meta: Record<string, unknown> = {};
+      for (const key in info) {
+        if (key !== 'timestamp' && key !== 'level' && key !== 'message' && key !== 'requestId') {
+          meta[key] = info[key];
+        }
+      }
 
-      return JSON.stringify({
+      const result: Record<string, unknown> = {
         timestamp,
         level,
         message,
-        ...(requestId && { requestId }),
-        ...redactSensitiveData(meta),
-      });
+      };
+      if (requestId) result.requestId = requestId;
+      const redacted = redactSensitiveData(meta);
+      if (typeof redacted === 'object' && redacted !== null && !Array.isArray(redacted)) {
+        Object.assign(result, redacted);
+      }
+      return JSON.stringify(result);
     })
   ),
   transports: [new winston.transports.Console()],

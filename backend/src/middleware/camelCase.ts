@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 
 /**
  * Converts a snake_case string to lowerCamelCase.
@@ -10,14 +10,14 @@ function snakeToCamel(str: string): string {
 /**
  * Recursively transforms all keys in an object or array from snake_case to camelCase.
  */
-function transformKeys(obj: any): any {
+function transformKeys(obj: unknown): unknown {
   if (Array.isArray(obj)) {
     return obj.map(transformKeys);
   }
   if (obj !== null && typeof obj === 'object' && !(obj instanceof Date) && !Buffer.isBuffer(obj)) {
-    const result: Record<string, any> = {};
+    const result: Record<string, unknown> = {};
     for (const key of Object.keys(obj)) {
-      result[snakeToCamel(key)] = transformKeys(obj[key]);
+      result[snakeToCamel(key)] = transformKeys((obj as Record<string, unknown>)[key]);
     }
     return result;
   }
@@ -34,7 +34,7 @@ function transformKeys(obj: any): any {
 export function camelCaseResponse(_req: Request, res: Response, next: NextFunction): void {
   const originalJson = res.json.bind(res);
 
-  res.json = function (body: any) {
+  res.json = function (body: unknown) {
     return originalJson(transformKeys(body));
   };
 
@@ -51,14 +51,14 @@ function camelToSnake(str: string): string {
 /**
  * Recursively transforms all keys in an object from camelCase to snake_case.
  */
-function transformKeysToSnake(obj: any): any {
+function transformKeysToSnake(obj: unknown): unknown {
   if (Array.isArray(obj)) {
     return obj.map(transformKeysToSnake);
   }
   if (obj !== null && typeof obj === 'object' && !(obj instanceof Date) && !Buffer.isBuffer(obj)) {
-    const result: Record<string, any> = {};
+    const result: Record<string, unknown> = {};
     for (const key of Object.keys(obj)) {
-      result[camelToSnake(key)] = transformKeysToSnake(obj[key]);
+      result[camelToSnake(key)] = transformKeysToSnake((obj as Record<string, unknown>)[key]);
     }
     return result;
   }
@@ -75,6 +75,6 @@ function transformKeysToSnake(obj: any): any {
  *   await db.insertInto('user').values(toSnakeCase(data)).execute();
  *   // inserts { display_name: "Alice", is_active: true }
  */
-export function toSnakeCase<T extends Record<string, any>>(obj: T): any {
-  return transformKeysToSnake(obj);
+export function toSnakeCase<T extends Record<string, unknown>>(obj: T): Record<string, unknown> {
+  return transformKeysToSnake(obj) as Record<string, unknown>;
 }
