@@ -2,11 +2,11 @@
   <div class="projects-container">
     <PageHeader :title="t('projects.title')">
       <template #actions>
-        <el-button v-if="authStore.user?.role === 'admin'" @click="showImportAttestationDialog = true">
+        <el-button v-if="authStore.hasPermission('admin.import')" @click="showImportAttestationDialog = true">
           <el-icon style="margin-right: 4px;"><Upload /></el-icon>
           {{ t('common.importAttestation') }}
         </el-button>
-        <el-button v-if="authStore.user?.role === 'admin'" type="primary" @click="showCreateDialog">
+        <el-button v-if="authStore.hasPermission('projects.create')" type="primary" @click="showCreateDialog">
           {{ t('projects.newProject') }}
         </el-button>
       </template>

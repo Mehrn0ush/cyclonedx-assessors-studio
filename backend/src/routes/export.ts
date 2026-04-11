@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import PDFDocument from 'pdfkit';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -605,7 +605,7 @@ async function generateAssessmentPDF(assessmentId: string): Promise<Buffer> {
   });
 }
 
-router.get('/assessment/:assessmentId', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/assessment/:assessmentId', requireAuth, requirePermission('export.cyclonedx'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { assessmentId } = req.params as { assessmentId: string };
     const db = getDatabase();
@@ -646,7 +646,7 @@ router.get('/assessment/:assessmentId', requireAuth, async (req: AuthRequest, re
   }
 });
 
-router.get('/assessment/:assessmentId/pdf', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/assessment/:assessmentId/pdf', requireAuth, requirePermission('export.pdf'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { assessmentId } = req.params as { assessmentId: string };
     const db = getDatabase();
@@ -694,7 +694,7 @@ router.get('/assessment/:assessmentId/pdf', requireAuth, async (req: AuthRequest
   }
 });
 
-router.get('/project/:projectId', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/project/:projectId', requireAuth, requirePermission('export.cyclonedx'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { projectId } = req.params as { projectId: string };
     const db = getDatabase();

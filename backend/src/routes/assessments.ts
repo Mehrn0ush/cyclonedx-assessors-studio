@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
 import { ASSESSMENT_STATE_CHANGED } from '../events/catalog.js';
 import { createNotification } from '../utils/notifications.js';
@@ -259,7 +259,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 router.post(
   '/',
   requireAuth,
-  requireRole('assessor', 'admin'),
+  requirePermission('assessments.create'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createAssessmentSchema.parse(req.body);
@@ -351,7 +351,7 @@ router.post(
   }
 );
 
-router.put('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/:id', requireAuth, requirePermission('assessments.edit'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = updateAssessmentSchema.parse(req.body);
     const db = getDatabase();
@@ -481,7 +481,7 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 router.post(
   '/:id/start',
   requireAuth,
-  requireRole('assessor', 'admin'),
+  requirePermission('assessments.manage'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const bodyData = startAssessmentSchema.parse(req.body);
@@ -612,7 +612,7 @@ router.post(
 router.post(
   '/:id/complete',
   requireAuth,
-  requireRole('assessor', 'admin'),
+  requirePermission('assessments.manage'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -729,7 +729,7 @@ router.post(
 router.post(
   '/:id/archive',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('assessments.manage'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -778,7 +778,7 @@ router.post(
 router.post(
   '/:id/reopen',
   requireAuth,
-  requireRole('assessor', 'admin'),
+  requirePermission('assessments.manage'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -845,7 +845,7 @@ const startAssessmentSchema = z.object({
 router.put(
   '/:id/requirements/:requirementId',
   requireAuth,
-  requireRole('assessor', 'admin'),
+  requirePermission('assessments.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateRequirementSchema.parse(req.body);
@@ -1313,6 +1313,7 @@ router.get(
 router.post(
   '/:id/notes',
   requireAuth,
+  requirePermission('assessments.notes'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = addWorkNoteSchema.parse(req.body);
@@ -1400,7 +1401,7 @@ router.post(
 router.delete(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('assessments.manage'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();

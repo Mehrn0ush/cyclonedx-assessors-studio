@@ -5,7 +5,7 @@
         <el-button v-if="canManageStandards" type="success" @click="showCreateDialog = true">
           {{ t('standards.newStandard') }}
         </el-button>
-        <el-button v-if="authStore.user?.role === 'admin'" type="primary" @click="showImportDialog = true">
+        <el-button v-if="authStore.hasPermission('standards.import')" type="primary" @click="showImportDialog = true">
           {{ t('standards.importStandard') }}
         </el-button>
       </template>
@@ -43,7 +43,7 @@
           <el-table-column prop="requirementsCount" :label="t('standards.requirements')" min-width="140" align="center" sortable></el-table-column>
           <el-table-column :label="t('common.actions')" min-width="100">
             <template #default="{ row }">
-              <RowActions :show-edit="false" :show-view="true" :show-export="true" :show-delete="authStore.user?.role === 'admin' && (row.state === 'draft' || row.state === 'retired')" @view="navigateToStandard(row)" @export="handleExportStandard(row)" @delete="handleDeleteStandard(row)" />
+              <RowActions :show-edit="false" :show-view="true" :show-export="true" :show-delete="authStore.hasPermission('admin.settings') && (row.state === 'draft' || row.state === 'retired')" @view="navigateToStandard(row)" @export="handleExportStandard(row)" @delete="handleDeleteStandard(row)" />
             </template>
           </el-table-column>
         </el-table>
@@ -370,7 +370,7 @@ const resetImportForm = () => {
 }
 
 const canManageStandards = computed(() => {
-  return authStore.user?.role === 'admin' || authStore.user?.role === 'standards_manager'
+  return authStore.hasAnyPermission('standards.create', 'standards.edit')
 })
 
 const filteredStandards = computed(() => {

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -115,7 +115,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 router.post(
   '/',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('assessments.manage'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createAssessorSchema.parse(req.body);
@@ -149,7 +149,7 @@ router.post(
 router.put(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('assessments.manage'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateAssessorSchema.parse(req.body);
@@ -193,7 +193,7 @@ router.put(
 router.delete(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('assessments.manage'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();

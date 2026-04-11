@@ -131,37 +131,37 @@ const routes: Array<RouteRecordRaw> = [
     path: '/admin/users',
     name: 'AdminUsers',
     component: () => import('@/views/AdminUsersView.vue'),
-    meta: { requiresAuth: true, requiresRole: 'admin' }
+    meta: { requiresAuth: true, requiresPermission: 'admin.users' }
   },
   {
     path: '/admin/roles',
     name: 'AdminRoles',
     component: () => import('@/views/AdminRolesView.vue'),
-    meta: { requiresAuth: true, requiresRole: 'admin' }
+    meta: { requiresAuth: true, requiresPermission: 'admin.roles' }
   },
   {
     path: '/admin/webhooks',
     name: 'AdminWebhooks',
     component: () => import('@/views/AdminWebhooksView.vue'),
-    meta: { requiresAuth: true, requiresRole: 'admin' }
+    meta: { requiresAuth: true, requiresPermission: 'admin.webhooks' }
   },
   {
     path: '/admin/integrations',
     name: 'AdminIntegrations',
     component: () => import('@/views/AdminIntegrationsView.vue'),
-    meta: { requiresAuth: true, requiresRole: 'admin' }
+    meta: { requiresAuth: true, requiresPermission: 'admin.integrations' }
   },
   {
     path: '/admin/chat-integrations',
     name: 'AdminChatIntegrations',
     component: () => import('@/views/AdminChatIntegrationsView.vue'),
-    meta: { requiresAuth: true, requiresRole: 'admin' }
+    meta: { requiresAuth: true, requiresPermission: 'admin.integrations' }
   },
   {
     path: '/admin/notification-rules',
     name: 'AdminNotificationRules',
     component: () => import('@/views/AdminNotificationRulesView.vue'),
-    meta: { requiresAuth: true, requiresRole: 'admin' }
+    meta: { requiresAuth: true, requiresPermission: 'admin.notification_rules' }
   },
   {
     path: '/settings',
@@ -203,7 +203,7 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
   // Normal auth guards
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/login')
-  } else if (to.meta.requiresRole && authStore.user?.role !== to.meta.requiresRole) {
+  } else if (to.meta.requiresPermission && !authStore.hasPermission(to.meta.requiresPermission as string)) {
     next('/dashboard')
   } else if (to.meta.public || authStore.isAuthenticated) {
     next()

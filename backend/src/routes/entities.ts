@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { validatePagination } from '../utils/pagination.js';
@@ -284,7 +284,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 router.post(
   '/',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('entities.create'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createEntitySchema.parse(req.body);
@@ -339,7 +339,7 @@ router.post(
 router.put(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('entities.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateEntitySchema.parse(req.body);
@@ -399,7 +399,7 @@ router.put(
 router.delete(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('entities.delete'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -692,7 +692,7 @@ router.get('/:id/relationship-graph', requireAuth, async (req: AuthRequest, res:
 router.post(
   '/:id/relationships',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('entities.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createRelationshipSchema.parse(req.body);
@@ -778,7 +778,7 @@ router.post(
 router.delete(
   '/:id/relationships/:relId',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('entities.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -895,7 +895,7 @@ router.get('/:id/policies', requireAuth, async (req: AuthRequest, res: Response)
 router.post(
   '/:id/policies',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('entities.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createPolicySchema.parse(req.body);
@@ -966,7 +966,7 @@ router.post(
 router.put(
   '/:id/policies/:policyId',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('entities.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -1062,7 +1062,7 @@ router.put(
 router.delete(
   '/:id/policies/:policyId',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('entities.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();

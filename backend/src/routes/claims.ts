@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
@@ -170,6 +170,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 router.post(
   '/',
   requireAuth,
+  requirePermission('claims.create'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createClaimSchema.parse(req.body);
@@ -275,6 +276,7 @@ router.post(
 router.put(
   '/:id',
   requireAuth,
+  requirePermission('claims.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateClaimSchema.parse(req.body);
@@ -410,7 +412,7 @@ router.put(
 router.delete(
   '/:id',
   requireAuth,
-  requireRole('admin', 'assessor'),
+  requirePermission('claims.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();

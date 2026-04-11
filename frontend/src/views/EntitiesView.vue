@@ -2,7 +2,7 @@
   <div class="entities-container">
     <PageHeader title="Entities">
       <template #actions>
-        <el-button v-if="authStore.user?.role === 'admin'" type="primary" @click="showCreateDialog">
+        <el-button v-if="authStore.hasPermission('entities.create')" type="primary" @click="showCreateDialog">
           <el-icon style="margin-right: 4px;"><Plus /></el-icon>
           New Entity
         </el-button>
@@ -91,7 +91,7 @@
         <el-icon :size="48"><FolderOpened /></el-icon>
         <h3>No Entities Found</h3>
         <p>{{ getEmptyStateMessage() }}</p>
-        <el-button v-if="authStore.user?.role === 'admin'" type="primary" @click="showCreateDialog">
+        <el-button v-if="authStore.hasPermission('entities.create')" type="primary" @click="showCreateDialog">
           Create New Entity
         </el-button>
       </div>
@@ -152,7 +152,7 @@
             </template>
           </el-table-column>
 
-          <el-table-column v-if="authStore.user?.role === 'admin'" label="Actions" min-width="90">
+          <el-table-column v-if="authStore.hasAnyPermission('entities.edit', 'entities.delete')" label="Actions" min-width="90">
             <template #default="{ row }">
               <RowActions @edit="openEditDialog(row)" @delete="deleteEntity(row)" />
             </template>

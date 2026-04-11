@@ -30,7 +30,7 @@ const getSeverityTagType = (severity: string): 'danger' | 'warning' | 'info' | '
     medium: 'info',
     low: 'success'
   }
-  return typeMap[severity as keyof typeof typeMap] || 'info'
+  return (typeMap[severity as keyof typeof typeMap] || 'info') as 'danger' | 'warning' | 'info' | 'success'
 }
 
 const fetchInsights = async () => {

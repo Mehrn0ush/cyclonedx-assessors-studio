@@ -5,6 +5,7 @@ import * as authAPI from '@/api/auth'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
+  const permissions = ref<string[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
   const isInitialized = ref(false)
@@ -13,12 +14,21 @@ export const useAuthStore = defineStore('auth', () => {
   // the httpOnly session cookie). No token is stored in JavaScript.
   const isAuthenticated = computed(() => !!user.value)
 
+  function hasPermission(key: string): boolean {
+    return permissions.value.includes(key)
+  }
+
+  function hasAnyPermission(...keys: string[]): boolean {
+    return keys.some(key => permissions.value.includes(key))
+  }
+
   async function login(username: string, password: string) {
     loading.value = true
     error.value = null
     try {
       const response = await authAPI.login(username, password)
       user.value = response.user
+      permissions.value = response.permissions || response.user?.permissions || []
     } catch (err: any) {
       error.value = err.message || 'Login failed'
       throw err
@@ -34,6 +44,7 @@ export const useAuthStore = defineStore('auth', () => {
       console.error('Logout error:', err)
     } finally {
       user.value = null
+      permissions.value = []
     }
   }
 
@@ -42,8 +53,10 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response = await authAPI.getCurrentUser()
       user.value = response
+      permissions.value = response.permissions || []
     } catch {
       user.value = null
+      permissions.value = []
     } finally {
       loading.value = false
       isInitialized.value = true
@@ -52,12 +65,15 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     user,
+    permissions,
     isAuthenticated,
     isInitialized,
     loading,
     error,
     login,
     logout,
-    fetchCurrentUser
+    fetchCurrentUser,
+    hasPermission,
+    hasAnyPermission
   }
 })

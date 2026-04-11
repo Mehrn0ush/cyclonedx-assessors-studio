@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import crypto from 'crypto';
 import { getDatabase } from '../db/connection.js';
-import { AuthRequest, requireAuth, hashApiKey } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, hashApiKey, getPermissionsForRole } from '../middleware/auth.js';
 import { logger } from '../utils/logger.js';
 import { logAudit } from '../utils/audit.js';
 
@@ -36,7 +36,9 @@ router.post(
       }
 
       // Non-admins can only create keys for themselves
-      const targetUserId = userId && req.user!.role === 'admin' ? userId : req.user!.id;
+      const userPermissions = await getPermissionsForRole(req.user!.role);
+      const isAdmin = userPermissions.includes('admin.settings');
+      const targetUserId = userId && isAdmin ? userId : req.user!.id;
 
       const db = getDatabase();
 
@@ -125,7 +127,9 @@ router.get(
         .selectFrom('api_key')
         .select(['id', 'name', 'prefix', 'user_id', 'expires_at', 'last_used_at', 'created_at']);
 
-      if (req.user!.role !== 'admin') {
+      const userPermissions = await getPermissionsForRole(req.user!.role);
+      const isAdmin = userPermissions.includes('admin.settings');
+      if (!isAdmin) {
         query = query.where('user_id', '=', req.user!.id);
       }
 
@@ -163,7 +167,9 @@ router.delete(
       }
 
       // Non-admins can only delete their own keys
-      if (req.user!.role !== 'admin' && existing.user_id !== req.user!.id) {
+      const userPermissions = await getPermissionsForRole(req.user!.role);
+      const isAdmin = userPermissions.includes('admin.settings');
+      if (!isAdmin && existing.user_id !== req.user!.id) {
         res.status(403).json({ error: 'Insufficient permissions' });
         return;
       }

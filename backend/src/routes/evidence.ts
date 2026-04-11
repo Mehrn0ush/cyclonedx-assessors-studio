@@ -5,7 +5,7 @@ import busboy from 'busboy';
 import crypto from 'crypto';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission, getPermissionsForRole } from '../middleware/auth.js';
 import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
 import { logAudit } from '../utils/audit.js';
 import { EVIDENCE_STATE_CHANGED } from '../events/catalog.js';
@@ -313,7 +313,7 @@ router.get('/:id/claims', requireAuth, async (req: AuthRequest, res: Response): 
   }
 });
 
-router.post('/', requireAuth, requireRole('admin', 'assessor', 'assessee'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/', requireAuth, requirePermission('evidence.create'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
       res.status(401).json({ error: 'Authentication required' });
@@ -392,7 +392,7 @@ const updateEvidenceSchema = z.object({
   tags: z.array(z.string()).optional(),
 });
 
-router.put('/:id', requireAuth, requireRole('admin', 'assessor'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/:id', requireAuth, requirePermission('evidence.edit'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = updateEvidenceSchema.parse(req.body);
     const db = getDatabase();
@@ -473,6 +473,7 @@ router.put('/:id', requireAuth, requireRole('admin', 'assessor'), async (req: Au
 router.post(
   '/:id/notes',
   requireAuth,
+  requirePermission('evidence.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       if (!req.user) {
@@ -540,6 +541,7 @@ const linkEvidenceSchema = z.object({
 router.post(
   '/:id/link',
   requireAuth,
+  requirePermission('evidence.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = linkEvidenceSchema.parse(req.body);
@@ -623,6 +625,7 @@ const unlinkEvidenceSchema = z.object({
 router.delete(
   '/:id/unlink',
   requireAuth,
+  requirePermission('evidence.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = unlinkEvidenceSchema.parse(req.body);
@@ -698,7 +701,7 @@ const submitForReviewSchema = z.object({
 router.post(
   '/:id/submit-for-review',
   requireAuth,
-  requireRole('admin', 'assessor', 'assessee'),
+  requirePermission('evidence.submit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = submitForReviewSchema.parse(req.body);
@@ -720,8 +723,10 @@ router.post(
         return;
       }
 
-      // Ownership check: only the evidence author or an admin can submit for review
-      if (req.user.role !== 'admin' && evidence.author_id !== req.user.id) {
+      // Ownership check: only the evidence author or someone with evidence.submit permission can submit for review
+      const userPermissions = await getPermissionsForRole(req.user.role);
+      const hasSubmitAccess = userPermissions.includes('evidence.submit');
+      if (!hasSubmitAccess && evidence.author_id !== req.user.id) {
         res.status(403).json({ error: 'Only the evidence author or an admin can submit evidence for review' });
         return;
       }
@@ -808,7 +813,7 @@ router.post(
 router.post(
   '/:id/approve',
   requireAuth,
-  requireRole('admin', 'assessor'),
+  requirePermission('evidence.review'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -834,7 +839,9 @@ router.post(
         return;
       }
 
-      if (req.user.role !== 'admin' && evidence.reviewer_id !== req.user.id) {
+      const userPermissions = await getPermissionsForRole(req.user.role);
+      const hasReviewAccess = userPermissions.includes('evidence.review');
+      if (!hasReviewAccess && evidence.reviewer_id !== req.user.id) {
         res.status(403).json({ error: 'Only the assigned reviewer or an admin can approve evidence' });
         return;
       }
@@ -902,7 +909,7 @@ const rejectEvidenceSchema = z.object({
 router.post(
   '/:id/reject',
   requireAuth,
-  requireRole('admin', 'assessor'),
+  requirePermission('evidence.review'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = rejectEvidenceSchema.parse(req.body);
@@ -929,7 +936,9 @@ router.post(
         return;
       }
 
-      if (req.user.role !== 'admin' && evidence.reviewer_id !== req.user.id) {
+      const userPermissions = await getPermissionsForRole(req.user.role);
+      const hasReviewAccess = userPermissions.includes('evidence.review');
+      if (!hasReviewAccess && evidence.reviewer_id !== req.user.id) {
         res.status(403).json({ error: 'Only the assigned reviewer or an admin can reject evidence' });
         return;
       }
@@ -1050,6 +1059,7 @@ function computeContentHash(buffer: Buffer): string {
 router.post(
   '/:id/attachments',
   requireAuth,
+  requirePermission('evidence.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       if (!req.user) {
@@ -1356,7 +1366,7 @@ router.get(
 router.delete(
   '/:id/attachments/:attachmentId',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('evidence.delete'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();

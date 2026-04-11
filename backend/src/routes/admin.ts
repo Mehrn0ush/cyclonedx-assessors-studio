@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { getConfig } from '../config/index.js';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import {
   getStorageProviderName,
   resolveProvider,
@@ -22,7 +22,7 @@ const router = Router();
 router.get(
   '/integrations/storage',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.settings'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const config = getConfig();
@@ -64,7 +64,7 @@ router.get(
 router.post(
   '/integrations/test/storage',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.settings'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const providerName = getStorageProviderName();
@@ -127,7 +127,7 @@ router.post(
 router.get(
   '/integrations/smtp',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.settings'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const config = getConfig();
@@ -158,7 +158,7 @@ router.get(
 router.post(
   '/integrations/test/smtp',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.settings'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const config = getConfig();
@@ -221,7 +221,7 @@ router.post(
 router.get(
   '/integrations/status',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.settings'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const config = getConfig();

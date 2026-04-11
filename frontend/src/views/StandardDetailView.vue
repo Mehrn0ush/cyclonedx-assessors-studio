@@ -513,24 +513,19 @@ const availableParentRequirements = computed(() => {
   return result
 })
 
-// Check if user has admin or standards_manager role
-const isAdmin = computed(() => authStore.user?.role === 'admin')
-const isStandardsManager = computed(() => authStore.user?.permissions?.includes('standards_manager'))
-const isStandardsApprover = computed(() => authStore.user?.permissions?.includes('standards_approver'))
-
 // Check if user can perform various actions
 const canEdit = computed(() => {
-  return standard.value?.state === 'draft' && (isAdmin.value || isStandardsManager.value)
+  return standard.value?.state === 'draft' && authStore.hasAnyPermission('standards.create', 'standards.edit')
 })
 
 const canSubmitForApproval = computed(() => {
-  return standard.value?.state === 'draft' && (isAdmin.value || isStandardsManager.value)
+  return standard.value?.state === 'draft' && authStore.hasAnyPermission('standards.create', 'standards.edit')
 })
 
 const canApprove = computed(() => {
   return (
     standard.value?.state === 'in_review' &&
-    (isAdmin.value || isStandardsApprover.value) &&
+    authStore.hasAnyPermission('standards.approve') &&
     authStore.user?.id !== standard.value?.authored_by
   )
 })
@@ -538,21 +533,21 @@ const canApprove = computed(() => {
 const canReject = computed(() => {
   return (
     standard.value?.state === 'in_review' &&
-    (isAdmin.value || isStandardsApprover.value) &&
+    authStore.hasAnyPermission('standards.approve') &&
     authStore.user?.id !== standard.value?.authored_by
   )
 })
 
 const canDuplicate = computed(() => {
-  return standard.value?.state === 'published' && (isAdmin.value || isStandardsManager.value)
+  return standard.value?.state === 'published' && authStore.hasAnyPermission('standards.create', 'standards.edit')
 })
 
 const canRetire = computed(() => {
-  return standard.value?.state === 'published' && isAdmin.value
+  return standard.value?.state === 'published' && authStore.hasPermission('admin.settings')
 })
 
 const canEditRequirements = computed(() => {
-  return standard.value?.state === 'draft' && (isAdmin.value || isStandardsManager.value)
+  return standard.value?.state === 'draft' && authStore.hasAnyPermission('standards.create', 'standards.edit')
 })
 
 const fetchProjects = async () => {
@@ -933,7 +928,7 @@ const handleRetire = async () => {
       {
         confirmButtonText: 'OK',
         cancelButtonText: 'Cancel',
-        type: 'danger',
+        type: 'warning',
       }
     )
     await axios.post(`/api/v1/standards/${standard.value.id}/retire`)

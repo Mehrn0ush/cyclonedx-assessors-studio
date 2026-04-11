@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 import { getDatabase } from '../db/connection.js';
 import { getConfig } from '../config/index.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, getPermissionsForRole } from '../middleware/auth.js';
 import { hashPassword, verifyPassword, generateToken, hashToken } from '../utils/crypto.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { authLoginTotal } from '../metrics/index.js';
@@ -108,6 +108,9 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
       requestId: req.requestId,
     });
 
+    // Fetch permissions for the user's role
+    const permissions = await getPermissionsForRole(user.role);
+
     // Token is in the httpOnly cookie only. Never expose it in the response body.
     res.json({
       user: {
@@ -118,6 +121,7 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
         role: user.role,
         hasCompletedOnboarding: user.has_completed_onboarding || false,
       },
+      permissions,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -243,8 +247,12 @@ router.get('/me', requireAuth, async (req: AuthRequest, res: Response): Promise<
       return;
     }
 
+    // Fetch permissions for the user's role
+    const permissions = await getPermissionsForRole(req.user.role);
+
     res.json({
       user: req.user,
+      permissions,
     });
   } catch (error) {
     logger.error('Get current user error', { error, requestId: req.requestId });

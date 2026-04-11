@@ -1,12 +1,12 @@
 import { Router, Response } from 'express';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { validatePagination } from '../utils/pagination.js';
 
 const router = Router();
 
-router.get('/', requireAuth, requireRole('admin'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/', requireAuth, requirePermission('admin.audit'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
     const { limit, offset } = validatePagination(req.query);
@@ -62,7 +62,7 @@ router.get('/', requireAuth, requireRole('admin'), async (req: AuthRequest, res:
 router.get(
   '/entity/:entityType/:entityId',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.audit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();

@@ -65,7 +65,7 @@
       </div>
 
       <!-- Admin -->
-      <div v-if="authStore.user?.role === 'admin'" class="nav-group">
+      <div v-if="authStore.hasAnyPermission('admin.users', 'admin.roles', 'admin.settings', 'admin.webhooks', 'admin.integrations', 'admin.notification_rules')" class="nav-group">
         <div v-if="!uiStore.sidebarCollapsed" class="nav-group-label">{{ t('nav.admin') }}</div>
         <div class="nav-item-wrapper">
           <RouterLink

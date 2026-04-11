@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { importStandard } from '../services/standard-import.js';
 import { buildRequirementTree, topologicalSort } from '../services/requirement-utils.js';
@@ -260,7 +260,7 @@ router.get(
 router.post(
   '/import',
   requireAuth,
-  requireRole('admin', 'standards_manager'),
+  requirePermission('standards.import'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = importStandardSchema.parse(req.body);
@@ -327,7 +327,7 @@ router.post(
 router.post(
   '/',
   requireAuth,
-  requireRole('admin', 'standards_manager'),
+  requirePermission('standards.create'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { name, identifier, version, owner, description } = req.body;
@@ -380,7 +380,7 @@ router.post(
 router.put(
   '/:id',
   requireAuth,
-  requireRole('admin', 'standards_manager'),
+  requirePermission('standards.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -441,7 +441,7 @@ router.put(
 router.post(
   '/:id/submit',
   requireAuth,
-  requireRole('admin', 'standards_manager'),
+  requirePermission('standards.submit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -494,7 +494,7 @@ router.post(
 router.post(
   '/:id/approve',
   requireAuth,
-  requireRole('admin', 'standards_approver'),
+  requirePermission('standards.approve'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -557,7 +557,7 @@ router.post(
 router.post(
   '/:id/reject',
   requireAuth,
-  requireRole('admin', 'standards_approver'),
+  requirePermission('standards.approve'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -618,7 +618,7 @@ router.post(
 router.post(
   '/:id/duplicate',
   requireAuth,
-  requireRole('admin', 'standards_manager'),
+  requirePermission('standards.duplicate'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -767,7 +767,7 @@ router.post(
 router.post(
   '/:id/retire',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('standards.approve'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -819,7 +819,7 @@ router.post(
 router.post(
   '/:id/requirements',
   requireAuth,
-  requireRole('admin', 'standards_manager'),
+  requirePermission('requirements.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -902,7 +902,7 @@ router.post(
 router.put(
   '/:standardId/requirements/:reqId',
   requireAuth,
-  requireRole('admin', 'standards_manager'),
+  requirePermission('requirements.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -995,7 +995,7 @@ router.put(
 router.delete(
   '/:standardId/requirements/:reqId',
   requireAuth,
-  requireRole('admin', 'standards_manager'),
+  requirePermission('requirements.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -1054,7 +1054,7 @@ router.delete(
 router.post(
   '/:standardId/levels',
   requireAuth,
-  requireRole('admin', 'standards_manager'),
+  requirePermission('standards.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -1094,7 +1094,7 @@ router.post(
 router.put(
   '/:standardId/levels/:levelId',
   requireAuth,
-  requireRole('admin', 'standards_manager'),
+  requirePermission('standards.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -1145,7 +1145,7 @@ router.put(
 router.delete(
   '/:standardId/levels/:levelId',
   requireAuth,
-  requireRole('admin', 'standards_manager'),
+  requirePermission('standards.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -1171,7 +1171,7 @@ router.delete(
 router.put(
   '/:standardId/levels/:levelId/requirements',
   requireAuth,
-  requireRole('admin', 'standards_manager'),
+  requirePermission('standards.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -1224,7 +1224,7 @@ router.put(
 router.delete(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('standards.approve'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -1353,7 +1353,7 @@ router.delete(
 router.put(
   '/:standardId/requirements/:reqId/reparent',
   requireAuth,
-  requireRole('admin', 'standards_manager'),
+  requirePermission('requirements.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();

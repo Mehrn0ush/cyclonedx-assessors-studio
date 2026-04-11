@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
@@ -158,7 +158,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 router.post(
   '/',
   requireAuth,
-  requireRole('admin', 'assessor'),
+  requirePermission('attestations.create'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createAttestationSchema.parse(req.body);
@@ -220,7 +220,7 @@ router.post(
 router.put(
   '/:id',
   requireAuth,
-  requireRole('admin', 'assessor'),
+  requirePermission('attestations.create'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateAttestationSchema.parse(req.body);
@@ -285,7 +285,7 @@ router.put(
 router.post(
   '/:id/requirements',
   requireAuth,
-  requireRole('admin', 'assessor'),
+  requirePermission('attestations.create'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = addRequirementSchema.parse(req.body);
@@ -376,7 +376,7 @@ router.post(
 router.put(
   '/:id/requirements/:requirementId',
   requireAuth,
-  requireRole('admin', 'assessor'),
+  requirePermission('attestations.create'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateRequirementSchema.parse(req.body);
@@ -475,7 +475,7 @@ router.get(
 router.post(
   '/:id/sign',
   requireAuth,
-  requireRole('admin', 'assessor'),
+  requirePermission('attestations.sign'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { signatoryId } = z.object({ signatoryId: z.string().uuid() }).parse(req.body);

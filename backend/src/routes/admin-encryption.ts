@@ -8,7 +8,7 @@
 import { Router, Response } from 'express';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import {
   encryptionService,
   rotateKeyVersion,
@@ -26,7 +26,7 @@ const router = Router();
 router.get(
   '/status',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.encryption'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -94,7 +94,7 @@ router.get(
 router.post(
   '/rotate',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.encryption'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       if (!encryptionService.isAvailable()) {

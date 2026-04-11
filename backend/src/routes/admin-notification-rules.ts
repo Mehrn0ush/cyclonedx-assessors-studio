@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -30,7 +30,7 @@ const updateRuleSchema = createRuleSchema.partial();
  * GET /admin/notification-rules
  * List all system notification rules
  */
-router.get('/', requireAuth, requireRole('admin'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/', requireAuth, requirePermission('admin.notification_rules'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
     const rules = await db
@@ -54,7 +54,7 @@ router.get('/', requireAuth, requireRole('admin'), async (req: AuthRequest, res:
  * POST /admin/notification-rules
  * Create a new system notification rule
  */
-router.post('/', requireAuth, requireRole('admin'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/', requireAuth, requirePermission('admin.notification_rules'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = createRuleSchema.parse(req.body);
     const db = getDatabase();
@@ -146,7 +146,7 @@ router.post('/', requireAuth, requireRole('admin'), async (req: AuthRequest, res
  * GET /admin/notification-rules/:id
  * Get a single system notification rule
  */
-router.get('/:id', requireAuth, requireRole('admin'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/:id', requireAuth, requirePermission('admin.notification_rules'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const db = getDatabase();
@@ -178,7 +178,7 @@ router.get('/:id', requireAuth, requireRole('admin'), async (req: AuthRequest, r
  * PUT /admin/notification-rules/:id
  * Update a system notification rule
  */
-router.put('/:id', requireAuth, requireRole('admin'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/:id', requireAuth, requirePermission('admin.notification_rules'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const data = updateRuleSchema.parse(req.body);
@@ -264,7 +264,7 @@ router.put('/:id', requireAuth, requireRole('admin'), async (req: AuthRequest, r
  * DELETE /admin/notification-rules/:id
  * Delete a system notification rule
  */
-router.delete('/:id', requireAuth, requireRole('admin'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.delete('/:id', requireAuth, requirePermission('admin.notification_rules'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const db = getDatabase();

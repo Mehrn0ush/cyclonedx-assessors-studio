@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { getChannelRegistry } from '../events/index.js';
 import { SlackChannel } from '../events/channels/chat-slack.js';
 import { TeamsChannel } from '../events/channels/chat-teams.js';
@@ -62,7 +62,7 @@ const updateChatIntegrationSchema = z.object({
 router.get(
   '/',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.integrations'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -93,7 +93,7 @@ router.get(
 router.post(
   '/',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.integrations'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createChatIntegrationSchema.parse(req.body);
@@ -156,7 +156,7 @@ router.post(
 router.get(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.integrations'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -216,7 +216,7 @@ router.get(
 router.put(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.integrations'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateChatIntegrationSchema.parse(req.body);
@@ -288,7 +288,7 @@ router.put(
 router.delete(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.integrations'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -324,7 +324,7 @@ router.delete(
 router.post(
   '/:id/test',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.integrations'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -397,7 +397,7 @@ router.post(
 router.post(
   '/:id/enable',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.integrations'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -443,7 +443,7 @@ router.post(
 router.get(
   '/:id/deliveries',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.integrations'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();

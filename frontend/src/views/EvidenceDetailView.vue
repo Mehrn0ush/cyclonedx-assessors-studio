@@ -79,7 +79,7 @@
           <div class="evidence-actions" v-if="evidence">
             <!-- Edit evidence details (when not claimed/locked) -->
             <el-button
-              v-if="evidence.state !== 'claimed' && (userRole === 'assessor' || userRole === 'admin')"
+              v-if="evidence.state !== 'claimed' && authStore.hasAnyPermission('evidence.edit')"
               type="primary"
               :icon="Edit"
               @click="openEditDialog"
@@ -87,27 +87,27 @@
               Edit
             </el-button>
 
-            <!-- Assessee/Assessor/Admin: Submit for Review (when in_progress) -->
+            <!-- Submit for Review (when in_progress) -->
             <el-button
-              v-if="evidence.state === 'in_progress' && (userRole === 'assessee' || userRole === 'assessor' || userRole === 'admin')"
+              v-if="evidence.state === 'in_progress' && authStore.hasAnyPermission('evidence.submit')"
               type="warning"
               @click="showSubmitForReviewDialog = true"
             >
               Submit for Review
             </el-button>
 
-            <!-- Assessor/Admin: Approve (when in_review) -->
+            <!-- Approve (when in_review and user has permission) -->
             <el-button
-              v-if="evidence.state === 'in_review' && (userRole === 'admin' || (userRole === 'assessor' && evidence.reviewerId === authStore.user?.id))"
+              v-if="evidence.state === 'in_review' && authStore.hasPermission('evidence.review') && evidence.reviewerId === authStore.user?.id"
               type="success"
               @click="handleApprove"
             >
               Approve
             </el-button>
 
-            <!-- Assessor/Admin: Reject (when in_review) -->
+            <!-- Reject (when in_review and user has permission) -->
             <el-button
-              v-if="evidence.state === 'in_review' && (userRole === 'admin' || (userRole === 'assessor' && evidence.reviewerId === authStore.user?.id))"
+              v-if="evidence.state === 'in_review' && authStore.hasPermission('evidence.review') && evidence.reviewerId === authStore.user?.id"
               type="danger"
               @click="showRejectDialog = true"
             >
@@ -314,7 +314,6 @@ const authStore = useAuthStore()
 
 const loading = ref(true)
 const error = ref<string | null>(null)
-const userRole = computed(() => authStore.user?.role || '')
 const evidence = ref<any>({
   id: '',
   name: '',

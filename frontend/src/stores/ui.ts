@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
-type Theme = 'dark' | 'light'
+type Theme = 'dark' | 'light' | 'auto'
 
 // Simple cookie helpers for non-sensitive UI preferences.
 // These are plain cookies (not httpOnly) because they are read by

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
@@ -124,7 +124,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 router.post(
   '/',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.roles'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createRoleSchema.parse(req.body);
@@ -194,7 +194,7 @@ router.post(
 router.put(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.roles'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateRoleSchema.parse(req.body);
@@ -287,7 +287,7 @@ router.put(
 router.delete(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.roles'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();

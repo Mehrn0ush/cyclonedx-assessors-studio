@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -54,7 +54,7 @@ router.get('/autocomplete', requireAuth, async (req: AuthRequest, res: Response)
 router.post(
   '/',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.tags'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createTagSchema.parse(req.body);
@@ -83,7 +83,7 @@ router.post(
 router.put(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.tags'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateTagSchema.parse(req.body);
@@ -122,7 +122,7 @@ router.put(
 router.delete(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.tags'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();

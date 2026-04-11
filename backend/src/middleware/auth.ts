@@ -183,3 +183,56 @@ export function requireRole(...roles: string[]) {
   };
 }
 
+export async function getPermissionsForRole(roleKey: string): Promise<string[]> {
+  const db = getDatabase();
+  const rows = await db
+    .selectFrom('role')
+    .innerJoin('role_permission', 'role.id', 'role_permission.role_id')
+    .innerJoin('permission', 'permission.id', 'role_permission.permission_id')
+    .where('role.key', '=', roleKey)
+    .select('permission.key')
+    .execute();
+  return rows.map(r => r.key);
+}
+
+export function requirePermission(...requiredPermissions: string[]) {
+  return async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    try {
+      const db = getDatabase();
+
+      // Look up user's role, then get all permission keys for that role
+      const userPermissions = await db
+        .selectFrom('role')
+        .innerJoin('role_permission', 'role.id', 'role_permission.role_id')
+        .innerJoin('permission', 'permission.id', 'role_permission.permission_id')
+        .where('role.key', '=', req.user.role)
+        .select('permission.key')
+        .execute();
+
+      const permissionKeys = userPermissions.map(p => p.key);
+
+      const hasPermission = requiredPermissions.some(rp => permissionKeys.includes(rp));
+      if (!hasPermission) {
+        logger.warn('Unauthorized access attempt', {
+          userId: req.user.id,
+          requiredPermissions,
+          userPermissions: permissionKeys,
+          requestId: req.requestId,
+        });
+        res.status(403).json({ error: 'Insufficient permissions' });
+        return;
+      }
+
+      next();
+    } catch (error) {
+      logger.error('Permission check error', { error, requestId: req.requestId });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  };
+}
+

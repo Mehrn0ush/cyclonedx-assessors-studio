@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { hashPassword } from '../utils/crypto.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
@@ -24,7 +24,7 @@ const updateUserSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-router.get('/', requireAuth, requireRole('admin'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/', requireAuth, requirePermission('admin.users'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
     const limit = Math.min(Number(req.query.limit) || 50, 100);
@@ -119,7 +119,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 router.post(
   '/',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.users'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createUserSchema.parse(req.body);
@@ -193,7 +193,7 @@ router.post(
 router.put(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.users'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateUserSchema.parse(req.body);
@@ -275,7 +275,7 @@ router.put(
 router.put(
   '/:id/activate',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.users'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -329,7 +329,7 @@ router.put(
 router.put(
   '/:id/deactivate',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.users'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();

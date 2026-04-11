@@ -6,6 +6,7 @@ export interface User {
   email: string
   displayName: string
   role: 'admin' | 'assessor' | 'assessee' | 'standards_manager' | 'standards_approver'
+  permissions?: string[]
   active: boolean
   hasCompletedOnboarding?: boolean
   lastLogin?: string

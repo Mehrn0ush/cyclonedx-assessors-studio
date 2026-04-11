@@ -11,7 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { getEventBus } from '../events/index.js';
 import { CHANNEL_TEST } from '../events/catalog.js';
 import { validatePagination } from '../utils/pagination.js';
@@ -106,7 +106,7 @@ const updateWebhookSchema = z.object({
 router.get(
   '/',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.webhooks'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -135,7 +135,7 @@ router.get(
 router.post(
   '/',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.webhooks'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createWebhookSchema.parse(req.body);
@@ -189,7 +189,7 @@ router.post(
 router.get(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.webhooks'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -254,7 +254,7 @@ router.get(
 router.put(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.webhooks'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateWebhookSchema.parse(req.body);
@@ -324,7 +324,7 @@ router.put(
 router.delete(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.webhooks'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -361,7 +361,7 @@ router.delete(
 router.post(
   '/:id/test',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.webhooks'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -407,7 +407,7 @@ router.post(
 router.post(
   '/:id/enable',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.webhooks'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -453,7 +453,7 @@ router.post(
 router.get(
   '/:id/deliveries',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.webhooks'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();

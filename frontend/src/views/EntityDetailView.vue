@@ -410,6 +410,7 @@ import { ArrowRight, Loading, Edit as EditIcon, ArrowDown, Delete, Grid, Share }
 import IconButton from '@/components/shared/IconButton.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
+import { useAuthStore } from '@/stores/auth'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import TagInput from '@/components/shared/TagInput.vue'
 import SearchSelect from '@/components/shared/SearchSelect.vue'
@@ -421,6 +422,7 @@ import type { Entity, EntityRelationship, CompliancePolicy, AssessmentProgress, 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const authStore = useAuthStore()
 
 // Loading states
 const loading = ref(true)
@@ -444,7 +446,6 @@ const graphEntities = ref<any[]>([])
 // UI state
 const activeTab = ref('relationships')
 const assessmentStateFilter = ref('')
-const isAdmin = ref(false)
 const relationshipsView = ref<'table' | 'graph'>('table')
 
 // Dialog states
@@ -503,16 +504,20 @@ const showConformanceScore = computed(() => {
 
 // Unified relationship rows for table and graph views
 const allRelationshipRows = computed(() => {
-  return relationships.value.map((rel: EntityRelationship) => {
-    const isSource = rel.sourceEntityId === entity.value?.id
-    return {
-      id: rel.id,
-      relatedEntityId: isSource ? rel.targetEntity?.id : rel.sourceEntity?.id,
-      relatedEntityName: isSource ? rel.targetEntity?.name : rel.sourceEntity?.name,
-      relationshipType: rel.relationshipType,
-      direction: isSource ? 'child' as const : 'parent' as const,
-    }
-  })
+  return relationships.value
+    .map((rel: EntityRelationship) => {
+      const isSource = rel.sourceEntityId === entity.value?.id
+      const relatedEntityId = isSource ? rel.targetEntity?.id : rel.sourceEntity?.id
+      const relatedEntityName = isSource ? rel.targetEntity?.name : rel.sourceEntity?.name
+      return {
+        id: rel.id,
+        relatedEntityId: relatedEntityId ?? '',
+        relatedEntityName: relatedEntityName ?? '',
+        relationshipType: rel.relationshipType,
+        direction: isSource ? 'child' as const : 'parent' as const,
+      }
+    })
+    .filter(row => row.relatedEntityId !== '')
 })
 
 // SearchSelect option adapters
@@ -591,7 +596,6 @@ const policyStandardOptions = computed<SelectOption[]>(() => {
 // Lifecycle
 onMounted(async () => {
   await fetchEntity()
-  checkUserRole()
   // Pre-fetch transitive graph data for the relationship graph view
   fetchRelationshipGraph()
 })
@@ -713,10 +717,8 @@ const searchEntities = async (query: string) => {
   }
 }
 
-const checkUserRole = () => {
-  // TODO: Get actual user role from auth context
-  isAdmin.value = true
-}
+// Computed property to check if user has entity edit/delete permissions
+const isAdmin = computed(() => authStore.hasAnyPermission('entities.edit', 'entities.delete'))
 
 // Formatters
 const formatEntityType = (type: string): string => {

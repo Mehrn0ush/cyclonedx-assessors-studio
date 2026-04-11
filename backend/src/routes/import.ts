@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -45,7 +45,7 @@ const cyclonedxBomSchema = z.object({
 router.post(
   '/attestation',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('admin.import'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       // Validate CycloneDX BOM structure

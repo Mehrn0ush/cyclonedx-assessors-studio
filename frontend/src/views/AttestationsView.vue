@@ -103,11 +103,12 @@ import { Loading, Stamp } from '@element-plus/icons-vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import HelpTip from '@/components/shared/HelpTip.vue'
 import { formatDate } from '@/utils/dateFormat'
+import type { Assessment } from '@/types'
 
 const { t } = useI18n()
 
 const attestations = ref([])
-const assessments = ref([])
+const assessments = ref<Assessment[]>([])
 const currentPage = ref(1)
 const pageSize = ref(20)
 const loading = ref(false)
@@ -116,7 +117,7 @@ const showDialog = ref(false)
 const saving = ref(false)
 const dialogTitle = ref(t('attestations.title'))
 
-const completedAssessments = computed(() => assessments.value.filter((a: any) => a.state === 'complete'))
+const completedAssessments = computed(() => assessments.value.filter((a: Assessment) => a.state === 'complete'))
 
 const pagedAttestations = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value

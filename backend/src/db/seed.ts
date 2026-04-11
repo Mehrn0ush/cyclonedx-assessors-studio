@@ -211,10 +211,22 @@ const DEFAULT_PERMISSIONS = [
   // Export
   { key: 'export.pdf', name: 'Export PDF', description: 'Export assessment reports as PDF', category: 'export' },
   { key: 'export.cyclonedx', name: 'Export CycloneDX', description: 'Export CycloneDX BOM documents', category: 'export' },
+  // Entities
+  { key: 'entities.view', name: 'View Entities', description: 'View entity list and details', category: 'entities' },
+  { key: 'entities.create', name: 'Create Entities', description: 'Create new entities', category: 'entities' },
+  { key: 'entities.edit', name: 'Edit Entities', description: 'Edit existing entities', category: 'entities' },
+  { key: 'entities.delete', name: 'Delete Entities', description: 'Delete entities', category: 'entities' },
   // Admin
   { key: 'admin.users', name: 'Manage Users', description: 'Create, edit, and manage user accounts', category: 'admin' },
   { key: 'admin.roles', name: 'Manage Roles', description: 'Create, edit, and manage roles and permissions', category: 'admin' },
   { key: 'admin.settings', name: 'Manage Settings', description: 'Manage application settings', category: 'admin' },
+  { key: 'admin.webhooks', name: 'Manage Webhooks', description: 'Create, edit, and manage webhooks', category: 'admin' },
+  { key: 'admin.integrations', name: 'Manage Integrations', description: 'Manage chat and external integrations', category: 'admin' },
+  { key: 'admin.encryption', name: 'Manage Encryption', description: 'Manage encryption keys and settings', category: 'admin' },
+  { key: 'admin.notification_rules', name: 'Manage Notification Rules', description: 'Manage global notification rules', category: 'admin' },
+  { key: 'admin.tags', name: 'Manage Tags', description: 'Create, edit, and manage tags', category: 'admin' },
+  { key: 'admin.import', name: 'Import Data', description: 'Import CycloneDX attestation documents', category: 'admin' },
+  { key: 'admin.audit', name: 'View Audit Logs', description: 'View system audit logs', category: 'admin' },
 ];
 
 const DEFAULT_ROLES = [
@@ -229,7 +241,7 @@ const DEFAULT_ROLES = [
     name: 'Assessor',
     description: 'Can conduct assessments, manage evidence, create claims and attestations',
     permissions: [
-      'projects.view', 'standards.view',
+      'projects.view', 'standards.view', 'entities.view',
       'assessments.view', 'assessments.create', 'assessments.edit', 'assessments.manage', 'assessments.notes',
       'evidence.view', 'evidence.create', 'evidence.edit', 'evidence.review',
       'claims.view', 'claims.create', 'claims.edit',
@@ -242,7 +254,7 @@ const DEFAULT_ROLES = [
     name: 'Assessee',
     description: 'Can view assessments, submit evidence, and view attestations',
     permissions: [
-      'projects.view', 'standards.view',
+      'projects.view', 'standards.view', 'entities.view',
       'assessments.view', 'assessments.notes',
       'evidence.view', 'evidence.create', 'evidence.submit',
       'claims.view',

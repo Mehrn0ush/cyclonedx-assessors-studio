@@ -3,6 +3,7 @@ import type { User } from '@/types'
 
 export interface LoginResponse {
   user: User
+  permissions?: string[]
 }
 
 export async function login(username: string, password: string): Promise<LoginResponse> {
@@ -14,7 +15,7 @@ export async function logout(): Promise<void> {
   await client.post('/auth/logout')
 }
 
-export async function getCurrentUser(): Promise<User> {
+export async function getCurrentUser(): Promise<User & { permissions?: string[] }> {
   const { data } = await client.get('/auth/me')
   return data.user
 }

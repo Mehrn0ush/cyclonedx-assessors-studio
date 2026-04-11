@@ -518,20 +518,20 @@ const buildGraph = () => {
     .data(nodes)
     .join('g')
     .attr('cursor', 'pointer')
-    .call(d3.drag<SVGGElement, GraphNode>()
+    .call((d3.drag<SVGGElement, GraphNode>() as any)
       .clickDistance(4) // movements under 4px count as clicks, not drags
-      .on('start', (event, d) => {
+      .on('start', (event: any, d: any) => {
         if (!event.active) simulation!.alphaTarget(0.3).restart()
         ;(d as any).__dragStartX = event.x
         ;(d as any).__dragStartY = event.y
         d.fx = d.x
         d.fy = d.y
       })
-      .on('drag', (event, d) => {
+      .on('drag', (event: any, d: any) => {
         d.fx = event.x
         d.fy = event.y
       })
-      .on('end', (event, d) => {
+      .on('end', (event: any, d: any) => {
         if (!event.active) simulation!.alphaTarget(0)
         const dx = event.x - ((d as any).__dragStartX ?? event.x)
         const dy = event.y - ((d as any).__dragStartY ?? event.y)

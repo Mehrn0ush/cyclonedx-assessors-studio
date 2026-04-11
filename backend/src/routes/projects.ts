@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requireRole } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { validatePagination } from '../utils/pagination.js';
@@ -149,7 +149,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 router.post(
   '/',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('projects.create'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = createProjectSchema.parse(req.body);
@@ -212,7 +212,7 @@ router.post(
 router.put(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('projects.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = updateProjectSchema.parse(req.body);
@@ -320,7 +320,7 @@ router.put(
 router.delete(
   '/:id',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('projects.delete'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
@@ -359,7 +359,7 @@ router.delete(
 router.post(
   '/:id/archive',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('projects.edit'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
