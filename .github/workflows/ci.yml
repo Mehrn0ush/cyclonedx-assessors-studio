@@ -18,6 +18,7 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 # Deny all permissions by default.  Each job opts in to exactly what it needs.
 permissions: {}
