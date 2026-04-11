@@ -801,7 +801,7 @@ describe('Import HTTP Routes', () => {
 
         const res = await agent
           .post('/api/v1/import/attestation')
-          .send(null);
+          .send(undefined as any);
 
         expect(res.status).toBeGreaterThanOrEqual(400);
       });
@@ -838,7 +838,7 @@ describe('Import HTTP Routes', () => {
       it('should return details with path and message', async () => {
         const agent = await loginAs('admin');
         const bom = createValidBom();
-        bom.bomFormat = 123; // Wrong type
+        bom.bomFormat = 123 as any; // Wrong type
 
         const res = await agent
           .post('/api/v1/import/attestation')

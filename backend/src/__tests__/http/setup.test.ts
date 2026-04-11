@@ -13,7 +13,7 @@ describe('Setup HTTP Routes', () => {
   let app: Express;
   let server: http.Server;
   let baseUrl: string;
-  let agent: supertest.SuperTest<supertest.Test>;
+  let agent: any;
 
   // Fresh database for setup tests (not using shared setupHttpTests helper
   // because we need to test setup state transitions)
