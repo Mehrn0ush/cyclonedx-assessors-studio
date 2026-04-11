@@ -3,13 +3,10 @@
 # =============================================================================
 # Strategy:
 #   - Security updates: immediate (handled automatically by GitHub)
-#   - Version updates: monthly cadence, giving packages ~30 days to stabilize
-#     before Dependabot proposes them.
-#
-# NOTE: Dependabot does not have a native "wait N days after release" feature
-# (Renovate calls this stabilityDays). The monthly schedule is the closest
-# built-in approximation.  GitHub security updates bypass this schedule and
-# fire immediately for any advisory that affects a dependency.
+#   - Version updates: weekly cadence with a 14 day cooldown period, giving
+#     packages time to stabilize before Dependabot proposes them.
+#   - The cooldown ensures newly released versions are at least 14 days old
+#     before a PR is opened. Security updates bypass this and fire immediately.
 #
 # GitHub Actions are also monitored and pinned to SHA in the workflows.
 # =============================================================================
@@ -22,7 +19,9 @@ updates:
   - package-ecosystem: npm
     directory: /backend
     schedule:
-      interval: monthly
+      interval: weekly
+    cooldown:
+      default-days: 14
     open-pull-requests-limit: 10
     reviewers:
       - CycloneDX/assessors-studio-maintainers
@@ -46,7 +45,9 @@ updates:
   - package-ecosystem: npm
     directory: /frontend
     schedule:
-      interval: monthly
+      interval: weekly
+    cooldown:
+      default-days: 14
     open-pull-requests-limit: 10
     reviewers:
       - CycloneDX/assessors-studio-maintainers
@@ -67,7 +68,9 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: monthly
+      interval: weekly
+    cooldown:
+      default-days: 14
     open-pull-requests-limit: 5
     reviewers:
       - CycloneDX/assessors-studio-maintainers
