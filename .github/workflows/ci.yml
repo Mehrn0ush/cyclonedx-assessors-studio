@@ -225,7 +225,7 @@ jobs:
   # ---------------------------------------------------------------------------
   codacy-coverage:
     name: "Codacy / Upload Coverage"
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [backend-test, frontend-test]
@@ -246,18 +246,11 @@ jobs:
           path: frontend-coverage
         continue-on-error: true
 
-      - name: Upload backend coverage to Codacy
+      - name: Upload coverage to Codacy
         uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699  # v1.3.0
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          coverage-reports: backend-coverage/lcov.info
-
-      - name: Upload frontend coverage to Codacy
-        if: always()
-        uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699  # v1.3.0
-        with:
-          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          coverage-reports: frontend-coverage/lcov.info
+          coverage-reports: backend-coverage/lcov.info,frontend-coverage/lcov.info
 
   # ---------------------------------------------------------------------------
   # Dependency review (PR only) - block PRs that introduce known vulns
@@ -289,7 +282,7 @@ jobs:
   # ---------------------------------------------------------------------------
   docker:
     name: "Docker / Build"
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [backend-test, frontend-test]
