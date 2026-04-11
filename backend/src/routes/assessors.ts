@@ -136,7 +136,7 @@ router.post(
       res.status(201).json({ id, bom_ref: bomRef, message: 'Assessor created successfully' });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
       logger.error('Create assessor error', { error, requestId: req.requestId });
@@ -180,7 +180,7 @@ router.put(
       res.json({ message: 'Assessor updated successfully' });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
       logger.error('Update assessor error', { error, requestId: req.requestId });

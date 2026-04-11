@@ -74,7 +74,7 @@ router.get(
         .orderBy('created_at', 'desc');
 
       if (platform && typeof platform === 'string') {
-        query = query.where('platform', '=', platform);
+        query = query.where('platform', '=', platform as 'slack' | 'teams' | 'mattermost');
       }
 
       const integrations = await query.execute();
@@ -140,7 +140,7 @@ router.post(
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
       logger.error('Create chat integration error', { error, requestId: req.requestId });
@@ -272,7 +272,7 @@ router.put(
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
       logger.error('Update chat integration error', { error, requestId: req.requestId });

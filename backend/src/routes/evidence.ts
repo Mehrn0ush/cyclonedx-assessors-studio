@@ -167,7 +167,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
       .selectFrom('evidence')
       .leftJoin('app_user as author', (join) => join.onRef('author.id' as any, '=', 'evidence.author_id' as any))
       .leftJoin('app_user as reviewer', (join) => join.onRef('reviewer.id' as any, '=', 'evidence.reviewer_id' as any))
-      .where('evidence.id', '=', req.params.id)
+      .where('evidence.id', '=', req.params.id as string)
       .select([
         'evidence.id',
         'evidence.bom_ref',
@@ -203,14 +203,14 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
             'evidence_note.user_id' as any
           )
       )
-      .where('evidence_note.evidence_id', '=', req.params.id)
+      .where('evidence_note.evidence_id', '=', req.params.id as string)
       .selectAll()
       .orderBy('evidence_note.created_at', 'desc')
       .execute()) as any[];
 
     const attachmentsQuery = db
       .selectFrom('evidence_attachment')
-      .where('evidence_attachment.evidence_id', '=', req.params.id);
+      .where('evidence_attachment.evidence_id', '=', req.params.id as string);
 
     const attachments = await (includeContent
       ? attachmentsQuery.selectAll().execute()
@@ -226,13 +226,13 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
           'updated_at',
         ]).execute());
 
-    const tagsByEvidence = await fetchTagsForEntities(db, 'evidence_tag', 'evidence_id', [req.params.id]);
+    const tagsByEvidence = await fetchTagsForEntities(db, 'evidence_tag', 'evidence_id', [req.params.id as string]);
 
     res.json({
       evidence,
       notes,
       attachments,
-      tags: tagsByEvidence[req.params.id] || [],
+      tags: tagsByEvidence[req.params.id as string] || [],
     });
   } catch (error) {
     logger.error('Get evidence error', { error, requestId: req.requestId });
@@ -244,7 +244,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 router.get('/:id/claims', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
-    const evidenceId = req.params.id;
+    const evidenceId = req.params.id as string;
 
     // Find claims where this evidence is supporting, counter, or mitigation
     const supportingClaims = (await db
@@ -372,7 +372,7 @@ router.post('/', requireAuth, requireRole('admin', 'assessor', 'assessee'), asyn
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      res.status(400).json({ error: 'Invalid input', details: error.issues });
       return;
     }
 
@@ -399,7 +399,7 @@ router.put('/:id', requireAuth, requireRole('admin', 'assessor'), async (req: Au
 
     const evidence = await db
       .selectFrom('evidence')
-      .where('id', '=', req.params.id)
+      .where('id', '=', req.params.id as string)
       .selectAll()
       .executeTakeFirst();
 
@@ -425,12 +425,12 @@ router.put('/:id', requireAuth, requireRole('admin', 'assessor'), async (req: Au
       await db
         .updateTable('evidence')
         .set(toSnakeCase(updateData))
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       await logAudit(db, {
         entityType: 'evidence',
-        entityId: req.params.id,
+        entityId: req.params.id as string,
         action: 'update',
         userId: req.user!.id,
         changes: toSnakeCase(updateData),
@@ -438,30 +438,30 @@ router.put('/:id', requireAuth, requireRole('admin', 'assessor'), async (req: Au
     }
 
     if (data.tags !== undefined) {
-      await syncEntityTags(db, 'evidence_tag', 'evidence_id', req.params.id, data.tags);
+      await syncEntityTags(db, 'evidence_tag', 'evidence_id', req.params.id as string, data.tags);
     }
 
     logger.info('Evidence updated', {
-      evidenceId: req.params.id,
+      evidenceId: req.params.id as string,
       requestId: req.requestId,
     });
 
     // Fetch and return the updated evidence
     const updatedEvidence = await db
       .selectFrom('evidence')
-      .where('id', '=', req.params.id)
+      .where('id', '=', req.params.id as string)
       .selectAll()
       .executeTakeFirst();
 
-    const tagsByEvidence = await fetchTagsForEntities(db, 'evidence_tag', 'evidence_id', [req.params.id]);
+    const tagsByEvidence = await fetchTagsForEntities(db, 'evidence_tag', 'evidence_id', [req.params.id as string]);
 
     res.json({
       ...updatedEvidence,
-      tags: tagsByEvidence[req.params.id] || [],
+      tags: tagsByEvidence[req.params.id as string] || [],
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      res.status(400).json({ error: 'Invalid input', details: error.issues });
       return;
     }
 
@@ -485,7 +485,7 @@ router.post(
 
       const evidence = await db
         .selectFrom('evidence')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -500,7 +500,7 @@ router.post(
         .insertInto('evidence_note')
         .values(toSnakeCase({
           id: noteId,
-          evidenceId: req.params.id,
+          evidenceId: req.params.id as string,
           userId: req.user.id,
           content: data.content,
           createdAt: new Date(),
@@ -509,7 +509,7 @@ router.post(
         .execute();
 
       logger.info('Evidence note added', {
-        evidenceId: req.params.id,
+        evidenceId: req.params.id as string,
         noteId,
         userId: req.user.id,
         requestId: req.requestId,
@@ -523,7 +523,7 @@ router.post(
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -547,7 +547,7 @@ router.post(
 
       const evidence = await db
         .selectFrom('evidence')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -578,7 +578,7 @@ router.post(
       const existing = await db
         .selectFrom('assessment_requirement_evidence')
         .where('assessment_requirement_id', '=', data.assessmentRequirementId)
-        .where('evidence_id', '=', req.params.id)
+        .where('evidence_id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -591,13 +591,13 @@ router.post(
         .insertInto('assessment_requirement_evidence')
         .values(toSnakeCase({
           assessmentRequirementId: data.assessmentRequirementId,
-          evidenceId: req.params.id,
+          evidenceId: req.params.id as string,
           createdAt: new Date(),
         }))
         .execute();
 
       logger.info('Evidence linked to requirement', {
-        evidenceId: req.params.id,
+        evidenceId: req.params.id as string,
         assessmentRequirementId: data.assessmentRequirementId,
         userId: req.user?.id,
         requestId: req.requestId,
@@ -606,7 +606,7 @@ router.post(
       res.status(201).json({ message: 'Evidence linked successfully' });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -631,7 +631,7 @@ router.delete(
       // Validate evidence exists
       const evidence = await db
         .selectFrom('evidence')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -662,7 +662,7 @@ router.delete(
 
       const result = await db
         .deleteFrom('assessment_requirement_evidence')
-        .where('evidence_id', '=', req.params.id)
+        .where('evidence_id', '=', req.params.id as string)
         .where('assessment_requirement_id', '=', data.assessmentRequirementId)
         .execute();
 
@@ -672,7 +672,7 @@ router.delete(
       }
 
       logger.info('Evidence unlinked from requirement', {
-        evidenceId: req.params.id,
+        evidenceId: req.params.id as string,
         assessmentRequirementId: data.assessmentRequirementId,
         userId: req.user?.id,
         requestId: req.requestId,
@@ -681,7 +681,7 @@ router.delete(
       res.json({ message: 'Evidence unlinked successfully' });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -711,7 +711,7 @@ router.post(
 
       const evidence = await db
         .selectFrom('evidence')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -760,12 +760,12 @@ router.post(
           state: 'in_review',
           reviewerId: data.reviewerId,
         }))
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       await logAudit(db, {
         entityType: 'evidence',
-        entityId: req.params.id,
+        entityId: req.params.id as string,
         action: 'state_change',
         userId: req.user.id,
         changes: toSnakeCase({ state: 'in_review', reviewerId: data.reviewerId }),
@@ -774,7 +774,7 @@ router.post(
       req.eventBus?.emit(
         EVIDENCE_STATE_CHANGED,
         {
-          evidenceId: req.params.id,
+          evidenceId: req.params.id as string,
           evidenceName: evidence.name,
           previousState: 'in_progress',
           newState: 'in_review',
@@ -786,7 +786,7 @@ router.post(
       );
 
       logger.info('Evidence submitted for review', {
-        evidenceId: req.params.id,
+        evidenceId: req.params.id as string,
         reviewerId: data.reviewerId,
         userId: req.user.id,
         requestId: req.requestId,
@@ -795,7 +795,7 @@ router.post(
       res.json({ message: 'Evidence submitted for review successfully' });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -820,7 +820,7 @@ router.post(
 
       const evidence = await db
         .selectFrom('evidence')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -850,7 +850,7 @@ router.post(
         .set({
           state: 'claimed',
         })
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .where('state', '=', 'in_review')
         .execute();
 
@@ -861,7 +861,7 @@ router.post(
 
       await logAudit(db, {
         entityType: 'evidence',
-        entityId: req.params.id,
+        entityId: req.params.id as string,
         action: 'state_change',
         userId: req.user.id,
         changes: { state: 'claimed' },
@@ -870,7 +870,7 @@ router.post(
       req.eventBus?.emit(
         EVIDENCE_STATE_CHANGED,
         {
-          evidenceId: req.params.id,
+          evidenceId: req.params.id as string,
           evidenceName: evidence.name,
           previousState: 'in_review',
           newState: 'claimed',
@@ -882,7 +882,7 @@ router.post(
       );
 
       logger.info('Evidence approved', {
-        evidenceId: req.params.id,
+        evidenceId: req.params.id as string,
         reviewerId: req.user.id,
         requestId: req.requestId,
       });
@@ -915,7 +915,7 @@ router.post(
 
       const evidence = await db
         .selectFrom('evidence')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -945,7 +945,7 @@ router.post(
         .set(toSnakeCase({
           state: 'in_progress',
         }))
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .where('state', '=', 'in_review')
         .execute();
 
@@ -956,7 +956,7 @@ router.post(
 
       await logAudit(db, {
         entityType: 'evidence',
-        entityId: req.params.id,
+        entityId: req.params.id as string,
         action: 'state_change',
         userId: req.user.id,
         changes: toSnakeCase({ state: 'in_progress', rejectionReason: data.note }),
@@ -967,7 +967,7 @@ router.post(
         .insertInto('evidence_note')
         .values(toSnakeCase({
           id: noteId,
-          evidenceId: req.params.id,
+          evidenceId: req.params.id as string,
           userId: req.user.id,
           content: `REJECTED: ${data.note}`,
           createdAt: new Date(),
@@ -978,7 +978,7 @@ router.post(
       req.eventBus?.emit(
         EVIDENCE_STATE_CHANGED,
         {
-          evidenceId: req.params.id,
+          evidenceId: req.params.id as string,
           evidenceName: evidence.name,
           previousState: 'in_review',
           newState: 'in_progress',
@@ -991,7 +991,7 @@ router.post(
       );
 
       logger.info('Evidence rejected', {
-        evidenceId: req.params.id,
+        evidenceId: req.params.id as string,
         reviewerId: req.user.id,
         noteId,
         requestId: req.requestId,
@@ -1000,7 +1000,7 @@ router.post(
       res.json({ message: 'Evidence rejected successfully' });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -1061,7 +1061,7 @@ router.post(
 
       const evidence = await db
         .selectFrom('evidence')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1093,12 +1093,12 @@ router.post(
           const contentHash = computeContentHash(buffer);
           const sizeBytes = buffer.length;
           const resolvedContentType = detectCycloneDXMediaType(data.filename, data.contentType, buffer);
-          const storageKey = `evidence/${req.params.id}/${attachmentId}-${data.filename}`;
+          const storageKey = `evidence/${req.params.id as string}/${attachmentId}-${data.filename}`;
 
           // Build the row based on provider
           const row: any = {
             id: attachmentId,
-            evidenceId: req.params.id,
+            evidenceId: req.params.id as string,
             filename: data.filename,
             contentType: resolvedContentType,
             sizeBytes,
@@ -1124,7 +1124,7 @@ router.post(
             .execute();
 
           logger.info('Attachment created from JSON body', {
-            evidenceId: req.params.id,
+            evidenceId: req.params.id as string,
             attachmentId,
             filename: data.filename,
             storageProvider: storageProviderName,
@@ -1146,7 +1146,7 @@ router.post(
           return;
         } catch (error) {
           if (error instanceof z.ZodError) {
-            res.status(400).json({ error: 'Invalid input', details: error.errors });
+            res.status(400).json({ error: 'Invalid input', details: error.issues });
             return;
           }
           throw error;
@@ -1167,7 +1167,7 @@ router.post(
           const attachmentId = uuidv4();
           const filename = info.filename;
           const contentTypeFromFile = info.mimeType;
-          const storageKey = `evidence/${req.params.id}/${attachmentId}-${filename}`;
+          const storageKey = `evidence/${req.params.id as string}/${attachmentId}-${filename}`;
 
           const chunks: Buffer[] = [];
           let totalSize = 0;
@@ -1198,7 +1198,7 @@ router.post(
               // Build the row based on active storage provider
               const row: any = {
                 id: attachmentId,
-                evidenceId: req.params.id,
+                evidenceId: req.params.id as string,
                 filename,
                 contentType: resolvedContentType,
                 sizeBytes,
@@ -1233,7 +1233,7 @@ router.post(
               });
 
               logger.info('Attachment uploaded', {
-                evidenceId: req.params.id,
+                evidenceId: req.params.id as string,
                 attachmentId,
                 filename,
                 storageProvider: storageProviderName,
@@ -1287,7 +1287,7 @@ router.get(
       const attachment = await db
         .selectFrom('evidence_attachment')
         .where('evidence_attachment.id', '=', req.params.attachmentId)
-        .where('evidence_attachment.evidence_id', '=', req.params.id)
+        .where('evidence_attachment.evidence_id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1334,7 +1334,7 @@ router.get(
         }
 
         logger.info('Attachment downloaded', {
-          evidenceId: req.params.id,
+          evidenceId: req.params.id as string,
           attachmentId: req.params.attachmentId,
           storageProvider: recordProvider,
           userId: req.user?.id,
@@ -1364,7 +1364,7 @@ router.delete(
       const attachment = await db
         .selectFrom('evidence_attachment')
         .where('evidence_attachment.id', '=', req.params.attachmentId)
-        .where('evidence_attachment.evidence_id', '=', req.params.id)
+        .where('evidence_attachment.evidence_id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1394,7 +1394,7 @@ router.delete(
         .execute();
 
       logger.info('Attachment deleted', {
-        evidenceId: req.params.id,
+        evidenceId: req.params.id as string,
         attachmentId: req.params.attachmentId,
         storageProvider: recordProvider,
         userId: req.user?.id,

@@ -131,7 +131,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 
     const standard = await db
       .selectFrom('standard')
-      .where('id', '=', req.params.id)
+      .where('id', '=', req.params.id as string)
       .selectAll()
       .executeTakeFirst();
 
@@ -142,7 +142,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 
     const requirements = await db
       .selectFrom('requirement')
-      .where('standard_id', '=', req.params.id)
+      .where('standard_id', '=', req.params.id as string)
       .selectAll()
       .execute();
 
@@ -151,7 +151,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
     // Fetch levels with their associated requirement bom-refs
     const levels = await db
       .selectFrom('level')
-      .where('standard_id', '=', req.params.id)
+      .where('standard_id', '=', req.params.id as string)
       .selectAll()
       .execute();
 
@@ -159,7 +159,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
       .selectFrom('level_requirement')
       .innerJoin('level', 'level.id', 'level_requirement.level_id')
       .innerJoin('requirement', 'requirement.id', 'level_requirement.requirement_id')
-      .where('level.standard_id', '=', req.params.id)
+      .where('level.standard_id', '=', req.params.id as string)
       .select([
         'level_requirement.level_id',
         'level_requirement.requirement_id',
@@ -201,7 +201,7 @@ router.get(
       const db = getDatabase();
       const standard = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -226,7 +226,7 @@ router.get(
       // No stored blob: this standard has not been published yet or was created
       // before blob storage was added. Generate on the fly but do not persist.
       if (standard.state === 'draft' || standard.state === 'in_review') {
-        const json = await generateStandardCycloneDX(req.params.id);
+        const json = await generateStandardCycloneDX(req.params.id as string);
         res.setHeader('Content-Type', 'application/vnd.cyclonedx+json; version=1.6');
         res.setHeader(
           'Content-Disposition',
@@ -237,11 +237,11 @@ router.get(
       }
 
       // Published/retired without a blob (legacy data): generate and store
-      const json = await generateStandardCycloneDX(req.params.id);
+      const json = await generateStandardCycloneDX(req.params.id as string);
       await db
         .updateTable('standard')
         .set({ source_json: json })
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       res.setHeader('Content-Type', 'application/vnd.cyclonedx+json; version=1.6');
@@ -313,7 +313,7 @@ router.post(
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -386,7 +386,7 @@ router.put(
       const db = getDatabase();
       const standard = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -411,17 +411,17 @@ router.put(
           ...(owner !== undefined && { owner }),
           ...(description !== undefined && { description }),
         })
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       const updated = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
       logger.info('Standard updated', {
-        standardId: req.params.id,
+        standardId: req.params.id as string,
         requestId: req.requestId,
       });
 
@@ -447,7 +447,7 @@ router.post(
       const db = getDatabase();
       const standard = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -467,17 +467,17 @@ router.post(
           state: 'in_review',
           submitted_at: new Date(),
         })
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       const updated = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
       logger.info('Standard submitted for approval', {
-        standardId: req.params.id,
+        standardId: req.params.id as string,
         userId: req.user!.id,
         requestId: req.requestId,
       });
@@ -500,7 +500,7 @@ router.post(
       const db = getDatabase();
       const standard = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -520,7 +520,7 @@ router.post(
       }
 
       // Generate CycloneDX JSON blob at publish time for deterministic exports
-      const sourceJson = await generateStandardCycloneDX(req.params.id);
+      const sourceJson = await generateStandardCycloneDX(req.params.id as string);
 
       await db
         .updateTable('standard')
@@ -530,17 +530,17 @@ router.post(
           approved_at: new Date(),
           source_json: sourceJson,
         })
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       const updated = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
       logger.info('Standard approved', {
-        standardId: req.params.id,
+        standardId: req.params.id as string,
         approvedBy: req.user!.id,
         requestId: req.requestId,
       });
@@ -563,7 +563,7 @@ router.post(
       const db = getDatabase();
       const standard = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -590,17 +590,17 @@ router.post(
           state: 'draft',
           submitted_at: null,
         })
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       const updated = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
       logger.info('Standard rejected', {
-        standardId: req.params.id,
+        standardId: req.params.id as string,
         rejectedBy: req.user!.id,
         reason,
         requestId: req.requestId,
@@ -624,7 +624,7 @@ router.post(
       const db = getDatabase();
       const original = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -669,7 +669,7 @@ router.post(
       // Topological sort ensures parents are always inserted before children.
       const rawRequirements = await db
         .selectFrom('requirement')
-        .where('standard_id', '=', req.params.id)
+        .where('standard_id', '=', req.params.id as string)
         .selectAll()
         .execute();
 
@@ -703,7 +703,7 @@ router.post(
       // Copy levels and their requirement associations
       const originalLevels = await db
         .selectFrom('level')
-        .where('standard_id', '=', req.params.id)
+        .where('standard_id', '=', req.params.id as string)
         .selectAll()
         .execute();
 
@@ -749,7 +749,7 @@ router.post(
         .executeTakeFirst();
 
       logger.info('Standard duplicated', {
-        originalId: req.params.id,
+        originalId: req.params.id as string,
         newId,
         duplicatedBy: req.user!.id,
         requestId: req.requestId,
@@ -773,7 +773,7 @@ router.post(
       const db = getDatabase();
       const standard = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -792,17 +792,17 @@ router.post(
         .set({
           state: 'retired',
         })
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       const updated = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
       logger.info('Standard retired', {
-        standardId: req.params.id,
+        standardId: req.params.id as string,
         retiredBy: req.user!.id,
         requestId: req.requestId,
       });
@@ -825,7 +825,7 @@ router.post(
       const db = getDatabase();
       const standard = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -850,7 +850,7 @@ router.post(
       if (!parentId && parentIdentifier) {
         const parent = await db
           .selectFrom('requirement')
-          .where('standard_id', '=', req.params.id)
+          .where('standard_id', '=', req.params.id as string)
           .where('identifier', '=', parentIdentifier)
           .select('id')
           .executeTakeFirst();
@@ -874,7 +874,7 @@ router.post(
           description,
           openCre: open_cre,
           parentId: parentId,
-          standardId: req.params.id,
+          standardId: req.params.id as string,
         }))
         .execute();
 
@@ -885,7 +885,7 @@ router.post(
         .executeTakeFirst();
 
       logger.info('Requirement added to standard', {
-        standardId: req.params.id,
+        standardId: req.params.id as string,
         requirementId,
         requestId: req.requestId,
       });
@@ -908,7 +908,7 @@ router.put(
       const db = getDatabase();
       const standard = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.standardId)
+        .where('id', '=', req.params.standardId as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -925,7 +925,7 @@ router.put(
       const requirement = await db
         .selectFrom('requirement')
         .where('id', '=', req.params.reqId)
-        .where('standard_id', '=', req.params.standardId)
+        .where('standard_id', '=', req.params.standardId as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -945,7 +945,7 @@ router.put(
         const parent = await db
           .selectFrom('requirement')
           .where('id', '=', parentId)
-          .where('standard_id', '=', req.params.standardId)
+          .where('standard_id', '=', req.params.standardId as string)
           .selectAll()
           .executeTakeFirst();
 
@@ -974,7 +974,7 @@ router.put(
         .executeTakeFirst();
 
       logger.info('Requirement updated in standard', {
-        standardId: req.params.standardId,
+        standardId: req.params.standardId as string,
         requirementId: req.params.reqId,
         requestId: req.requestId,
       });
@@ -1001,7 +1001,7 @@ router.delete(
       const db = getDatabase();
       const standard = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.standardId)
+        .where('id', '=', req.params.standardId as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1018,7 +1018,7 @@ router.delete(
       const requirement = await db
         .selectFrom('requirement')
         .where('id', '=', req.params.reqId)
-        .where('standard_id', '=', req.params.standardId)
+        .where('standard_id', '=', req.params.standardId as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1033,7 +1033,7 @@ router.delete(
         .execute();
 
       logger.info('Requirement deleted from standard', {
-        standardId: req.params.standardId,
+        standardId: req.params.standardId as string,
         requirementId: req.params.reqId,
         requestId: req.requestId,
       });
@@ -1060,7 +1060,7 @@ router.post(
       const db = getDatabase();
       const standard = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.standardId)
+        .where('id', '=', req.params.standardId as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1073,11 +1073,11 @@ router.post(
       const levelId = uuidv4();
       await db
         .insertInto('level')
-        .values({ id: levelId, identifier, title: title || null, description: description || null, standard_id: req.params.standardId })
+        .values({ id: levelId, identifier, title: title || null, description: description || null, standard_id: req.params.standardId as string })
         .execute();
 
       const created = await db.selectFrom('level').where('id', '=', levelId).selectAll().executeTakeFirst();
-      logger.info('Level added', { standardId: req.params.standardId, levelId, requestId: req.requestId });
+      logger.info('Level added', { standardId: req.params.standardId as string, levelId, requestId: req.requestId });
       res.status(201).json(created);
     } catch (error: any) {
       if (error?.message?.includes('duplicate') || error?.message?.includes('unique')) {
@@ -1100,7 +1100,7 @@ router.put(
       const db = getDatabase();
       const standard = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.standardId)
+        .where('id', '=', req.params.standardId as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1110,7 +1110,7 @@ router.put(
       const level = await db
         .selectFrom('level')
         .where('id', '=', req.params.levelId)
-        .where('standard_id', '=', req.params.standardId)
+        .where('standard_id', '=', req.params.standardId as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1151,14 +1151,14 @@ router.delete(
       const db = getDatabase();
       const standard = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.standardId)
+        .where('id', '=', req.params.standardId as string)
         .selectAll()
         .executeTakeFirst();
 
       if (!standard) { res.status(404).json({ error: 'Standard not found' }); return; }
       if (standard.state !== 'draft') { res.status(403).json({ error: 'Can only delete levels from draft standards' }); return; }
 
-      await db.deleteFrom('level').where('id', '=', req.params.levelId).where('standard_id', '=', req.params.standardId).execute();
+      await db.deleteFrom('level').where('id', '=', req.params.levelId).where('standard_id', '=', req.params.standardId as string).execute();
       res.status(204).send();
     } catch (error) {
       logger.error('Delete level error', { error, requestId: req.requestId });
@@ -1177,7 +1177,7 @@ router.put(
       const db = getDatabase();
       const standard = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.standardId)
+        .where('id', '=', req.params.standardId as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1187,7 +1187,7 @@ router.put(
       const level = await db
         .selectFrom('level')
         .where('id', '=', req.params.levelId)
-        .where('standard_id', '=', req.params.standardId)
+        .where('standard_id', '=', req.params.standardId as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1211,7 +1211,7 @@ router.put(
         }
       }
 
-      logger.info('Level requirements updated', { standardId: req.params.standardId, levelId: req.params.levelId, count: requirementIds.length, requestId: req.requestId });
+      logger.info('Level requirements updated', { standardId: req.params.standardId as string, levelId: req.params.levelId, count: requirementIds.length, requestId: req.requestId });
       res.json({ success: true, count: requirementIds.length });
     } catch (error) {
       logger.error('Update level requirements error', { error, requestId: req.requestId });
@@ -1230,7 +1230,7 @@ router.delete(
       const db = getDatabase();
       const standard = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1248,7 +1248,7 @@ router.delete(
       if (standard.state === 'retired') {
         const requirementIds = await db
           .selectFrom('requirement')
-          .where('standard_id', '=', req.params.id)
+          .where('standard_id', '=', req.params.id as string)
           .select('id')
           .execute();
 
@@ -1257,7 +1257,7 @@ router.delete(
         // Check project_standard references
         const projectRefs = await db
           .selectFrom('project_standard')
-          .where('standard_id', '=', req.params.id)
+          .where('standard_id', '=', req.params.id as string)
           .select(db.fn.count<number>('project_id').as('count'))
           .executeTakeFirstOrThrow();
 
@@ -1269,7 +1269,7 @@ router.delete(
         // Check entity_standard references
         const entityRefs = await db
           .selectFrom('entity_standard')
-          .where('standard_id', '=', req.params.id)
+          .where('standard_id', '=', req.params.id as string)
           .select(db.fn.count<number>('entity_id').as('count'))
           .executeTakeFirstOrThrow();
 
@@ -1281,7 +1281,7 @@ router.delete(
         // Check compliance_policy references
         const policyRefs = await db
           .selectFrom('compliance_policy')
-          .where('standard_id', '=', req.params.id)
+          .where('standard_id', '=', req.params.id as string)
           .select(db.fn.count<number>('id').as('count'))
           .executeTakeFirstOrThrow();
 
@@ -1293,7 +1293,7 @@ router.delete(
         // Check assessment references
         const assessmentRefs = await db
           .selectFrom('assessment')
-          .where('standard_id', '=', req.params.id)
+          .where('standard_id', '=', req.params.id as string)
           .select(db.fn.count<number>('id').as('count'))
           .executeTakeFirstOrThrow();
 
@@ -1331,11 +1331,11 @@ router.delete(
       // CASCADE will remove requirements, levels, level_requirements
       await db
         .deleteFrom('standard')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       logger.info('Standard deleted', {
-        standardId: req.params.id,
+        standardId: req.params.id as string,
         state: standard.state,
         deletedBy: req.user!.id,
         requestId: req.requestId,
@@ -1359,7 +1359,7 @@ router.put(
       const db = getDatabase();
       const standard = await db
         .selectFrom('standard')
-        .where('id', '=', req.params.standardId)
+        .where('id', '=', req.params.standardId as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1376,7 +1376,7 @@ router.put(
       const requirement = await db
         .selectFrom('requirement')
         .where('id', '=', req.params.reqId)
-        .where('standard_id', '=', req.params.standardId)
+        .where('standard_id', '=', req.params.standardId as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1398,7 +1398,7 @@ router.put(
         const parent = await db
           .selectFrom('requirement')
           .where('id', '=', newParentId)
-          .where('standard_id', '=', req.params.standardId)
+          .where('standard_id', '=', req.params.standardId as string)
           .selectAll()
           .executeTakeFirst();
 
@@ -1418,7 +1418,7 @@ router.put(
           const next = await db
             .selectFrom('requirement')
             .where('id', '=', cursor.parent_id)
-            .where('standard_id', '=', req.params.standardId)
+            .where('standard_id', '=', req.params.standardId as string)
             .selectAll()
             .executeTakeFirst();
           if (!next) break;
@@ -1433,7 +1433,7 @@ router.put(
         .execute();
 
       logger.info('Requirement reparented', {
-        standardId: req.params.standardId,
+        standardId: req.params.standardId as string,
         requirementId: req.params.reqId,
         newParentId: newParentId || null,
         requestId: req.requestId,

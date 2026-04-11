@@ -119,7 +119,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     if (error instanceof z.ZodError) {
       res.status(400).json({
         error: 'Validation failed',
-        details: error.errors.map((e) => ({
+        details: error.issues.map((e) => ({
           field: e.path.join('.'),
           message: e.message,
         })),

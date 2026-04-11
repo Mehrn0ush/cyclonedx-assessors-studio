@@ -19,6 +19,7 @@
     "rekey-master": "tsx src/scripts/rekey-master.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1029.0",
     "@electric-sql/pglite": "0.4.4",
     "@types/busboy": "1.5.4",
     "@types/pdfkit": "0.17.5",

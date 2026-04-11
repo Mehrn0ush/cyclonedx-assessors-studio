@@ -171,7 +171,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
       .leftJoin('entity', 'entity.id', 'assessment.entity_id')
       .leftJoin('standard', 'standard.id', 'assessment.standard_id')
       .leftJoin('project', 'project.id', 'assessment.project_id')
-      .where('assessment.id', '=', req.params.id)
+      .where('assessment.id', '=', req.params.id as string)
       .select([
         'assessment.id',
         'assessment.title',
@@ -210,7 +210,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
             'assessment_requirement.requirement_id' as any
           )
       )
-      .where('assessment_requirement.assessment_id' as any, '=', req.params.id)
+      .where('assessment_requirement.assessment_id' as any, '=', req.params.id as string)
       .selectAll()
       .execute()) as any[];
 
@@ -225,7 +225,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
             'assessment_assessor.user_id' as any
           )
       )
-      .where('assessment_assessor.assessment_id', '=', req.params.id)
+      .where('assessment_assessor.assessment_id', '=', req.params.id as string)
       .selectAll()
       .execute()) as any[];
 
@@ -240,7 +240,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
             'assessment_assessee.user_id' as any
           )
       )
-      .where('assessment_assessee.assessment_id', '=', req.params.id)
+      .where('assessment_assessee.assessment_id', '=', req.params.id as string)
       .selectAll()
       .execute()) as any[];
 
@@ -341,7 +341,7 @@ router.post(
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -358,7 +358,7 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 
     const assessment = await db
       .selectFrom('assessment')
-      .where('id', '=', req.params.id)
+      .where('id', '=', req.params.id as string)
       .selectAll()
       .executeTakeFirst();
 
@@ -399,19 +399,19 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
       await db
         .updateTable('assessment')
         .set(updateData)
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
     }
 
     if (data.tags !== undefined) {
-      await syncEntityTags(db, 'assessment_tag', 'assessment_id', req.params.id, data.tags);
+      await syncEntityTags(db, 'assessment_tag', 'assessment_id', req.params.id as string, data.tags);
     }
 
     // Sync assessor assignments (delete + re-insert)
     if (data.assessorIds !== undefined) {
       await db
         .deleteFrom('assessment_assessor')
-        .where('assessment_id', '=', req.params.id)
+        .where('assessment_id', '=', req.params.id as string)
         .execute();
 
       if (data.assessorIds.length > 0) {
@@ -419,7 +419,7 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
           .insertInto('assessment_assessor')
           .values(
             data.assessorIds.map(userId => ({
-              assessment_id: req.params.id,
+              assessment_id: req.params.id as string,
               user_id: userId,
               created_at: new Date(),
             }))
@@ -432,7 +432,7 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
     if (data.assesseeIds !== undefined) {
       await db
         .deleteFrom('assessment_assessee')
-        .where('assessment_id', '=', req.params.id)
+        .where('assessment_id', '=', req.params.id as string)
         .execute();
 
       if (data.assesseeIds.length > 0) {
@@ -440,7 +440,7 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
           .insertInto('assessment_assessee')
           .values(
             data.assesseeIds.map(userId => ({
-              assessment_id: req.params.id,
+              assessment_id: req.params.id as string,
               user_id: userId,
               created_at: new Date(),
             }))
@@ -450,26 +450,26 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
     }
 
     logger.info('Assessment updated', {
-      assessmentId: req.params.id,
+      assessmentId: req.params.id as string,
       requestId: req.requestId,
     });
 
     // Fetch and return the updated assessment
     const updatedAssessment = await db
       .selectFrom('assessment')
-      .where('id', '=', req.params.id)
+      .where('id', '=', req.params.id as string)
       .selectAll()
       .executeTakeFirst();
 
-    const tagsByAssessment = await fetchTagsForEntities(db, 'assessment_tag', 'assessment_id', [req.params.id]);
+    const tagsByAssessment = await fetchTagsForEntities(db, 'assessment_tag', 'assessment_id', [req.params.id as string]);
 
     res.json({
       ...updatedAssessment,
-      tags: tagsByAssessment[req.params.id] || [],
+      tags: tagsByAssessment[req.params.id as string] || [],
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      res.status(400).json({ error: 'Invalid input', details: error.issues });
       return;
     }
 
@@ -489,7 +489,7 @@ router.post(
 
       const assessment = await db
         .selectFrom('assessment')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -509,7 +509,7 @@ router.post(
           state: 'in_progress',
           start_date: new Date(),
         })
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       let requirements;
@@ -573,7 +573,7 @@ router.post(
           .insertInto('assessment_requirement')
           .values({
             id: uuidv4(),
-            assessment_id: req.params.id,
+            assessment_id: req.params.id as string,
             requirement_id: requirement.id,
           })
           .onConflict(oc => oc.column('assessment_id').column('requirement_id').doNothing())
@@ -583,7 +583,7 @@ router.post(
       req.eventBus?.emit(
         ASSESSMENT_STATE_CHANGED,
         {
-          assessmentId: req.params.id,
+          assessmentId: req.params.id as string,
           assessmentTitle: assessment.title,
           previousState: assessment.state,
           newState: 'in_progress',
@@ -592,14 +592,14 @@ router.post(
       );
 
       logger.info('Assessment started', {
-        assessmentId: req.params.id,
+        assessmentId: req.params.id as string,
         requestId: req.requestId,
       });
 
       res.json({ message: 'Assessment started successfully' });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -619,7 +619,7 @@ router.post(
 
       const assessment = await db
         .selectFrom('assessment')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -635,7 +635,7 @@ router.post(
 
       const requirements = await db
         .selectFrom('assessment_requirement')
-        .where('assessment_id', '=', req.params.id)
+        .where('assessment_id', '=', req.params.id as string)
         .selectAll()
         .execute();
 
@@ -698,13 +698,13 @@ router.post(
           end_date: new Date(),
           conformance_score: conformanceScore,
         })
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       req.eventBus?.emit(
         ASSESSMENT_STATE_CHANGED,
         {
-          assessmentId: req.params.id,
+          assessmentId: req.params.id as string,
           assessmentTitle: assessment.title,
           previousState: assessment.state,
           newState: 'completed',
@@ -713,7 +713,7 @@ router.post(
       );
 
       logger.info('Assessment completed', {
-        assessmentId: req.params.id,
+        assessmentId: req.params.id as string,
         requestId: req.requestId,
       });
 
@@ -736,7 +736,7 @@ router.post(
 
       const assessment = await db
         .selectFrom('assessment')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -758,11 +758,11 @@ router.post(
       await db
         .updateTable('assessment')
         .set({ state: 'archived' })
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       logger.info('Assessment archived', {
-        assessmentId: req.params.id,
+        assessmentId: req.params.id as string,
         requestId: req.requestId,
       });
 
@@ -785,7 +785,7 @@ router.post(
 
       const assessment = await db
         .selectFrom('assessment')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -810,11 +810,11 @@ router.post(
           state: 'in_progress',
           end_date: null,
         })
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       logger.info('Assessment reopened', {
-        assessmentId: req.params.id,
+        assessmentId: req.params.id as string,
         requestId: req.requestId,
       });
 
@@ -852,13 +852,13 @@ router.put(
       const db = getDatabase();
 
       // Guard: reject mutations on complete/archived assessments
-      const mutableCheck = await requireMutableAssessment(db, req.params.id, res);
+      const mutableCheck = await requireMutableAssessment(db, req.params.id as string, res);
       if (!mutableCheck) return;
 
       const assessmentReq = await db
         .selectFrom('assessment_requirement')
-        .where('assessment_id', '=', req.params.id)
-        .where('requirement_id', '=', req.params.requirementId)
+        .where('assessment_id', '=', req.params.id as string)
+        .where('requirement_id', '=', req.params.requirementId as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -883,21 +883,21 @@ router.put(
         await db
           .updateTable('assessment_requirement')
           .set(updateData)
-          .where('assessment_id', '=', req.params.id)
-          .where('requirement_id', '=', req.params.requirementId)
+          .where('assessment_id', '=', req.params.id as string)
+          .where('requirement_id', '=', req.params.requirementId as string)
           .execute();
       }
 
       logger.info('Assessment requirement updated', {
-        assessmentId: req.params.id,
-        requirementId: req.params.requirementId,
+        assessmentId: req.params.id as string,
+        requirementId: req.params.requirementId as string,
         requestId: req.requestId,
       });
 
       res.json({ message: 'Assessment requirement updated successfully' });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -916,7 +916,7 @@ router.get(
 
       const assessment = await db
         .selectFrom('assessment')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -927,8 +927,8 @@ router.get(
 
       const assessmentReq = await db
         .selectFrom('assessment_requirement')
-        .where('assessment_id', '=', req.params.id)
-        .where('requirement_id', '=', req.params.requirementId)
+        .where('assessment_id', '=', req.params.id as string)
+        .where('requirement_id', '=', req.params.requirementId as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -987,7 +987,7 @@ router.get(
 
       const assessment = await db
         .selectFrom('assessment')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1007,7 +1007,7 @@ router.get(
         .leftJoin('app_user as author', (join) =>
           join.onRef('author.id' as any, '=', 'evidence.author_id' as any)
         )
-        .where('assessment_requirement.assessment_id', '=', req.params.id)
+        .where('assessment_requirement.assessment_id', '=', req.params.id as string)
         .select([
           'evidence.id',
           'evidence.name',
@@ -1061,7 +1061,7 @@ router.get(
 
       const assessment = await db
         .selectFrom('assessment')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1073,7 +1073,7 @@ router.get(
       // Find all attestations for this assessment
       const attestations = await db
         .selectFrom('attestation')
-        .where('assessment_id', '=', req.params.id)
+        .where('assessment_id', '=', req.params.id as string)
         .select(['id'])
         .execute();
 
@@ -1206,7 +1206,7 @@ router.get(
 
       const assessment = await db
         .selectFrom('assessment')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .select('id')
         .executeTakeFirst();
 
@@ -1220,7 +1220,7 @@ router.get(
         .innerJoin('app_user', (join) =>
           join.onRef('app_user.id' as any, '=', 'assessment_assessor.user_id' as any)
         )
-        .where('assessment_assessor.assessment_id', '=', req.params.id)
+        .where('assessment_assessor.assessment_id', '=', req.params.id as string)
         .select([
           'app_user.id',
           'app_user.username',
@@ -1234,7 +1234,7 @@ router.get(
         .innerJoin('app_user', (join) =>
           join.onRef('app_user.id' as any, '=', 'assessment_assessee.user_id' as any)
         )
-        .where('assessment_assessee.assessment_id', '=', req.params.id)
+        .where('assessment_assessee.assessment_id', '=', req.params.id as string)
         .select([
           'app_user.id',
           'app_user.username',
@@ -1271,7 +1271,7 @@ router.get(
 
       const assessment = await db
         .selectFrom('assessment')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1291,7 +1291,7 @@ router.get(
               'work_note.user_id' as any
             )
         )
-        .where('work_note.assessment_id', '=', req.params.id)
+        .where('work_note.assessment_id', '=', req.params.id as string)
         .select([
           'work_note.id',
           'work_note.content',
@@ -1319,12 +1319,12 @@ router.post(
       const db = getDatabase();
 
       // Guard: reject mutations on complete/archived assessments
-      const mutableCheck = await requireMutableAssessment(db, req.params.id, res);
+      const mutableCheck = await requireMutableAssessment(db, req.params.id as string, res);
       if (!mutableCheck) return;
 
       const assessment = await db
         .selectFrom('assessment')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1339,7 +1339,7 @@ router.post(
         .insertInto('work_note')
         .values({
           id: noteId,
-          assessment_id: req.params.id,
+          assessment_id: req.params.id as string,
           user_id: req.user!.id,
           content: data.content,
           created_at: new Date(),
@@ -1371,7 +1371,7 @@ router.post(
               type: 'work_note_mention',
               title: 'You were mentioned in a work note',
               message: `${authorDisplayName} mentioned you in a work note on assessment "${assessment.title}"`,
-              link: `/assessments/${req.params.id}`,
+              link: `/assessments/${req.params.id as string}`,
             });
           }
         }
@@ -1379,7 +1379,7 @@ router.post(
 
       logger.info('Work note created', {
         noteId,
-        assessmentId: req.params.id,
+        assessmentId: req.params.id as string,
         mentions: Array.from(mentionedUsernames),
         requestId: req.requestId,
       });
@@ -1387,7 +1387,7 @@ router.post(
       res.status(201).json({ id: noteId, message: 'Work note added successfully' });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -1406,7 +1406,7 @@ router.delete(
       const db = getDatabase();
       const assessment = await db
         .selectFrom('assessment')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .select(['id', 'title', 'state'])
         .executeTakeFirst();
 
@@ -1422,31 +1422,31 @@ router.delete(
 
       // Delete related records first
       await db.deleteFrom('work_note')
-        .where('assessment_id', '=', req.params.id)
+        .where('assessment_id', '=', req.params.id as string)
         .execute();
 
       await db.deleteFrom('assessment_requirement')
-        .where('assessment_id', '=', req.params.id)
+        .where('assessment_id', '=', req.params.id as string)
         .execute();
 
       await db.deleteFrom('assessment_assessor')
-        .where('assessment_id', '=', req.params.id)
+        .where('assessment_id', '=', req.params.id as string)
         .execute();
 
       await db.deleteFrom('assessment_assessee')
-        .where('assessment_id', '=', req.params.id)
+        .where('assessment_id', '=', req.params.id as string)
         .execute();
 
       await db.deleteFrom('assessment_tag')
-        .where('assessment_id', '=', req.params.id)
+        .where('assessment_id', '=', req.params.id as string)
         .execute();
 
       await db.deleteFrom('assessment')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       logger.info('Assessment deleted', {
-        assessmentId: req.params.id,
+        assessmentId: req.params.id as string,
         title: assessment.title,
         requestId: req.requestId,
       });

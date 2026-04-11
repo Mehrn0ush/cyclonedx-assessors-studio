@@ -30,7 +30,7 @@ describe('Auth Routes (HTTP Integration)', () => {
 
       // Verify httpOnly cookie is set
       expect(res.headers['set-cookie']).toBeDefined();
-      const tokenCookie = res.headers['set-cookie'].find((cookie: string) =>
+      const tokenCookie = (res.headers['set-cookie'] as unknown as string[]).find((cookie: string) =>
         cookie.startsWith('token=')
       );
       expect(tokenCookie).toBeDefined();
@@ -182,7 +182,7 @@ describe('Auth Routes (HTTP Integration)', () => {
 
       // Verify token cookie is cleared
       expect(res.headers['set-cookie']).toBeDefined();
-      const clearCookie = res.headers['set-cookie'].find((cookie: string) =>
+      const clearCookie = (res.headers['set-cookie'] as unknown as string[]).find((cookie: string) =>
         cookie.startsWith('token=')
       );
       // Cookie is cleared by setting Expires to epoch or Max-Age=0
@@ -801,7 +801,7 @@ describe('Auth Routes (HTTP Integration)', () => {
         });
 
       expect(res.status).toBe(200);
-      const tokenCookie = res.headers['set-cookie'].find((cookie: string) =>
+      const tokenCookie = (res.headers['set-cookie'] as unknown as string[]).find((cookie: string) =>
         cookie.startsWith('token=')
       );
 
@@ -817,7 +817,7 @@ describe('Auth Routes (HTTP Integration)', () => {
       const res = await agent.post('/api/v1/auth/logout');
 
       expect(res.status).toBe(204);
-      const tokenCookie = res.headers['set-cookie'].find((cookie: string) =>
+      const tokenCookie = (res.headers['set-cookie'] as unknown as string[]).find((cookie: string) =>
         cookie.startsWith('token=')
       );
       // Cookie is cleared by setting Expires to epoch or Max-Age=0

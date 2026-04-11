@@ -607,7 +607,7 @@ async function generateAssessmentPDF(assessmentId: string): Promise<Buffer> {
 
 router.get('/assessment/:assessmentId', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { assessmentId } = req.params;
+    const { assessmentId } = req.params as { assessmentId: string };
     const db = getDatabase();
 
     // Verify assessment exists
@@ -648,7 +648,7 @@ router.get('/assessment/:assessmentId', requireAuth, async (req: AuthRequest, re
 
 router.get('/assessment/:assessmentId/pdf', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { assessmentId } = req.params;
+    const { assessmentId } = req.params as { assessmentId: string };
     const db = getDatabase();
 
     // Verify assessment exists
@@ -696,7 +696,7 @@ router.get('/assessment/:assessmentId/pdf', requireAuth, async (req: AuthRequest
 
 router.get('/project/:projectId', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { projectId } = req.params;
+    const { projectId } = req.params as { projectId: string };
     const db = getDatabase();
 
     // Verify project exists

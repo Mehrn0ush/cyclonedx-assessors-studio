@@ -95,7 +95,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 
     const role = await db
       .selectFrom('role')
-      .where('id', '=', req.params.id)
+      .where('id', '=', req.params.id as string)
       .selectAll()
       .executeTakeFirst();
 
@@ -107,7 +107,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
     const permissions = await db
       .selectFrom('role_permission')
       .innerJoin('permission', 'permission.id', 'role_permission.permission_id')
-      .where('role_permission.role_id', '=', req.params.id)
+      .where('role_permission.role_id', '=', req.params.id as string)
       .select(['permission.id', 'permission.key', 'permission.name', 'permission.description', 'permission.category'])
       .execute();
 
@@ -181,7 +181,7 @@ router.post(
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -202,7 +202,7 @@ router.put(
 
       const role = await db
         .selectFrom('role')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -225,14 +225,14 @@ router.put(
         await db
           .updateTable('role')
           .set(toSnakeCase(updateData))
-          .where('id', '=', req.params.id)
+          .where('id', '=', req.params.id as string)
           .execute();
       }
 
       if (data.permissionIds !== undefined) {
         await db
           .deleteFrom('role_permission')
-          .where('role_id', '=', req.params.id)
+          .where('role_id', '=', req.params.id as string)
           .execute();
 
         if (data.permissionIds.length > 0) {
@@ -240,7 +240,7 @@ router.put(
             .insertInto('role_permission')
             .values(
               data.permissionIds.map(permissionId => ({
-                role_id: req.params.id,
+                role_id: req.params.id as string,
                 permission_id: permissionId,
                 created_at: new Date(),
               }))
@@ -250,21 +250,21 @@ router.put(
       }
 
       logger.info('Role updated', {
-        roleId: req.params.id,
+        roleId: req.params.id as string,
         requestId: req.requestId,
       });
 
       // Fetch and return the updated role with its permissions
       const updatedRole = await db
         .selectFrom('role')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
       const permissions = await db
         .selectFrom('role_permission')
         .innerJoin('permission', 'permission.id', 'role_permission.permission_id')
-        .where('role_permission.role_id', '=', req.params.id)
+        .where('role_permission.role_id', '=', req.params.id as string)
         .select(['permission.id', 'permission.key', 'permission.name', 'permission.description', 'permission.category'])
         .execute();
 
@@ -274,7 +274,7 @@ router.put(
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -294,7 +294,7 @@ router.delete(
 
       const role = await db
         .selectFrom('role')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -308,10 +308,10 @@ router.delete(
         return;
       }
 
-      await db.deleteFrom('role').where('id', '=', req.params.id).execute();
+      await db.deleteFrom('role').where('id', '=', req.params.id as string).execute();
 
       logger.info('Role deleted', {
-        roleId: req.params.id,
+        roleId: req.params.id as string,
         requestId: req.requestId,
       });
 

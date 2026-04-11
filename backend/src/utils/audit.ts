@@ -5,7 +5,7 @@ export async function logAudit(
   params: {
     entityType: string;
     entityId: string;
-    action: 'create' | 'update' | 'delete' | 'state_change' | 'link' | 'unlink';
+    action: 'create' | 'create_for_other' | 'update' | 'delete' | 'state_change' | 'link' | 'unlink';
     userId: string;
     changes?: any;
   }

@@ -544,7 +544,7 @@ const widgetLayoutSchema = z.object({
   w: z.number(),
   h: z.number(),
   widgetType: z.string(),
-  config: z.record(z.any()).optional(),
+  config: z.record(z.string(), z.any()).optional(),
 });
 
 const createDashboardSchema = z.object({
@@ -555,7 +555,7 @@ const createDashboardSchema = z.object({
 });
 
 const updateDashboardSchema = z.object({
-  name: z.string().min(1).optional(),
+  name: z.string().min(1, 'Dashboard name is required').optional(),
   description: z.string().nullable().optional(),
   is_shared: z.boolean().optional(),
   is_default: z.boolean().optional(),
@@ -648,7 +648,7 @@ router.post('/configs', requireAuth, async (req: AuthRequest, res: Response): Pr
     res.status(201).json(dashboard);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      res.status(400).json({ error: 'Invalid input', details: error.issues });
       return;
     }
     logger.error('Create dashboard error', { error, requestId: req.requestId });
@@ -708,7 +708,7 @@ router.put('/configs/:id', requireAuth, async (req: AuthRequest, res: Response):
     res.json(updated);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      res.status(400).json({ error: 'Invalid input', details: error.issues });
       return;
     }
     logger.error('Update dashboard error', { error, requestId: req.requestId });

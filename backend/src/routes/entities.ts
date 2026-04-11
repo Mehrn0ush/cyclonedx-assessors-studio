@@ -199,7 +199,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 
     const entity = await db
       .selectFrom('entity')
-      .where('id', '=', req.params.id)
+      .where('id', '=', req.params.id as string)
       .selectAll()
       .executeTakeFirst();
 
@@ -212,7 +212,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
     const parentRelationships = (await db
       .selectFrom('entity_relationship')
       .innerJoin('entity', 'entity.id', 'entity_relationship.source_entity_id')
-      .where('entity_relationship.target_entity_id', '=', req.params.id)
+      .where('entity_relationship.target_entity_id', '=', req.params.id as string)
       .select([
         'entity_relationship.id as id',
         'entity_relationship.source_entity_id as source_entity_id',
@@ -226,7 +226,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
     const childRelationships = (await db
       .selectFrom('entity_relationship')
       .innerJoin('entity', 'entity.id', 'entity_relationship.target_entity_id')
-      .where('entity_relationship.source_entity_id', '=', req.params.id)
+      .where('entity_relationship.source_entity_id', '=', req.params.id as string)
       .select([
         'entity_relationship.id as id',
         'entity_relationship.source_entity_id as source_entity_id',
@@ -240,7 +240,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
     const standards = (await db
       .selectFrom('entity_standard')
       .innerJoin('standard', 'standard.id', 'entity_standard.standard_id')
-      .where('entity_standard.entity_id', '=', req.params.id)
+      .where('entity_standard.entity_id', '=', req.params.id as string)
       .select([
         'standard.id as id',
         'standard.name as name',
@@ -248,13 +248,13 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
       ])
       .execute()) as any[];
 
-    const tagsByEntity = await fetchTagsForEntities(db, 'entity_tag', 'entity_id', [req.params.id]);
+    const tagsByEntity = await fetchTagsForEntities(db, 'entity_tag', 'entity_id', [req.params.id as string]);
 
     // Get compliance policies
     const policies = (await db
       .selectFrom('compliance_policy')
       .innerJoin('standard', 'standard.id', 'compliance_policy.standard_id')
-      .where('compliance_policy.entity_id', '=', req.params.id)
+      .where('compliance_policy.entity_id', '=', req.params.id as string)
       .select([
         'compliance_policy.id as id',
         'compliance_policy.standard_id as standard_id',
@@ -271,7 +271,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
       parents: parentRelationships,
       children: childRelationships,
       standards,
-      tags: tagsByEntity[req.params.id] || [],
+      tags: tagsByEntity[req.params.id as string] || [],
       policies,
     });
   } catch (error) {
@@ -325,7 +325,7 @@ router.post(
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -347,7 +347,7 @@ router.put(
 
       const entity = await db
         .selectFrom('entity')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -366,26 +366,26 @@ router.put(
         await db
           .updateTable('entity')
           .set(updateData)
-          .where('id', '=', req.params.id)
+          .where('id', '=', req.params.id as string)
           .execute();
       }
 
       logger.info('Entity updated', {
-        entityId: req.params.id,
+        entityId: req.params.id as string,
         requestId: req.requestId,
       });
 
       // Fetch and return the updated entity
       const updatedEntity = await db
         .selectFrom('entity')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
       res.json(updatedEntity);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -406,7 +406,7 @@ router.delete(
 
       const entity = await db
         .selectFrom('entity')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -418,11 +418,11 @@ router.delete(
       await db
         .updateTable('entity')
         .set({ state: 'archived' })
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       logger.info('Entity deleted', {
-        entityId: req.params.id,
+        entityId: req.params.id as string,
         requestId: req.requestId,
       });
 
@@ -441,7 +441,7 @@ router.get('/:id/children', requireAuth, async (req: AuthRequest, res: Response)
 
     const entity = await db
       .selectFrom('entity')
-      .where('id', '=', req.params.id)
+      .where('id', '=', req.params.id as string)
       .selectAll()
       .executeTakeFirst();
 
@@ -453,7 +453,7 @@ router.get('/:id/children', requireAuth, async (req: AuthRequest, res: Response)
     const children = (await db
       .selectFrom('entity_relationship')
       .innerJoin('entity', 'entity.id', 'entity_relationship.target_entity_id')
-      .where('entity_relationship.source_entity_id', '=', req.params.id)
+      .where('entity_relationship.source_entity_id', '=', req.params.id as string)
       .select([
         'entity.id as id',
         'entity.name as name',
@@ -477,7 +477,7 @@ router.get('/:id/assessments', requireAuth, async (req: AuthRequest, res: Respon
 
     const entity = await db
       .selectFrom('entity')
-      .where('id', '=', req.params.id)
+      .where('id', '=', req.params.id as string)
       .selectAll()
       .executeTakeFirst();
 
@@ -488,7 +488,7 @@ router.get('/:id/assessments', requireAuth, async (req: AuthRequest, res: Respon
 
     const assessments = (await db
       .selectFrom('assessment')
-      .where('entity_id', '=', req.params.id)
+      .where('entity_id', '=', req.params.id as string)
       .select([
         'id',
         'title',
@@ -516,7 +516,7 @@ router.get('/:id/history', requireAuth, async (req: AuthRequest, res: Response):
 
     const entity = await db
       .selectFrom('entity')
-      .where('id', '=', req.params.id)
+      .where('id', '=', req.params.id as string)
       .selectAll()
       .executeTakeFirst();
 
@@ -529,7 +529,7 @@ router.get('/:id/history', requireAuth, async (req: AuthRequest, res: Response):
     const assessments = (await db
       .selectFrom('assessment')
       .leftJoin('standard', 'standard.id', 'assessment.standard_id')
-      .where('assessment.entity_id', '=', req.params.id)
+      .where('assessment.entity_id', '=', req.params.id as string)
       .select([
         'assessment.id as id',
         'assessment.title as title',
@@ -573,7 +573,7 @@ router.get('/:id/history', requireAuth, async (req: AuthRequest, res: Response):
 router.get('/:id/relationship-graph', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
-    const rootId = req.params.id;
+    const rootId = req.params.id as string;
     const maxDepth = Math.min(parseInt(req.query.depth as string) || 5, 10);
 
     // Verify entity exists
@@ -700,7 +700,7 @@ router.post(
 
       const sourceEntity = await db
         .selectFrom('entity')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -723,7 +723,7 @@ router.post(
       // Check for duplicate relationship
       const existing = await db
         .selectFrom('entity_relationship')
-        .where('source_entity_id', '=', req.params.id)
+        .where('source_entity_id', '=', req.params.id as string)
         .where('target_entity_id', '=', data.targetEntityId)
         .where('relationship_type', '=', data.relationshipType)
         .selectAll()
@@ -740,7 +740,7 @@ router.post(
         .insertInto('entity_relationship')
         .values(toSnakeCase({
           id: relationshipId,
-          sourceEntityId: req.params.id,
+          sourceEntityId: req.params.id as string,
           targetEntityId: data.targetEntityId,
           relationshipType: data.relationshipType,
           createdAt: new Date(),
@@ -750,7 +750,7 @@ router.post(
 
       logger.info('Entity relationship created', {
         relationshipId,
-        sourceEntityId: req.params.id,
+        sourceEntityId: req.params.id as string,
         targetEntityId: data.targetEntityId,
         relationshipType: data.relationshipType,
         requestId: req.requestId,
@@ -758,13 +758,13 @@ router.post(
 
       res.status(201).json({
         id: relationshipId,
-        sourceEntityId: req.params.id,
+        sourceEntityId: req.params.id as string,
         targetEntityId: data.targetEntityId,
         relationshipType: data.relationshipType,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -786,7 +786,7 @@ router.delete(
       const relationship = await db
         .selectFrom('entity_relationship')
         .where('id', '=', req.params.relId)
-        .where('source_entity_id', '=', req.params.id)
+        .where('source_entity_id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -802,7 +802,7 @@ router.delete(
 
       logger.info('Entity relationship deleted', {
         relationshipId: req.params.relId,
-        entityId: req.params.id,
+        entityId: req.params.id as string,
         requestId: req.requestId,
       });
 
@@ -821,7 +821,7 @@ router.get('/:id/policies', requireAuth, async (req: AuthRequest, res: Response)
 
     const entity = await db
       .selectFrom('entity')
-      .where('id', '=', req.params.id)
+      .where('id', '=', req.params.id as string)
       .selectAll()
       .executeTakeFirst();
 
@@ -834,7 +834,7 @@ router.get('/:id/policies', requireAuth, async (req: AuthRequest, res: Response)
     const directPolicies = (await db
       .selectFrom('compliance_policy')
       .innerJoin('standard', 'standard.id', 'compliance_policy.standard_id')
-      .where('compliance_policy.entity_id', '=', req.params.id)
+      .where('compliance_policy.entity_id', '=', req.params.id as string)
       .select([
         'compliance_policy.id as id',
         'compliance_policy.standard_id as standard_id',
@@ -851,7 +851,7 @@ router.get('/:id/policies', requireAuth, async (req: AuthRequest, res: Response)
       .selectFrom('entity_relationship')
       .where((eb: any) =>
         eb.and([
-          eb('target_entity_id', '=', req.params.id),
+          eb('target_entity_id', '=', req.params.id as string),
           eb('relationship_type', 'in', ['owns', 'contains', 'governs']),
         ])
       )
@@ -903,7 +903,7 @@ router.post(
 
       const entity = await db
         .selectFrom('entity')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -929,7 +929,7 @@ router.post(
         .insertInto('compliance_policy')
         .values(toSnakeCase({
           id: policyId,
-          entityId: req.params.id,
+          entityId: req.params.id as string,
           standardId: data.standardId,
           description: data.description,
           isInherited: false,
@@ -938,21 +938,21 @@ router.post(
 
       logger.info('Compliance policy created', {
         policyId,
-        entityId: req.params.id,
+        entityId: req.params.id as string,
         standardId: data.standardId,
         requestId: req.requestId,
       });
 
       res.status(201).json({
         id: policyId,
-        entityId: req.params.id,
+        entityId: req.params.id as string,
         standardId: data.standardId,
         description: data.description,
         isInherited: false,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -975,7 +975,7 @@ router.put(
       const policy = await db
         .selectFrom('compliance_policy')
         .where('id', '=', req.params.policyId)
-        .where('entity_id', '=', req.params.id)
+        .where('entity_id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1008,7 +1008,7 @@ router.put(
         // Check for duplicate: another policy on this entity already using that standard
         const duplicate = await db
           .selectFrom('compliance_policy')
-          .where('entity_id', '=', req.params.id)
+          .where('entity_id', '=', req.params.id as string)
           .where('standard_id', '=', standardId)
           .where('id', '!=', req.params.policyId)
           .selectAll()
@@ -1046,7 +1046,7 @@ router.put(
 
       logger.info('Compliance policy updated', {
         policyId: req.params.policyId,
-        entityId: req.params.id,
+        entityId: req.params.id as string,
         requestId: req.requestId,
       });
 
@@ -1070,7 +1070,7 @@ router.delete(
       const policy = await db
         .selectFrom('compliance_policy')
         .where('id', '=', req.params.policyId)
-        .where('entity_id', '=', req.params.id)
+        .where('entity_id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -1086,7 +1086,7 @@ router.delete(
 
       logger.info('Compliance policy deleted', {
         policyId: req.params.policyId,
-        entityId: req.params.id,
+        entityId: req.params.id as string,
         requestId: req.requestId,
       });
 
@@ -1105,7 +1105,7 @@ router.get('/:id/progress', requireAuth, async (req: AuthRequest, res: Response)
 
     const entity = await db
       .selectFrom('entity')
-      .where('id', '=', req.params.id)
+      .where('id', '=', req.params.id as string)
       .selectAll()
       .executeTakeFirst();
 
@@ -1118,7 +1118,7 @@ router.get('/:id/progress', requireAuth, async (req: AuthRequest, res: Response)
     const assessments = (await db
       .selectFrom('assessment')
       .leftJoin('standard', 'standard.id', 'assessment.standard_id')
-      .where('assessment.entity_id', '=', req.params.id)
+      .where('assessment.entity_id', '=', req.params.id as string)
       .where('assessment.state', '=', 'complete')
       .select([
         'assessment.id as id',

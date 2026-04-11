@@ -518,7 +518,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   entity_type VARCHAR(100) NOT NULL,
   entity_id UUID NOT NULL,
-  action VARCHAR(50) NOT NULL CHECK(action IN ('create', 'update', 'delete', 'state_change', 'link', 'unlink')),
+  action VARCHAR(50) NOT NULL CHECK(action IN ('create', 'create_for_other', 'update', 'delete', 'state_change', 'link', 'unlink')),
   user_id UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
   changes JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

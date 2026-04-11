@@ -104,7 +104,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 
     const project = await db
       .selectFrom('project')
-      .where('id', '=', req.params.id)
+      .where('id', '=', req.params.id as string)
       .selectAll()
       .executeTakeFirst();
 
@@ -124,7 +124,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
             'project_standard.standard_id' as any
           )
       )
-      .where('project_standard.project_id', '=', req.params.id)
+      .where('project_standard.project_id', '=', req.params.id as string)
       .select([
         'standard.id as id',
         'standard.name as name',
@@ -133,12 +133,12 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
       ])
       .execute()) as any[];
 
-    const tagsByProject = await fetchTagsForEntities(db, 'project_tag', 'project_id', [req.params.id]);
+    const tagsByProject = await fetchTagsForEntities(db, 'project_tag', 'project_id', [req.params.id as string]);
 
     res.json({
       project,
       standards,
-      tags: tagsByProject[req.params.id] || [],
+      tags: tagsByProject[req.params.id as string] || [],
     });
   } catch (error) {
     logger.error('Get project error', { error, requestId: req.requestId });
@@ -199,7 +199,7 @@ router.post(
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -220,7 +220,7 @@ router.put(
 
       const project = await db
         .selectFrom('project')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -241,19 +241,19 @@ router.put(
         await db
           .updateTable('project')
           .set(toSnakeCase(updateData))
-          .where('id', '=', req.params.id)
+          .where('id', '=', req.params.id as string)
           .execute();
       }
 
       if (data.standardIds !== undefined) {
-        await db.deleteFrom('project_standard').where('project_id', '=', req.params.id).execute();
+        await db.deleteFrom('project_standard').where('project_id', '=', req.params.id as string).execute();
 
         if (data.standardIds.length > 0) {
           await db
             .insertInto('project_standard')
             .values(
               data.standardIds.map(standardId => ({
-                project_id: req.params.id,
+                project_id: req.params.id as string,
                 standard_id: standardId,
                 created_at: new Date(),
               }))
@@ -263,18 +263,18 @@ router.put(
       }
 
       if (data.tags !== undefined) {
-        await syncEntityTags(db, 'project_tag', 'project_id', req.params.id, data.tags);
+        await syncEntityTags(db, 'project_tag', 'project_id', req.params.id as string, data.tags);
       }
 
       logger.info('Project updated', {
-        projectId: req.params.id,
+        projectId: req.params.id as string,
         requestId: req.requestId,
       });
 
       // Fetch and return the updated resource
       const updatedProject = await db
         .selectFrom('project')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -289,7 +289,7 @@ router.put(
               'project_standard.standard_id' as any
             )
         )
-        .where('project_standard.project_id', '=', req.params.id)
+        .where('project_standard.project_id', '=', req.params.id as string)
         .select([
           'standard.id as id',
           'standard.name as name',
@@ -298,16 +298,16 @@ router.put(
         ])
         .execute()) as any[];
 
-      const tagsByProject = await fetchTagsForEntities(db, 'project_tag', 'project_id', [req.params.id]);
+      const tagsByProject = await fetchTagsForEntities(db, 'project_tag', 'project_id', [req.params.id as string]);
 
       res.json({
         ...updatedProject,
         standards,
-        tags: tagsByProject[req.params.id] || [],
+        tags: tagsByProject[req.params.id as string] || [],
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
 
@@ -327,7 +327,7 @@ router.delete(
 
       const project = await db
         .selectFrom('project')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -340,11 +340,11 @@ router.delete(
       await db
         .updateTable('project')
         .set({ state: 'retired' })
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       logger.info('Project deleted', {
-        projectId: req.params.id,
+        projectId: req.params.id as string,
         requestId: req.requestId,
       });
 
@@ -366,7 +366,7 @@ router.post(
 
       const project = await db
         .selectFrom('project')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -381,11 +381,11 @@ router.post(
           state: 'retired',
           archived_at: new Date(),
         })
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       logger.info('Project archived', {
-        projectId: req.params.id,
+        projectId: req.params.id as string,
         requestId: req.requestId,
       });
 
@@ -407,7 +407,7 @@ router.get(
 
       const project = await db
         .selectFrom('project')
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .selectAll()
         .executeTakeFirst();
 
@@ -428,7 +428,7 @@ router.get(
               'project_standard.standard_id' as any
             )
         )
-        .where('project_standard.project_id', '=', req.params.id)
+        .where('project_standard.project_id', '=', req.params.id as string)
         .select([
           'standard.id as id',
           'standard.name as name',
@@ -440,7 +440,7 @@ router.get(
       // Fetch assessments
       const assessments = (await db
         .selectFrom('assessment')
-        .where('project_id', '=', req.params.id)
+        .where('project_id', '=', req.params.id as string)
         .selectAll()
         .execute()) as any[];
 
@@ -527,7 +527,7 @@ router.get(
 router.get('/:id/stats', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
-    const projectId = req.params.id;
+    const projectId = req.params.id as string;
 
     // Verify project exists
     const project = await db

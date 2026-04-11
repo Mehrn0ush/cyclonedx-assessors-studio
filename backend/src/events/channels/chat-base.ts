@@ -100,7 +100,7 @@ export abstract class BaseChatChannel implements NotificationChannel {
 
       const integrations = await db
         .selectFrom('chat_integration')
-        .where('platform', '=', this.platform)
+        .where('platform', '=', this.platform as 'slack' | 'teams' | 'mattermost')
         .where('is_active', '=', true)
         .selectAll()
         .execute();
@@ -390,11 +390,11 @@ export abstract class BaseChatChannel implements NotificationChannel {
     const pendingRetries = await db
       .selectFrom('chat_delivery')
       .innerJoin('chat_integration', 'chat_integration.id', 'chat_delivery.integration_id')
-      .where('chat_delivery.status', '=', 'failed')
+      .where('chat_delivery.status', '=', 'failed' as const)
       .where('chat_delivery.next_retry_at', '<=', now)
       .where('chat_delivery.attempt', '<', MAX_RETRIES)
       .where('chat_integration.is_active', '=', true)
-      .where('chat_integration.platform', '=', this.platform)
+      .where('chat_integration.platform', '=', this.platform as 'slack' | 'teams' | 'mattermost')
       .select([
         'chat_delivery.id as delivery_id',
         'chat_delivery.attempt',

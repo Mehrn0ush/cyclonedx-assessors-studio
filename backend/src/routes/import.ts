@@ -12,7 +12,7 @@ const router = Router();
 // CycloneDX objects that we access dynamically in the import logic.
 const cyclonedxBomSchema = z.object({
   bomFormat: z.literal('CycloneDX', {
-    errorMap: () => ({ message: 'Invalid CycloneDX document: bomFormat must be "CycloneDX"' }),
+    message: 'Invalid CycloneDX document: bomFormat must be "CycloneDX"',
   }),
   specVersion: z.string().min(1, 'specVersion is required'),
   version: z.number().optional(),
@@ -53,7 +53,7 @@ router.post(
       if (!validationResult.success) {
         res.status(400).json({
           error: 'Invalid CycloneDX document',
-          details: validationResult.error.errors.map((e) => ({
+          details: validationResult.error.issues.map((e) => ({
             path: e.path.join('.'),
             message: e.message,
           })),

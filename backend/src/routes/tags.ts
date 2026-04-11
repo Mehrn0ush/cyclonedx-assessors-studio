@@ -70,7 +70,7 @@ router.post(
       res.status(201).json({ id: tagId, name: data.name, color: data.color });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
       logger.error('Create tag error', { error, requestId: req.requestId });
@@ -109,7 +109,7 @@ router.put(
       res.json(updatedTag);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: 'Invalid input', details: error.errors });
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
         return;
       }
       logger.error('Update tag error', { error, requestId: req.requestId });

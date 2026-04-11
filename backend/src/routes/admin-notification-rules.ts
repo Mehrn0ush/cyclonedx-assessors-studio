@@ -131,7 +131,7 @@ router.post('/', requireAuth, requireRole('admin'), async (req: AuthRequest, res
     res.status(201).json(rule);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ error: 'Validation failed', details: error.errors });
+      res.status(400).json({ error: 'Validation failed', details: error.issues });
       return;
     }
     logger.error('Failed to create notification rule', {
@@ -248,7 +248,7 @@ router.put('/:id', requireAuth, requireRole('admin'), async (req: AuthRequest, r
     res.json(rule);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ error: 'Validation failed', details: error.errors });
+      res.status(400).json({ error: 'Validation failed', details: error.issues });
       return;
     }
     logger.error('Failed to update notification rule', {

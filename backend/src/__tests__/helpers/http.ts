@@ -71,6 +71,7 @@ export function setupHttpTests() {
     process.env.PORT = '3001';
     process.env.LOG_LEVEL = 'error';
     process.env.CORS_ORIGIN = '*';
+    process.env.METRICS_ENABLED = 'true';
 
     // Dynamic imports so env vars are picked up by config on first access
     const { initializeDatabase } = await import('../../db/connection.js');
@@ -155,7 +156,7 @@ export function getAgent(): supertest.SuperTest<supertest.Test> {
  * Returns a supertest agent that carries the session cookie for the
  * requested role. Each call logs in fresh so tests are isolated.
  */
-export async function loginAs(role: 'admin' | 'assessor' | 'assessee'): Promise<SuperAgentTest> {
+export async function loginAs(role: 'admin' | 'assessor' | 'assessee'): Promise<ReturnType<typeof supertest.agent>> {
   const user = testUsers[role];
   if (!user) throw new Error(`No test user for role "${role}". Did setupHttpTests() run?`);
 
