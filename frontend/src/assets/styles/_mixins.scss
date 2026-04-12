@@ -36,10 +36,7 @@
 
 @mixin absolute-cover {
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  inset: 0;
 }
 
 // Text truncation
@@ -73,8 +70,10 @@
   }
 }
 
+
 @mixin button-base {
   @include button-reset;
+
   border-radius: var(--cat-radius-md);
   padding: var(--cat-spacing-2) var(--cat-spacing-4);
   font-weight: var(--cat-font-weight-medium);
@@ -88,6 +87,7 @@
 
 @mixin button-primary {
   @include button-base;
+
   background-color: var(--cat-bg-active);
   color: white;
 
@@ -102,6 +102,7 @@
 
 @mixin button-secondary {
   @include button-base;
+
   background-color: var(--cat-bg-surface);
   color: var(--cat-text-primary);
   border: 1px solid var(--cat-border-default);
@@ -120,6 +121,7 @@
 
 @mixin button-ghost {
   @include button-base;
+
   background-color: transparent;
   color: var(--cat-text-primary);
 
@@ -154,7 +156,7 @@
   &:focus {
     outline: none;
     border-color: var(--cat-brand-secondary);
-    box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1);
+    box-shadow: 0 0 0 3px rgb(9 105 218 / 10%);
   }
 
   &:disabled {
@@ -172,8 +174,10 @@
   padding: var(--cat-spacing-6);
 }
 
+
 @mixin card-interactive {
   @include card-base;
+
   transition: all var(--cat-transition-base) ease;
 
   &:hover {
@@ -202,19 +206,23 @@
 // Responsive utilities
 @mixin respond-to($breakpoint) {
   @if $breakpoint == 'sm' {
-    @media (max-width: 640px) {
+
+    @media (width <= 640px) {
       @content;
     }
   } @else if $breakpoint == 'md' {
-    @media (max-width: 768px) {
+
+    @media (width <= 768px) {
       @content;
     }
   } @else if $breakpoint == 'lg' {
-    @media (max-width: 1024px) {
+
+    @media (width <= 1024px) {
       @content;
     }
   } @else if $breakpoint == 'xl' {
-    @media (max-width: 1280px) {
+
+    @media (width <= 1280px) {
       @content;
     }
   }

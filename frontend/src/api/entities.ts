@@ -2,7 +2,7 @@ import client from './client'
 import type { Entity, EntityRelationship, CompliancePolicy, AssessmentProgress, PaginatedResponse } from '@/types'
 
 export async function getEntities(params?: { entityType?: string; state?: string; search?: string; limit?: number; offset?: number }) {
-  const query: Record<string, any> = {}
+  const query: Record<string, string | number> = {}
   if (params?.entityType) query.entity_type = params.entityType
   if (params?.state) query.state = params.state
   if (params?.search) query.search = params.search

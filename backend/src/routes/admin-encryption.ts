@@ -9,7 +9,8 @@ import { Router } from 'express';
 import type { Response } from 'express';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
+import type { AuthRequest } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import {
   encryptionService,
   rotateKeyVersion,

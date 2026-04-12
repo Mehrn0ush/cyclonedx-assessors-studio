@@ -229,11 +229,6 @@ table:not(.el-table__body):not(.el-table__header):not(.el-table__footer) {
   color: white;
 }
 
-::-moz-selection {
-  background-color: var(--cat-bg-active);
-  color: white;
-}
-
 // Focus styles
 :focus-visible {
   outline: 2px solid var(--cat-brand-secondary);

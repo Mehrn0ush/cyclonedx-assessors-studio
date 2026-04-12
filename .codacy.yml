@@ -30,6 +30,38 @@ engines:
       - Biome_lint_correctness_noUnusedVariables
       - Biome_lint_correctness_noUnusedImports
 
+  lizard:
+    enabled: true
+    disable_rules:
+      # Express route handlers are inherently long due to request validation,
+      # DB queries, response formatting, and error handling in a single function.
+      # Splitting these into smaller functions would reduce readability without
+      # meaningful complexity reduction. The nloc and ccn thresholds (50 lines
+      # and 8 complexity) are too aggressive for a CRUD API backend.
+      - Lizard_nloc-medium
+      - Lizard_ccn-medium
+      # File-level line count limits are not meaningful for route files that
+      # define multiple endpoints, migration files, and type definition files.
+      - Lizard_file-nloc-medium
+
+  stylelint:
+    enabled: true
+    disable_rules:
+      # Element Plus override selectors use the library's own class naming
+      # conventions (BEM with double underscores, camelCase). These cannot be
+      # changed to kebab-case without breaking the style overrides.
+      - Stylelint_selector-class-pattern
+      # This rule is misconfigured (Codacy reports "Unknown rule"). The correct
+      # Stylelint rule name is function-disallowed-list, not scss_function-disallowed-list.
+      - Stylelint_scss_function-disallowed-list
+
+  semgrep:
+    enabled: true
+    disable_rules:
+      # False positive: seed.ts declares `let password = ''` as an accumulator
+      # for interactive terminal password input, not a hardcoded credential.
+      - codacy.javascript.security.hard-coded-password
+
   securitypatterns:
     enabled: true
     exclude_paths:

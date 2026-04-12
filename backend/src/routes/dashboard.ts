@@ -349,7 +349,7 @@ router.get('/risk-insights', requireAuth, asyncHandler(async (req: AuthRequest, 
     .execute();
 
   for (const a of overdueAssessments) {
-    const daysOverdue = Math.ceil((Date.now() - new Date(a.due_date as any).getTime()) / (1000 * 60 * 60 * 24));
+    const daysOverdue = Math.ceil((Date.now() - new Date(String(a.due_date)).getTime()) / (1000 * 60 * 60 * 24));
     insights.push({
       type: 'overdue',
       severity: daysOverdue > 30 ? 'critical' : 'high',
