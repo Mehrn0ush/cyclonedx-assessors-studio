@@ -19,8 +19,10 @@ function redactSensitiveData(obj: unknown): unknown {
 
   for (const key in result) {
     if (SENSITIVE_FIELDS.some(field => key.toLowerCase().includes(field))) {
+      // eslint-disable-next-line security/detect-object-injection
       result[key] = '[REDACTED]';
     } else if (typeof result[key] === 'object' && result[key] !== null) {
+      // eslint-disable-next-line security/detect-object-injection
       result[key] = redactSensitiveData(result[key]);
     }
   }

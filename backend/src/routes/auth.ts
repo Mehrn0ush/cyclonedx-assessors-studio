@@ -491,7 +491,7 @@ const updateUserProfileSchema = z.object({
   emailNotifications: z.boolean().optional(),
 });
 
-router.patch('/me', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+router.patch('/me', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
       res.status(401).json({ error: 'Authentication required' });
@@ -558,6 +558,6 @@ router.patch('/me', requireAuth, async (req: AuthRequest, res: Response): Promis
     });
     res.status(500).json({ error: 'Internal server error' });
   }
-});
+}));
 
 export default router;

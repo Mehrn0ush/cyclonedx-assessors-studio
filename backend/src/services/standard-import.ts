@@ -189,7 +189,7 @@ export async function importStandard(
   }
 
   // --- Levels ---
-  const levels = standard.levels || [];
+  const levels = standard.levels ?? [];
   let levelCount = 0;
 
   for (const lvl of levels) {

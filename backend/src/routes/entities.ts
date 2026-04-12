@@ -1103,7 +1103,7 @@ router.delete(
 );
 
 // GET /:id/progress - Get progress tracking data
-router.get('/:id/progress', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/:id/progress', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
 
@@ -1160,6 +1160,6 @@ router.get('/:id/progress', requireAuth, async (req: AuthRequest, res: Response)
     logger.error('Get entity progress error', { error, requestId: req.requestId });
     res.status(500).json({ error: 'Internal server error' });
   }
-});
+}));
 
 export default router;

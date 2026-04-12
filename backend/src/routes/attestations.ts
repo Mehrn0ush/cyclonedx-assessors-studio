@@ -315,8 +315,8 @@ router.post(
           .set(toSnakeCase({
             conformanceScore: data.conformanceScore,
             conformanceRationale: data.conformanceRationale,
-            confidenceScore: data.confidenceScore || null,
-            confidenceRationale: data.confidenceRationale || null,
+            confidenceScore: data.confidenceScore ?? null,
+            confidenceRationale: data.confidenceRationale ?? null,
           }))
           .where('attestation_id', '=', req.params.id)
           .where('requirement_id', '=', data.requirementId)

@@ -199,8 +199,9 @@ export function getWidgetDefinition(type: string): WidgetDefinition | undefined 
 export function getWidgetsByCategory(): Record<string, WidgetDefinition[]> {
   const categories: Record<string, WidgetDefinition[]> = {}
   for (const widget of registry) {
-    if (!categories[widget.category]) categories[widget.category] = []
-    categories[widget.category].push(widget)
+    const category = widget.category
+    if (!(category in categories)) categories[category] = []
+    categories[category].push(widget)
   }
   return categories
 }

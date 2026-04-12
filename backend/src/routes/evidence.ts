@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import busboy from 'busboy';
 import crypto from 'node:crypto';
+import type { Kysely } from 'kysely';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requirePermission, getPermissionsForRole } from '../middleware/auth.js';
@@ -20,6 +21,7 @@ import {
   resolveProvider,
 } from '../storage/index.js';
 import type { StorageProviderName } from '../storage/types.js';
+import type { Database } from '../db/types.js';
 
 const router = Router();
 
@@ -49,7 +51,7 @@ async function isAssessmentParticipant(db: any, userId: string, userRole: string
 /**
  * Fetch evidence by ID with validation
  */
-async function fetchEvidence(db: any, evidenceId: string): Promise<any> {
+async function fetchEvidence(db: Kysely<Database>, evidenceId: string): Promise<Record<string, unknown> | undefined> {
   return db
     .selectFrom('evidence')
     .where('id', '=', evidenceId)
@@ -208,11 +210,11 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
     const total = await countWithFilters.executeTakeFirstOrThrow().then(r => r.count);
     const evidence = await query.limit(limit).offset(offset).execute();
 
-    const evidenceIds = evidence.map((e: any) => e.id);
+    const evidenceIds = evidence.map((e: Record<string, unknown>) => e.id as string);
     const tagsByEvidence = await fetchTagsForEntities(db, 'evidence_tag', 'evidence_id', evidenceIds);
-    const evidenceWithTags = evidence.map((e: any) => ({
+    const evidenceWithTags = evidence.map((e: Record<string, unknown>) => ({
       ...e,
-      tags: tagsByEvidence[e.id] || [],
+      tags: tagsByEvidence[e.id as string] || [],
     }));
 
     res.json({
@@ -236,8 +238,8 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 
     const evidence = await db
       .selectFrom('evidence')
-      .leftJoin('app_user as author', (join) => join.onRef('author.id' as any, '=', 'evidence.author_id' as any))
-      .leftJoin('app_user as reviewer', (join) => join.onRef('reviewer.id' as any, '=', 'evidence.reviewer_id' as any))
+      .leftJoin('app_user as author', (join) => join.onRef('author.id', '=', 'evidence.author_id'))
+      .leftJoin('app_user as reviewer', (join) => join.onRef('reviewer.id', '=', 'evidence.reviewer_id'))
       .where('evidence.id', '=', req.params.id as string)
       .select([
         'evidence.id',
@@ -269,15 +271,15 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
         'app_user',
         (join) =>
           join.onRef(
-            'app_user.id' as any,
+            'app_user.id',
             '=',
-            'evidence_note.user_id' as any
+            'evidence_note.user_id'
           )
       )
       .where('evidence_note.evidence_id', '=', req.params.id as string)
       .selectAll()
       .orderBy('evidence_note.created_at', 'desc')
-      .execute()) as any[];
+      .execute()) as unknown[];
 
     const attachmentsQuery = db
       .selectFrom('evidence_attachment')
@@ -751,10 +753,16 @@ router.post(
         return;
       }
 
+      if (!evidence) {
+        res.status(404).json({ error: 'Evidence not found' });
+        return;
+      }
+
+      const authorId = (evidence as Record<string, unknown>).author_id as string;
       const validation = await validateEvidenceSubmission(
         evidence,
         data.reviewerId,
-        evidence?.author_id,
+        authorId,
         req.user.id,
       );
       if (!validation.valid) {
@@ -791,19 +799,21 @@ router.post(
         changes: toSnakeCase({ state: 'in_review', reviewerId: data.reviewerId }),
       });
 
-      req.eventBus?.emit(
-        EVIDENCE_STATE_CHANGED,
-        {
-          evidenceId: req.params.id as string,
-          evidenceName: evidence.name,
-          previousState: 'in_progress',
-          newState: 'in_review',
-          reviewerId: data.reviewerId,
-          authorId: evidence.author_id,
-          assessmentId: null,
-        },
-        { userId: req.user.id, displayName: req.user.displayName },
-      );
+      if (evidence) {
+        req.eventBus?.emit(
+          EVIDENCE_STATE_CHANGED,
+          {
+            evidenceId: req.params.id as string,
+            evidenceName: (evidence as Record<string, unknown>).name as string,
+            previousState: 'in_progress',
+            newState: 'in_review',
+            reviewerId: data.reviewerId,
+            authorId: (evidence as Record<string, unknown>).author_id as string,
+            assessmentId: null,
+          },
+          { userId: req.user.id, displayName: req.user.displayName },
+        );
+      }
 
       logger.info('Evidence submitted for review', {
         evidenceId: req.params.id as string,
@@ -865,19 +875,21 @@ router.post(
       changes: { state: 'claimed' },
     });
 
-    req.eventBus?.emit(
-      EVIDENCE_STATE_CHANGED,
-      {
-        evidenceId: req.params.id as string,
-        evidenceName: evidence.name,
-        previousState: 'in_review',
-        newState: 'claimed',
-        authorId: evidence.author_id,
-        reviewerId: evidence.reviewer_id,
-        assessmentId: null,
-      },
-      { userId: req.user.id, displayName: req.user.displayName },
-    );
+    if (evidence) {
+      req.eventBus?.emit(
+        EVIDENCE_STATE_CHANGED,
+        {
+          evidenceId: req.params.id as string,
+          evidenceName: (evidence as Record<string, unknown>).name as string,
+          previousState: 'in_review',
+          newState: 'claimed',
+          authorId: (evidence as Record<string, unknown>).author_id as string,
+          reviewerId: (evidence as Record<string, unknown>).reviewer_id as string | undefined,
+          assessmentId: null,
+        },
+        { userId: req.user.id, displayName: req.user.displayName },
+      );
+    }
 
     logger.info('Evidence approved', {
       evidenceId: req.params.id as string,
@@ -1299,6 +1311,7 @@ router.get(
           const data = Buffer.isBuffer(attachment.binary_content)
             ? attachment.binary_content
             : Buffer.from(attachment.binary_content as any, 'base64');
+          // eslint-disable-next-line security/direct-response-write
           res.send(data);
         } else {
           res.status(404).json({ error: 'File content not found in database' });
@@ -1308,6 +1321,7 @@ router.get(
         const provider = resolveProvider(recordProvider);
         const storageKey = attachment.storage_path || `evidence/${attachment.evidence_id}/${attachment.id}-${attachment.filename}`;
         const result = await provider.get(storageKey);
+        // eslint-disable-next-line security/direct-response-write
         res.send(result.data);
       }
 

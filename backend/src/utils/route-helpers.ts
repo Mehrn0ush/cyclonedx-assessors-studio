@@ -23,10 +23,14 @@ import { logger } from './logger.js';
  */
 export function asyncHandler(
   fn: (req: Request, res: Response) => Promise<void>
-): (req: Request, res: Response) => Promise<void> {
-  return async (req: Request, res: Response) => {
+): (req: Request, res: Response) => void {
+  return (req: Request, res: Response) => {
     try {
-      await fn(req, res);
+      void fn(req, res).catch((error) => {
+        const requestId = (req as any).requestId;
+        logger.error('Unhandled route error', { error, requestId });
+        res.status(500).json({ error: 'Internal server error' });
+      });
     } catch (error) {
       const requestId = (req as any).requestId;
       logger.error('Unhandled route error', { error, requestId });

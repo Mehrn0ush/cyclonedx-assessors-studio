@@ -40,7 +40,7 @@ npm test
 
 Tests run in watch mode by default with Vitest. Files are automatically re-tested when changed.
 
-### Run Tests with UI
+### Run Tests with Interactive UI
 
 View test results in an interactive browser UI:
 
@@ -63,12 +63,15 @@ Coverage reports are generated in HTML format in the `coverage/` directory.
 ### Utility Tests
 
 #### `dateFormat.test.ts`
+
 Tests date/time formatting functions:
+
 - `formatDate()` - Format ISO dates to locale-specific date strings
 - `formatDateTime()` - Format ISO dates with time information
 - `formatTimestamp()` - Format ISO dates with seconds precision
 
 Coverage includes:
+
 - Valid date inputs (various formats)
 - Null/undefined handling
 - Invalid date handling
@@ -76,11 +79,14 @@ Coverage includes:
 - Edge cases
 
 #### `caseTransform.test.ts`
+
 Tests case transformation utilities:
+
 - `snakeToCamel()` - Convert snake_case to camelCase
 - `keysToCamel()` - Recursively convert object keys from snake_case to camelCase
 
 Coverage includes:
+
 - Simple and nested transformations
 - Arrays and deeply nested structures
 - Primitive values and Date objects
@@ -90,7 +96,9 @@ Coverage includes:
 ### Store Tests
 
 #### `auth.test.ts`
+
 Tests the authentication Pinia store (useAuthStore):
+
 - Initial state verification
 - Login action with success and error handling
 - Logout action
@@ -100,7 +108,9 @@ Tests the authentication Pinia store (useAuthStore):
 - Computed properties (isAuthenticated)
 
 #### `ui.test.ts`
+
 Tests the UI Pinia store (useUIStore):
+
 - Initial state
 - Theme toggling (dark/light)
 - Theme persistence via cookies
@@ -113,7 +123,9 @@ Tests the UI Pinia store (useUIStore):
 ### Component Tests
 
 #### `StateBadge.test.ts`
+
 Tests the StateBadge component for state visualization:
+
 - Renders correct text labels for different states
 - Applies correct CSS color classes
 - Supports multiple state types (evidence, assessment, project, standard)
@@ -122,13 +134,16 @@ Tests the StateBadge component for state visualization:
 - Accessibility (aria-label, role="status")
 
 States tested:
+
 - Evidence states: draft, submitted, reviewed, approved, archived
 - Assessment states: pending, in_progress, in_review, on_hold, cancelled
 - Project states: new, complete, operational, retired
 - Standard states: published, active, inactive, deprecated
 
 #### `RowActions.test.ts`
+
 Tests the RowActions component for row-level actions:
+
 - Shows/hides buttons based on props (showEdit, showDelete, showView, showExport)
 - Emits correct events on button click (edit, delete, view, export)
 - Default props enable edit and delete buttons
@@ -137,7 +152,9 @@ Tests the RowActions component for row-level actions:
 - Passes tooltip content to IconButton
 
 #### `StatCard.test.ts`
+
 Tests the StatCard component for statistics display:
+
 - Renders title, value, and icon correctly
 - Displays optional change percentage with direction indicator
 - Applies custom accent colors to icons
@@ -149,6 +166,7 @@ Tests the StatCard component for statistics display:
 ## Writing New Tests
 
 ### Test File Naming
+
 - Suffix files with `.test.ts` or `.spec.ts`
 - Keep filenames matching the source file name
 - Example: `MyComponent.vue` → `MyComponent.test.ts`
@@ -278,6 +296,7 @@ Then open Chrome DevTools at `chrome://inspect`.
 ## Coverage Goals
 
 Current test coverage includes:
+
 - **Utilities**: 100% coverage
 - **Stores**: 100% coverage
 - **Components**: Core components (StateBadge, RowActions, StatCard)
@@ -287,13 +306,17 @@ Aim to maintain >80% coverage across the frontend codebase as new features are a
 ## Common Issues
 
 ### Module not found errors
+
 Make sure path aliases (@/) are configured in vitest.config.ts
 
 ### Component not rendering
+
 Check that all required global components are provided in the test setup
 
 ### Async test timeouts
+
 Use `async/await` and ensure promises resolve properly
 
 ### Mock not working
+
 Clear mocks between tests with `vi.clearAllMocks()` in afterEach hooks

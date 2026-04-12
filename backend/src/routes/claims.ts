@@ -293,14 +293,14 @@ router.put(
       }
 
       // Authorization: user must be a participant in the current assessment
-      const allowed = await isAttestationParticipant(db, req.user!.id, req.user!.role, (claim as any).attestation_id);
+      const allowed = await isAttestationParticipant(db, req.user!.id, req.user!.role, (claim as Record<string, unknown>).attestation_id as string);
       if (!allowed) {
         res.status(403).json({ error: 'You are not a participant in this assessment' });
         return;
       }
 
       // If changing attestation, validate the new one exists and check its read-only status
-      if (data.attestationId !== undefined && data.attestationId !== (claim as any).attestation_id) {
+      if (data.attestationId !== undefined && data.attestationId !== (claim as Record<string, unknown>).attestation_id) {
         if (data.attestationId) {
           const newAttestation = await db
             .selectFrom('attestation')

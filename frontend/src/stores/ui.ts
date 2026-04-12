@@ -18,7 +18,7 @@ function setCookie(name: string, value: string, days = 365): void {
 
 export const useUIStore = defineStore('ui', () => {
   const sidebarCollapsed = ref<boolean>(getCookie('ui_sidebar') === 'true')
-  const theme = ref<Theme>((getCookie('ui_theme') as Theme) || 'dark')
+  const theme = ref<Theme>((getCookie('ui_theme') || 'dark') as Theme)
   const locale = ref<string>(getCookie('ui_locale') || 'en-US')
   const mobileSidebarOpen = ref<boolean>(false)
   const isMobile = ref<boolean>(false)

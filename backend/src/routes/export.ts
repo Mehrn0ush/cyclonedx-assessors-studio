@@ -219,10 +219,10 @@ async function buildAssessmentBOM(assessmentId: string): Promise<CycloneDXBOM> {
       .execute();
   }
 
-  const evidenceDeclaration: CycloneDXEvidence[] = evidenceRecords.map((e: any) => ({
-    'bom-ref': `evidence-${e.id}`,
-    name: e.name,
-    description: e.description ?? undefined,
+  const evidenceDeclaration: CycloneDXEvidence[] = evidenceRecords.map((e: Record<string, unknown>) => ({
+    'bom-ref': `evidence-${String(e.id)}`,
+    name: String(e.name),
+    description: e.description ? String(e.description) : undefined,
   }));
 
   // Fetch project and its standards

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Response } from 'express';
 import { getDatabase } from '../db/connection.js';
-import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
+import { asyncHandler } from '../utils/route-helpers.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth } from '../middleware/auth.js';
 import { validatePagination } from '../utils/pagination.js';
@@ -24,7 +24,7 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
   const total = await db
     .selectFrom('notification')
     .select(db.fn.count<number>('id').as('count'))
-    .where('user_id', '=', req.user!.id)
+    .where('user_id', '=', req.user?.id ?? '')
     .executeTakeFirstOrThrow()
     .then(r => r.count);
 

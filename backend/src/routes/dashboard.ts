@@ -526,7 +526,7 @@ router.get('/configs', requireAuth, asyncHandler(async (req: AuthRequest, res: R
 
   const dashboards = await db
     .selectFrom('dashboard')
-    .where((eb: any) =>
+    .where((eb) =>
       eb.or([
         eb('owner_id', '=', userId),
         eb('is_shared', '=', true),

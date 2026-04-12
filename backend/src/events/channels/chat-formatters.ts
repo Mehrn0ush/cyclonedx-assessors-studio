@@ -124,13 +124,13 @@ export function buildActionUrl(appUrl: string, envelope: EventEnvelope): string 
   const baseUrl = appUrl.replace(/\/$/, '');
   const data = envelope.data;
 
-  if (data.evidenceId) return `${baseUrl}/evidence/${data.evidenceId}`;
-  if (data.assessmentId) return `${baseUrl}/assessments/${data.assessmentId}`;
-  if (data.attestationId) return `${baseUrl}/attestations/${data.attestationId}`;
-  if (data.claimId) return `${baseUrl}/claims/${data.claimId}`;
-  if (data.projectId) return `${baseUrl}/projects/${data.projectId}`;
-  if (data.standardId) return `${baseUrl}/standards/${data.standardId}`;
-  if (data.entityId) return `${baseUrl}/entities/${data.entityId}`;
+  if (data.evidenceId) return `${baseUrl}/evidence/${String(data.evidenceId)}`;
+  if (data.assessmentId) return `${baseUrl}/assessments/${String(data.assessmentId)}`;
+  if (data.attestationId) return `${baseUrl}/attestations/${String(data.attestationId)}`;
+  if (data.claimId) return `${baseUrl}/claims/${String(data.claimId)}`;
+  if (data.projectId) return `${baseUrl}/projects/${String(data.projectId)}`;
+  if (data.standardId) return `${baseUrl}/standards/${String(data.standardId)}`;
+  if (data.entityId) return `${baseUrl}/entities/${String(data.entityId)}`;
 
   return null;
 }
@@ -292,6 +292,7 @@ export function formatTeamsMessage(envelope: EventEnvelope, appUrl: string): Rec
 
 export function formatMattermostMessage(envelope: EventEnvelope, appUrl: string): Record<string, unknown> {
   const nature = getEventNature(envelope.type);
+  // eslint-disable-next-line security/detect-object-injection
   const color = MATTERMOST_COLORS[nature];
   const summary = getSummary(envelope.type, envelope.data);
   const actionUrl = buildActionUrl(appUrl, envelope);

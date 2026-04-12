@@ -758,7 +758,7 @@ router.post(
 
     logger.info('Standard retired', {
       standardId: req.params.id as string,
-      retiredBy: req.user!.id,
+      retiredBy: req.user?.id ?? '',
       requestId: req.requestId,
     });
 

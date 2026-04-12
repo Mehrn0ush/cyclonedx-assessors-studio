@@ -108,6 +108,7 @@ export function setupHttpTests() {
     for (const role of ['admin', 'assessor', 'assessee'] as const) {
       const userId = uuidv4();
       const username = `test_${role}`;
+      // Test password for integration tests - never used in production
       const password = `Password123!`;
       const passwordHash = await hashPassword(password);
 
@@ -117,7 +118,7 @@ export function setupHttpTests() {
         email: `${username}@test.local`,
         password_hash: passwordHash,
         display_name: `Test ${role.charAt(0).toUpperCase() + role.slice(1)}`,
-        role: role as any,
+        role: role as 'admin' | 'assessor' | 'assessee' | 'standards_manager' | 'standards_approver',
         is_active: true,
       }).execute();
 

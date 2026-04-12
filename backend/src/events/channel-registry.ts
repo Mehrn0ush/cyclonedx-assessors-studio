@@ -11,7 +11,7 @@ import type { EventBus } from './event-bus.js';
 import type { EventEnvelope } from './types.js';
 
 export class ChannelRegistry {
-  private channels: Map<string, NotificationChannel> = new Map();
+  private channels = new Map<string, NotificationChannel>();
 
   /**
    * Register a notification channel. Throws if a channel with the

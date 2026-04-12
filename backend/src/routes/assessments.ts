@@ -1032,11 +1032,11 @@ router.get(
       }
       const uniqueEvidence = Array.from(evidenceMap.values());
 
-      const evidenceIds = uniqueEvidence.map((e: any) => e.id);
+      const evidenceIds = uniqueEvidence.map((e: Record<string, unknown>) => (e.id as string));
       const tagsByEvidence = await fetchTagsForEntities(db, 'evidence_tag', 'evidence_id', evidenceIds);
-      const evidenceWithTags = uniqueEvidence.map((e: any) => ({
+      const evidenceWithTags = uniqueEvidence.map((e: Record<string, unknown>) => ({
         ...e,
-        tags: tagsByEvidence[e.id] || [],
+        tags: tagsByEvidence[e.id as string] || [],
       }));
 
       res.json({
@@ -1402,7 +1402,7 @@ router.delete(
   '/:id',
   requireAuth,
   requirePermission('assessments.manage'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const db = getDatabase();
       const assessment = await db
@@ -1457,7 +1457,7 @@ router.delete(
       logger.error('Delete assessment error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 export default router;

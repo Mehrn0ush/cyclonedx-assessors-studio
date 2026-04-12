@@ -85,16 +85,16 @@ function buildLink(envelope: EventEnvelope): string | null {
   const { type, data } = envelope;
 
   if (type.startsWith('evidence.') && data.evidenceId) {
-    return `/evidence/${data.evidenceId}`;
+    return `/evidence/${String(data.evidenceId)}`;
   }
   if (type.startsWith('assessment.') && data.assessmentId) {
-    return `/assessments/${data.assessmentId}`;
+    return `/assessments/${String(data.assessmentId)}`;
   }
   if (type.startsWith('attestation.') && data.attestationId) {
-    return `/attestations/${data.attestationId}`;
+    return `/attestations/${String(data.attestationId)}`;
   }
   if (type.startsWith('project.') && data.projectId) {
-    return `/projects/${data.projectId}`;
+    return `/projects/${String(data.projectId)}`;
   }
   return null;
 }

@@ -9,16 +9,16 @@ export function snakeToCamel(str: string): string {
  * Recursively transforms all keys in an object (or array of objects)
  * from snake_case to camelCase.
  */
-export function keysToCamel<T = any>(obj: any): T {
+export function keysToCamel<T = unknown>(obj: unknown): T {
   if (Array.isArray(obj)) {
     return obj.map(item => keysToCamel(item)) as T
   }
   if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
-    const result: Record<string, any> = {}
+    const result: Record<string, unknown> = {}
     for (const key of Object.keys(obj)) {
-      result[snakeToCamel(key)] = keysToCamel(obj[key])
+      result[snakeToCamel(key)] = keysToCamel((obj as Record<string, unknown>)[key])
     }
     return result as T
   }
-  return obj
+  return obj as T
 }

@@ -134,7 +134,7 @@ router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Respo
   res.json({
     project,
     standards,
-    tags: tagsByProject[req.params.id as string] || [],
+    tags: tagsByProject[req.params.id as string] ?? [],
   });
 }));
 

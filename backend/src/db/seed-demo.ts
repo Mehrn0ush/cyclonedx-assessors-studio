@@ -226,9 +226,13 @@ async function seedAssessments(db: any, data: DemoData, resolveId: (val: string)
   logger.info(`Seeded ${data.assessments.length} assessments`);
 
   for (const aa of data.assessment_assessors) {
+    const resolved = resolveId(aa.user_id);
+    if (!resolved) {
+      throw new Error(`Failed to resolve user_id: ${aa.user_id}`);
+    }
     await db.insertInto('assessment_assessor').values({
       assessment_id: aa.assessment_id,
-      user_id: resolveId(aa.user_id)!,
+      user_id: resolved,
       created_at: new Date(),
     }).execute();
   }
@@ -726,7 +730,7 @@ interface DemoData {
   assessment_assessees: any[];
   assessment_tags: any[];
   evidence: any[];
-  evidence_tags: any[];
+  evidence_tags: Array<Record<string, any>>;
   evidence_notes: any[];
   evidence_attachments: any[];
   claims: any[];
@@ -737,10 +741,10 @@ interface DemoData {
   audit_logs: any[];
   dashboards: any[];
   ssdf_assessment_data?: {
-    assessment_requirements: any[];
-    attestation: any;
-    attestation_requirements: any[];
-    attestation_requirement_mitigations: any[];
+    assessment_requirements: Array<Record<string, any>>;
+    attestation: Record<string, any>;
+    attestation_requirements: Array<Record<string, any>>;
+    attestation_requirement_mitigations: Array<Record<string, any>>;
   };
 }
 

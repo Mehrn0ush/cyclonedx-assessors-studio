@@ -33,7 +33,7 @@ const CLEANUP_INTERVAL_MS = 3_600_000; // 1 hour
 
 export abstract class BaseChatChannel implements NotificationChannel {
   abstract platform: string;
-  abstract formatMessage(envelope: EventEnvelope, appUrl: string): Record<string, unknown>;
+  abstract formatMessage(_envelope: EventEnvelope, appUrl: string): Record<string, unknown>;
 
   name: string;
   private getDb: () => Kysely<Database>;
@@ -54,12 +54,12 @@ export abstract class BaseChatChannel implements NotificationChannel {
     this.emitEvent = emitFn;
   }
 
-  async initialize(): Promise<void> {
+  initialize(): Promise<void> {
     // Use the platform as the channel name for registry uniqueness
     this.name = this.platform;
 
     this.retryTimer = setInterval(() => {
-      this.processRetries().catch((err) => {
+      void this.processRetries().catch((err) => {
         logger.error(`Chat channel (${this.platform}) retry processing error`, {
           error: err instanceof Error ? err.message : String(err),
         });
@@ -67,7 +67,7 @@ export abstract class BaseChatChannel implements NotificationChannel {
     }, RETRY_POLL_INTERVAL_MS);
 
     this.cleanupTimer = setInterval(() => {
-      this.cleanupDeliveries().catch((err) => {
+      void this.cleanupDeliveries().catch((err) => {
         logger.error(`Chat channel (${this.platform}) cleanup error`, {
           error: err instanceof Error ? err.message : String(err),
         });
@@ -75,6 +75,7 @@ export abstract class BaseChatChannel implements NotificationChannel {
     }, CLEANUP_INTERVAL_MS);
 
     logger.info(`Chat channel (${this.platform}) initialized`);
+    return Promise.resolve();
   }
 
   /**
@@ -351,7 +352,7 @@ export abstract class BaseChatChannel implements NotificationChannel {
 
     // Increment consecutive failures
     const newFailureCount = integration.consecutive_failures + 1;
-    const updates: Record<string, any> = {
+    const updates: Record<string, unknown> = {
       consecutive_failures: newFailureCount,
       updated_at: new Date(),
     };

@@ -16,6 +16,7 @@ let testDbDir: string | null = null;
 export async function setupTestDb() {
   process.env.NODE_ENV = 'test';
   process.env.DATABASE_PROVIDER = 'pglite';
+  // Test JWT secret for test environment only
   process.env.JWT_SECRET = 'test-secret-key-for-testing-32-chars-min';
 
   testDbDir = path.join(__dirname, '../../../..', `data/pglite-test-${uuidv4().slice(0, 8)}`);
@@ -522,12 +523,17 @@ CREATE TABLE IF NOT EXISTS encryption_key_version (
   for (const statement of statements) {
     if (statement.trim()) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // Kysely's executeQuery needs 'any' for non-compiled queries, not 'unknown'
         await db.executeQuery({
           sql: statement + ';',
           parameters: [],
         } as any);
-      } catch (error: any) {
-        if (error?.message?.includes('already exists')) {
+      } catch (error: unknown) {
+        if (
+          error instanceof Error &&
+          error.message?.includes('already exists')
+        ) {
           continue;
         }
         throw error;
@@ -794,8 +800,8 @@ export async function createTestLevel(standardId: string, overrides: Partial<{
   await db.insertInto('level').values({
     id: levelId,
     identifier,
-    title: overrides.title || 'Test Level',
-    description: overrides.description || 'A test level',
+    title: overrides.title ?? 'Test Level',
+    description: overrides.description ?? 'A test level',
     standard_id: standardId,
   }).execute();
 
@@ -856,8 +862,8 @@ export async function createTestTag(overrides: Partial<{
 }> = {}) {
   const db = getTestDatabase();
   const tagId = uuidv4();
-  const name = overrides.name || `tag-${uuidv4().slice(0, 8)}`.toLowerCase();
-  const color = overrides.color || '#6366f1';
+  const name = overrides.name ?? `tag-${uuidv4().slice(0, 8)}`.toLowerCase();
+  const color = overrides.color ?? '#6366f1';
 
   await db.insertInto('tag').values({
     id: tagId,

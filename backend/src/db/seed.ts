@@ -132,6 +132,7 @@ export async function seedDefaultAdmin(): Promise<void> {
     username = process.env.ADMIN_USERNAME || '';
     email = process.env.ADMIN_EMAIL || '';
     displayName = process.env.ADMIN_DISPLAY_NAME || username;
+    // eslint-disable-next-line security/no-hardcoded-password
     password = process.env.ADMIN_PASSWORD || '';
 
     if (!username || !email || !password) {

@@ -486,7 +486,7 @@ export interface Dashboard {
   owner_id: string;
   is_default: Generated<boolean>;
   is_shared: Generated<boolean>;
-  layout: any; // JSONB: array of widget layout items
+  layout: Record<string, unknown>; // JSONB: array of widget layout items
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

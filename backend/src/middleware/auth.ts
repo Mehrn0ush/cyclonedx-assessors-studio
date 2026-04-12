@@ -129,7 +129,8 @@ export async function tryAuthenticate(
   req: AuthRequest
 ): Promise<AuthRequest['user'] | null> {
   try {
-    return await authenticateApiKey(req) ?? await authenticateCookie(req);
+    const apiKeyAuth = await authenticateApiKey(req);
+    return apiKeyAuth ?? await authenticateCookie(req);
   } catch {
     return null;
   }

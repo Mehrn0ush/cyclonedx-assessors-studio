@@ -29,20 +29,24 @@ const PACKAGE_FILES = [
 const version = process.argv[2]
 
 if (!version) {
+  // eslint-disable-next-line no-console
   console.error('Usage: node scripts/bump-version.mjs <version>')
   process.exit(1)
 }
 
+// eslint-disable-next-line security/detect-unsafe-regex
 if (!/^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/.test(version)) {
   console.error(`Invalid semver: ${version}`)
   process.exit(1)
 }
 
 for (const relPath of PACKAGE_FILES) {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
   const filePath = resolve(root, relPath)
   const pkg = JSON.parse(readFileSync(filePath, 'utf-8'))
   const previous = pkg.version
   pkg.version = version
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
   writeFileSync(filePath, JSON.stringify(pkg, null, 2) + '\n')
   console.log(`${relPath}: ${previous} -> ${version}`)
 }

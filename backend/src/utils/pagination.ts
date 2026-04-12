@@ -18,6 +18,6 @@ export type PaginationParams = z.infer<typeof paginationSchema>;
  * Validates pagination parameters from query string.
  * Returns validated limit and offset with defaults applied.
  */
-export function validatePagination(query: Record<string, any>): PaginationParams {
+export function validatePagination(query: Record<string, unknown>): PaginationParams {
   return paginationSchema.parse(query);
 }

@@ -157,7 +157,7 @@ router.post(
     const db = getDatabase();
     const user = await db
       .selectFrom('app_user')
-      .where('id', '=', req.user!.id)
+      .where('id', '=', req.user?.id ?? '')
       .select(['email'])
       .executeTakeFirst();
 
