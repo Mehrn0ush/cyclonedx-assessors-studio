@@ -19,8 +19,12 @@ import { FolderOpened, DocumentChecked, Odometer, Warning, Loading } from '@elem
 import client from '@/api/client'
 import StatCard from '@/components/shared/StatCard.vue'
 
+interface StatConfig {
+  statKey?: string
+}
+
 const props = withDefaults(defineProps<{
-  config?: Record<string, any>
+  config?: StatConfig
 }>(), {
   config: () => ({ statKey: 'totalProjects' }),
 })
@@ -35,7 +39,15 @@ const stats = ref({
   assessmentsOverdue: 0,
 })
 
-const statDefs: Record<string, { label: string; icon: any; accent: string; suffix?: string; accentFn?: (val: number) => string }> = {
+interface StatDef {
+  label: string
+  icon: unknown
+  accent: string
+  suffix?: string
+  accentFn?: (val: number) => string
+}
+
+const statDefs: Record<string, StatDef> = {
   totalProjects: { label: 'Total Projects', icon: FolderOpened, accent: 'var(--cat-chart-blue)' },
   totalAssessments: { label: 'Total Assessments', icon: DocumentChecked, accent: 'var(--cat-chart-amber)' },
   completionRate: { label: 'Completion Rate', icon: Odometer, accent: 'var(--cat-chart-green)', suffix: '%' },
@@ -50,7 +62,7 @@ const statDefs: Record<string, { label: string; icon: any; accent: string; suffi
 const def = computed(() => statDefs[statKey.value] || statDefs.totalProjects)
 const label = computed(() => def.value.label)
 const iconComponent = computed(() => def.value.icon)
-const rawValue = computed(() => (stats.value as any)[statKey.value] ?? 0)
+const rawValue = computed(() => (stats.value as Record<string, number>)[statKey.value] ?? 0)
 const displayValue = computed(() => def.value.suffix ? rawValue.value + def.value.suffix : rawValue.value)
 const accentColor = computed(() => def.value.accentFn ? def.value.accentFn(rawValue.value) : def.value.accent)
 

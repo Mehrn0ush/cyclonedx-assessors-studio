@@ -103,10 +103,26 @@ import { Loading } from '@element-plus/icons-vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import RowActions from '@/components/shared/RowActions.vue'
 
+interface Role {
+  id: string
+  name: string
+  key: string
+  description: string
+  isSystem: boolean
+  permissionCount: number
+}
+
+interface Permission {
+  id: string
+  name: string
+  key: string
+  category?: string
+}
+
 const { t } = useI18n()
 
-const roles = ref([])
-const permissions = ref<any[]>([])
+const roles = ref<Role[]>([])
+const permissions = ref<Permission[]>([])
 const loading = ref(false)
 const error = ref('')
 const showDialog = ref(false)
@@ -152,8 +168,9 @@ const fetchRoles = async () => {
     const response = await axios.get('/api/v1/roles')
     roles.value = response.data.data || []
     currentPage.value = 1
-  } catch (err: any) {
-    error.value = err.response?.data?.message || err.message || 'Failed to fetch roles'
+  } catch (err: unknown) {
+    const error_obj = err as { response?: { data?: { message?: string } }; message?: string }
+    error.value = error_obj.response?.data?.message || error_obj.message || 'Failed to fetch roles'
   } finally {
     loading.value = false
   }
@@ -189,12 +206,12 @@ const openNewRoleDialog = async () => {
   await fetchPermissions()
 }
 
-const handleEdit = async (row: any) => {
+const handleEdit = async (row: Role) => {
   loading.value = true
   try {
     const response = await axios.get(`/api/v1/roles/${row.id}`)
     const roleData = response.data.role || response.data
-    const permissionIds = (response.data.permissions || []).map((p: any) => p.id)
+    const permissionIds = (response.data.permissions || []).map((p: Permission) => p.id)
 
     form.value = {
       name: roleData.name,
@@ -208,8 +225,9 @@ const handleEdit = async (row: any) => {
     showDialog.value = true
     dialogTitle.value = t('admin.editRole')
     await fetchPermissions()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || 'Failed to fetch role details')
+  } catch (err: unknown) {
+    const error = err as { response?: { data?: { message?: string } } }
+    ElMessage.error(error.response?.data?.message || 'Failed to fetch role details')
   } finally {
     loading.value = false
   }

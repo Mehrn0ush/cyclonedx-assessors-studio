@@ -219,8 +219,8 @@ interface NotificationRule {
   channel: string
   eventTypes?: string[]
   event_types?: string[]
-  destination: string | Record<string, any>
-  filters?: string | Record<string, any>
+  destination: string | Record<string, unknown>
+  filters?: string | Record<string, unknown>
   filterProjectId?: string
   filter_project_id?: string
   filterStandardId?: string

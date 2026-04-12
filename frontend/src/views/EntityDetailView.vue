@@ -480,7 +480,7 @@ const assessmentForm = ref({
   title: '',
   standardId: '',
   description: '',
-  dueDate: null as any,
+  dueDate: null as Date | null,
 })
 
 const editPolicyForm = ref({

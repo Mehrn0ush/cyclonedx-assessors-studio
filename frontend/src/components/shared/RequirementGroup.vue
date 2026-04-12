@@ -190,11 +190,15 @@ import { ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Edit as EditIcon, Delete, ArrowRight } from '@element-plus/icons-vue'
 import IconButton from './IconButton.vue'
+import type { RequirementNode } from './RequirementTree.vue'
+
+// Alias for compatibility
+type RequirementItem = RequirementNode
 
 const { t } = useI18n()
 
 const props = defineProps<{
-  items: any[]
+  items: RequirementItem[]
   parentId: string | null
   depth: number
   editable: boolean
@@ -204,12 +208,12 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'start-edit', row: any, field: string): void
-  (e: 'save-edit', row: any): void
+  (e: 'start-edit', row: RequirementItem, field: string): void
+  (e: 'save-edit', row: RequirementItem): void
   (e: 'cancel-edit'): void
   (e: 'update-edit-value', value: string): void
-  (e: 'delete', row: any): void
-  (e: 'edit', row: any): void
+  (e: 'delete', row: RequirementItem): void
+  (e: 'edit', row: RequirementItem): void
   (e: 'reparent', requirementId: string, newParentId: string | null): void
   (e: 'drag-start', id: string): void
   (e: 'drag-end'): void
@@ -254,7 +258,7 @@ const dropTargetId = ref<string | null>(null)
 const dropZoneTargetId = ref<string | null>(null)
 const dropRootActive = ref(false)
 
-const onDragStart = (event: DragEvent, element: any) => {
+const onDragStart = (event: DragEvent, element: RequirementItem) => {
   if (!props.editable) return
   event.dataTransfer!.effectAllowed = 'move'
   event.dataTransfer!.setData('text/plain', element.id)
@@ -268,18 +272,18 @@ const onDragEnd = () => {
   emit('drag-end')
 }
 
-const onDragOver = (event: DragEvent, element: any) => {
+const onDragOver = (event: DragEvent, element: RequirementItem) => {
   if (props.dragNodeId === element.id) return
   dropTargetId.value = element.id
 }
 
-const onDragLeave = (element: any) => {
+const onDragLeave = (element: RequirementItem) => {
   if (dropTargetId.value === element.id) {
     dropTargetId.value = null
   }
 }
 
-const onDrop = (event: DragEvent, element: any) => {
+const onDrop = (event: DragEvent, element: RequirementItem) => {
   const draggedId = event.dataTransfer?.getData('text/plain')
   dropTargetId.value = null
   if (!draggedId || draggedId === element.id) return
@@ -288,7 +292,7 @@ const onDrop = (event: DragEvent, element: any) => {
   emit('reparent', draggedId, element.id)
 }
 
-const onDropAsChild = (event: DragEvent, element: any) => {
+const onDropAsChild = (event: DragEvent, element: RequirementItem) => {
   const draggedId = event.dataTransfer?.getData('text/plain')
   dropZoneTargetId.value = null
   if (!draggedId || draggedId === element.id) return

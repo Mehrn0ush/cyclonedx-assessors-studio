@@ -415,7 +415,14 @@ const fetchAndImportStandards = async () => {
   try {
     // Fetch the standards feed
     const { data } = await axios.get('/api/v1/setup/standards-feed')
-    const items: FeedItem[] = (data.data || []).map((item: any) => ({
+    interface FeedItemData {
+      id: string
+      title: string
+      url?: string
+      metadata?: { version?: string }
+      summary: string
+    }
+    const items: FeedItem[] = (data.data || []).map((item: FeedItemData) => ({
       id: item.id,
       title: item.title,
       url: item.url || item.id,

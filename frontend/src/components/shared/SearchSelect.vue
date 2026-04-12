@@ -193,7 +193,7 @@ const handleSearch = () => {
   if (props.remote && props.remoteMethod) {
     if (debounceTimer) clearTimeout(debounceTimer)
     debounceTimer = setTimeout(() => {
-      props.remoteMethod!(searchQuery.value)
+      props.remoteMethod?.(searchQuery.value)
     }, 250)
   }
   emit('search', searchQuery.value)

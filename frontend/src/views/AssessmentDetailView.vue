@@ -859,6 +859,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowRight, Check } from '@element-plus/icons-vue'
 import axios from 'axios'
+import type { Evidence, WorkNote, AssessmentRequirement, User } from '@/types'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import HelpTip from '@/components/shared/HelpTip.vue'
 import SearchSelect from '@/components/shared/SearchSelect.vue'
@@ -903,12 +904,12 @@ const isArchived = computed(() => {
 const projectName = ref<string>('')
 const entityName = ref<string>('')
 const standardName = ref<string>('')
-const availableEvidence = ref<any[]>([])
+const availableEvidence = ref<Evidence[]>([])
 const evidenceCountByRequirement = ref<Map<string, number>>(new Map())
-const selectedRequirementForEvidencePicker = ref<any>(null)
+const selectedRequirementForEvidencePicker = ref<AssessmentRequirement | null>(null)
 const evidenceSearchQuery = ref<string>('')
-const workNotes = ref<any[]>([])
-const attestation = ref<any>(null)
+const workNotes = ref<WorkNote[]>([])
+const attestation = ref<Record<string, unknown> | null>(null)
 const attestationRequirements = ref<any[]>([])
 const activeTab = ref('requirements')
 const editingRationale = ref<string | null>(null)
@@ -976,12 +977,12 @@ const editClaimForm = ref({
 // Requirement popup state
 const showRequirementPopup = ref(false)
 const requirementPopupData = ref<any>(null)
-const requirementPopupHierarchy = ref<any[]>([])
-const requirementPopupLevels = ref<any[]>([])
-const allRequirementsForStandard = ref<any[]>([])
-const levelsForStandard = ref<any[]>([])
+const requirementPopupHierarchy = ref<Record<string, unknown>[]>([])
+const requirementPopupLevels = ref<Record<string, unknown>[]>([])
+const allRequirementsForStandard = ref<Record<string, unknown>[]>([])
+const levelsForStandard = ref<Record<string, unknown>[]>([])
 
-const assignableUsers = ref<any[]>([])
+const assignableUsers = ref<User[]>([])
 
 const editForm = ref({
   title: '',
@@ -1029,12 +1030,12 @@ const resultCounts = computed(() => ({
   remaining: requirements.value.filter(r => !r.result).length,
 }))
 
-const startEditRationale = (row: any) => {
+const startEditRationale = (row: AssessmentRequirement) => {
   editingRationale.value = row.requirementId
   rationaleEditValue.value = row.rationale || ''
 }
 
-const saveRationale = async (row: any) => {
+const saveRationale = async (row: AssessmentRequirement) => {
   const words = rationaleEditValue.value.trim().split(/\s+/).filter(w => w.length > 0)
   if (words.length < 15) {
     ElMessage.warning(t('assessments.rationaleMinLength'))
@@ -1053,14 +1054,15 @@ const saveRationale = async (row: any) => {
   }
 }
 
-const handleResultChange = async (row: any) => {
+const handleResultChange = async (row: AssessmentRequirement) => {
   try {
     const assessmentId = route.params.id as string
     await axios.put(`/api/v1/assessments/${assessmentId}/requirements/${row.requirementId}`, {
       result: row.result
     })
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || t('common.errorOccurred'))
+  } catch (err: unknown) {
+    const error = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(error.response?.data?.error || t('common.errorOccurred'))
   }
 }
 
@@ -1088,8 +1090,8 @@ const fetchAssessmentData = async () => {
     const { assessment: assessmentData, requirements: reqs, assessors: assrs, assessees: asses } = response.data
 
     assessment.value = assessmentData
-    requirements.value = (reqs || []).sort((a: any, b: any) =>
-      compareIdentifiers(a.identifier || '', b.identifier || '')
+    requirements.value = (reqs || []).sort((a: Record<string, unknown>, b: Record<string, unknown>) =>
+      compareIdentifiers((a.identifier as string) || '', (b.identifier as string) || '')
     )
     assessors.value = assrs || []
     assessees.value = asses || []

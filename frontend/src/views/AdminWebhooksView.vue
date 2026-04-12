@@ -258,7 +258,14 @@ const handleSave = async (data: { name: string; url: string; eventTypes: string[
   saving.value = true
   try {
     if (isEditing.value) {
-      const payload: any = {
+      interface WebhookPayload {
+        name: string
+        url: string
+        eventTypes: string[]
+        isActive: boolean
+        regenerateSecret?: boolean
+      }
+      const payload: WebhookPayload = {
         name: data.name,
         url: data.url,
         eventTypes: data.eventTypes,

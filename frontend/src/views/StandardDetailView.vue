@@ -410,6 +410,16 @@ import IconButton from '@/components/shared/IconButton.vue'
 import RequirementTree from '@/components/shared/RequirementTree.vue'
 import { useAuthStore } from '@/stores/auth'
 
+interface StandardRequirement {
+  id: string
+  identifier: string
+  name: string
+  description: string | null
+  parent_id?: string | null
+  open_cre?: string | null
+  children?: StandardRequirement[]
+}
+
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
@@ -418,9 +428,9 @@ const authStore = useAuthStore()
 const loading = ref(true)
 const error = ref('')
 const standard = ref<any>(null)
-const requirements = ref<any[]>([])
-const levels = ref<any[]>([])
-const projects = ref<any[]>([])
+const requirements = ref<StandardRequirement[]>([])
+const levels = ref<Record<string, unknown>[]>([])
+const projects = ref<Record<string, unknown>[]>([])
 const projectsLoading = ref(false)
 const exporting = ref(false)
 

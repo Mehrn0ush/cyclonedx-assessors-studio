@@ -269,8 +269,9 @@ const fetchProjects = async () => {
   try {
     const response = await axios.get('/api/v1/projects')
     projects.value = response.data.data || []
-  } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to load projects'
+  } catch (err: unknown) {
+    const error_obj = err as { response?: { data?: { error?: string } } }
+    error.value = error_obj.response?.data?.error || 'Failed to load projects'
   } finally {
     loading.value = false
   }

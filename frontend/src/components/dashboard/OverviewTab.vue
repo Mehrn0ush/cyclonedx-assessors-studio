@@ -299,6 +299,7 @@ import { useI18n } from 'vue-i18n'
 import { FolderOpened, DocumentChecked, Odometer, Loading, Warning, CircleCheckFilled } from '@element-plus/icons-vue'
 import { Chart, DoughnutController, ArcElement, Tooltip, Legend, BarController, BarElement, CategoryScale, LinearScale } from 'chart.js'
 import axios from 'axios'
+import type { Assessment } from '@/types'
 import StatCard from '@/components/shared/StatCard.vue'
 import StateBadge from '@/components/shared/StateBadge.vue'
 
@@ -339,26 +340,26 @@ const stats = ref({
   completionRate: 0,
 })
 
-const recentAssessments = ref<any[]>([])
-const upcomingDueDates = ref<any[]>([])
-const complianceCoverage = ref<any[]>([])
-const assessmentDistribution = ref<any[]>([])
-const evidenceHealth = ref<any[]>([])
-const evidenceExpiring = ref<any[]>([])
-const riskInsights = ref<any[]>([])
-const projectHealth = ref<any[]>([])
+const recentAssessments = ref<Assessment[]>([])
+const upcomingDueDates = ref<Record<string, unknown>[]>([])
+const complianceCoverage = ref<Record<string, unknown>[]>([])
+const assessmentDistribution = ref<Record<string, unknown>[]>([])
+const evidenceHealth = ref<Record<string, unknown>[]>([])
+const evidenceExpiring = ref<Record<string, unknown>[]>([])
+const riskInsights = ref<Record<string, unknown>[]>([])
+const projectHealth = ref<Record<string, unknown>[]>([])
 
-const conformanceRaw = ref<any[]>([])
+const conformanceRaw = ref<Record<string, unknown>[]>([])
 
 const pipelineChartHeight = computed(() => {
-  const nonZero = assessmentDistribution.value.filter((d: any) => d.count > 0)
+  const nonZero = assessmentDistribution.value.filter((d: Record<string, unknown>) => (d.count as number) > 0)
   const barCount = Math.max(nonZero.length, 1)
   // 8px bar + 20px gap per bar, plus 30px padding for axes
   return barCount * 28 + 30
 })
 
 const conformanceTotal = computed(() => {
-  return conformanceRaw.value.reduce((sum: number, item: any) => sum + item.count, 0)
+  return conformanceRaw.value.reduce((sum: number, item: Record<string, unknown>) => sum + (item.count as number), 0)
 })
 
 const conformanceData = computed(() => {
@@ -444,8 +445,8 @@ const renderConformanceChart = () => {
 
   const segmentGradients = conformanceData.value.map((d) => {
     if (!ctx) return d.color
-    const centerX = conformanceChartCanvas.value!.width / 2
-    const centerY = conformanceChartCanvas.value!.height / 2
+    const centerX = (conformanceChartCanvas.value?.width ?? 0) / 2
+    const centerY = (conformanceChartCanvas.value?.height ?? 0) / 2
     const outerRadius = Math.min(centerX, centerY)
     const grad = ctx.createRadialGradient(centerX, centerY, outerRadius * 0.35, centerX, centerY, outerRadius)
     const [inner, outer] = gradientMap[d.result] || ['#b1bac4', '#606872']
@@ -526,7 +527,7 @@ const renderPipelineChart = () => {
   }
 
   // Filter to non-zero states
-  const nonZero = assessmentDistribution.value.filter(d => d.count > 0)
+  const nonZero = assessmentDistribution.value.filter((d: Record<string, unknown>) => (d.count as number) > 0)
 
   const ctx = pipelineChartCanvas.value.getContext('2d')
   if (!ctx) return
@@ -543,9 +544,9 @@ const renderPipelineChart = () => {
   pipelineChartInstance = new Chart(pipelineChartCanvas.value, {
     type: 'bar',
     data: {
-      labels: nonZero.map(d => stateLabels[d.state] || d.state),
+      labels: nonZero.map((d: any) => stateLabels[d.state] || d.state),
       datasets: [{
-        data: nonZero.map(d => d.count),
+        data: nonZero.map((d: any) => d.count),
         backgroundColor: barGradients,
         borderRadius: 4,
         borderSkipped: false,

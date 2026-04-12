@@ -88,6 +88,8 @@ interface GraphNode extends d3.SimulationNodeDatum {
   id: string
   label: string
   isCurrent: boolean
+  __dragStartX?: number
+  __dragStartY?: number
 }
 
 interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
@@ -196,10 +198,13 @@ function computeHierarchicalLayout(
     }
 
     // Group nodes by layer
-    const maxLayer = Math.max(...comp.map(id => layer.get(id)!), 0)
+    const maxLayer = Math.max(...comp.map(id => layer.get(id) ?? 0), 0)
     const layers: string[][] = Array.from({ length: maxLayer + 1 }, () => [])
     for (const id of comp) {
-      layers[layer.get(id)!].push(id)
+      const layerIdx = layer.get(id)
+      if (layerIdx !== undefined) {
+        layers[layerIdx].push(id)
+      }
     }
 
     // Insert virtual (dummy) nodes for edges that span more than one layer.
@@ -249,13 +254,17 @@ function computeHierarchicalLayout(
         expandedChildren.set(vid, [])
         expandedParents.set(vid, [])
         // Link prev -> vid
-        expandedChildren.get(prev)!.push(vid)
-        expandedParents.get(vid)!.push(prev)
+        const prevChildren = expandedChildren.get(prev)
+        if (prevChildren) prevChildren.push(vid)
+        const vidParents = expandedParents.get(vid)
+        if (vidParents) vidParents.push(prev)
         prev = vid
       }
       // Link last virtual -> tgt
-      expandedChildren.get(prev)!.push(tgt)
-      expandedParents.get(tgt)!.push(prev)
+      const prevChildren = expandedChildren.get(prev)
+      if (prevChildren) prevChildren.push(tgt)
+      const tgtParents = expandedParents.get(tgt)
+      if (tgtParents) tgtParents.push(prev)
     }
 
     // Barycenter ordering using expanded adjacency (includes virtual nodes)
@@ -408,7 +417,8 @@ const buildGraph = () => {
     const tgtId = typeof link.target === 'string' ? link.target : (link.target as GraphNode).id
     const pairKey = [srcId, tgtId].sort().join('|')
     if (!pairMap.has(pairKey)) pairMap.set(pairKey, [])
-    pairMap.get(pairKey)!.push(link)
+    const pairLinks = pairMap.get(pairKey)
+    if (pairLinks) pairLinks.push(link)
   }
   for (const group of pairMap.values()) {
     if (group.length <= 1) continue
@@ -520,21 +530,24 @@ const buildGraph = () => {
     .attr('cursor', 'pointer')
     .call((d3.drag<SVGGElement, GraphNode>() as any)
       .clickDistance(4) // movements under 4px count as clicks, not drags
-      .on('start', (event: any, d: any) => {
-        if (!event.active) simulation!.alphaTarget(0.3).restart()
-        ;(d as any).__dragStartX = event.x
-        ;(d as any).__dragStartY = event.y
+      .on('start', (event: unknown, d: GraphNode) => {
+        const eventData = event as { active: boolean; x: number; y: number }
+        if (!eventData.active) simulation!.alphaTarget(0.3).restart()
+        d.__dragStartX = eventData.x
+        d.__dragStartY = eventData.y
         d.fx = d.x
         d.fy = d.y
       })
-      .on('drag', (event: any, d: any) => {
-        d.fx = event.x
-        d.fy = event.y
+      .on('drag', (event: unknown, d: GraphNode) => {
+        const eventData = event as { x: number; y: number }
+        d.fx = eventData.x
+        d.fy = eventData.y
       })
-      .on('end', (event: any, d: any) => {
-        if (!event.active) simulation!.alphaTarget(0)
-        const dx = event.x - ((d as any).__dragStartX ?? event.x)
-        const dy = event.y - ((d as any).__dragStartY ?? event.y)
+      .on('end', (event: unknown, d: GraphNode) => {
+        const eventData = event as { active: boolean; x: number; y: number }
+        if (!eventData.active) simulation?.alphaTarget(0)
+        const dx = eventData.x - (d.__dragStartX ?? eventData.x)
+        const dy = eventData.y - (d.__dragStartY ?? eventData.y)
         const dist = Math.sqrt(dx * dx + dy * dy)
         if (dist < 4) {
           // This was a click, not a drag: navigate to the entity
@@ -545,9 +558,9 @@ const buildGraph = () => {
           }
         } else {
           // Real drag: update ideal position so forces keep it here
-          idealPositions.set(d.id, { x: event.x, y: event.y })
-          simulation!
-            .force('x', d3.forceX<GraphNode>(n => idealPositions.get(n.id)?.x ?? width / 2).strength(0.8))
+          idealPositions.set(d.id, { x: eventData.x, y: eventData.y })
+          simulation
+            ?.force('x', d3.forceX<GraphNode>(n => idealPositions.get(n.id)?.x ?? width / 2).strength(0.8))
             .force('y', d3.forceY<GraphNode>(n => idealPositions.get(n.id)?.y ?? height / 2).strength(0.8))
           d.fx = null
           d.fy = null
