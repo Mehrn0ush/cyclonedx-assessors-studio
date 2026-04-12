@@ -564,7 +564,7 @@
     >
       <div v-if="selectedRequirementForEvidencePicker" class="evidence-picker-header">
         <p class="picker-requirement-label">{{ t('common.name') }}:</p>
-        <p class="picker-requirement-value">{{ selectedRequirementForEvidencePicker.title || selectedRequirementForEvidencePicker.name }}</p>
+        <p class="picker-requirement-value">{{ selectedRequirementForEvidencePicker.requirement?.title || selectedRequirementForEvidencePicker.requirement?.name || 'Unknown' }}</p>
         <p class="picker-helper-text">{{ t('assessments.selectEvidenceForRequirement') }}</p>
       </div>
 
@@ -599,8 +599,8 @@
               <StateBadge :state="ev.state" type="evidence" />
             </div>
             <div class="evidence-item-details">
-              <span class="detail-item">{{ t('evidence.author') }}: {{ ev.authorName || '-' }}</span>
-              <span class="detail-item">{{ t('evidence.expires') }}: {{ formatDate(ev.expiresOn) }}</span>
+              <span class="detail-item">{{ t('evidence.author') }}: {{ ev.authorName || ev.author || '-' }}</span>
+              <span class="detail-item">{{ t('evidence.expires') }}: {{ formatDate(ev.expiresOn || ev.expiresAt) }}</span>
             </div>
           </div>
           <el-checkbox
@@ -977,10 +977,10 @@ const editClaimForm = ref({
 // Requirement popup state
 const showRequirementPopup = ref(false)
 const requirementPopupData = ref<any>(null)
-const requirementPopupHierarchy = ref<Record<string, unknown>[]>([])
-const requirementPopupLevels = ref<Record<string, unknown>[]>([])
+const requirementPopupHierarchy = ref<Array<{ id: string; identifier: string; name: string; [key: string]: unknown }>>([])
+const requirementPopupLevels = ref<Array<{ id: string; identifier: string; title?: string; [key: string]: unknown }>>([])
 const allRequirementsForStandard = ref<Record<string, unknown>[]>([])
-const levelsForStandard = ref<Record<string, unknown>[]>([])
+const levelsForStandard = ref<Array<{ id: string; identifier: string; title?: string; requirementIds?: string[]; [key: string]: unknown }>>([])
 
 const assignableUsers = ref<User[]>([])
 
@@ -1295,6 +1295,9 @@ const handleSaveScores = async () => {
       confidenceScore: score.confidence_score_display / 100
     }))
 
+    if (!attestation.value?.id) {
+      throw new Error('Attestation not loaded')
+    }
     await axios.put(`/api/v1/attestations/${attestation.value.id}/scores`, { scores: payload })
     ElMessage.success(t('common.success'))
     showEditScoresDialog.value = false
@@ -1306,6 +1309,9 @@ const handleSaveScores = async () => {
 
 const handleSignAttestation = async () => {
   try {
+    if (!attestation.value?.id) {
+      throw new Error('Attestation not loaded')
+    }
     const assessmentId = route.params.id as string
     await axios.post(`/api/v1/attestations/${attestation.value.id}/sign`)
     ElMessage.success(t('assessments.attestationSigned'))
@@ -1563,14 +1569,16 @@ const filteredAvailableEvidence = computed(() => {
   const query = evidenceSearchQuery.value.toLowerCase()
   return availableEvidence.value.filter(ev =>
     ev.name.toLowerCase().includes(query) ||
-    (ev.authorName && ev.authorName.toLowerCase().includes(query))
+    ((ev.authorName || ev.author) && (ev.authorName || ev.author)!.toLowerCase().includes(query))
   )
 })
 
 const isEvidenceLinkedToRequirement = (evidenceId: string): boolean => {
   if (!selectedRequirementForEvidencePicker.value) return false
+  const reqId = selectedRequirementForEvidencePicker.value?.id
+  if (!reqId) return false
   return evidence.value.some(
-    ev => ev.id === evidenceId && (ev.requirementIds || []).includes(selectedRequirementForEvidencePicker.value.id)
+    ev => ev.id === evidenceId && (ev.requirementIds || []).includes(reqId)
   )
 }
 

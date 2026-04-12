@@ -340,26 +340,34 @@ const stats = ref({
   completionRate: 0,
 })
 
-const recentAssessments = ref<Assessment[]>([])
-const upcomingDueDates = ref<Record<string, unknown>[]>([])
-const complianceCoverage = ref<Record<string, unknown>[]>([])
-const assessmentDistribution = ref<Record<string, unknown>[]>([])
-const evidenceHealth = ref<Record<string, unknown>[]>([])
-const evidenceExpiring = ref<Record<string, unknown>[]>([])
-const riskInsights = ref<Record<string, unknown>[]>([])
-const projectHealth = ref<Record<string, unknown>[]>([])
+interface DueDateItem { id: string; title: string; projectName: string; dueDate: string; daysUntilDue: number }
+interface CoverageItem { standardId: string; standardName: string; coveragePercent: number; assessedRequirements: number; totalRequirements: number }
+interface DistributionItem { state: string; count: number; label?: string }
+interface HealthItem { state: string; count: number }
+interface ExpiringItem { id: string; name: string; expiresOn: string }
+interface RiskInsight { severity: string; type: string; title: string; detail: string }
+interface ProjectHealthItem { id: string; name: string; completionRate: number; completedAssessments: number; totalAssessments: number; overdueAssessments: number; attestationCount: number }
 
-const conformanceRaw = ref<Record<string, unknown>[]>([])
+const recentAssessments = ref<Assessment[]>([])
+const upcomingDueDates = ref<DueDateItem[]>([])
+const complianceCoverage = ref<CoverageItem[]>([])
+const assessmentDistribution = ref<DistributionItem[]>([])
+const evidenceHealth = ref<HealthItem[]>([])
+const evidenceExpiring = ref<ExpiringItem[]>([])
+const riskInsights = ref<RiskInsight[]>([])
+const projectHealth = ref<ProjectHealthItem[]>([])
+
+const conformanceRaw = ref<DistributionItem[]>([])
 
 const pipelineChartHeight = computed(() => {
-  const nonZero = assessmentDistribution.value.filter((d: Record<string, unknown>) => (d.count as number) > 0)
+  const nonZero = assessmentDistribution.value.filter((d) => d.count > 0)
   const barCount = Math.max(nonZero.length, 1)
   // 8px bar + 20px gap per bar, plus 30px padding for axes
   return barCount * 28 + 30
 })
 
 const conformanceTotal = computed(() => {
-  return conformanceRaw.value.reduce((sum: number, item: Record<string, unknown>) => sum + (item.count as number), 0)
+  return conformanceRaw.value.reduce((sum: number, item) => sum + item.count, 0)
 })
 
 const conformanceData = computed(() => {
@@ -527,15 +535,15 @@ const renderPipelineChart = () => {
   }
 
   // Filter to non-zero states
-  const nonZero = assessmentDistribution.value.filter((d: Record<string, unknown>) => (d.count as number) > 0)
+  const nonZero = assessmentDistribution.value.filter((d) => d.count > 0)
 
   const ctx = pipelineChartCanvas.value.getContext('2d')
   if (!ctx) return
 
   // Build horizontal gradients for each bar
   const barGradients = nonZero.map((d) => {
-    const grad = ctx.createLinearGradient(0, 0, pipelineChartCanvas.value!.width, 0)
-    const [start, end] = stateGradients[d.state] || ['#3a6fb5', '#58a6ff']
+    const grad = ctx.createLinearGradient(0, 0, pipelineChartCanvas.value?.width ?? 0, 0)
+    const [start, end] = stateGradients[d.state as keyof typeof stateGradients] || ['#3a6fb5', '#58a6ff']
     grad.addColorStop(0, start)
     grad.addColorStop(1, end)
     return grad

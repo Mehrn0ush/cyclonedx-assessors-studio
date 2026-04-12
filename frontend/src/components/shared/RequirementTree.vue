@@ -46,9 +46,9 @@ export interface RequirementNode {
   id: string
   identifier: string
   name: string
-  parent_id: string | null
+  parent_id?: string | null
   description: string | null
-  open_cre: string | null
+  open_cre?: string | null
   children: RequirementNode[]
 }
 

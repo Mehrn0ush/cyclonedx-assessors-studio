@@ -42,6 +42,7 @@ export interface Requirement {
   id: string
   identifier: string
   name: string
+  title?: string
   description: string
   openCre: string | null
   parentId: string | null
@@ -99,12 +100,15 @@ export interface Evidence {
   state: EvidenceState
   classification: string
   author: string
+  authorName?: string
   reviewer?: string
   isCounterEvidence: boolean
   createdAt: string
   updatedAt: string
   expiresAt?: string
+  expiresOn?: string
   attachments: Attachment[]
+  requirementIds?: string[]
 }
 
 export type EvidenceState = 'draft' | 'submitted' | 'reviewed' | 'approved' | 'archived'
@@ -170,6 +174,8 @@ export interface WorkNote {
   id: string
   assessmentId: string
   author: string
+  authorDisplayName?: string
+  authorUsername?: string
   content: string
   createdAt: string
   updatedAt?: string

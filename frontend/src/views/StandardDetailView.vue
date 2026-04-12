@@ -417,7 +417,12 @@ interface StandardRequirement {
   description: string | null
   parent_id?: string | null
   open_cre?: string | null
-  children?: StandardRequirement[]
+  children: StandardRequirement[]
+}
+
+interface ProjectReference {
+  id: string
+  name: string
 }
 
 const route = useRoute()
@@ -430,7 +435,7 @@ const error = ref('')
 const standard = ref<any>(null)
 const requirements = ref<StandardRequirement[]>([])
 const levels = ref<Record<string, unknown>[]>([])
-const projects = ref<Record<string, unknown>[]>([])
+const projects = ref<ProjectReference[]>([])
 const projectsLoading = ref(false)
 const exporting = ref(false)
 
