@@ -67,11 +67,17 @@ spec:
             {{- end }}
 
             # ---- Auth (JWT) ------------------------------------------------
+            # JWT_SECRET is optional. When unset the backend generates a
+            # signing secret on first run and persists it in the database.
+            # Set secrets.jwtSecret or secrets.jwtSecretName to override,
+            # which is recommended for multi-replica deployments.
+            {{- if or .Values.secrets.jwtSecretName .Values.secrets.jwtSecret }}
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.secrets.jwtSecretName | default (printf "%s-secrets" (include "assessors-studio.fullname" .)) }}
                   key: {{ .Values.secrets.jwtSecretKey }}
+            {{- end }}
 
             # The initial administrator account is created via the
             # in-browser setup wizard at /setup on first visit. No admin

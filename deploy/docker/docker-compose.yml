@@ -2,18 +2,22 @@
 # CycloneDX Assessors Studio
 # Quick-start / evaluation compose file using PGlite (embedded database)
 #
-# This file is standalone. Download it anywhere, set JWT_SECRET, and run:
-#   JWT_SECRET=$(openssl rand -hex 32) docker compose up -d
+# This file is standalone. Download it anywhere and run:
+#   docker compose up -d
 #
 # The app will be available at http://localhost:3001. On first visit the
 # browser is redirected to /setup to create the administrator account.
 #
-# Required environment variables:
-#   JWT_SECRET          - At least 32 characters, cryptographically random
+# No environment variables are required. The backend generates a JWT
+# signing secret on first run and persists it in the embedded database
+# alongside the rest of the application state.
 #
 # Optional overrides:
 #   APP_IMAGE           - Container image (default: cyclonedx/cyclonedx-assessors-studio:latest)
 #   PORT                - Host port mapping (default: 3001)
+#   JWT_SECRET          - Override the auto-generated signing secret
+#                         (>= 32 chars). Set this when running multiple
+#                         replicas or managing the secret externally.
 #
 # To build from source instead of pulling the published image, run from the
 # repository root:
@@ -33,7 +37,7 @@ services:
       PORT: 3001
       DATABASE_PROVIDER: pglite
       PGLITE_DATA_DIR: /app/data/pglite
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set (>= 32 chars, cryptographically random)}
+      JWT_SECRET: ${JWT_SECRET:-}
       JWT_EXPIRY: ${JWT_EXPIRY:-24h}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
       LOG_LEVEL: ${LOG_LEVEL:-info}

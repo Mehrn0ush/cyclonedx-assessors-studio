@@ -31,7 +31,10 @@ const envSchema = z.object({
   DATABASE_PROVIDER: z.enum(['pglite', 'postgres']).default('pglite'),
   DATABASE_URL: z.string().default('postgresql://localhost:5432/assessors_studio'),
   PGLITE_DATA_DIR: z.string().default('./data/pglite'),
-  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
+  // Optional. If unset, the backend generates a secret on first run
+  // and persists it in the app_config table. Set this in environments
+  // that run multiple replicas or that need a specific signing key.
+  JWT_SECRET: z.string().default(''),
   JWT_EXPIRY: z.string().default('24h'),
   PORT: z.coerce.number().int().positive().default(3001),
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
@@ -115,6 +118,23 @@ export function getConfig(): Env {
  */
 export function resetConfig(): void {
   config = null;
+}
+
+/**
+ * Install the JWT signing secret into the cached config object.
+ *
+ * The secret is either sourced from the JWT_SECRET environment
+ * variable or generated and persisted by bootstrapJwtSecret() on
+ * first run. Because modules holding a reference to the cached
+ * config share the same object, mutating the property here is
+ * visible to every consumer without requiring a reset.
+ */
+export function setJwtSecret(secret: string): void {
+  if (!secret || secret.length < 32) {
+    throw new Error('JWT signing secret must be at least 32 characters');
+  }
+  const cfg = getConfig();
+  (cfg as { JWT_SECRET: string }).JWT_SECRET = secret;
 }
 
 export default getConfig();

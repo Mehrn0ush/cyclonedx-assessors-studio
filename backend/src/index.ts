@@ -1,8 +1,9 @@
 import { createApp } from './app.js';
-import { getConfig } from './config/index.js';
+import { getConfig, setJwtSecret } from './config/index.js';
 import { initializeDatabase, closeDatabase } from './db/connection.js';
 import { runMigrations } from './db/migrate.js';
 import { seedDefaultRolesAndPermissions } from './db/seed.js';
+import { bootstrapJwtSecret } from './db/jwt-secret.js';
 import { initializeStorage } from './storage/index.js';
 import { initializeEventSystem, shutdownEventSystem } from './events/index.js';
 import { startDomainGaugeRefresh, stopDomainGaugeRefresh } from './metrics/index.js';
@@ -42,6 +43,12 @@ async function start() {
     await runMigrations();
     await seedDefaultRolesAndPermissions();
     logger.info('Database initialized');
+
+    // Resolve the JWT signing secret before any request can hit the
+    // server. Uses JWT_SECRET from the environment when set, otherwise
+    // loads or generates a value stored in the app_config table.
+    const jwtSecret = await bootstrapJwtSecret();
+    setJwtSecret(jwtSecret);
 
     logger.info('Initializing encryption...');
     const { getDatabase } = await import('./db/connection.js');

@@ -801,6 +801,16 @@ CREATE TABLE IF NOT EXISTS encryption_key_version (
   retired_at TIMESTAMP WITH TIME ZONE
 );
 
+-- Application-level configuration values persisted in the database.
+-- Used for things like an auto-generated JWT signing secret so first
+-- run works with no environment configuration.
+CREATE TABLE IF NOT EXISTS app_config (
+  key VARCHAR(100) PRIMARY KEY,
+  value TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 `;
 
 export async function runMigrations(): Promise<void> {

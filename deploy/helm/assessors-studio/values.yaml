@@ -87,13 +87,20 @@ database:
 
 #######################################
 # JWT signing secret
+#
+# Optional. When left unset, the backend generates a signing secret on
+# first run and persists it in the app_config table. Supply a value
+# here (or reference an existing secret) for multi-replica deployments
+# where every pod must sign tokens with the same key.
 #######################################
 secrets:
-  # If empty, the chart creates a secret named "<release>-secrets" from
-  # secrets.jwtSecret below (not recommended for production).
+  # Reference an existing Kubernetes secret that holds the JWT signing
+  # secret. Takes precedence over secrets.jwtSecret.
   jwtSecretName: ""
   jwtSecretKey: "jwt-secret"
-  jwtSecret: ""                 # JWT_SECRET (must be >= 32 chars)
+  # Inline signing secret. When set, the chart creates a secret named
+  # "<release>-secrets" from this value. Must be >= 32 chars.
+  jwtSecret: ""
 
 #######################################
 # Evidence storage (CONFIGURATION.md § Evidence Storage)

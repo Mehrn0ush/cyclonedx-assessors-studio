@@ -516,6 +516,14 @@ CREATE TABLE IF NOT EXISTS encryption_key_version (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   retired_at TIMESTAMP WITH TIME ZONE
 );
+
+-- Application configuration
+CREATE TABLE IF NOT EXISTS app_config (
+  key VARCHAR(100) PRIMARY KEY,
+  value TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 `;
 
   const statements = SQL.split(';').filter(stmt => stmt.trim());

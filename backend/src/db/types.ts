@@ -560,6 +560,13 @@ export interface EncryptionKeyVersion {
   retired_at?: Date | null;
 }
 
+export interface AppConfig {
+  key: string;
+  value: string;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
 export interface Database {
   permission: Selectable<Permission>;
   permission_insert: Insertable<Permission>;
@@ -759,4 +766,8 @@ export interface Database {
   encryption_key_version: Selectable<EncryptionKeyVersion>;
   encryption_key_version_insert: Insertable<EncryptionKeyVersion>;
   encryption_key_version_update: Updateable<EncryptionKeyVersion>;
+
+  app_config: Selectable<AppConfig>;
+  app_config_insert: Insertable<AppConfig>;
+  app_config_update: Updateable<AppConfig>;
 }

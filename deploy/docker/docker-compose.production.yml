@@ -5,12 +5,13 @@
 # This file is standalone. Download it anywhere and run:
 #   docker compose -f docker-compose.production.yml up -d
 #
-# Required environment variables (set in .env or shell):
-#   JWT_SECRET          - At least 32 characters, cryptographically random
-#
 # The initial administrator account is created via the in-browser setup
 # wizard at /setup on first visit. No admin credentials are configured
 # here.
+#
+# The backend generates a JWT signing secret on first run and persists
+# it in the database. Set JWT_SECRET explicitly when running multiple
+# replicas or managing the signing secret externally.
 #
 # Optional overrides:
 #   APP_IMAGE           - Container image (default: cyclonedx/cyclonedx-assessors-studio:latest)
@@ -18,6 +19,8 @@
 #   POSTGRES_PASSWORD   - Database password (default: assessors_studio)
 #   PORT                - Host port mapping (default: 3001)
 #   CORS_ORIGIN         - Allowed CORS origin (default: *)
+#   JWT_SECRET          - Override the auto-generated signing secret
+#                         (>= 32 chars, cryptographically random)
 #
 # TLS: For production TLS, place a reverse proxy (nginx, traefik, caddy)
 # in front of this stack.
@@ -56,7 +59,7 @@ services:
       PORT: 3001
       DATABASE_PROVIDER: postgres
       DATABASE_URL: postgresql://assessors_studio:${POSTGRES_PASSWORD:-assessors_studio}@db:5432/assessors_studio
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set (>= 32 chars, cryptographically random)}
+      JWT_SECRET: ${JWT_SECRET:-}
       JWT_EXPIRY: ${JWT_EXPIRY:-24h}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
       LOG_LEVEL: ${LOG_LEVEL:-info}
