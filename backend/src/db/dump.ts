@@ -22,6 +22,7 @@ async function main() {
   
   for (const table of tables) {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rows = await db.selectFrom(table as any).selectAll().execute();
       if (rows.length > 0) {
         dump[table] = rows;

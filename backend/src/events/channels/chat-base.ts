@@ -204,10 +204,11 @@ export abstract class BaseChatChannel implements NotificationChannel {
       } else {
         return { success: false, message: `Webhook returned HTTP ${response.status}` };
       }
-    } catch (error: any) {
-      const msg = error?.name === 'AbortError'
+    } catch (error: unknown) {
+      const errorObj = error as Record<string, unknown>;
+      const msg = errorObj?.name === 'AbortError'
         ? `Request timed out after ${timeout}ms`
-        : (error?.message || String(error));
+        : ((errorObj?.message as string) || String(error));
       return { success: false, message: msg };
     }
   }

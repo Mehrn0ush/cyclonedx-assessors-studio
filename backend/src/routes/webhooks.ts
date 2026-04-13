@@ -149,7 +149,7 @@ router.post(
           name: data.name,
           url: data.url,
           secret: encryptedSecret,
-          event_types: data.eventTypes as any,
+          event_types: data.eventTypes as string[],
           is_active: true,
           consecutive_failures: 0,
           created_by: req.user!.id,
@@ -259,12 +259,12 @@ router.put(
         return;
       }
 
-      const updates: Record<string, any> = { updated_at: new Date() };
+      const updates: Record<string, unknown> = { updated_at: new Date() };
       let newSecret: string | null = null;
 
       if (data.name !== undefined) updates.name = data.name;
       if (data.url !== undefined) updates.url = data.url;
-      if (data.eventTypes !== undefined) updates.event_types = data.eventTypes as any;
+      if (data.eventTypes !== undefined) updates.event_types = data.eventTypes as string[];
       if (data.isActive !== undefined) {
         updates.is_active = data.isActive;
         if (data.isActive) updates.consecutive_failures = 0;
@@ -280,7 +280,7 @@ router.put(
         .where('id', '=', req.params.id)
         .execute();
 
-      const result: Record<string, any> = {
+      const result: Record<string, unknown> = {
         id: webhook.id,
         name: data.name ?? webhook.name,
         url: data.url ?? webhook.url,

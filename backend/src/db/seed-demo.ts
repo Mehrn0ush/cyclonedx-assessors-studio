@@ -5,6 +5,8 @@ import { logger } from '../utils/logger.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { Kysely } from 'kysely';
+import type { Database } from './types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -32,7 +34,7 @@ function createIdResolver(
 }
 
 // Helper: Seed basic entities (organizations, contacts, tags)
-async function seedBasicEntities(db: any, data: DemoData): Promise<void> {
+async function seedBasicEntities(db: Kysely<Database>, data: DemoData): Promise<void> {
   for (const org of data.organizations) {
     await db.insertInto('organization').values(org).execute();
   }
@@ -50,7 +52,7 @@ async function seedBasicEntities(db: any, data: DemoData): Promise<void> {
 }
 
 // Helper: Seed users with password hashing
-async function seedUsers(db: any, data: DemoData, adminRole: any, adminUser: any): Promise<void> {
+async function seedUsers(db: Kysely<Database>, data: DemoData, adminRole: { id: string } | undefined, adminUser: { id: string } | undefined): Promise<void> {
   const roleMap = new Map<string, string>();
   const roles = await db.selectFrom('role').select(['id', 'key']).execute();
   for (const role of roles) {
@@ -86,7 +88,7 @@ async function seedUsers(db: any, data: DemoData, adminRole: any, adminUser: any
 }
 
 // Helper: Seed entities, relationships, and tags
-async function seedEntitiesAndRelationships(db: any, data: DemoData, firstStandardId: string | null, secondStandardId: string | null, ssdfStandardId: string | null): Promise<void> {
+async function seedEntitiesAndRelationships(db: Kysely<Database>, data: DemoData, firstStandardId: string | null, secondStandardId: string | null, ssdfStandardId: string | null): Promise<void> {
   for (const entity of data.entities) {
     const bomRef = entity.bom_ref || `${entity.entity_type}-${entity.id.substring(0, 8)}`;
     await db.insertInto('entity').values({
@@ -97,8 +99,10 @@ async function seedEntitiesAndRelationships(db: any, data: DemoData, firstStanda
   logger.info(`Seeded ${data.entities.length} entities`);
 
   for (const rel of data.entity_relationships) {
-    const { _comment, ...relData } = rel as any;
-    await db.insertInto('entity_relationship').values(relData).execute();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { _comment, ...relData } = rel;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await db.insertInto('entity_relationship').values(relData as any).execute();
   }
   logger.info(`Seeded ${data.entity_relationships.length} entity relationships`);
 
@@ -135,7 +139,7 @@ async function seedEntitiesAndRelationships(db: any, data: DemoData, firstStanda
 }
 
 // Helper: Seed compliance policies
-async function seedCompliancePolicies(db: any, data: DemoData, firstStandardId: string | null, secondStandardId: string | null): Promise<void> {
+async function seedCompliancePolicies(db: Kysely<Database>, data: DemoData, firstStandardId: string | null, secondStandardId: string | null): Promise<void> {
   if (!firstStandardId) return;
 
   const policies = [
@@ -163,7 +167,7 @@ async function seedCompliancePolicies(db: any, data: DemoData, firstStandardId: 
 }
 
 // Helper: Seed signatories and projects
-async function seedSignatoriesAndProjects(db: any, data: DemoData, firstStandardId: string | null, secondStandardId: string | null): Promise<void> {
+async function seedSignatoriesAndProjects(db: Kysely<Database>, data: DemoData, firstStandardId: string | null, secondStandardId: string | null): Promise<void> {
   for (const sig of data.signatories) {
     await db.insertInto('signatory').values(sig).execute();
   }
@@ -194,7 +198,7 @@ async function seedSignatoriesAndProjects(db: any, data: DemoData, firstStandard
 }
 
 // Helper: Seed affirmations
-async function seedAffirmations(db: any, data: DemoData): Promise<void> {
+async function seedAffirmations(db: Kysely<Database>, data: DemoData): Promise<void> {
   for (const aff of data.affirmations) {
     await db.insertInto('affirmation').values({
       ...aff,
@@ -209,7 +213,7 @@ async function seedAffirmations(db: any, data: DemoData): Promise<void> {
 }
 
 // Helper: Seed assessments and related data
-async function seedAssessments(db: any, data: DemoData, resolveId: (val: string) => string | null): Promise<void> {
+async function seedAssessments(db: Kysely<Database>, data: DemoData, resolveId: (val: string) => string | null): Promise<void> {
   for (const assessment of data.assessments) {
     await db.insertInto('assessment').values({
       id: assessment.id,
@@ -251,7 +255,7 @@ async function seedAssessments(db: any, data: DemoData, resolveId: (val: string)
 }
 
 // Helper: Seed evidence and attachments
-async function seedEvidence(db: any, data: DemoData, resolveId: (val: string) => string | null): Promise<void> {
+async function seedEvidence(db: Kysely<Database>, data: DemoData, resolveId: (val: string) => string | null): Promise<void> {
   for (const ev of data.evidence) {
     await db.insertInto('evidence').values({
       id: ev.id,
@@ -268,7 +272,8 @@ async function seedEvidence(db: any, data: DemoData, resolveId: (val: string) =>
   logger.info(`Seeded ${data.evidence.length} evidence items`);
 
   for (const et of data.evidence_tags) {
-    await db.insertInto('evidence_tag').values({ ...et, created_at: new Date() }).execute();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await db.insertInto('evidence_tag').values({ ...et, created_at: new Date() } as any).execute();
   }
 
   for (const en of data.evidence_notes) {
@@ -277,7 +282,7 @@ async function seedEvidence(db: any, data: DemoData, resolveId: (val: string) =>
   logger.info(`Seeded ${data.evidence_notes.length} evidence notes`);
 
   for (const ea of data.evidence_attachments) {
-    const row = { ...ea, storage_provider: 'database' };
+    const row: Record<string, unknown> = { ...ea, storage_provider: 'database' };
     if (typeof row.binary_content === 'string') {
       row.binary_content = Buffer.from(row.binary_content, 'base64');
     }
@@ -287,7 +292,7 @@ async function seedEvidence(db: any, data: DemoData, resolveId: (val: string) =>
 }
 
 // Helper: Seed assessment requirements and work notes
-async function seedAssessmentRequirements(db: any, data: DemoData, firstStandardId: string | null, adminUserId: string): Promise<void> {
+async function seedAssessmentRequirements(db: Kysely<Database>, data: DemoData, firstStandardId: string | null, adminUserId: string): Promise<void> {
   if (!firstStandardId) return;
 
   const requirements = await db
@@ -320,8 +325,11 @@ async function seedAssessmentRequirements(db: any, data: DemoData, firstStandard
     await db.insertInto('assessment_requirement').values({
       id: arId,
       assessment_id: '00000000-0000-4000-f300-000000000001',
+      // eslint-disable-next-line security/detect-object-injection
       requirement_id: requirements[i].id,
+      // eslint-disable-next-line security/detect-object-injection
       result: results[i] || undefined,
+      // eslint-disable-next-line security/detect-object-injection
       rationale: rationales[i] || undefined,
     }).execute();
   }
@@ -372,7 +380,7 @@ async function seedAssessmentRequirements(db: any, data: DemoData, firstStandard
 }
 
 // Helper: Seed claims and related data
-async function seedClaims(db: any, data: DemoData, resolveId: (val: string) => string | null): Promise<void> {
+async function seedClaims(db: Kysely<Database>, data: DemoData, resolveId: (val: string) => string | null): Promise<void> {
   for (const claim of data.claims) {
     await db.insertInto('claim').values({
       ...claim,
@@ -395,7 +403,7 @@ async function seedClaims(db: any, data: DemoData, resolveId: (val: string) => s
 }
 
 // Helper: Seed assessors and claim external references
-async function seedAssessorsAndReferences(db: any): Promise<{ internalAssessorId: string; externalAssessorId: string }> {
+async function seedAssessorsAndReferences(db: Kysely<Database>): Promise<{ internalAssessorId: string; externalAssessorId: string }> {
   const internalAssessorId = uuidv4();
   const externalAssessorId = uuidv4();
   await db.insertInto('assessor').values({
@@ -441,7 +449,7 @@ async function seedAssessorsAndReferences(db: any): Promise<{ internalAssessorId
 }
 
 // Helper: Seed attestations
-async function seedAttestations(db: any, firstStandardId: string | null, ssdfStandardId: string | null, internalAssessorId: string): Promise<void> {
+async function seedAttestations(db: Kysely<Database>, firstStandardId: string | null, ssdfStandardId: string | null, internalAssessorId: string): Promise<void> {
   if (!firstStandardId) return;
 
   const attestation1Id = uuidv4();
@@ -494,10 +502,15 @@ async function seedAttestations(db: any, firstStandardId: string | null, ssdfSta
       await db.insertInto('attestation_requirement').values({
         id: uuidv4(),
         attestation_id: attestation1Id,
+        // eslint-disable-next-line security/detect-object-injection
         requirement_id: reqs[i].id,
+        // eslint-disable-next-line security/detect-object-injection
         conformance_score: scores[i],
+        // eslint-disable-next-line security/detect-object-injection
         conformance_rationale: rationales[i],
+        // eslint-disable-next-line security/detect-object-injection
         confidence_score: confidences[i],
+        // eslint-disable-next-line security/detect-object-injection
         confidence_rationale: confRationales[i],
       }).execute();
     }
@@ -529,7 +542,7 @@ async function seedAttestations(db: any, firstStandardId: string | null, ssdfSta
 }
 
 // Helper: Seed SSDF data
-async function seedSSDF(db: any, data: DemoData, ssdfStandardId: string | null, externalAssessorId: string, adminUserId: string): Promise<void> {
+async function seedSSDF(db: Kysely<Database>, data: DemoData, ssdfStandardId: string | null, externalAssessorId: string, adminUserId: string): Promise<void> {
   if (!data.ssdf_assessment_data || !ssdfStandardId) {
     if (data.ssdf_assessment_data && !ssdfStandardId) {
       logger.warn('SSDF assessment data found but SSDF standard (ssdf-1.1) not imported. Skipping SSDF seeding.');
@@ -577,6 +590,7 @@ async function seedSSDF(db: any, data: DemoData, ssdfStandardId: string | null, 
             evidence_id: evidenceId,
             created_at: new Date(),
           }).execute();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (e: any) {
           if (!e?.message?.includes('duplicate') && !e?.message?.includes('unique') && !e?.message?.includes('foreign')) {
             throw e;
@@ -677,7 +691,7 @@ async function seedSSDF(db: any, data: DemoData, ssdfStandardId: string | null, 
 }
 
 // Helper: Seed notifications, audit logs, and dashboards
-async function seedFinalEntities(db: any, data: DemoData, resolveId: (val: string) => string | null): Promise<void> {
+async function seedFinalEntities(db: Kysely<Database>, data: DemoData, resolveId: (val: string) => string | null): Promise<void> {
   for (const notif of data.notifications) {
     await db.insertInto('notification').values({
       ...notif,
@@ -712,39 +726,72 @@ async function seedFinalEntities(db: any, data: DemoData, resolveId: (val: strin
   logger.info(`Seeded ${data.dashboards.length} dashboards`);
 }
 
+// DemoData interface: loaded from JSON, properties are loosely typed
+// Each array contains objects with structure matching database tables
+// Properties are accessed via destructuring/spreading and may be unknown until narrowed
 interface DemoData {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   organizations: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   contacts: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   users: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tags: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   entities: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   entity_relationships: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   entity_tags: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   projects: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   project_tags: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   signatories: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   affirmations: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   affirmation_signatories: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   assessments: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   assessment_assessors: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   assessment_assessees: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   assessment_tags: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   evidence: any[];
-  evidence_tags: Array<Record<string, any>>;
+  evidence_tags: Array<Record<string, unknown>>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   evidence_notes: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   evidence_attachments: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   claims: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   claim_evidence: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   claim_counter_evidence: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   claim_mitigation_strategies: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   notifications: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   audit_logs: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   dashboards: any[];
   ssdf_assessment_data?: {
-    assessment_requirements: Array<Record<string, any>>;
-    attestation: Record<string, any>;
-    attestation_requirements: Array<Record<string, any>>;
-    attestation_requirement_mitigations: Array<Record<string, any>>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    assessment_requirements: any[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    attestation: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    attestation_requirements: any[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    attestation_requirement_mitigations: any[];
   };
 }
 

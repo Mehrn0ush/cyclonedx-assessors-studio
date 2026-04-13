@@ -138,10 +138,11 @@ router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Respo
 
   // Fetch target entity details if linked
   let targetEntity = null;
-  if ((claim as any).target_entity_id) {
+  const claimRecord = claim as Record<string, unknown>;
+  if (claimRecord.target_entity_id) {
     targetEntity = await db
       .selectFrom('entity')
-      .where('id', '=', (claim as any).target_entity_id)
+      .where('id', '=', claimRecord.target_entity_id as string)
       .select(['id', 'name', 'entity_type', 'bom_ref'])
       .executeTakeFirst() || null;
   }

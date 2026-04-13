@@ -1,4 +1,5 @@
 import { createI18n } from 'vue-i18n'
+import type { I18n } from 'vue-i18n'
 import enUS from './locales/en-US.json'
 
 export const AVAILABLE_LOCALES = [
@@ -26,17 +27,30 @@ const i18n = createI18n({
   globalInjection: true,
 })
 
-export async function loadLocaleMessages(locale: string) {
+export async function loadLocaleMessages(locale: string): Promise<void> {
+  // Validate locale against known supported locales
+  const validCodes = AVAILABLE_LOCALES.map((l) => l.code);
+  if (!validCodes.includes(locale)) {
+    console.warn(`Locale "${locale}" is not supported`);
+    return;
+  }
+
   if ((i18n.global.availableLocales as string[]).includes(locale)) {
-    ;(i18n.global.locale as any).value = locale
-    return
+    const localeRef = i18n.global.locale as unknown;
+    if (typeof localeRef === 'object' && localeRef !== null && 'value' in localeRef) {
+      (localeRef as Record<string, unknown>).value = locale;
+    }
+    return;
   }
   try {
-    const messages = await import(`./locales/${locale}.json`)
-    i18n.global.setLocaleMessage(locale, messages.default)
-    ;(i18n.global.locale as any).value = locale
+    const messages = await import(`./locales/${locale}.json`);
+    i18n.global.setLocaleMessage(locale, messages.default);
+    const localeRef = i18n.global.locale as unknown;
+    if (typeof localeRef === 'object' && localeRef !== null && 'value' in localeRef) {
+      (localeRef as Record<string, unknown>).value = locale;
+    }
   } catch (e) {
-    console.warn(`Failed to load locale ${locale}`, e)
+    console.warn(`Failed to load locale ${locale}`, e);
   }
 }
 

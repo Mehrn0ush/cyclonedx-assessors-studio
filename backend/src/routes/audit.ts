@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import type { Response } from 'express';
 import { getDatabase } from '../db/connection.js';
-import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
-import { logger } from '../utils/logger.js';
+import { asyncHandler } from '../utils/route-helpers.js';
 import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { validatePagination } from '../utils/pagination.js';
 

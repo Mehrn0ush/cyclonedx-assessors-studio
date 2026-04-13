@@ -529,7 +529,8 @@ export async function rekeyMaster(
 
   // Create a fresh key version for the new master key
   const newVersion = await rotateKeyVersion(db);
-  const newKv = keyVersions.get(newVersion)!;
+  const newKv = keyVersions.get(newVersion);
+  if (!newKv) throw new Error('Failed to create new key version');
 
   let processed = 0;
   let rekeyed = 0;

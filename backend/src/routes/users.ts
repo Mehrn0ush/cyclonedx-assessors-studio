@@ -205,7 +205,7 @@ router.put(
         }
       }
 
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
 
       if (data.displayName !== undefined) updateData.displayName = data.displayName;
       if (data.email !== undefined) updateData.email = data.email;

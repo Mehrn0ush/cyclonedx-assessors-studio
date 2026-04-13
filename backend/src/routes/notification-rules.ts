@@ -34,11 +34,11 @@ const updateRuleSchema = createRuleSchema.partial();
  */
 router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const db = getDatabase();
-  const userId = req.user?.id;
+  const userId = req.user?.id ?? '';
 
   const rules = await db
     .selectFrom('notification_rule')
-    .where('user_id', '=', userId!)
+    .where('user_id', '=', userId)
     .where('scope', '=', 'user')
     .selectAll()
     .orderBy('created_at', 'desc')
@@ -122,7 +122,7 @@ router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Respo
   const rule = await db
     .selectFrom('notification_rule')
     .where('id', '=', id)
-    .where('user_id', '=', userId!)
+    .where('user_id', '=', userId ?? '')
     .where('scope', '=', 'user')
     .selectAll()
     .executeTakeFirst();
@@ -150,7 +150,7 @@ router.put('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Respo
     const existing = await db
       .selectFrom('notification_rule')
       .where('id', '=', id)
-      .where('user_id', '=', userId!)
+      .where('user_id', '=', userId ?? '')
       .where('scope', '=', 'user')
       .selectAll()
       .executeTakeFirst();
@@ -226,7 +226,7 @@ router.delete('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Re
   const existing = await db
     .selectFrom('notification_rule')
     .where('id', '=', id)
-    .where('user_id', '=', userId!)
+    .where('user_id', '=', userId ?? '')
     .where('scope', '=', 'user')
     .selectAll()
     .executeTakeFirst();

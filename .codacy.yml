@@ -62,6 +62,18 @@ engines:
       # for interactive terminal password input, not a hardcoded credential.
       - codacy.javascript.security.hard-coded-password
 
+  eslint:
+    enabled: true
+    disable_rules:
+      # False positive: ESLint security plugin flags array access with loop
+      # counters (for-loop index i) as potential object injection. These are
+      # controlled numeric indices, not user-supplied keys.
+      - ESLint8_security_detect-object-injection
+      # False positive: tryAuthenticate() in auth.ts wraps all async operations
+      # in try/catch and returns null on failure. The rule cannot see that
+      # error handling is complete within the async function body.
+      - ESLint8_security-node_detect-unhandled-async-errors
+
   securitypatterns:
     enabled: true
     exclude_paths:

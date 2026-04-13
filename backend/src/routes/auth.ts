@@ -91,7 +91,7 @@ router.post('/login', asyncHandler(async (req: AuthRequest, res: Response): Prom
       config.JWT_SECRET,
       {
         expiresIn: config.JWT_EXPIRY,
-      } as any
+      } as jwt.SignOptions
     );
 
     res.cookie('token', jwtToken, {
@@ -206,7 +206,7 @@ router.post(
     const cookieToken = req.cookies?.token;
     if (cookieToken) {
       try {
-        const payload = jwt.verify(cookieToken, config.JWT_SECRET) as any;
+        const payload = jwt.verify(cookieToken, config.JWT_SECRET) as { sessionId: string };
         await getDatabase()
           .deleteFrom('session')
           .where('id', '=', payload.sessionId)
@@ -227,7 +227,7 @@ router.post(
   })
 );
 
-router.get('/me', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/me', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
       res.status(401).json({ error: 'Authentication required' });
@@ -245,7 +245,7 @@ router.get('/me', requireAuth, async (req: AuthRequest, res: Response): Promise<
     logger.error('Get current user error', { error, requestId: req.requestId });
     res.status(500).json({ error: 'Internal server error' });
   }
-});
+}));
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
@@ -255,7 +255,7 @@ const changePasswordSchema = z.object({
 router.put(
   '/change-password',
   requireAuth,
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       if (!req.user) {
         res.status(401).json({ error: 'Authentication required' });
@@ -333,7 +333,7 @@ router.put(
       logger.error('Change password error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 const updateProfileSchema = z.object({
@@ -343,7 +343,7 @@ const updateProfileSchema = z.object({
 router.put(
   '/profile',
   requireAuth,
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       if (!req.user) {
         res.status(401).json({ error: 'Authentication required' });
@@ -401,13 +401,13 @@ router.put(
       logger.error('Update profile error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 router.post(
   '/logout-all',
   requireAuth,
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       if (!req.user) {
         res.status(401).json({ error: 'Authentication required' });
@@ -435,10 +435,10 @@ router.post(
       logger.error('Logout all sessions error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
-router.post('/complete-onboarding', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/complete-onboarding', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
       res.status(401).json({ error: 'Authentication required' });
@@ -478,7 +478,7 @@ router.post('/complete-onboarding', requireAuth, async (req: AuthRequest, res: R
     logger.error('Complete onboarding error', { error, requestId: req.requestId });
     res.status(500).json({ error: 'Internal server error' });
   }
-});
+}));
 
 /**
  * PATCH /me

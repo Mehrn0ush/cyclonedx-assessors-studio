@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getDatabase } from '../db/connection.js';
-import { tryAuthenticate } from '../middleware/auth.js';
+import { asyncHandler } from '../utils/route-helpers.js';
+import { AuthRequest, tryAuthenticate } from '../middleware/auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const router = Router();
@@ -32,6 +33,7 @@ let dbCheckTimer: ReturnType<typeof setInterval> | null = null;
 async function checkDatabaseConnectivity(): Promise<void> {
   try {
     const db = getDatabase();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.executeQuery({
       sql: 'SELECT 1 AS ok',
       parameters: [],
@@ -66,8 +68,8 @@ export function stopHealthChecks(): void {
  * (readiness probe). Detailed system metrics are now served via the
  * Prometheus endpoint at /metrics.
  */
-router.get('/', async (req: Request, res: Response) => {
-  const user = await tryAuthenticate(req as any);
+router.get('/', asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const user = await tryAuthenticate(req as AuthRequest);
 
   if (!user) {
     res.json({
@@ -94,6 +96,6 @@ router.get('/', async (req: Request, res: Response) => {
     uptime: formatUptime(uptimeMs),
     database: databaseConnected ? 'connected' : 'disconnected',
   });
-});
+}));
 
 export default router;

@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import busboy from 'busboy';
 import crypto from 'node:crypto';
 import type { Kysely } from 'kysely';
+import { sql } from 'kysely';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requirePermission, getPermissionsForRole } from '../middleware/auth.js';
@@ -28,7 +29,7 @@ const router = Router();
 /**
  * Check if a user is a participant (assessor or assessee) in an assessment, or is an admin.
  */
-async function isAssessmentParticipant(db: any, userId: string, userRole: string, assessmentId: string): Promise<boolean> {
+async function isAssessmentParticipant(db: Kysely<Database>, userId: string, userRole: string, assessmentId: string): Promise<boolean> {
   if (userRole === 'admin') return true;
 
   const assessor = await db
@@ -62,7 +63,7 @@ async function fetchEvidence(db: Kysely<Database>, evidenceId: string): Promise<
 /**
  * Fetch assessment requirement by ID with validation
  */
-async function fetchAssessmentRequirement(db: any, assessmentRequirementId: string): Promise<any> {
+async function fetchAssessmentRequirement(db: Kysely<Database>, assessmentRequirementId: string): Promise<Record<string, unknown> | undefined> {
   return db
     .selectFrom('assessment_requirement')
     .where('id', '=', assessmentRequirementId)
@@ -74,7 +75,7 @@ async function fetchAssessmentRequirement(db: any, assessmentRequirementId: stri
  * Validate evidence submission for review
  */
 async function validateEvidenceSubmission(
-  evidence: any,
+  evidence: Record<string, unknown> | undefined,
   reviewerId: string,
   authorId: string,
   userId: string,
@@ -98,7 +99,7 @@ async function validateEvidenceSubmission(
  * Validate evidence approval
  */
 async function validateEvidenceApproval(
-  evidence: any,
+  evidence: Record<string, unknown> | undefined,
   userId: string,
   hasReviewAccess: boolean,
 ): Promise<{ valid: boolean; error?: string }> {
@@ -132,259 +133,252 @@ const addNoteSchema = z.object({
   content: z.string().min(1, 'Note content is required'),
 });
 
-router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const db = getDatabase();
-    const { limit, offset } = validatePagination(req.query);
-    const state = req.query.state as string | undefined;
-    const assessmentId = req.query.assessmentId as string | undefined;
-    const requirementId = req.query.requirementId as string | undefined;
+router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const db = getDatabase();
+  const { limit, offset } = validatePagination(req.query);
+  const state = req.query.state as string | undefined;
+  const assessmentId = req.query.assessmentId as string | undefined;
+  const requirementId = req.query.requirementId as string | undefined;
 
-    let query = db.selectFrom('evidence')
-      .leftJoin('app_user as author', (join) => join.onRef('author.id' as any, '=', 'evidence.author_id' as any))
-      .leftJoin('app_user as reviewer', (join) => join.onRef('reviewer.id' as any, '=', 'evidence.reviewer_id' as any))
-      .select((eb) => [
-        'evidence.id',
-        'evidence.bom_ref',
-        'evidence.name',
-        'evidence.property_name',
-        'evidence.description',
-        'evidence.state',
-        'evidence.author_id',
-        'evidence.reviewer_id',
-        'evidence.expires_on',
-        'evidence.is_counter_evidence',
-        'evidence.classification',
-        'evidence.created_at',
-        'evidence.updated_at',
-        'author.display_name as author_name',
-        'reviewer.display_name as reviewer_name',
-        eb.selectFrom('assessment_requirement_evidence')
-          .whereRef('assessment_requirement_evidence.evidence_id', '=', 'evidence.id')
-          .select(eb.fn.countAll().as('count'))
-          .as('assessment_count'),
-      ]);
+  let query = db.selectFrom('evidence')
+    .leftJoin('app_user as author', (join) => join.onRef('author.id', '=', 'evidence.author_id'))
+    .leftJoin('app_user as reviewer', (join) => join.onRef('reviewer.id', '=', 'evidence.reviewer_id'))
+    .select((eb) => [
+      'evidence.id',
+      'evidence.bom_ref',
+      'evidence.name',
+      'evidence.property_name',
+      'evidence.description',
+      'evidence.state',
+      'evidence.author_id',
+      'evidence.reviewer_id',
+      'evidence.expires_on',
+      'evidence.is_counter_evidence',
+      'evidence.classification',
+      'evidence.created_at',
+      'evidence.updated_at',
+      'author.display_name as author_name',
+      'reviewer.display_name as reviewer_name',
+      eb.selectFrom('assessment_requirement_evidence')
+        .whereRef('assessment_requirement_evidence.evidence_id', '=', 'evidence.id')
+        .select(eb.fn.countAll().as('count'))
+        .as('assessment_count'),
+    ]);
 
-    if (state) {
-      query = query.where('evidence.state', '=', state as any);
-    }
-
-    if (assessmentId) {
-      query = query
-        .innerJoin('assessment_requirement_evidence', (join) =>
-          join.onRef('assessment_requirement_evidence.evidence_id', '=', 'evidence.id' as any)
-        )
-        .innerJoin('assessment_requirement', (join) =>
-          join.onRef('assessment_requirement.id', '=', 'assessment_requirement_evidence.assessment_requirement_id' as any)
-        )
-        .where('assessment_requirement.assessment_id' as any, '=', assessmentId);
-
-      if (requirementId) {
-        query = query.where('assessment_requirement.requirement_id' as any, '=', requirementId);
-      }
-    }
-
-    const countQuery = db.selectFrom('evidence')
-      .select(db.fn.count<number>('id').as('count'));
-
-    let countWithFilters = countQuery;
-    if (state) {
-      countWithFilters = countWithFilters.where('state', '=', state as any);
-    }
-
-    if (assessmentId) {
-      countWithFilters = countWithFilters
-        .innerJoin('assessment_requirement_evidence', (join) =>
-          join.onRef('assessment_requirement_evidence.evidence_id', '=', 'evidence.id' as any)
-        )
-        .innerJoin('assessment_requirement', (join) =>
-          join.onRef('assessment_requirement.id', '=', 'assessment_requirement_evidence.assessment_requirement_id' as any)
-        )
-        .where('assessment_requirement.assessment_id' as any, '=', assessmentId);
-
-      if (requirementId) {
-        countWithFilters = countWithFilters.where('assessment_requirement.requirement_id' as any, '=', requirementId);
-      }
-    }
-
-    const total = await countWithFilters.executeTakeFirstOrThrow().then(r => r.count);
-    const evidence = await query.limit(limit).offset(offset).execute();
-
-    const evidenceIds = evidence.map((e: Record<string, unknown>) => e.id as string);
-    const tagsByEvidence = await fetchTagsForEntities(db, 'evidence_tag', 'evidence_id', evidenceIds);
-    const evidenceWithTags = evidence.map((e: Record<string, unknown>) => ({
-      ...e,
-      tags: tagsByEvidence[e.id as string] || [],
-    }));
-
-    res.json({
-      data: evidenceWithTags,
-      pagination: {
-        limit,
-        offset,
-        total,
-      },
-    });
-  } catch (error) {
-    logger.error('Get evidence error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
+  if (state) {
+    query = query.where('evidence.state', '=', state as 'in_review' | 'in_progress' | 'claimed' | 'expired');
   }
-});
 
-router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const db = getDatabase();
-    const includeContent = req.query.include_content === 'true';
-
-    const evidence = await db
-      .selectFrom('evidence')
-      .leftJoin('app_user as author', (join) => join.onRef('author.id', '=', 'evidence.author_id'))
-      .leftJoin('app_user as reviewer', (join) => join.onRef('reviewer.id', '=', 'evidence.reviewer_id'))
-      .where('evidence.id', '=', req.params.id as string)
-      .select([
-        'evidence.id',
-        'evidence.bom_ref',
-        'evidence.name',
-        'evidence.property_name',
-        'evidence.description',
-        'evidence.state',
-        'evidence.author_id',
-        'evidence.reviewer_id',
-        'evidence.expires_on',
-        'evidence.is_counter_evidence',
-        'evidence.classification',
-        'evidence.created_at',
-        'evidence.updated_at',
-        'author.display_name as author_name',
-        'reviewer.display_name as reviewer_name',
-      ] as any[])
-      .executeTakeFirst() as any;
-
-    if (!evidence) {
-      res.status(404).json({ error: 'Evidence not found' });
-      return;
-    }
-
-    const notes = (await db
-      .selectFrom('evidence_note')
-      .innerJoin(
-        'app_user',
-        (join) =>
-          join.onRef(
-            'app_user.id',
-            '=',
-            'evidence_note.user_id'
-          )
+  if (assessmentId) {
+    query = query
+      .innerJoin('assessment_requirement_evidence', (join) =>
+        join.onRef('assessment_requirement_evidence.evidence_id', '=', 'evidence.id')
       )
-      .where('evidence_note.evidence_id', '=', req.params.id as string)
-      .selectAll()
-      .orderBy('evidence_note.created_at', 'desc')
-      .execute()) as unknown[];
+      .innerJoin('assessment_requirement', (join) =>
+        join.onRef('assessment_requirement.id', '=', 'assessment_requirement_evidence.assessment_requirement_id')
+      )
+      .where(sql`assessment_requirement.assessment_id`, '=', assessmentId);
 
-    const attachmentsQuery = db
-      .selectFrom('evidence_attachment')
-      .where('evidence_attachment.evidence_id', '=', req.params.id as string);
-
-    const attachments = await (includeContent
-      ? attachmentsQuery.selectAll().execute()
-      : attachmentsQuery.select([
-          'id',
-          'evidence_id',
-          'filename',
-          'content_type',
-          'size_bytes',
-          'storage_path',
-          'content_hash',
-          'created_at',
-          'updated_at',
-        ]).execute());
-
-    const tagsByEvidence = await fetchTagsForEntities(db, 'evidence_tag', 'evidence_id', [req.params.id as string]);
-
-    res.json({
-      evidence,
-      notes,
-      attachments,
-      tags: tagsByEvidence[req.params.id as string] || [],
-    });
-  } catch (error) {
-    logger.error('Get evidence error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
+    if (requirementId) {
+      query = query.where(sql`assessment_requirement.requirement_id`, '=', requirementId);
+    }
   }
-});
+
+  const countQuery = db.selectFrom('evidence')
+    .select(db.fn.count<number>('id').as('count'));
+
+  let countWithFilters = countQuery;
+  if (state) {
+    countWithFilters = countWithFilters.where('state', '=', state as 'in_review' | 'in_progress' | 'claimed' | 'expired');
+  }
+
+  if (assessmentId) {
+    countWithFilters = countWithFilters
+      .innerJoin('assessment_requirement_evidence', (join) =>
+        join.onRef('assessment_requirement_evidence.evidence_id', '=', 'evidence.id')
+      )
+      .innerJoin('assessment_requirement', (join) =>
+        join.onRef('assessment_requirement.id', '=', 'assessment_requirement_evidence.assessment_requirement_id')
+      )
+      .where(sql`assessment_requirement.assessment_id`, '=', assessmentId);
+
+    if (requirementId) {
+      countWithFilters = countWithFilters.where(sql`assessment_requirement.requirement_id`, '=', requirementId);
+    }
+  }
+
+  const total = await countWithFilters.executeTakeFirstOrThrow().then(r => r.count);
+  const evidence = await query.limit(limit).offset(offset).execute();
+
+  const evidenceIds = evidence.map((e: Record<string, unknown>) => e.id as string);
+  const tagsByEvidence = await fetchTagsForEntities(db, 'evidence_tag', 'evidence_id', evidenceIds);
+  const evidenceWithTags = evidence.map((e: Record<string, unknown>) => ({
+    ...e,
+    tags: tagsByEvidence[e.id as string] ?? [],
+  }));
+
+  res.json({
+    data: evidenceWithTags,
+    pagination: {
+      limit,
+      offset,
+      total,
+    },
+  });
+}));
+
+router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const db = getDatabase();
+  const includeContent = req.query.include_content === 'true';
+
+  const evidence = await db
+    .selectFrom('evidence')
+    .leftJoin('app_user as author', (join) => join.onRef('author.id', '=', 'evidence.author_id'))
+    .leftJoin('app_user as reviewer', (join) => join.onRef('reviewer.id', '=', 'evidence.reviewer_id'))
+    .where('evidence.id', '=', req.params.id as string)
+    .select([
+      'evidence.id',
+      'evidence.bom_ref',
+      'evidence.name',
+      'evidence.property_name',
+      'evidence.description',
+      'evidence.state',
+      'evidence.author_id',
+      'evidence.reviewer_id',
+      'evidence.expires_on',
+      'evidence.is_counter_evidence',
+      'evidence.classification',
+      'evidence.created_at',
+      'evidence.updated_at',
+      'author.display_name as author_name',
+      'reviewer.display_name as reviewer_name',
+    ])
+    .executeTakeFirst();
+
+  if (!evidence) {
+    res.status(404).json({ error: 'Evidence not found' });
+    return;
+  }
+
+  const notes = (await db
+    .selectFrom('evidence_note')
+    .innerJoin(
+      'app_user',
+      (join) =>
+        join.onRef(
+          'app_user.id',
+          '=',
+          'evidence_note.user_id'
+        )
+    )
+    .where('evidence_note.evidence_id', '=', req.params.id as string)
+    .selectAll()
+    .orderBy('evidence_note.created_at', 'desc')
+    .execute()) as unknown[];
+
+  const attachmentsQuery = db
+    .selectFrom('evidence_attachment')
+    .where('evidence_attachment.evidence_id', '=', req.params.id as string);
+
+  const attachments = await (includeContent
+    ? attachmentsQuery.selectAll().execute()
+    : attachmentsQuery.select([
+        'id',
+        'evidence_id',
+        'filename',
+        'content_type',
+        'size_bytes',
+        'storage_path',
+        'content_hash',
+        'created_at',
+        'updated_at',
+      ]).execute());
+
+  const tagsByEvidence = await fetchTagsForEntities(db, 'evidence_tag', 'evidence_id', [req.params.id as string]);
+
+  res.json({
+    evidence,
+    notes,
+    attachments,
+    tags: tagsByEvidence[req.params.id as string] ?? [],
+  });
+}));
+
+interface ClaimRecord {
+  id: string;
+  name: string;
+  target: string;
+  predicate: string;
+  is_counter_claim: boolean;
+}
 
 // Get claims referencing a specific evidence item
-router.get('/:id/claims', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const db = getDatabase();
-    const evidenceId = req.params.id as string;
+router.get('/:id/claims', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const db = getDatabase();
+  const evidenceId = req.params.id as string;
 
-    // Find claims where this evidence is supporting, counter, or mitigation
-    const supportingClaims = (await db
-      .selectFrom('claim_evidence')
-      .innerJoin('claim', (join) =>
-        join.onRef('claim.id' as any, '=', 'claim_evidence.claim_id' as any)
-      )
-      .where('claim_evidence.evidence_id', '=', evidenceId)
-      .select([
-        'claim.id',
-        'claim.name',
-        'claim.target',
-        'claim.predicate',
-        'claim.is_counter_claim',
-      ] as any[])
-      .execute()) as any[];
+  // Find claims where this evidence is supporting, counter, or mitigation
+  const supportingClaims = (await db
+    .selectFrom('claim_evidence')
+    .innerJoin('claim', (join) =>
+      join.onRef('claim.id', '=', 'claim_evidence.claim_id')
+    )
+    .where('claim_evidence.evidence_id', '=', evidenceId)
+    .select([
+      'claim.id',
+      'claim.name',
+      'claim.target',
+      'claim.predicate',
+      'claim.is_counter_claim',
+    ])
+    .execute()) as ClaimRecord[];
 
-    const counterClaims = (await db
-      .selectFrom('claim_counter_evidence')
-      .innerJoin('claim', (join) =>
-        join.onRef('claim.id' as any, '=', 'claim_counter_evidence.claim_id' as any)
-      )
-      .where('claim_counter_evidence.evidence_id', '=', evidenceId)
-      .select([
-        'claim.id',
-        'claim.name',
-        'claim.target',
-        'claim.predicate',
-        'claim.is_counter_claim',
-      ] as any[])
-      .execute()) as any[];
+  const counterClaims = (await db
+    .selectFrom('claim_counter_evidence')
+    .innerJoin('claim', (join) =>
+      join.onRef('claim.id', '=', 'claim_counter_evidence.claim_id')
+    )
+    .where('claim_counter_evidence.evidence_id', '=', evidenceId)
+    .select([
+      'claim.id',
+      'claim.name',
+      'claim.target',
+      'claim.predicate',
+      'claim.is_counter_claim',
+    ])
+    .execute()) as ClaimRecord[];
 
-    const mitigationClaims = (await db
-      .selectFrom('claim_mitigation_strategy')
-      .innerJoin('claim', (join) =>
-        join.onRef('claim.id' as any, '=', 'claim_mitigation_strategy.claim_id' as any)
-      )
-      .where('claim_mitigation_strategy.evidence_id', '=', evidenceId)
-      .select([
-        'claim.id',
-        'claim.name',
-        'claim.target',
-        'claim.predicate',
-        'claim.is_counter_claim',
-      ] as any[])
-      .execute()) as any[];
+  const mitigationClaims = (await db
+    .selectFrom('claim_mitigation_strategy')
+    .innerJoin('claim', (join) =>
+      join.onRef('claim.id', '=', 'claim_mitigation_strategy.claim_id')
+    )
+    .where('claim_mitigation_strategy.evidence_id', '=', evidenceId)
+    .select([
+      'claim.id',
+      'claim.name',
+      'claim.target',
+      'claim.predicate',
+      'claim.is_counter_claim',
+    ])
+    .execute()) as ClaimRecord[];
 
-    const allClaims = [
-      ...supportingClaims.map((c: any) => ({ ...c, is_counter: false, is_mitigation: false })),
-      ...counterClaims.map((c: any) => ({ ...c, is_counter: true, is_mitigation: false })),
-      ...mitigationClaims.map((c: any) => ({ ...c, is_counter: false, is_mitigation: true })),
-    ];
+  const allClaims = [
+    ...supportingClaims.map((c: ClaimRecord) => ({ ...c, is_counter: false, is_mitigation: false })),
+    ...counterClaims.map((c: ClaimRecord) => ({ ...c, is_counter: true, is_mitigation: false })),
+    ...mitigationClaims.map((c: ClaimRecord) => ({ ...c, is_counter: false, is_mitigation: true })),
+  ];
 
-    // Deduplicate by claim ID
-    const seen = new Set<string>();
-    const uniqueClaims = allClaims.filter(c => {
-      if (seen.has(c.id)) return false;
-      seen.add(c.id);
-      return true;
-    });
+  // Deduplicate by claim ID
+  const seen = new Set<string>();
+  const uniqueClaims = allClaims.filter(c => {
+    if (seen.has(c.id)) return false;
+    seen.add(c.id);
+    return true;
+  });
 
-    res.json({ data: uniqueClaims });
-  } catch (error) {
-    logger.error('Get evidence claims error', { error, requestId: req.requestId });
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+  res.json({ data: uniqueClaims });
+}));
 
 router.post('/', requireAuth, requirePermission('evidence.create'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   if (!req.user) {
@@ -483,7 +477,7 @@ router.put('/:id', requireAuth, requirePermission('evidence.edit'), asyncHandler
       return;
     }
 
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (data.name !== undefined) updateData.name = data.name;
     if (data.description !== undefined) updateData.description = data.description;
     if (data.state !== undefined) updateData.state = data.state;
@@ -502,7 +496,7 @@ router.put('/:id', requireAuth, requirePermission('evidence.edit'), asyncHandler
         entityType: 'evidence',
         entityId: req.params.id as string,
         action: 'update',
-        userId: req.user!.id,
+        userId: req.user?.id ?? '',
         changes: toSnakeCase(updateData),
       });
     }
@@ -623,7 +617,10 @@ router.post(
         return;
       }
 
-      const isParticipant = await isAssessmentParticipant(db, req.user!.id, req.user!.role, assessmentReq.assessment_id);
+      const assessmentId = (assessmentReq.assessment_id as unknown) as string;
+      const userId = req.user?.id ?? '';
+      const userRole = req.user?.role ?? '';
+      const isParticipant = await isAssessmentParticipant(db, userId, userRole, assessmentId);
       if (!isParticipant) {
         res.status(403).json({ error: 'You are not a participant in this assessment' });
         return;
@@ -692,7 +689,10 @@ router.delete(
         return;
       }
 
-      const isParticipant = await isAssessmentParticipant(db, req.user!.id, req.user!.role, assessmentReq.assessment_id);
+      const assessmentId = (assessmentReq.assessment_id as unknown) as string;
+      const userId = req.user?.id ?? '';
+      const userRole = req.user?.role ?? '';
+      const isParticipant = await isAssessmentParticipant(db, userId, userRole, assessmentId);
       if (!isParticipant) {
         res.status(403).json({ error: 'You are not a participant in this assessment' });
         return;
@@ -1026,6 +1026,7 @@ function detectCycloneDXMediaType(filename: string, fallback: string, content?: 
     if (lower.endsWith('.json') && head.includes('"bomFormat"') && head.includes('"CycloneDX"')) {
       return 'application/vnd.cyclonedx+json';
     }
+    // eslint-disable-next-line xss/no-mixed-html
     if (lower.endsWith('.xml') && head.includes('<bom') && head.includes('cyclonedx')) {
       return 'application/vnd.cyclonedx+xml';
     }
@@ -1094,7 +1095,7 @@ router.post(
         const storageKey = `evidence/${req.params.id as string}/${attachmentId}-${data.filename}`;
 
         // Build the row based on provider
-        const row: any = {
+        const row: Record<string, unknown> = {
           id: attachmentId,
           evidenceId: req.params.id as string,
           filename: data.filename,
@@ -1154,7 +1155,7 @@ router.post(
         limits: { fileSize: maxFileSize },
       });
 
-      const attachments: any[] = [];
+      const attachments: Record<string, unknown>[] = [];
       let fileSizeLimitHit = false;
 
       bb.on('file', async (_fieldname, file, info) => {
@@ -1165,10 +1166,8 @@ router.post(
           const storageKey = `evidence/${req.params.id as string}/${attachmentId}-${filename}`;
 
           const chunks: Buffer[] = [];
-          let totalSize = 0;
 
           file.on('data', (chunk: Buffer) => {
-            totalSize += chunk.length;
             chunks.push(chunk);
           });
 
@@ -1191,7 +1190,7 @@ router.post(
               const resolvedContentType = detectCycloneDXMediaType(filename, contentTypeFromFile, buffer);
 
               // Build the row based on active storage provider
-              const row: any = {
+              const row: Record<string, unknown> = {
                 id: attachmentId,
                 evidenceId: req.params.id as string,
                 filename,

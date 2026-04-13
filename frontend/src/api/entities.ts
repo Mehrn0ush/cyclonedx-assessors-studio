@@ -64,7 +64,7 @@ export async function getEntityProgress(id: string) {
 }
 
 export async function getEntityRelationshipGraph(id: string, depth?: number) {
-  const params: Record<string, any> = {}
+  const params: Record<string, string | number> = {}
   if (depth) params.depth = depth
   const { data } = await client.get(`/entities/${id}/relationship-graph`, { params })
   return data

@@ -11,6 +11,10 @@ import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { logger } from './logger.js';
 
+interface RequestWithId extends Request {
+  requestId?: string;
+}
+
 /**
  * Wraps an async Express route handler with try/catch.
  * If the handler throws an unhandled error, sends 500 response.
@@ -27,12 +31,12 @@ export function asyncHandler(
   return (req: Request, res: Response) => {
     try {
       void fn(req, res).catch((error) => {
-        const requestId = (req as any).requestId;
+        const requestId = (req as RequestWithId).requestId;
         logger.error('Unhandled route error', { error, requestId });
         res.status(500).json({ error: 'Internal server error' });
       });
     } catch (error) {
-      const requestId = (req as any).requestId;
+      const requestId = (req as RequestWithId).requestId;
       logger.error('Unhandled route error', { error, requestId });
       res.status(500).json({ error: 'Internal server error' });
     }

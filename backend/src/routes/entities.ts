@@ -36,7 +36,7 @@ const createPolicySchema = z.object({
 });
 
 // GET / - List entities (filter by entity_type, state, search)
-router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
     const { limit, offset } = validatePagination(req.query);
@@ -107,7 +107,7 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
     logger.error('Get entities error', { error, requestId: req.requestId });
     res.status(500).json({ error: 'Internal server error' });
   }
-});
+}));
 
 // GET /relationship-graph - Get the global relationship graph for all entities
 router.get('/relationship-graph', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
@@ -509,7 +509,7 @@ router.get('/:id/assessments', requireAuth, async (req: AuthRequest, res: Respon
 });
 
 // GET /:id/history - Get assessment history
-router.get('/:id/history', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/:id/history', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
 
@@ -567,7 +567,7 @@ router.get('/:id/history', requireAuth, async (req: AuthRequest, res: Response):
     logger.error('Get entity history error', { error, requestId: req.requestId });
     res.status(500).json({ error: 'Internal server error' });
   }
-});
+}));
 
 // GET /:id/relationship-graph - Get the full transitive relationship graph rooted at this entity
 router.get('/:id/relationship-graph', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
@@ -819,7 +819,7 @@ router.delete(
 );
 
 // GET /:id/policies - Get compliance policies (direct + inherited from parent entities)
-router.get('/:id/policies', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/:id/policies', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
 
@@ -893,7 +893,7 @@ router.get('/:id/policies', requireAuth, async (req: AuthRequest, res: Response)
     logger.error('Get policies error', { error, requestId: req.requestId });
     res.status(500).json({ error: 'Internal server error' });
   }
-});
+}));
 
 // POST /:id/policies - Create a compliance policy
 router.post(

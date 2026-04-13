@@ -148,7 +148,7 @@ export interface NotificationRule {
   scope: 'system' | 'user';
   user_id?: string | null;
   channel: 'in_app' | 'email' | 'slack' | 'teams' | 'mattermost' | 'webhook';
-  event_types: any; // JSONB: string[]
+  event_types: string[] | null; // JSONB: string[]
   filters: any; // JSONB: Record<string, any>
   destination: any; // JSONB: channel-specific config
   enabled: boolean;

@@ -36,7 +36,7 @@ router.get(
     const activeVersion = encryptionService.getActiveKeyVersion();
 
     // Get all key versions
-    let keyVersions: any[] = [];
+    let keyVersions: Record<string, unknown>[] = [];
     try {
       keyVersions = await db
         .selectFrom('encryption_key_version')

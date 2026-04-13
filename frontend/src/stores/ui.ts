@@ -6,8 +6,12 @@ type Theme = 'dark' | 'light' | 'auto'
 // Simple cookie helpers for non-sensitive UI preferences.
 // These are plain cookies (not httpOnly) because they are read by
 // client-side JavaScript. They contain zero security-sensitive data.
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function getCookie(name: string): string | null {
-  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`))
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${escapeRegExp(name)}=([^;]*)`))
   return match ? decodeURIComponent(match[1]) : null
 }
 

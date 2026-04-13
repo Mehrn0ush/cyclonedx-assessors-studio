@@ -154,7 +154,7 @@ router.get('/upcoming-due-dates', requireAuth, asyncHandler(async (req: AuthRequ
 
   res.json({
     data: upcomingAssessments.map(a => {
-      const dueDate = new Date(a.due_date as any);
+      const dueDate = new Date(String(a.due_date));
       const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       return {
         ...a,
@@ -212,12 +212,12 @@ router.get('/compliance-coverage', requireAuth, asyncHandler(async (req: AuthReq
 router.get('/assessment-distribution', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const db = getDatabase();
 
-  const states = ['new', 'pending', 'in_progress', 'on_hold', 'cancelled', 'complete', 'archived'];
+  const states = ['new', 'pending', 'in_progress', 'on_hold', 'cancelled', 'complete', 'archived'] as const;
   const distribution = await Promise.all(
     states.map(async (state) => {
       const count = await db
         .selectFrom('assessment')
-        .where('state', '=', state as any)
+        .where('state', '=', state)
         .select(db.fn.count<number>('id').as('count'))
         .executeTakeFirstOrThrow()
         .then(r => Number(r.count));
@@ -232,12 +232,12 @@ router.get('/assessment-distribution', requireAuth, asyncHandler(async (req: Aut
 router.get('/evidence-health', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const db = getDatabase();
 
-  const states = ['in_review', 'in_progress', 'claimed', 'expired'];
+  const states = ['in_review', 'in_progress', 'claimed', 'expired'] as const;
   const health = await Promise.all(
     states.map(async (state) => {
       const count = await db
         .selectFrom('evidence')
-        .where('state', '=', state as any)
+        .where('state', '=', state)
         .select(db.fn.count<number>('id').as('count'))
         .executeTakeFirstOrThrow()
         .then(r => Number(r.count));
@@ -268,12 +268,13 @@ router.get('/evidence-health', requireAuth, asyncHandler(async (req: AuthRequest
 router.get('/conformance-breakdown', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const db = getDatabase();
 
-  const results = ['yes', 'no', 'na'];
-  const breakdown = await Promise.all(
+  const results = ['yes', 'no', 'partial', 'not_applicable'] as const;
+  type ResultType = typeof results[number];
+  const breakdown: Array<{ result: string; count: number }> = await Promise.all(
     results.map(async (result) => {
       const count = await db
         .selectFrom('assessment_requirement')
-        .where('result', '=', result as any)
+        .where('result', '=', result)
         .select(db.fn.count<number>('id').as('count'))
         .executeTakeFirstOrThrow()
         .then(r => Number(r.count));
@@ -548,7 +549,7 @@ router.get('/configs/:id', requireAuth, asyncHandler(async (req: AuthRequest, re
   const dashboard = await db
     .selectFrom('dashboard')
     .where('id', '=', req.params.id)
-    .where((eb: any) =>
+    .where((eb) =>
       eb.or([
         eb('owner_id', '=', userId),
         eb('is_shared', '=', true),
@@ -574,7 +575,7 @@ router.post('/configs', requireAuth, asyncHandler(async (req: AuthRequest, res: 
     const dashboardId = uuidv4();
 
     await db
-      .insertInto('dashboard' as any)
+      .insertInto('dashboard')
       .values({
         id: dashboardId,
         name: data.name,
@@ -618,7 +619,7 @@ router.put('/configs/:id', requireAuth, asyncHandler(async (req: AuthRequest, re
       return;
     }
 
-    const updates: any = { updated_at: new Date() };
+    const updates: Record<string, unknown> = { updated_at: new Date() };
     if (data.name !== undefined) updates.name = data.name;
     if (data.description !== undefined) updates.description = data.description;
     if (data.is_shared !== undefined) updates.is_shared = data.is_shared;
@@ -627,7 +628,7 @@ router.put('/configs/:id', requireAuth, asyncHandler(async (req: AuthRequest, re
     // Handle setting as default (unset all other defaults for this user)
     if (data.is_default === true) {
       await db
-        .updateTable('dashboard' as any)
+        .updateTable('dashboard')
         .set({ is_default: false })
         .where('owner_id', '=', userId)
         .execute();
@@ -637,7 +638,7 @@ router.put('/configs/:id', requireAuth, asyncHandler(async (req: AuthRequest, re
     }
 
     await db
-      .updateTable('dashboard' as any)
+      .updateTable('dashboard')
       .set(updates)
       .where('id', '=', req.params.id)
       .execute();
@@ -673,7 +674,7 @@ router.delete('/configs/:id', requireAuth, asyncHandler(async (req: AuthRequest,
   }
 
   await db
-    .deleteFrom('dashboard' as any)
+    .deleteFrom('dashboard')
     .where('id', '=', req.params.id)
     .execute();
 
@@ -700,6 +701,7 @@ router.get('/progress', requireAuth, asyncHandler(async (req: AuthRequest, res: 
   // ---- Summary Stats ----
 
   // Distinct entities that have at least one assessment
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let entitiesAssessedQuery = db
     .selectFrom('assessment')
     .where('assessment.entity_id', 'is not', null)

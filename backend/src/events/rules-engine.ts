@@ -21,7 +21,7 @@ import { v4 as uuidv4 } from 'uuid';
 export interface RuleMatch {
   rule: Selectable<NotificationRule>;
   userId?: string;
-  destination?: any;
+  destination?: Record<string, unknown>;
 }
 
 export class RulesEngine {

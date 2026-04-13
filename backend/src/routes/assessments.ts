@@ -950,9 +950,9 @@ router.get(
           'app_user',
           (join) =>
             join.onRef(
-              'app_user.id' as any,
+              'app_user.id',
               '=',
-              'evidence.author_id' as any
+              'evidence.author_id'
             )
         )
         .where('assessment_requirement_evidence.assessment_requirement_id', '=', assessmentReq.id)
@@ -1169,7 +1169,10 @@ router.get(
           if (!externalRefsByClaimId.has(claimId)) {
             externalRefsByClaimId.set(claimId, []);
           }
-          externalRefsByClaimId.get(claimId)!.push(ref);
+          const refs = externalRefsByClaimId.get(claimId);
+          if (refs) {
+            refs.push(ref);
+          }
         }
       }
 
@@ -1314,7 +1317,7 @@ router.post(
   '/:id/notes',
   requireAuth,
   requirePermission('assessments.notes'),
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = addWorkNoteSchema.parse(req.body);
       const db = getDatabase();
@@ -1349,10 +1352,11 @@ router.post(
         .execute();
 
       // Parse @mentions from content and send targeted notifications
+      // eslint-disable-next-line security/detect-unsafe-regex
       const mentionPattern = /@(\w+(?:\.\w+)*)/g;
       const mentionedUsernames = new Set<string>();
-      let match;
-      while ((match = mentionPattern.exec(data.content)) !== null) {
+      const matches = data.content.matchAll(mentionPattern);
+      for (const match of matches) {
         mentionedUsernames.add(match[1].toLowerCase());
       }
 
@@ -1395,7 +1399,7 @@ router.post(
       logger.error('Add work note error', { error, requestId: req.requestId });
       res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 router.delete(

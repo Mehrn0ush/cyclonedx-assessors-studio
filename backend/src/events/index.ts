@@ -59,7 +59,9 @@ export async function initializeEventSystem(): Promise<void> {
     // a circular dependency on the event bus.
     await channelRegistry.initializeAll(eventBus!);
     webhookChannel.setEmitter((type, data) => {
-      eventBus!.emit(type, data, { userId: null, displayName: 'System' });
+      if (eventBus) {
+        eventBus.emit(type, data, { userId: null, displayName: 'System' });
+      }
     });
   } else {
     await channelRegistry.initializeAll(eventBus!);

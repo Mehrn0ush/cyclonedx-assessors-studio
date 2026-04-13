@@ -25,7 +25,7 @@ export async function deleteEvidence(id: string): Promise<void> {
   await client.delete(`/evidence/${id}`)
 }
 
-export async function uploadAttachment(evidenceId: string, file: File): Promise<any> {
+export async function uploadAttachment(evidenceId: string, file: File): Promise<Record<string, unknown>> {
   const formData = new FormData()
   formData.append('file', file)
   const { data } = await client.post(`/evidence/${evidenceId}/attachments`, formData, {

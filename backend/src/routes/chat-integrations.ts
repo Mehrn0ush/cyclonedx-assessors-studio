@@ -11,7 +11,6 @@ import type { Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
-import { logger } from '../utils/logger.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { getChannelRegistry } from '../events/index.js';
@@ -26,9 +25,9 @@ const router = Router();
 // ---- URL validation per platform ----
 
 const PLATFORM_VALIDATORS: Record<string, (url: string) => boolean> = {
-  slack: SlackChannel.validateWebhookUrl,
-  teams: TeamsChannel.validateWebhookUrl,
-  mattermost: MattermostChannel.validateWebhookUrl,
+  slack: (url: string) => SlackChannel.validateWebhookUrl(url),
+  teams: (url: string) => TeamsChannel.validateWebhookUrl(url),
+  mattermost: (url: string) => MattermostChannel.validateWebhookUrl(url),
 };
 
 const PLATFORM_URL_HINTS: Record<string, string> = {

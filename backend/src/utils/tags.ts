@@ -40,11 +40,13 @@ export async function syncEntityTags(
   entityId: string,
   tagNames: string[]
 ): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (db.deleteFrom(junctionTable as any) as any).where(entityColumn, '=', entityId).execute();
 
   if (tagNames.length > 0) {
     const tagIds = await resolveTagIds(db, tagNames);
     if (tagIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (db
         .insertInto(junctionTable as any) as any)
         .values(
@@ -81,8 +83,11 @@ export async function fetchTagsForEntities(
   const result: Record<string, { name: string; color: string }[]> = {};
   for (const row of rows) {
     const record = row as Record<string, unknown>;
+    // eslint-disable-next-line security/detect-object-injection
     const eid = record[entityColumn] as string;
+    // eslint-disable-next-line security/detect-object-injection
     if (!result[eid]) result[eid] = [];
+    // eslint-disable-next-line security/detect-object-injection
     result[eid].push({ name: record.name as string, color: record.color as string });
   }
   return result;

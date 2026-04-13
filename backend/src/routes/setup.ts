@@ -9,7 +9,7 @@ import { logger } from '../utils/logger.js';
 import { checkSetupComplete, markSetupComplete } from '../middleware/setup.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { importStandard } from '../services/standard-import.js';
-import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
+import { asyncHandler } from '../utils/route-helpers.js';
 
 const router = Router();
 

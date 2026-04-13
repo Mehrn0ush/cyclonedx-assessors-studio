@@ -12,6 +12,7 @@ const __dirname = path.dirname(__filename);
 import { getConfig } from './config/index.js';
 import { logger } from './utils/logger.js';
 import { requestIdMiddleware } from './middleware/security.js';
+import type { AuthRequest } from './middleware/auth.js';
 import { requireSetup } from './middleware/setup.js';
 import healthRoutes from './routes/health.js';
 import { camelCaseResponse } from './middleware/camelCase.js';
@@ -138,7 +139,7 @@ function configureRequestMiddleware(app: Express): void {
     app.use(metricsMiddleware);
   }
 
-  app.use((req: any, _res: Response, next: NextFunction) => {
+  app.use((req: AuthRequest, _res: Response, next: NextFunction) => {
     try {
       req.eventBus = getEventBus();
     } catch {
@@ -150,7 +151,7 @@ function configureRequestMiddleware(app: Express): void {
   app.use('/api/v1', camelCaseResponse);
 
   if (config.NODE_ENV !== 'test') {
-    app.use((req: any, res: Response, next: NextFunction) => {
+    app.use((req: AuthRequest, res: Response, next: NextFunction) => {
       const start = Date.now();
       res.on('finish', () => {
         const duration = Date.now() - start;

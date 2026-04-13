@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
+import type { Selectable } from 'kysely';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
@@ -10,6 +11,7 @@ import { toSnakeCase } from '../middleware/camelCase.js';
 import { importStandard } from '../services/standard-import.js';
 import { buildRequirementTree, topologicalSort } from '../services/requirement-utils.js';
 import { generateStandardCycloneDX } from '../services/standard-export.js';
+import type { Standard } from '../db/types.js';
 
 const router = Router();
 
@@ -80,7 +82,7 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
     .limit(limit)
     .offset(offset)
     .orderBy('name', 'asc')
-    .execute()) as any[];
+    .execute()) as Array<Selectable<Standard>>;
 
   // Fetch requirement counts per standard in one query
   const reqCounts = await db
@@ -484,7 +486,7 @@ router.post(
       return;
     }
 
-    if (standard.authored_by === req.user!.id) {
+    if (standard.authored_by === (req.user?.id ?? '')) {
       res.status(403).json({ error: 'Cannot approve your own standard submission' });
       return;
     }
@@ -496,7 +498,7 @@ router.post(
       .updateTable('standard')
       .set({
         state: 'published',
-        approved_by: req.user!.id,
+        approved_by: req.user?.id ?? '',
         approved_at: new Date(),
         source_json: sourceJson,
       })

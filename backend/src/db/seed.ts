@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import readline from 'node:readline';
+import crypto from 'node:crypto';
 import { getDatabase } from './connection.js';
 import { hashPassword } from '../utils/crypto.js';
 import { logger } from '../utils/logger.js';
@@ -123,7 +124,8 @@ export async function seedDefaultAdmin(): Promise<void> {
     }
 
     const confirm = await promptHidden('  Confirm password: ');
-    if (password !== confirm) {
+    // Use timing-safe comparison for password confirmation
+    if (!crypto.timingSafeEqual(Buffer.from(password), Buffer.from(confirm))) {
       console.error('  Passwords do not match.');
       process.exit(1);
     }

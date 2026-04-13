@@ -2,7 +2,6 @@ import { Router } from 'express';
 import type { Response } from 'express';
 import { getConfig } from '../config/index.js';
 import { getDatabase } from '../db/connection.js';
-import { logger } from '../utils/logger.js';
 import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import {
   getStorageProviderName,

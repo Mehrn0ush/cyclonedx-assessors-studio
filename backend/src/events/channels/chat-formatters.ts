@@ -167,6 +167,7 @@ export function buildEventFields(data: Record<string, unknown>): MessageField[] 
 
   for (const [key, title] of Object.entries(fieldMap)) {
     if (data[key] !== undefined && data[key] !== null && data[key] !== '') {
+      // eslint-disable-next-line security/detect-object-injection
       fields.push({ title, value: String(data[key]) });
     }
   }
