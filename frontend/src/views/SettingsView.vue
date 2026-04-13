@@ -411,8 +411,9 @@ const handleSaveProfile = async () => {
     if (authStore.user) {
       authStore.user.displayName = profileForm.value.displayName
     }
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.error || 'Failed to update profile')
+  } catch (error: unknown) {
+    const e = error as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to update profile')
   } finally {
     savingProfile.value = false
   }
@@ -444,8 +445,9 @@ const handleChangePassword = async () => {
     })
     ElMessage.success(t('settings.passwordChanged'))
     passwordForm.value = { currentPassword: '', newPassword: '', confirmPassword: '' }
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.error || 'Failed to change password')
+  } catch (error: unknown) {
+    const e = error as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to change password')
   } finally {
     savingPassword.value = false
   }
@@ -470,8 +472,9 @@ const handleSaveChatIdentities = async () => {
       emailNotificationsEnabled: chatIdentities.value.emailNotificationsEnabled
     })
     ElMessage.success(t('settings.chatIdentities.saved'))
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.error || 'Failed to save chat identities')
+  } catch (error: unknown) {
+    const e = error as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to save chat identities')
   } finally {
     savingChatIdentities.value = false
   }
@@ -546,7 +549,7 @@ const fetchUserRules = async () => {
   try {
     const { data } = await axios.get('/api/v1/notification-rules')
     userRules.value = data.rules || data
-  } catch (err: any) {
+  } catch (err: unknown) {
     ElMessage.error('Failed to load notification rules')
   } finally {
     userRulesLoading.value = false
@@ -559,11 +562,11 @@ const fetchProjectOptionsUserRule = async () => {
     const { data } = await axios.get('/api/v1/projects', {
       params: { limit: 100 }
     })
-    projectOptionsUserRule.value = (data.data || []).map((project: any) => ({
-      value: project.id,
-      label: project.name
+    projectOptionsUserRule.value = (data.data || []).map((project: Record<string, unknown>) => ({
+      value: project.id as string,
+      label: project.name as string
     }))
-  } catch (err: any) {
+  } catch (err: unknown) {
     ElMessage.error('Failed to load projects')
   } finally {
     projectsLoadingUserRule.value = false
@@ -576,11 +579,11 @@ const fetchStandardOptionsUserRule = async () => {
     const { data } = await axios.get('/api/v1/standards', {
       params: { limit: 100 }
     })
-    standardOptionsUserRule.value = (data.data || []).map((standard: any) => ({
-      value: standard.id,
-      label: standard.name
+    standardOptionsUserRule.value = (data.data || []).map((standard: Record<string, unknown>) => ({
+      value: standard.id as string,
+      label: standard.name as string
     }))
-  } catch (err: any) {
+  } catch (err: unknown) {
     ElMessage.error('Failed to load standards')
   } finally {
     standardsLoadingUserRule.value = false
@@ -593,11 +596,11 @@ const fetchAssessmentOptionsUserRule = async () => {
     const { data } = await axios.get('/api/v1/assessments', {
       params: { limit: 100 }
     })
-    assessmentOptionsUserRule.value = (data.data || []).map((assessment: any) => ({
-      value: assessment.id,
-      label: assessment.name || assessment.title
+    assessmentOptionsUserRule.value = (data.data || []).map((assessment: Record<string, unknown>) => ({
+      value: assessment.id as string,
+      label: (assessment.name || assessment.title) as string
     }))
-  } catch (err: any) {
+  } catch (err: unknown) {
     ElMessage.error('Failed to load assessments')
   } finally {
     assessmentsLoadingUserRule.value = false
@@ -671,8 +674,9 @@ const handleSaveUserRule = async () => {
 
     showUserRuleDialog.value = false
     await fetchUserRules()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to save rule')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to save rule')
   } finally {
     savingUserRule.value = false
   }
@@ -683,8 +687,9 @@ const handleToggleUserRuleEnabled = async (rule: UserNotificationRule) => {
     await axios.patch(`/api/v1/notification-rules/${rule.id}`, {
       enabled: rule.enabled
     })
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to update rule')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to update rule')
     rule.enabled = !rule.enabled
   }
 }
@@ -699,9 +704,10 @@ const handleDeleteUserRule = async (rule: UserNotificationRule) => {
     await axios.delete(`/api/v1/notification-rules/${rule.id}`)
     ElMessage.success('Rule deleted successfully')
     await fetchUserRules()
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
     if (err !== 'cancel') {
-      ElMessage.error(err.response?.data?.error || 'Failed to delete rule')
+      ElMessage.error(e.response?.data?.error || 'Failed to delete rule')
     }
   }
 }
@@ -728,7 +734,7 @@ const handleLogoutAll = async () => {
     ElMessage.success('All sessions logged out')
     authStore.logout()
     router.push('/login')
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error !== 'cancel') {
       ElMessage.error('Failed to logout all sessions')
     }

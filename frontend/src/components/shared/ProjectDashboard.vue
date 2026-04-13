@@ -374,11 +374,19 @@ const toPercent = (date: Date): number => {
 const ganttItems = computed((): GanttItem[] => {
   if (!stats.value?.assessmentBreakdown) return []
 
+  interface AssessmentBreakdownItem {
+    id: string
+    title: string
+    state: string
+    startDate?: string
+    dueDate?: string
+  }
+
   return stats.value.assessmentBreakdown
-    .filter((a: any) => a.startDate || a.dueDate)
-    .map((a: any) => {
-      const start = a.startDate ? new Date(a.startDate) : new Date(a.dueDate)
-      const end = a.dueDate ? new Date(a.dueDate) : new Date(a.startDate)
+    .filter((a: AssessmentBreakdownItem) => a.startDate || a.dueDate)
+    .map((a: AssessmentBreakdownItem) => {
+      const start = a.startDate ? new Date(a.startDate) : new Date(a.dueDate as string)
+      const end = a.dueDate ? new Date(a.dueDate) : new Date(a.startDate as string)
       const leftPercent = toPercent(start)
       const rightPercent = toPercent(end)
       return {

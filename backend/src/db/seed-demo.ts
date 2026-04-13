@@ -41,12 +41,14 @@ async function seedBasicEntities(db: Kysely<Database>, data: DemoData): Promise<
   logger.info(`Seeded ${data.organizations.length} organizations`);
 
   for (const contact of data.contacts) {
-    await db.insertInto('contact').values(contact).execute();
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    await db.insertInto('contact').values(contact as any).execute();
   }
   logger.info(`Seeded ${data.contacts.length} contacts`);
 
   for (const tag of data.tags) {
-    await db.insertInto('tag').values(tag).execute();
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    await db.insertInto('tag').values(tag as any).execute();
   }
   logger.info(`Seeded ${data.tags.length} tags`);
 }
@@ -60,17 +62,19 @@ async function seedUsers(db: Kysely<Database>, data: DemoData, adminRole: { id: 
   }
 
   for (const user of data.users) {
-    const passwordHash = await hashPassword(user.password);
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    const userData = user as any;
+    const passwordHash = await hashPassword(userData.password as string);
     await db
       .insertInto('app_user')
       .values({
-        id: user.id,
-        username: user.username,
-        email: user.email,
+        id: userData.id as string,
+        username: userData.username as string,
+        email: userData.email as string,
         password_hash: passwordHash,
-        display_name: user.display_name,
-        role: user.role,
-        role_id: roleMap.get(user.role) || null,
+        display_name: userData.display_name as string,
+        role: userData.role as string,
+        role_id: roleMap.get(userData.role) || null,
         is_active: true,
         has_completed_onboarding: true,
       })
@@ -90,24 +94,28 @@ async function seedUsers(db: Kysely<Database>, data: DemoData, adminRole: { id: 
 // Helper: Seed entities, relationships, and tags
 async function seedEntitiesAndRelationships(db: Kysely<Database>, data: DemoData, firstStandardId: string | null, secondStandardId: string | null, ssdfStandardId: string | null): Promise<void> {
   for (const entity of data.entities) {
-    const bomRef = entity.bom_ref || `${entity.entity_type}-${entity.id.substring(0, 8)}`;
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    const entityData = entity as any;
+    const bomRef = entityData.bom_ref || `${entityData.entity_type}-${(entityData.id as string).substring(0, 8)}`;
     await db.insertInto('entity').values({
       ...entity,
       bom_ref: bomRef,
-    }).execute();
+      // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    } as any).execute();
   }
   logger.info(`Seeded ${data.entities.length} entities`);
 
   for (const rel of data.entity_relationships) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { _comment, ...relData } = rel;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: Seed data shape does not match DB row type exactly
     await db.insertInto('entity_relationship').values(relData as any).execute();
   }
   logger.info(`Seeded ${data.entity_relationships.length} entity relationships`);
 
   for (const et of data.entity_tags) {
-    await db.insertInto('entity_tag').values({ ...et, created_at: new Date() }).execute();
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    await db.insertInto('entity_tag').values({ ...et, created_at: new Date() } as any).execute();
   }
 
   // Entity Standards
@@ -179,7 +187,8 @@ async function seedSignatoriesAndProjects(db: Kysely<Database>, data: DemoData, 
   logger.info(`Seeded ${data.projects.length} projects`);
 
   for (const pt of data.project_tags) {
-    await db.insertInto('project_tag').values({ ...pt, created_at: new Date() }).execute();
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    await db.insertInto('project_tag').values({ ...pt, created_at: new Date() } as any).execute();
   }
 
   if (firstStandardId) {
@@ -208,81 +217,93 @@ async function seedAffirmations(db: Kysely<Database>, data: DemoData): Promise<v
   logger.info(`Seeded ${data.affirmations.length} affirmations`);
 
   for (const as_ of data.affirmation_signatories) {
-    await db.insertInto('affirmation_signatory').values({ ...as_, created_at: new Date() }).execute();
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    await db.insertInto('affirmation_signatory').values({ ...as_, created_at: new Date() } as any).execute();
   }
 }
 
 // Helper: Seed assessments and related data
 async function seedAssessments(db: Kysely<Database>, data: DemoData, resolveId: (val: string) => string | null): Promise<void> {
   for (const assessment of data.assessments) {
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    const assessmentData = assessment as any;
     await db.insertInto('assessment').values({
-      id: assessment.id,
-      title: assessment.title,
-      description: assessment.description,
-      project_id: resolveId(assessment.project_id) || undefined,
-      entity_id: assessment.entity_id || undefined,
-      standard_id: resolveId(assessment.standard_id!) || undefined,
-      state: assessment.state,
-      start_date: assessment.start_date || undefined,
-      due_date: assessment.due_date || undefined,
+      id: assessmentData.id as string,
+      title: assessmentData.title as string,
+      description: assessmentData.description as string,
+      project_id: resolveId(assessmentData.project_id as string) || undefined,
+      entity_id: assessmentData.entity_id || undefined,
+      standard_id: resolveId(assessmentData.standard_id as string) || undefined,
+      state: assessmentData.state as string,
+      start_date: assessmentData.start_date || undefined,
+      due_date: assessmentData.due_date || undefined,
     }).execute();
   }
   logger.info(`Seeded ${data.assessments.length} assessments`);
 
   for (const aa of data.assessment_assessors) {
-    const resolved = resolveId(aa.user_id);
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    const aaData = aa as any;
+    const resolved = resolveId(aaData.user_id as string);
     if (!resolved) {
-      throw new Error(`Failed to resolve user_id: ${aa.user_id}`);
+      throw new Error(`Failed to resolve user_id: ${aaData.user_id}`);
     }
     await db.insertInto('assessment_assessor').values({
-      assessment_id: aa.assessment_id,
+      assessment_id: aaData.assessment_id as string,
       user_id: resolved,
       created_at: new Date(),
     }).execute();
   }
 
   for (const aa of data.assessment_assessees) {
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    const aaData = aa as any;
     await db.insertInto('assessment_assessee').values({
-      assessment_id: aa.assessment_id,
-      user_id: resolveId(aa.user_id)!,
+      assessment_id: aaData.assessment_id as string,
+      user_id: resolveId(aaData.user_id as string)!,
       created_at: new Date(),
     }).execute();
   }
 
   for (const at of data.assessment_tags) {
-    await db.insertInto('assessment_tag').values({ ...at, created_at: new Date() }).execute();
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    await db.insertInto('assessment_tag').values({ ...at, created_at: new Date() } as any).execute();
   }
 }
 
 // Helper: Seed evidence and attachments
 async function seedEvidence(db: Kysely<Database>, data: DemoData, resolveId: (val: string) => string | null): Promise<void> {
   for (const ev of data.evidence) {
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    const evData = ev as any;
     await db.insertInto('evidence').values({
-      id: ev.id,
-      name: ev.name,
-      description: ev.description,
-      state: ev.state,
-      author_id: resolveId(ev.author_id)!,
-      reviewer_id: ev.reviewer_id ? resolveId(ev.reviewer_id) : undefined,
-      is_counter_evidence: ev.is_counter_evidence,
-      classification: ev.classification,
-      expires_on: ev.expires_on || undefined,
+      id: evData.id as string,
+      name: evData.name as string,
+      description: evData.description as string,
+      state: evData.state as string,
+      author_id: resolveId(evData.author_id as string)!,
+      reviewer_id: evData.reviewer_id ? resolveId(evData.reviewer_id as string) : undefined,
+      is_counter_evidence: evData.is_counter_evidence as boolean,
+      classification: evData.classification as string,
+      expires_on: evData.expires_on || undefined,
     }).execute();
   }
   logger.info(`Seeded ${data.evidence.length} evidence items`);
 
   for (const et of data.evidence_tags) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: Seed data shape does not match DB row type exactly
     await db.insertInto('evidence_tag').values({ ...et, created_at: new Date() } as any).execute();
   }
 
   for (const en of data.evidence_notes) {
-    await db.insertInto('evidence_note').values(en).execute();
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    await db.insertInto('evidence_note').values(en as any).execute();
   }
   logger.info(`Seeded ${data.evidence_notes.length} evidence notes`);
 
   for (const ea of data.evidence_attachments) {
-    const row: Record<string, unknown> = { ...ea, storage_provider: 'database' };
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    const row = { ...ea, storage_provider: 'database' } as any;
     if (typeof row.binary_content === 'string') {
       row.binary_content = Buffer.from(row.binary_content, 'base64');
     }
@@ -382,23 +403,29 @@ async function seedAssessmentRequirements(db: Kysely<Database>, data: DemoData, 
 // Helper: Seed claims and related data
 async function seedClaims(db: Kysely<Database>, data: DemoData, resolveId: (val: string) => string | null): Promise<void> {
   for (const claim of data.claims) {
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    const claimData = claim as any;
     await db.insertInto('claim').values({
       ...claim,
-      target_entity_id: claim.target_entity_id || null,
-    }).execute();
+      target_entity_id: claimData.target_entity_id || null,
+      // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    } as any).execute();
   }
   logger.info(`Seeded ${data.claims.length} claims`);
 
   for (const ce of data.claim_evidence) {
-    await db.insertInto('claim_evidence').values({ ...ce, created_at: new Date() }).execute();
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    await db.insertInto('claim_evidence').values({ ...ce, created_at: new Date() } as any).execute();
   }
 
   for (const cce of data.claim_counter_evidence) {
-    await db.insertInto('claim_counter_evidence').values({ ...cce, created_at: new Date() }).execute();
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    await db.insertInto('claim_counter_evidence').values({ ...cce, created_at: new Date() } as any).execute();
   }
 
   for (const cms of data.claim_mitigation_strategies) {
-    await db.insertInto('claim_mitigation_strategy').values({ ...cms, created_at: new Date() }).execute();
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    await db.insertInto('claim_mitigation_strategy').values({ ...cms, created_at: new Date() } as any).execute();
   }
 }
 
@@ -565,47 +592,52 @@ async function seedSSDF(db: Kysely<Database>, data: DemoData, ssdfStandardId: st
   const ssdfAssessmentReqMap = new Map<string, string>();
 
   for (const ar of ssdf.assessment_requirements) {
-    const requirementId = ssdfReqMap.get(ar.requirement_identifier);
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    const arData = ar as any;
+    const requirementId = ssdfReqMap.get(arData.requirement_identifier as string);
     if (!requirementId) {
-      logger.warn(`SSDF requirement not found: ${ar.requirement_identifier}`);
+      logger.warn(`SSDF requirement not found: ${arData.requirement_identifier}`);
       continue;
     }
 
     const arId = uuidv4();
-    ssdfAssessmentReqMap.set(ar.requirement_identifier, arId);
+    ssdfAssessmentReqMap.set(arData.requirement_identifier as string, arId);
 
     await db.insertInto('assessment_requirement').values({
       id: arId,
       assessment_id: ssdfAssessmentId,
       requirement_id: requirementId,
-      result: ar.result || undefined,
-      rationale: ar.rationale || undefined,
+      result: arData.result || undefined,
+      rationale: arData.rationale || undefined,
     }).execute();
 
-    if (ar.evidence_ids && ar.evidence_ids.length > 0) {
-      for (const evidenceId of ar.evidence_ids) {
+    if (arData.evidence_ids && (arData.evidence_ids as unknown[]).length > 0) {
+      for (const evidenceId of arData.evidence_ids as string[]) {
         try {
           await db.insertInto('assessment_requirement_evidence').values({
             assessment_requirement_id: arId,
             evidence_id: evidenceId,
             created_at: new Date(),
           }).execute();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (e: any) {
-          if (!e?.message?.includes('duplicate') && !e?.message?.includes('unique') && !e?.message?.includes('foreign')) {
+        } catch (e: unknown) {
+          const err = e as Record<string, unknown>;
+          const msg = err?.message as string | undefined;
+          if (!msg?.includes('duplicate') && !msg?.includes('unique') && !msg?.includes('foreign')) {
             throw e;
           }
         }
       }
     }
 
-    if (ar.work_notes && ar.work_notes.length > 0) {
-      for (const wn of ar.work_notes) {
+    if (arData.work_notes && (arData.work_notes as unknown[]).length > 0) {
+      for (const wn of arData.work_notes as Array<Record<string, unknown>>) {
+        // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+        const wnData = wn as any;
         await db.insertInto('work_note').values({
           id: uuidv4(),
           assessment_id: ssdfAssessmentId,
-          user_id: wn.user_id || adminUserId,
-          content: wn.content,
+          user_id: wnData.user_id as string || adminUserId,
+          content: wnData.content as string,
           created_at: new Date(),
           updated_at: new Date(),
         }).execute();
@@ -615,11 +647,13 @@ async function seedSSDF(db: Kysely<Database>, data: DemoData, ssdfStandardId: st
   logger.info(`Seeded ${ssdfAssessmentReqMap.size} SSDF assessment requirements`);
 
   const ssdfAttestationId = uuidv4();
+  // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+  const attestationData = ssdf.attestation as any;
   await db.insertInto('attestation').values({
     id: ssdfAttestationId,
-    summary: ssdf.attestation.summary,
+    summary: attestationData.summary as string,
     assessment_id: ssdfAssessmentId,
-    signatory_id: ssdf.attestation.signatory_id,
+    signatory_id: attestationData.signatory_id as string,
     assessor_id: externalAssessorId,
   }).execute();
 
@@ -637,46 +671,53 @@ async function seedSSDF(db: Kysely<Database>, data: DemoData, ssdfStandardId: st
   };
 
   for (const claim of data.claims) {
-    if (claim.id.startsWith('00000000-0000-4000-f500-1000')) {
-      const targetEntityId = ssdfTargetEntityMap[claim.target] || null;
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    const claimData = claim as any;
+    const claimId = claimData.id as string;
+    if (claimId.startsWith('00000000-0000-4000-f500-1000')) {
+      const targetEntityId = ssdfTargetEntityMap[claimData.target as string] || null;
       await db
         .updateTable('claim')
         .set({
           attestation_id: ssdfAttestationId,
           ...(targetEntityId ? { target_entity_id: targetEntityId } : {}),
         })
-        .where('id', '=', claim.id)
+        .where('id', '=', claimId)
         .execute();
     }
   }
 
   const ssdfAttReqMap = new Map<string, string>();
   for (const atReq of ssdf.attestation_requirements) {
-    const requirementId = ssdfReqMap.get(atReq.requirement_identifier);
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    const atReqData = atReq as any;
+    const requirementId = ssdfReqMap.get(atReqData.requirement_identifier as string);
     if (!requirementId) {
-      logger.warn(`SSDF attestation requirement not found: ${atReq.requirement_identifier}`);
+      logger.warn(`SSDF attestation requirement not found: ${atReqData.requirement_identifier}`);
       continue;
     }
 
     const atReqId = uuidv4();
-    ssdfAttReqMap.set(atReq.requirement_identifier, atReqId);
+    ssdfAttReqMap.set(atReqData.requirement_identifier as string, atReqId);
 
     await db.insertInto('attestation_requirement').values({
       id: atReqId,
       attestation_id: ssdfAttestationId,
       requirement_id: requirementId,
-      conformance_score: atReq.conformance_score,
-      conformance_rationale: atReq.conformance_rationale,
-      confidence_score: atReq.confidence_score,
-      confidence_rationale: atReq.confidence_rationale,
+      conformance_score: atReqData.conformance_score as number,
+      conformance_rationale: atReqData.conformance_rationale as string,
+      confidence_score: atReqData.confidence_score as number,
+      confidence_rationale: atReqData.confidence_rationale as string,
     }).execute();
   }
   logger.info(`Seeded ${ssdfAttReqMap.size} SSDF attestation requirements`);
 
   for (const mit of ssdf.attestation_requirement_mitigations) {
-    const atReqId = ssdfAttReqMap.get(mit.requirement_identifier);
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    const mitData = mit as any;
+    const atReqId = ssdfAttReqMap.get(mitData.requirement_identifier as string);
     if (!atReqId) {
-      logger.warn(`SSDF mitigation: attestation requirement not found for ${mit.requirement_identifier}`);
+      logger.warn(`SSDF mitigation: attestation requirement not found for ${mitData.requirement_identifier}`);
       continue;
     }
 
@@ -693,34 +734,41 @@ async function seedSSDF(db: Kysely<Database>, data: DemoData, ssdfStandardId: st
 // Helper: Seed notifications, audit logs, and dashboards
 async function seedFinalEntities(db: Kysely<Database>, data: DemoData, resolveId: (val: string) => string | null): Promise<void> {
   for (const notif of data.notifications) {
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    const notifData = notif as any;
     await db.insertInto('notification').values({
       ...notif,
-      user_id: resolveId(notif.user_id)!,
-    }).execute();
+      user_id: resolveId(notifData.user_id as string)!,
+      // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    } as any).execute();
   }
   logger.info(`Seeded ${data.notifications.length} notifications`);
 
   for (const log of data.audit_logs) {
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    const logData = log as any;
     await db.insertInto('audit_log').values({
       id: uuidv4(),
-      entity_type: log.entity_type,
-      entity_id: log.entity_id,
-      action: log.action,
-      user_id: resolveId(log.user_id)!,
-      changes: JSON.stringify(log.changes),
+      entity_type: logData.entity_type as string,
+      entity_id: logData.entity_id as string,
+      action: logData.action as string,
+      user_id: resolveId(logData.user_id as string)!,
+      changes: JSON.stringify(logData.changes),
     }).execute();
   }
   logger.info(`Seeded ${data.audit_logs.length} audit log entries`);
 
   for (const dash of data.dashboards) {
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    const dashData = dash as any;
     await db.insertInto('dashboard').values({
-      id: dash.id,
-      name: dash.name,
-      description: dash.description,
-      owner_id: resolveId(dash.owner_id)!,
-      is_default: dash.is_default,
-      is_shared: dash.is_shared,
-      layout: JSON.stringify(dash.layout),
+      id: dashData.id as string,
+      name: dashData.name as string,
+      description: dashData.description as string,
+      owner_id: resolveId(dashData.owner_id as string)!,
+      is_default: dashData.is_default as boolean,
+      is_shared: dashData.is_shared as boolean,
+      layout: JSON.stringify(dashData.layout),
     }).execute();
   }
   logger.info(`Seeded ${data.dashboards.length} dashboards`);
@@ -729,69 +777,40 @@ async function seedFinalEntities(db: Kysely<Database>, data: DemoData, resolveId
 // DemoData interface: loaded from JSON, properties are loosely typed
 // Each array contains objects with structure matching database tables
 // Properties are accessed via destructuring/spreading and may be unknown until narrowed
+// biome-ignore lint/suspicious/noExplicitAny: Seed data from JSON file has dynamic structure
 interface DemoData {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  organizations: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  contacts: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  users: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tags: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  entities: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  entity_relationships: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  entity_tags: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  projects: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  project_tags: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  signatories: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  affirmations: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  affirmation_signatories: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  assessments: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  assessment_assessors: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  assessment_assessees: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  assessment_tags: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  evidence: any[];
+  organizations: Record<string, unknown>[];
+  contacts: Record<string, unknown>[];
+  users: Record<string, unknown>[];
+  tags: Record<string, unknown>[];
+  entities: Record<string, unknown>[];
+  entity_relationships: Record<string, unknown>[];
+  entity_tags: Record<string, unknown>[];
+  projects: Record<string, unknown>[];
+  project_tags: Record<string, unknown>[];
+  signatories: Record<string, unknown>[];
+  affirmations: Record<string, unknown>[];
+  affirmation_signatories: Record<string, unknown>[];
+  assessments: Record<string, unknown>[];
+  assessment_assessors: Record<string, unknown>[];
+  assessment_assessees: Record<string, unknown>[];
+  assessment_tags: Record<string, unknown>[];
+  evidence: Record<string, unknown>[];
   evidence_tags: Array<Record<string, unknown>>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  evidence_notes: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  evidence_attachments: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  claims: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  claim_evidence: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  claim_counter_evidence: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  claim_mitigation_strategies: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  notifications: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  audit_logs: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  dashboards: any[];
+  evidence_notes: Record<string, unknown>[];
+  evidence_attachments: Record<string, unknown>[];
+  claims: Record<string, unknown>[];
+  claim_evidence: Record<string, unknown>[];
+  claim_counter_evidence: Record<string, unknown>[];
+  claim_mitigation_strategies: Record<string, unknown>[];
+  notifications: Record<string, unknown>[];
+  audit_logs: Record<string, unknown>[];
+  dashboards: Record<string, unknown>[];
   ssdf_assessment_data?: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    assessment_requirements: any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    attestation: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    attestation_requirements: any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    attestation_requirement_mitigations: any[];
+    assessment_requirements: Record<string, unknown>[];
+    attestation: Record<string, unknown>;
+    attestation_requirements: Record<string, unknown>[];
+    attestation_requirement_mitigations: Record<string, unknown>[];
   };
 }
 

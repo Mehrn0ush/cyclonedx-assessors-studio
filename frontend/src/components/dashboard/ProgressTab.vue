@@ -252,8 +252,9 @@ async function loadProgressData() {
     }
     standardsData.value = data.standardsData || []
     timelineAssessments.value = data.timelineAssessments || []
-  } catch (err: any) {
-    error.value = err.response?.data?.error || err.message || 'Failed to load progress data'
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    error.value = e.response?.data?.error || e.message || 'Failed to load progress data'
   } finally {
     loading.value = false
   }

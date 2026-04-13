@@ -72,7 +72,7 @@ const dragNodeId = ref<string | null>(null)
 const startEdit = (row: RequirementNode, field: string) => {
   if (!props.editable) return
   editingField.value = { id: row.id, field }
-  editingValue.value = (row as any)[field] || ''
+  editingValue.value = (row as Record<string, unknown>)[field] as string || ''
 }
 
 const saveEdit = (row: RequirementNode) => {

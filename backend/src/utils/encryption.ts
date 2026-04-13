@@ -89,6 +89,7 @@ export async function loadKeyVersions(db: Kysely<Database>): Promise<void> {
     for (const row of rows) {
       const salt = typeof row.salt === 'string'
         ? Buffer.from(row.salt, 'hex')
+        // biome-ignore lint/suspicious/noExplicitAny: BYTEA column type varies by driver
         : Buffer.from(row.salt as any);
       keyVersions.set(row.version as number, {
         version: row.version as number,

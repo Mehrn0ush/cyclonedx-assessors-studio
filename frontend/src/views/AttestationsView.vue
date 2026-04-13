@@ -107,7 +107,7 @@ import type { Assessment } from '@/types'
 
 const { t } = useI18n()
 
-const attestations = ref([])
+const attestations = ref<Record<string, unknown>[]>([])
 const assessments = ref<Assessment[]>([])
 const currentPage = ref(1)
 const pageSize = ref(20)
@@ -137,8 +137,10 @@ const fetchAttestations = async () => {
   try {
     const response = await axios.get('/api/v1/attestations')
     attestations.value = response.data.data || []
-  } catch (err: any) {
-    error.value = err.response?.data?.message || err.message || 'Failed to fetch attestations'
+  } catch (err: unknown) {
+    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
+    const e = err as { response?: { data?: { message?: string } }; message?: string }
+    error.value = e.response?.data?.message || e.message || 'Failed to fetch attestations'
   } finally {
     loading.value = false
   }
@@ -148,7 +150,7 @@ const fetchAssessments = async () => {
   try {
     const response = await axios.get('/api/v1/assessments')
     assessments.value = response.data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to fetch assessments:', err)
   }
 }
@@ -180,8 +182,10 @@ const handleSave = async () => {
     ElMessage.success(t('common.success'))
     showDialog.value = false
     fetchAttestations()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || 'Failed to create attestation')
+  } catch (err: unknown) {
+    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
+    const e = err as { response?: { data?: { message?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.message || 'Failed to create attestation')
   } finally {
     saving.value = false
   }

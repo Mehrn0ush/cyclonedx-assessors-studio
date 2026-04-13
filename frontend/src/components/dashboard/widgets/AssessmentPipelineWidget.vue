@@ -67,7 +67,7 @@ const renderChart = (labels: string[], counts: number[], states: string[]) => {
 
   // Build horizontal gradients for each bar
   const barGradients = states.map((state) => {
-    const grad = ctx.createLinearGradient(0, 0, chartContainer.value!.width, 0)
+    const grad = ctx.createLinearGradient(0, 0, (chartContainer.value?.width ?? 400), 0)
     const [start, end] = stateGradients[state] || ['#3a6fb5', '#58a6ff']
     grad.addColorStop(0, start)
     grad.addColorStop(1, end)

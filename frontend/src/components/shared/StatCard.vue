@@ -29,7 +29,7 @@ withDefaults(defineProps<{
   value: string | number
   change?: number
   changeType?: 'up' | 'down'
-  icon: any
+  icon: Record<string, unknown>
   accentColor?: string
 }>(), {
   accentColor: 'var(--cat-accent-primary)',

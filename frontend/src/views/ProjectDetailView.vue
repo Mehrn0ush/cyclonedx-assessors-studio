@@ -256,9 +256,9 @@ const { t } = useI18n()
 const loading = ref(true)
 const error = ref('')
 const pdfExporting = ref(false)
-const project = ref<any>(null)
-const projectStandards = ref<any[]>([])
-const assessments = ref<any[]>([])
+const project = ref<Record<string, unknown> | null>(null)
+const projectStandards = ref<Record<string, unknown>[]>([])
+const assessments = ref<Record<string, unknown>[]>([])
 const assessmentsLoading = ref(true)
 const activeTab = ref('assessments')
 const dashboardKey = ref(0)
@@ -269,16 +269,16 @@ const refreshDashboard = () => { dashboardKey.value++ }
 const showEditDialog = ref(false)
 const editSaving = ref(false)
 const editFormRef = ref()
-const availableStandards = ref<any[]>([])
-const projectTags = ref<any[]>([])
+const availableStandards = ref<Record<string, unknown>[]>([])
+const projectTags = ref<Record<string, unknown>[]>([])
 const editForm = ref({
   name: '',
   description: '',
   state: 'new',
   standardIds: [] as string[],
   tags: [] as string[],
-  startDate: null as any,
-  dueDate: null as any,
+  startDate: null as Date | null,
+  dueDate: null as Date | null,
 })
 
 // New assessment state
@@ -287,7 +287,7 @@ const assessmentSaving = ref(false)
 const assessmentForm = ref({
   title: '',
   description: '',
-  dueDate: null as any,
+  dueDate: null as Date | null,
 })
 
 onMounted(async () => {
@@ -303,8 +303,9 @@ const fetchProject = async () => {
     project.value = data.project
     projectStandards.value = data.standards || []
     projectTags.value = data.tags || []
-  } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to load project'
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    error.value = e.response?.data?.error || 'Failed to load project'
   } finally {
     loading.value = false
   }
@@ -317,7 +318,7 @@ const fetchAssessments = async () => {
       params: { projectId: route.params.id }
     })
     assessments.value = data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to load assessments:', err)
   } finally {
     assessmentsLoading.value = false
@@ -328,7 +329,7 @@ const fetchAvailableStandards = async () => {
   try {
     const { data } = await axios.get('/api/v1/standards')
     availableStandards.value = data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to load standards:', err)
   }
 }
@@ -339,25 +340,25 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-const navigateToAssessment = (rowOrId: any) => {
-  const id = typeof rowOrId === 'string' ? rowOrId : rowOrId.id
+const navigateToAssessment = (rowOrId: string | Record<string, unknown>) => {
+  const id = typeof rowOrId === 'string' ? rowOrId : (rowOrId.id as string)
   router.push(`/assessments/${id}`)
 }
 
-const navigateToStandard = (row: any) => {
-  router.push(`/standards/${row.id}`)
+const navigateToStandard = (row: Record<string, unknown>) => {
+  router.push(`/standards/${row.id as string}`)
 }
 
 // Edit project
 const openEditDialog = async () => {
   editForm.value = {
-    name: project.value.name,
-    description: project.value.description || '',
-    state: project.value.state,
-    standardIds: projectStandards.value.map((s: any) => s.id),
-    tags: projectTags.value.map((t: any) => t.name),
-    startDate: project.value.startDate ? new Date(project.value.startDate) : null,
-    dueDate: project.value.dueDate ? new Date(project.value.dueDate) : null,
+    name: (project.value?.name as string) || '',
+    description: (project.value?.description as string) || '',
+    state: (project.value?.state as string) || 'new',
+    standardIds: projectStandards.value.map((s: Record<string, unknown>) => s.id as string),
+    tags: projectTags.value.map((t: Record<string, unknown>) => t.name as string),
+    startDate: project.value?.startDate ? new Date(project.value.startDate as string) : null,
+    dueDate: project.value?.dueDate ? new Date(project.value.dueDate as string) : null,
   }
   await fetchAvailableStandards()
   showEditDialog.value = true
@@ -387,8 +388,9 @@ const saveProject = async () => {
     showEditDialog.value = false
     await fetchProject()
     refreshDashboard()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to update project')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to update project')
   } finally {
     editSaving.value = false
   }
@@ -419,8 +421,9 @@ const createAssessment = async () => {
     resetAssessmentForm()
     await fetchAssessments()
     refreshDashboard()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to create assessment')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to create assessment')
   } finally {
     assessmentSaving.value = false
   }
@@ -445,9 +448,10 @@ const handleArchiveProject = async () => {
     await axios.post(`/api/v1/projects/${route.params.id}/archive`)
     ElMessage.success(t('projects.projectArchived'))
     await fetchProject()
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error !== 'cancel') {
-      ElMessage.error(error.response?.data?.error || t('common.errorOccurred'))
+      const e = error as { response?: { data?: { error?: string } } }
+      ElMessage.error(e.response?.data?.error || t('common.errorOccurred'))
     }
   }
 }
@@ -475,8 +479,9 @@ const handleExportProjectPDF = async () => {
     window.URL.revokeObjectURL(url)
 
     ElMessage.success('Project report exported successfully')
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to export project report')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to export project report')
   } finally {
     pdfExporting.value = false
   }

@@ -305,10 +305,11 @@ export abstract class BaseChatChannel implements NotificationChannel {
       } else {
         await this.handleFailure(deliveryId, integration, attempt, response.status, `HTTP ${response.status}`);
       }
-    } catch (error: any) {
-      const errorMessage = error?.name === 'AbortError'
+    } catch (error: unknown) {
+      const err = error as Record<string, unknown> | null;
+      const errorMessage = err?.name === 'AbortError'
         ? `Request timed out after ${timeout}ms`
-        : (error?.message || String(error));
+        : (typeof err?.message === 'string' ? err.message : String(error));
 
       await this.handleFailure(deliveryId, integration, attempt, null, errorMessage);
     }

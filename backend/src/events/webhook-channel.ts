@@ -233,10 +233,11 @@ export class WebhookChannel implements NotificationChannel {
         await this.handleFailure(deliveryId, webhook, response.status, truncatedResponse, null, config);
         return false;
       }
-    } catch (error: any) {
-      const errorMessage = error?.name === 'AbortError'
+    } catch (error: unknown) {
+      const err = error as Record<string, unknown> | null;
+      const errorMessage = err?.name === 'AbortError'
         ? `Request timed out after ${timeoutMs}ms`
-        : (error?.message || String(error));
+        : (typeof err?.message === 'string' ? err.message : String(error));
 
       await this.handleFailure(deliveryId, webhook, null, null, errorMessage, config);
       return false;

@@ -290,7 +290,7 @@ const router = useRouter()
 const formRef = ref<FormInstance>()
 const standardsListRef = ref<HTMLElement>()
 
-const usernameInputRef = ref<any>(null)
+const usernameInputRef = ref<{ focus: () => void } | null>(null)
 const step = ref(0)
 const loading = ref(false)
 const error = ref('')
@@ -340,7 +340,7 @@ const form = reactive({
   confirmPassword: '',
 })
 
-const validatePasswordMatch = (_rule: any, value: string, callback: any) => {
+const validatePasswordMatch = (_rule: Record<string, unknown>, value: string, callback: (error?: Error) => void) => {
   if (value !== form.password) {
     callback(new Error(t('setup.validation.passwordMismatch')))
   } else {
@@ -393,10 +393,11 @@ const submitSetup = async () => {
     markSetupDone()
     step.value = 2
     fetchAndImportStandards()
-  } catch (err: any) {
-    const data = err.response?.data
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { details?: Array<{ message: string }>; message?: string; error?: string } } }
+    const data = e.response?.data
     if (data?.details) {
-      error.value = data.details.map((d: any) => d.message).join('. ')
+      error.value = data.details.map((d: { message: string }) => d.message).join('. ')
     } else {
       error.value = data?.message || data?.error || 'Setup failed. Please try again.'
     }
@@ -452,19 +453,21 @@ const fetchAndImportStandards = async () => {
 
         // Sum up requirement counts from all imported standards in the response
         const standards = result.data?.data || []
-        const totalReqs = standards.reduce((sum: number, s: any) => sum + (s.requirementCount || 0), 0)
+        const totalReqs = standards.reduce((sum: number, s: Record<string, unknown>) => sum + ((s.requirementCount as number) || 0), 0)
         feedItems.value[i].requirementCount = totalReqs
         importSuccessCount.value++
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const e = err as { response?: { data?: { error?: string } } }
         feedItems.value[i].status = 'error'
-        feedItems.value[i].errorMessage = err.response?.data?.error || 'Import failed'
+        feedItems.value[i].errorMessage = e.response?.data?.error || 'Import failed'
       }
     }
 
     importComplete.value = true
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
     feedLoading.value = false
-    feedError.value = err.response?.data?.error || t('setup.feedError')
+    feedError.value = e.response?.data?.error || t('setup.feedError')
   }
 }
 
@@ -491,12 +494,13 @@ const retryImportItem = async (item: FeedItem) => {
 
     feedItems.value[index].status = 'success'
     const standards = result.data?.data || []
-    const totalReqs = standards.reduce((sum: number, s: any) => sum + (s.requirementCount || 0), 0)
+    const totalReqs = standards.reduce((sum: number, s: Record<string, unknown>) => sum + ((s.requirementCount as number) || 0), 0)
     feedItems.value[index].requirementCount = totalReqs
     importSuccessCount.value++
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
     feedItems.value[index].status = 'error'
-    feedItems.value[index].errorMessage = err.response?.data?.error || 'Import failed'
+    feedItems.value[index].errorMessage = e.response?.data?.error || 'Import failed'
   }
 }
 
@@ -513,8 +517,9 @@ const handleDemoChoice = async () => {
     await axios.post('/api/v1/setup/seed-demo')
     demoSuccess.value = true
     step.value = 4
-  } catch (err: any) {
-    demoError.value = err.response?.data?.error || 'Failed to load demo data. You can skip this step and continue.'
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    demoError.value = e.response?.data?.error || 'Failed to load demo data. You can skip this step and continue.'
   } finally {
     demoLoading.value = false
   }

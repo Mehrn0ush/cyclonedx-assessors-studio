@@ -158,8 +158,8 @@
           :editing-field="editingField"
           :editing-value="editingValue"
           :drag-node-id="dragNodeId"
-          @start-edit="(row: any, field: string) => $emit('start-edit', row, field)"
-          @save-edit="(row: any) => $emit('save-edit', row)"
+          @start-edit="(row: RequirementItem, field: string) => $emit('start-edit', row, field)"
+          @save-edit="(row: RequirementItem) => $emit('save-edit', row)"
           @cancel-edit="$emit('cancel-edit')"
           @update-edit-value="$emit('update-edit-value', $event)"
           @delete="$emit('delete', $event)"
@@ -260,8 +260,10 @@ const dropRootActive = ref(false)
 
 const onDragStart = (event: DragEvent, element: RequirementItem) => {
   if (!props.editable) return
-  event.dataTransfer!.effectAllowed = 'move'
-  event.dataTransfer!.setData('text/plain', element.id)
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', element.id)
+  }
   emit('drag-start', element.id)
 }
 

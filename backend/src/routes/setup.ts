@@ -148,12 +148,14 @@ router.get('/standards-feed', async (__req: Request, res: Response): Promise<voi
       return;
     }
 
-    const feed = (await feedResponse.json()) as any;
-    const items = (feed.items || []).map((item: any) => {
+    // biome-ignore lint/suspicious/noExplicitAny: JSON feed has dynamic structure
+    const feed = (await feedResponse.json()) as Record<string, unknown>;
+    // biome-ignore lint/suspicious/noExplicitAny: Feed items have dynamic structure
+    const items = ((feed.items || []) as Record<string, unknown>[]).map((item: Record<string, unknown>) => {
       // The feed uses external_url for the CycloneDX document download link.
       // Attachments may also carry the URL with a matching MIME type.
-      const attachmentUrl = (item.attachments || []).find(
-        (a: any) => a.mime_type === 'application/vnd.cyclonedx+json'
+      const attachmentUrl = ((item.attachments || []) as Record<string, unknown>[]).find(
+        (a: Record<string, unknown>) => a.mime_type === 'application/vnd.cyclonedx+json'
       )?.url;
       return {
         id: item.id,
@@ -232,12 +234,13 @@ router.post('/import-standard', async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const cdxDoc = JSON.parse(rawText) as any;
+    // biome-ignore lint/suspicious/noExplicitAny: CycloneDX document has dynamic structure
+    const cdxDoc = JSON.parse(rawText) as Record<string, unknown>;
 
     // Extract standards from definitions (CycloneDX 1.6+) or declarations (older)
     const standards =
-      cdxDoc.definitions?.standards ||
-      cdxDoc.declarations?.standards ||
+      ((cdxDoc.definitions as Record<string, unknown>)?.standards as Array<Record<string, unknown>>) ||
+      ((cdxDoc.declarations as Record<string, unknown>)?.standards as Array<Record<string, unknown>>) ||
       [];
     if (standards.length === 0) {
       res.status(422).json({ error: 'No standards found in this CycloneDX document' });

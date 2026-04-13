@@ -255,15 +255,15 @@ const platforms = [
 const activePlatform = ref('slack')
 const loading = ref(true)
 const error = ref<string | null>(null)
-const integrations = ref<any[]>([])
+const integrations = ref<Record<string, unknown>[]>([])
 const dialogVisible = ref(false)
 const saving = ref(false)
 const editingId = ref<string | null>(null)
 const testResultVisible = ref(false)
 const testResult = ref<{ success: boolean; message: string } | null>(null)
 
-const selectedIntegration = ref<any | null>(null)
-const deliveries = ref<any[]>([])
+const selectedIntegration = ref<Record<string, unknown> | null>(null)
+const deliveries = ref<Record<string, unknown>[]>([])
 const deliveryPage = ref(1)
 const deliveryPagination = ref({ limit: 20, offset: 0, total: 0 })
 
@@ -280,7 +280,7 @@ const form = ref({
 interface PlatformState {
   loading: boolean
   error: string | null
-  items: any[]
+  items: Record<string, unknown>[]
 }
 const platformData = reactive<Record<string, PlatformState>>({
   slack: { loading: true, error: null, items: [] },
@@ -295,8 +295,9 @@ async function fetchAllPlatforms() {
     try {
       const { data } = await axios.get('/api/v1/integrations/chat', { params: { platform: p.key } })
       platformData[p.key].items = data.data || []
-    } catch (err: any) {
-      platformData[p.key].error = err?.response?.data?.error || err?.message || 'Failed to load'
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } }; message?: string }
+      platformData[p.key].error = e?.response?.data?.error || e?.message || 'Failed to load'
     } finally {
       platformData[p.key].loading = false
     }
@@ -381,8 +382,9 @@ async function fetchIntegrations() {
       params: { platform: activePlatform.value },
     })
     integrations.value = data.data || []
-  } catch (err: any) {
-    error.value = err?.response?.data?.error || err?.message || 'Failed to load integrations'
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    error.value = e?.response?.data?.error || e?.message || 'Failed to load integrations'
   } finally {
     loading.value = false
   }
@@ -401,15 +403,15 @@ function openCreateDialog() {
   dialogVisible.value = true
 }
 
-function openEditDialog(row: any) {
-  editingId.value = row.id
+function openEditDialog(row: Record<string, unknown>) {
+  editingId.value = row.id as string
   form.value = {
-    name: row.name,
-    platform: row.platform,
-    isActive: row.isActive ?? row.is_active ?? true,
-    webhookUrl: row.webhookUrl || row.webhook_url || '',
-    channelName: row.channelName || row.channel_name || '',
-    eventCategories: parseCategories(row.eventCategories || row.event_categories),
+    name: row.name as string,
+    platform: row.platform as string,
+    isActive: (row.isActive ?? row.is_active ?? true) as boolean,
+    webhookUrl: (row.webhookUrl || row.webhook_url || '') as string,
+    channelName: (row.channelName || row.channel_name || '') as string,
+    eventCategories: parseCategories(row.eventCategories as string | string[] | undefined || row.event_categories as string | string[] | undefined),
   }
   dialogVisible.value = true
 }
@@ -442,43 +444,46 @@ async function saveIntegration() {
     } else {
       await fetchIntegrations()
     }
-  } catch (err: any) {
-    const msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Save failed'
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string; error?: string } }; message?: string }
+    const msg = e?.response?.data?.message || e?.response?.data?.error || e?.message || 'Save failed'
     ElMessage.error(msg)
   } finally {
     saving.value = false
   }
 }
 
-async function testIntegration(row: any) {
+async function testIntegration(row: Record<string, unknown>) {
   try {
-    const { data } = await axios.post(`/api/v1/integrations/chat/${row.id}/test`)
+    const { data } = await axios.post(`/api/v1/integrations/chat/${row.id as string}/test`)
     testResult.value = data
     testResultVisible.value = true
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string } }; message?: string }
     testResult.value = {
       success: false,
-      message: err?.response?.data?.message || err?.message || 'Test failed',
+      message: e?.response?.data?.message || e?.message || 'Test failed',
     }
     testResultVisible.value = true
   }
 }
 
-async function enableIntegration(row: any) {
+async function enableIntegration(row: Record<string, unknown>) {
   try {
-    await axios.post(`/api/v1/integrations/chat/${row.id}/enable`)
+    await axios.post(`/api/v1/integrations/chat/${row.id as string}/enable`)
     ElMessage.success(t('chatIntegrations.enabled'))
     if (props.embedded) {
       await fetchAllPlatforms()
     } else {
       await fetchIntegrations()
     }
-  } catch (err: any) {
-    ElMessage.error(err?.response?.data?.error || 'Failed to enable')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e?.response?.data?.error || 'Failed to enable')
   }
 }
 
-async function confirmDelete(row: any) {
+async function confirmDelete(row: Record<string, unknown>) {
   try {
     await ElMessageBox.confirm(
       t('chatIntegrations.deleteConfirm', { name: row.name }),

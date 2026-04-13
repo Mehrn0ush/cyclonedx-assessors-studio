@@ -30,6 +30,7 @@ router.get('/', requireAuth, requirePermission('admin.audit'), asyncHandler(asyn
   }
 
   if (action) {
+    // biome-ignore lint/suspicious/noExplicitAny: action is a runtime string that matches union type
     query = query.where('action', '=', action as any);
   }
 

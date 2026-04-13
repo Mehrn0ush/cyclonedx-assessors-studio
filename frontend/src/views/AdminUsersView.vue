@@ -134,7 +134,7 @@ import IconButton from '@/components/shared/IconButton.vue'
 
 const { t } = useI18n()
 
-const users = ref([])
+const users = ref<Record<string, unknown>[]>([])
 const loading = ref(false)
 const error = ref('')
 const showDialog = ref(false)
@@ -142,7 +142,7 @@ const saving = ref(false)
 const isEditing = ref(false)
 const dialogTitle = ref(t('admin.createUser'))
 const editingUserId = ref('')
-const selectedUsers = ref<any[]>([])
+const selectedUsers = ref<Record<string, unknown>[]>([])
 const showRoleChangeDialog = ref(false)
 const bulkRoleChange = ref('')
 const currentPage = ref(1)
@@ -174,8 +174,10 @@ const fetchUsers = async () => {
   try {
     const response = await axios.get('/api/v1/users')
     users.value = response.data.data || []
-  } catch (err: any) {
-    error.value = err.response?.data?.message || err.message || 'Failed to fetch users'
+  } catch (err: unknown) {
+    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
+    const e = err as { response?: { data?: { message?: string } }; message?: string }
+    error.value = e.response?.data?.message || e.message || 'Failed to fetch users'
   } finally {
     loading.value = false
   }
@@ -196,23 +198,23 @@ const openNewUserDialog = () => {
   dialogTitle.value = t('admin.createUser')
 }
 
-const handleEdit = (row: any) => {
+const handleEdit = (row: Record<string, unknown>) => {
   form.value = {
-    username: row.username,
-    email: row.email,
-    displayName: row.displayName,
+    username: row.username as string,
+    email: row.email as string,
+    displayName: row.displayName as string,
     password: '',
     confirmPassword: '',
-    role: row.role,
-    isActive: row.isActive
+    role: row.role as string,
+    isActive: row.isActive as boolean
   }
   isEditing.value = true
-  editingUserId.value = row.id
+  editingUserId.value = row.id as string
   showDialog.value = true
   dialogTitle.value = t('common.edit')
 }
 
-const handleDelete = async (row: any) => {
+const handleDelete = async (row: Record<string, unknown>) => {
   try {
     await ElMessageBox.confirm(
       `Are you sure you want to deactivate "${row.displayName || row.username}"?`,
@@ -230,11 +232,13 @@ const handleDelete = async (row: any) => {
 
   saving.value = true
   try {
-    await axios.put(`/api/v1/users/${row.id}/deactivate`)
+    await axios.put(`/api/v1/users/${row.id as string}/deactivate`)
     ElMessage.success(t('common.success'))
     fetchUsers()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || 'Failed to deactivate user')
+  } catch (err: unknown) {
+    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
+    const e = err as { response?: { data?: { message?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.message || 'Failed to deactivate user')
   } finally {
     saving.value = false
   }
@@ -280,8 +284,10 @@ const handleSave = async () => {
     ElMessage.success(t('common.success'))
     showDialog.value = false
     fetchUsers()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || 'Failed to save user')
+  } catch (err: unknown) {
+    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
+    const e = err as { response?: { data?: { message?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.message || 'Failed to save user')
   } finally {
     saving.value = false
   }
@@ -298,7 +304,7 @@ const formatRole = (role: string): string => {
   return map[role] || role
 }
 
-const handleSelectionChange = (selection: any[]) => {
+const handleSelectionChange = (selection: Record<string, unknown>[]) => {
   selectedUsers.value = selection
 }
 
@@ -308,14 +314,16 @@ const handleBulkDeactivate = async () => {
   saving.value = true
   try {
     const deactivatePromises = selectedUsers.value.map(user =>
-      axios.put(`/api/v1/users/${user.id}/deactivate`)
+      axios.put(`/api/v1/users/${user.id as string}/deactivate`)
     )
     await Promise.all(deactivatePromises)
     ElMessage.success(t('common.success'))
     selectedUsers.value = []
     fetchUsers()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || 'Failed to deactivate users')
+  } catch (err: unknown) {
+    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
+    const e = err as { response?: { data?: { message?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.message || 'Failed to deactivate users')
   } finally {
     saving.value = false
   }
@@ -330,7 +338,7 @@ const handleBulkRoleChange = async () => {
   saving.value = true
   try {
     const updatePromises = selectedUsers.value.map(user =>
-      axios.put(`/api/v1/users/${user.id}`, {
+      axios.put(`/api/v1/users/${user.id as string}`, {
         role: bulkRoleChange.value
       })
     )
@@ -340,8 +348,10 @@ const handleBulkRoleChange = async () => {
     bulkRoleChange.value = ''
     selectedUsers.value = []
     fetchUsers()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || 'Failed to change roles')
+  } catch (err: unknown) {
+    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
+    const e = err as { response?: { data?: { message?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.message || 'Failed to change roles')
   } finally {
     saving.value = false
   }

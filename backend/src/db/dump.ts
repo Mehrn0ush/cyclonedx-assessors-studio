@@ -18,17 +18,18 @@ const tables = [
 async function main() {
   await initializeDatabase();
   const db = getDatabase();
-  const dump: Record<string, any[]> = {};
-  
+  const dump: Record<string, Record<string, unknown>[]> = {};
+
   for (const table of tables) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // biome-ignore lint/suspicious/noExplicitAny: Dynamic table name requires type cast
       const rows = await db.selectFrom(table as any).selectAll().execute();
       if (rows.length > 0) {
-        dump[table] = rows;
+        dump[table] = rows as Record<string, unknown>[];
       }
-    } catch (err: any) {
-      console.error(`Error on ${table}: ${err.message}`);
+    } catch (err: unknown) {
+      const errorMsg = (err as Record<string, unknown> | null)?.message || 'Unknown error';
+      console.error(`Error on ${table}: ${errorMsg}`);
     }
   }
   

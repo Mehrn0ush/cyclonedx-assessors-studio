@@ -40,15 +40,14 @@ export async function syncEntityTags(
   entityId: string,
   tagNames: string[]
 ): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: Dynamic junction table name requires type cast
   await (db.deleteFrom(junctionTable as any) as any).where(entityColumn, '=', entityId).execute();
 
   if (tagNames.length > 0) {
     const tagIds = await resolveTagIds(db, tagNames);
     if (tagIds.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db
-        .insertInto(junctionTable as any) as any)
+      // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic junction table requires type cast
+      await (db.insertInto(junctionTable as any) as any)
         .values(
           tagIds.map(tagId => ({
             [entityColumn]: entityId,
@@ -73,8 +72,9 @@ export async function fetchTagsForEntities(
 ): Promise<Record<string, { name: string; color: string }[]>> {
   if (entityIds.length === 0) return {};
 
-  const rows = await (db
-    .selectFrom(junctionTable as any) as any)
+  // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic junction table requires type cast
+  const rows = await (db.selectFrom(junctionTable as any) as any)
+    // biome-ignore lint/suspicious/noExplicitAny: Join callback requires dynamic typing
     .innerJoin('tag', (join: any) => join.onRef('tag.id', '=', `${junctionTable}.tag_id`))
     .where(`${junctionTable}.${entityColumn}`, 'in', entityIds)
     .selectAll()

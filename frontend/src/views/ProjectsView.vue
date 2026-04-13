@@ -209,8 +209,8 @@ const { t } = useI18n()
 // State
 const loading = ref(true)
 const error = ref('')
-const projects = ref<any[]>([])
-const availableStandards = ref<any[]>([])
+const projects = ref<Record<string, unknown>[]>([])
+const availableStandards = ref<Record<string, unknown>[]>([])
 const showDialog = ref(false)
 const saving = ref(false)
 const isEditMode = ref(false)
@@ -238,10 +238,10 @@ const formRules = {
 const filteredProjects = computed(() => {
   const filtered = projects.value.filter(project => {
     const matchesState = !filterState.value || project.state === filterState.value
-    const matchesTag = !filterTag.value || (project.tags || []).some((t: any) => t.name.toLowerCase().includes(filterTag.value.toLowerCase()))
+    const matchesTag = !filterTag.value || (project.tags || []).some((t: Record<string, unknown>) => (t.name as string).toLowerCase().includes(filterTag.value.toLowerCase()))
     const matchesSearch = !searchText.value ||
-      project.name.toLowerCase().includes(searchText.value.toLowerCase()) ||
-      (project.description || '').toLowerCase().includes(searchText.value.toLowerCase())
+      (project.name as string).toLowerCase().includes(searchText.value.toLowerCase()) ||
+      ((project.description as string) || '').toLowerCase().includes(searchText.value.toLowerCase())
     return matchesState && matchesTag && matchesSearch
   })
   return filtered.slice((currentPage.value - 1) * pageSize.value, currentPage.value * pageSize.value)
@@ -250,10 +250,10 @@ const filteredProjects = computed(() => {
 const totalCount = computed(() => {
   return projects.value.filter(project => {
     const matchesState = !filterState.value || project.state === filterState.value
-    const matchesTag = !filterTag.value || (project.tags || []).some((t: any) => t.name.toLowerCase().includes(filterTag.value.toLowerCase()))
+    const matchesTag = !filterTag.value || (project.tags || []).some((t: Record<string, unknown>) => (t.name as string).toLowerCase().includes(filterTag.value.toLowerCase()))
     const matchesSearch = !searchText.value ||
-      project.name.toLowerCase().includes(searchText.value.toLowerCase()) ||
-      (project.description || '').toLowerCase().includes(searchText.value.toLowerCase())
+      (project.name as string).toLowerCase().includes(searchText.value.toLowerCase()) ||
+      ((project.description as string) || '').toLowerCase().includes(searchText.value.toLowerCase())
     return matchesState && matchesTag && matchesSearch
   }).length
 })
@@ -270,8 +270,8 @@ const fetchProjects = async () => {
     const response = await axios.get('/api/v1/projects')
     projects.value = response.data.data || []
   } catch (err: unknown) {
-    const error_obj = err as { response?: { data?: { error?: string } } }
-    error.value = error_obj.response?.data?.error || 'Failed to load projects'
+    const e = err as { response?: { data?: { error?: string } } }
+    error.value = e.response?.data?.error || 'Failed to load projects'
   } finally {
     loading.value = false
   }
@@ -281,7 +281,7 @@ const fetchStandards = async () => {
   try {
     const response = await axios.get('/api/v1/standards')
     availableStandards.value = response.data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to load standards:', err)
   }
 }
@@ -294,14 +294,14 @@ const showCreateDialog = async () => {
   showDialog.value = true
 }
 
-const openEditDialog = async (row: any) => {
+const openEditDialog = async (row: Record<string, unknown>) => {
   isEditMode.value = true
   dialogForm.value = {
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    standardIds: (row.standards || []).map((s: any) => s.id),
-    tags: (row.tags || []).map((t: any) => t.name)
+    id: row.id as string,
+    name: row.name as string,
+    description: row.description as string,
+    standardIds: ((row.standards || []) as Array<Record<string, unknown>>).map((s) => s.id as string),
+    tags: ((row.tags || []) as Array<Record<string, unknown>>).map((t) => t.name as string)
   }
   await fetchStandards()
   showDialog.value = true
@@ -333,14 +333,15 @@ const saveProject = async () => {
     }
     showDialog.value = false
     await fetchProjects()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to save project')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to save project')
   } finally {
     saving.value = false
   }
 }
 
-const deleteProject = (row: any) => {
+const deleteProject = (row: Record<string, unknown>) => {
   ElMessageBox.confirm('Are you sure you want to delete this project?', 'Warning', {
     confirmButtonText: 'Delete',
     cancelButtonText: 'Cancel',
@@ -348,11 +349,12 @@ const deleteProject = (row: any) => {
   })
     .then(async () => {
       try {
-        await axios.delete(`/api/v1/projects/${row.id}`)
+        await axios.delete(`/api/v1/projects/${row.id as string}`)
         ElMessage.success('Project deleted successfully')
         await fetchProjects()
-      } catch (err: any) {
-        ElMessage.error(err.response?.data?.error || 'Failed to delete project')
+      } catch (err: unknown) {
+        const e = err as { response?: { data?: { error?: string } } }
+        ElMessage.error(e.response?.data?.error || 'Failed to delete project')
       }
     })
     .catch(() => {
@@ -371,19 +373,19 @@ const resetForm = () => {
   formRef.value?.clearValidate()
 }
 
-const navigateToProject = (row: any) => {
-  router.push(`/projects/${row.id}`)
+const navigateToProject = (row: Record<string, unknown>) => {
+  router.push(`/projects/${row.id as string}`)
 }
 
 // Import attestation state
 const showImportAttestationDialog = ref(false)
 const importing = ref(false)
-const importData = ref<any>(null)
-const importPreview = ref<any>(null)
-const importResult = ref<any>(null)
+const importData = ref<Record<string, unknown> | null>(null)
+const importPreview = ref<Record<string, unknown> | null>(null)
+const importResult = ref<Record<string, unknown> | null>(null)
 const uploadRef = ref()
 
-const handleImportFileChange = (file: any) => {
+const handleImportFileChange = (file: Record<string, unknown>) => {
   const reader = new FileReader()
   reader.onload = (e) => {
     try {
@@ -396,17 +398,17 @@ const handleImportFileChange = (file: any) => {
       importPreview.value = {
         specVersion: json.specVersion || 'Unknown',
         serialNumber: json.serialNumber || null,
-        standardCount: json.definitions?.standards?.length || 0,
-        claimCount: json.declarations?.claims?.length || 0,
-        evidenceCount: json.declarations?.evidence?.length || 0,
-        attestationCount: json.declarations?.attestations?.length || 0,
-        signatoryCount: json.declarations?.affirmation?.signatories?.length || 0,
+        standardCount: (json.definitions?.standards as Array<unknown> | undefined)?.length || 0,
+        claimCount: (json.declarations?.claims as Array<unknown> | undefined)?.length || 0,
+        evidenceCount: (json.declarations?.evidence as Array<unknown> | undefined)?.length || 0,
+        attestationCount: (json.declarations?.attestations as Array<unknown> | undefined)?.length || 0,
+        signatoryCount: (json.declarations?.affirmation?.signatories as Array<unknown> | undefined)?.length || 0,
       }
     } catch {
       ElMessage.error('Failed to parse JSON file')
     }
   }
-  reader.readAsText(file.raw)
+  reader.readAsText((file as { raw: File }).raw)
 }
 
 const executeImport = async () => {
@@ -417,8 +419,9 @@ const executeImport = async () => {
     importResult.value = data
     await fetchProjects()
     ElMessage.success('Attestation imported successfully')
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Import failed')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Import failed')
   } finally {
     importing.value = false
   }

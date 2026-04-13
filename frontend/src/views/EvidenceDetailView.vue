@@ -153,7 +153,7 @@
               </template>
             </el-table-column>
             <el-table-column prop="contentType" :label="t('evidence.type')" min-width="150" sortable></el-table-column>
-            <el-table-column :label="t('evidence.size')" min-width="100" sortable :sort-by="(row: any) => row.sizeBytes">
+            <el-table-column :label="t('evidence.size')" min-width="100" sortable :sort-by="(row: Record<string, unknown>) => row.sizeBytes as number">
               <template #default="{ row }">
                 {{ formatFileSize(row.sizeBytes) }}
               </template>
@@ -314,7 +314,7 @@ const authStore = useAuthStore()
 
 const loading = ref(true)
 const error = ref<string | null>(null)
-const evidence = ref<any>({
+const evidence = ref<Record<string, unknown>>({
   id: '',
   name: '',
   description: '',
@@ -326,9 +326,9 @@ const evidence = ref<any>({
   expiresOn: '',
   isCounterEvidence: false
 })
-const attachments = ref<any[]>([])
-const claims = ref<any[]>([])
-const notes = ref<any[]>([])
+const attachments = ref<Record<string, unknown>[]>([])
+const claims = ref<Record<string, unknown>[]>([])
+const notes = ref<Record<string, unknown>[]>([])
 const isAddNoteDialogVisible = ref(false)
 const newNoteContent = ref('')
 const addingNote = ref(false)
@@ -378,38 +378,38 @@ const isViewable = (contentType: string | null | undefined): boolean => {
     || contentType === 'application/vnd.cyclonedx+json'
 }
 
-const downloadAttachment = async (attachment: any) => {
+const downloadAttachment = async (attachment: Record<string, unknown>) => {
   try {
     const evidenceId = route.params.id
     const response = await axios.get(
-      `/api/v1/evidence/${evidenceId}/attachments/${attachment.id}/download`,
+      `/api/v1/evidence/${evidenceId}/attachments/${attachment.id as string}/download`,
       { responseType: 'blob' }
     )
     const url = window.URL.createObjectURL(new Blob([response.data]))
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute('download', attachment.filename)
+    link.setAttribute('download', attachment.filename as string)
     document.body.appendChild(link)
     link.click()
     link.remove()
     window.URL.revokeObjectURL(url)
-  } catch (err: any) {
+  } catch (err: unknown) {
     ElMessage.error('Failed to download attachment')
     console.error('Download error:', err)
   }
 }
 
-const viewAttachment = async (attachment: any) => {
+const viewAttachment = async (attachment: Record<string, unknown>) => {
   try {
     const evidenceId = route.params.id
     const response = await axios.get(
-      `/api/v1/evidence/${evidenceId}/attachments/${attachment.id}/download`,
+      `/api/v1/evidence/${evidenceId}/attachments/${attachment.id as string}/download`,
       { responseType: 'blob' }
     )
-    const blob = new Blob([response.data], { type: attachment.contentType })
+    const blob = new Blob([response.data], { type: attachment.contentType as string })
     const url = window.URL.createObjectURL(blob)
     window.open(url, '_blank')
-  } catch (err: any) {
+  } catch (err: unknown) {
     ElMessage.error('Failed to view attachment')
     console.error('View error:', err)
   }
@@ -446,8 +446,9 @@ const handleSaveEdit = async () => {
     ElMessage.success('Evidence updated successfully')
     showEditDialog.value = false
     await fetchEvidenceData()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to update evidence')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to update evidence')
   } finally {
     savingEdit.value = false
   }
@@ -474,8 +475,9 @@ const handleFileUpload = async (event: Event) => {
     })
     ElMessage.success('File(s) uploaded successfully')
     await fetchEvidenceData()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to upload file(s)')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to upload file(s)')
     console.error('Upload error:', err)
   } finally {
     uploading.value = false
@@ -488,7 +490,7 @@ const fetchClaims = async () => {
     const evidenceId = route.params.id as string
     const response = await axios.get(`/api/v1/evidence/${evidenceId}/claims`)
     claims.value = Array.isArray(response.data) ? response.data : response.data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     // Endpoint may not exist yet, silently handle
     console.error('Failed to fetch claims for evidence:', err)
     claims.value = []
@@ -499,7 +501,7 @@ const fetchReviewers = async () => {
   try {
     const response = await axios.get('/api/v1/users?role=assessor')
     reviewers.value = response.data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Error fetching reviewers:', err)
   }
 }
@@ -516,8 +518,9 @@ const fetchEvidenceData = async () => {
     evidence.value = evidenceData
     notes.value = notesData || []
     attachments.value = attachmentsData || []
-  } catch (err: any) {
-    error.value = err.response?.data?.message || t('evidence.loadError')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string } } }
+    error.value = e.response?.data?.message || t('evidence.loadError')
     console.error('Error fetching evidence:', err)
   } finally {
     loading.value = false
@@ -548,8 +551,9 @@ const addNote = async () => {
     newNoteContent.value = ''
 
     await fetchEvidenceData()
-  } catch (err: any) {
-    const errorMessage = err.response?.data?.message || t('evidence.noteAddError')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string } } }
+    const errorMessage = e.response?.data?.message || t('evidence.noteAddError')
     ElMessage.error(errorMessage)
     console.error('Error adding note:', err)
   } finally {
@@ -563,8 +567,9 @@ const handleApprove = async () => {
     await axios.post(`/api/v1/evidence/${evidenceId}/approve`)
     ElMessage.success('Evidence approved successfully')
     await fetchEvidenceData()
-  } catch (err: any) {
-    const errorMessage = err.response?.data?.message || 'Failed to approve evidence'
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string } } }
+    const errorMessage = e.response?.data?.message || 'Failed to approve evidence'
     ElMessage.error(errorMessage)
     console.error('Error approving evidence:', err)
   }
@@ -586,8 +591,9 @@ const handleSubmitForReview = async () => {
     showSubmitForReviewDialog.value = false
     selectedReviewer.value = ''
     await fetchEvidenceData()
-  } catch (err: any) {
-    const errorMessage = err.response?.data?.message || 'Failed to submit evidence for review'
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string } } }
+    const errorMessage = e.response?.data?.message || 'Failed to submit evidence for review'
     ElMessage.error(errorMessage)
     console.error('Error submitting evidence:', err)
   } finally {
@@ -611,8 +617,9 @@ const handleReject = async () => {
     showRejectDialog.value = false
     rejectionNote.value = ''
     await fetchEvidenceData()
-  } catch (err: any) {
-    const errorMessage = err.response?.data?.message || 'Failed to reject evidence'
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string } } }
+    const errorMessage = e.response?.data?.message || 'Failed to reject evidence'
     ElMessage.error(errorMessage)
     console.error('Error rejecting evidence:', err)
   } finally {

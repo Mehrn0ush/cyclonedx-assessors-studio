@@ -200,12 +200,12 @@ const error = ref('')
 const saving = ref(false)
 const showCreateDialog = ref(false)
 
-const assessments = ref<any[]>([])
-const projects = ref<any[]>([])
-const standards = ref<any[]>([])
-const assignableUsers = ref<any[]>([])
-const entities = ref<any[]>([])
-const entityStandards = ref<any[]>([])
+const assessments = ref<Record<string, unknown>[]>([])
+const projects = ref<Record<string, unknown>[]>([])
+const standards = ref<Record<string, unknown>[]>([])
+const assignableUsers = ref<Record<string, unknown>[]>([])
+const entities = ref<Record<string, unknown>[]>([])
+const entityStandards = ref<Record<string, unknown>[]>([])
 
 const createForm = ref({
   title: '',
@@ -214,7 +214,7 @@ const createForm = ref({
   projectId: '',
   standardId: null as string | null,
   standardIds: [] as string[],
-  dueDate: null as any,
+  dueDate: null as unknown,
   assessorIds: [] as string[],
   assesseeIds: [] as string[],
 })
@@ -249,7 +249,7 @@ const fetchProjects = async () => {
   try {
     const response = await axios.get('/api/v1/projects')
     projects.value = response.data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to fetch projects:', err)
   }
 }
@@ -258,7 +258,7 @@ const fetchStandards = async () => {
   try {
     const response = await axios.get('/api/v1/standards')
     standards.value = response.data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to fetch standards:', err)
   }
 }
@@ -267,7 +267,7 @@ const fetchAssignableUsers = async () => {
   try {
     const response = await axios.get('/api/v1/users/assignable')
     assignableUsers.value = response.data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to fetch assignable users:', err)
   }
 }
@@ -276,7 +276,7 @@ const fetchEntities = async () => {
   try {
     const response = await axios.get('/api/v1/entities')
     entities.value = response.data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to fetch entities:', err)
   }
 }
@@ -286,7 +286,7 @@ const fetchEntityStandards = async (entityId: string) => {
     const response = await axios.get(`/api/v1/entities/${entityId}`)
     const entity = response.data.data
     entityStandards.value = entity?.standards || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to fetch entity standards:', err)
     entityStandards.value = []
   }
@@ -296,7 +296,7 @@ const fetchAssessments = async () => {
   loading.value = true
   error.value = ''
   try {
-    const params: any = {}
+    const params: Record<string, unknown> = {}
     if (filterState.value) {
       params.state = filterState.value
     }
@@ -309,8 +309,9 @@ const fetchAssessments = async () => {
 
     const response = await axios.get('/api/v1/assessments', { params })
     assessments.value = response.data.data || []
-  } catch (err: any) {
-    error.value = err.response?.data?.message || t('common.error')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string } } }
+    error.value = e.response?.data?.message || t('common.error')
     console.error('Failed to fetch assessments:', err)
   } finally {
     loading.value = false
@@ -340,8 +341,8 @@ const totalAssessments = computed(() => {
 
 const selectedProjectStandards = computed(() => {
   if (!createForm.value.projectId) return []
-  const project = projects.value.find((p: any) => p.id === createForm.value.projectId)
-  return project?.standards || []
+  const project = projects.value.find((p: Record<string, unknown>) => p.id === createForm.value.projectId)
+  return (project?.standards as Record<string, unknown>[] | undefined) || []
 })
 
 const handleCreate = async () => {
@@ -363,11 +364,11 @@ const handleCreate = async () => {
 
   saving.value = true
   try {
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       title: createForm.value.title,
       description: createForm.value.description,
       projectId: createForm.value.projectId || null,
-      dueDate: createForm.value.dueDate ? createForm.value.dueDate.toISOString().split('T')[0] : null,
+      dueDate: createForm.value.dueDate ? (createForm.value.dueDate as { toISOString: () => string }).toISOString().split('T')[0] : null,
       assessorIds: createForm.value.assessorIds.length > 0 ? createForm.value.assessorIds : undefined,
       assesseeIds: createForm.value.assesseeIds.length > 0 ? createForm.value.assesseeIds : undefined,
     }
@@ -386,8 +387,9 @@ const handleCreate = async () => {
     showCreateDialog.value = false
     resetCreateForm()
     await fetchAssessments()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || t('common.errorOccurred'))
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string } } }
+    ElMessage.error(e.response?.data?.message || t('common.errorOccurred'))
   } finally {
     saving.value = false
   }
@@ -408,7 +410,7 @@ const resetCreateForm = () => {
   entityStandards.value = []
 }
 
-const deleteAssessment = (row: any) => {
+const deleteAssessment = (row: Record<string, unknown>) => {
   ElMessageBox.confirm(t('common.confirmDelete'), t('common.warning') || 'Warning', {
     confirmButtonText: t('common.delete'),
     cancelButtonText: t('common.cancel'),
@@ -416,11 +418,12 @@ const deleteAssessment = (row: any) => {
   })
     .then(async () => {
       try {
-        await axios.delete(`/api/v1/assessments/${row.id}`)
+        await axios.delete(`/api/v1/assessments/${row.id as string}`)
         ElMessage.success('Assessment deleted successfully')
         await fetchAssessments()
-      } catch (err: any) {
-        ElMessage.error(err.response?.data?.error || 'Failed to delete assessment')
+      } catch (err: unknown) {
+        const e = err as { response?: { data?: { error?: string } } }
+        ElMessage.error(e.response?.data?.error || 'Failed to delete assessment')
       }
     })
     .catch(() => {
@@ -428,8 +431,8 @@ const deleteAssessment = (row: any) => {
     })
 }
 
-const navigateToAssessment = (row: any) => {
-  router.push(`/assessments/${row.id}`)
+const navigateToAssessment = (row: Record<string, unknown>) => {
+  router.push(`/assessments/${row.id as string}`)
 }
 </script>
 

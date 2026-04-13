@@ -567,7 +567,8 @@ router.post(
           content: data.content,
           createdAt: new Date(),
           updatedAt: new Date(),
-        }) as unknown as any)
+          // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic query requires type cast
+        }) as any)
         .execute();
 
       logger.info('Evidence note added', {
@@ -644,7 +645,8 @@ router.post(
           assessmentRequirementId: data.assessmentRequirementId,
           evidenceId: req.params.id as string,
           createdAt: new Date(),
-        }) as unknown as any)
+          // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic query requires type cast
+        }) as any)
         .execute();
 
       logger.info('Evidence linked to requirement', {
@@ -964,6 +966,7 @@ router.post(
       });
 
       const noteId = uuidv4();
+      // biome-ignore lint/suspicious/noExplicitAny: toSnakeCase returns object incompatible with DB row type
       await db
         .insertInto('evidence_note')
         .values(toSnakeCase({
@@ -973,7 +976,8 @@ router.post(
           content: `REJECTED: ${data.note}`,
           createdAt: new Date(),
           updatedAt: new Date(),
-        }) as unknown as any)
+          // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic query requires type cast
+        }) as any)
         .execute();
 
       req.eventBus?.emit(
@@ -1309,6 +1313,7 @@ router.get(
         if (attachment.binary_content) {
           const data = Buffer.isBuffer(attachment.binary_content)
             ? attachment.binary_content
+            // biome-ignore lint/suspicious/noExplicitAny: BYTEA column type varies by driver
             : Buffer.from(attachment.binary_content as any, 'base64');
           // eslint-disable-next-line security/direct-response-write
           res.send(data);

@@ -957,13 +957,14 @@ router.get(
         )
         .where('assessment_requirement_evidence.assessment_requirement_id', '=', assessmentReq.id)
         .selectAll()
-        .execute()) as any[];
+        // biome-ignore lint/suspicious/noExplicitAny: Dynamic query result requires type assertion
+        .execute()) as Record<string, unknown>[];
 
-      const evidenceIds = evidence.map((e: any) => e.id);
+      const evidenceIds = evidence.map((e: Record<string, unknown>) => e.id as string);
       const tagsByEvidence = await fetchTagsForEntities(db, 'evidence_tag', 'evidence_id', evidenceIds);
-      const evidenceWithTags = evidence.map((e: any) => ({
+      const evidenceWithTags = evidence.map((e: Record<string, unknown>) => ({
         ...e,
-        tags: tagsByEvidence[e.id] || [],
+        tags: tagsByEvidence[e.id as string] || [],
       }));
 
       res.json({
@@ -1019,15 +1020,20 @@ router.get(
           'author.display_name as author_name',
           'assessment_requirement.requirement_id',
         ] as const)
-        .execute()) as any[];
+        // biome-ignore lint/suspicious/noExplicitAny: Dynamic query result requires type assertion
+        .execute()) as Record<string, unknown>[];
 
       // Deduplicate evidence (one item can be linked to multiple requirements)
-      const evidenceMap = new Map<string, any>();
+      const evidenceMap = new Map<string, Record<string, unknown>>();
       for (const e of evidence) {
-        if (!evidenceMap.has(e.id)) {
-          evidenceMap.set(e.id, { ...e, requirement_ids: [e.requirement_id] });
+        const eId = e.id as string;
+        if (!evidenceMap.has(eId)) {
+          evidenceMap.set(eId, { ...e, requirement_ids: [e.requirement_id] });
         } else {
-          evidenceMap.get(e.id).requirement_ids.push(e.requirement_id);
+          const eRecord = evidenceMap.get(eId);
+          if (eRecord) {
+            (eRecord.requirement_ids as unknown[]).push(e.requirement_id);
+          }
         }
       }
       const uniqueEvidence = Array.from(evidenceMap.values());
@@ -1088,10 +1094,11 @@ router.get(
         .where('attestation_id', 'in', attestationIds)
         .selectAll()
         .orderBy('created_at', 'asc')
-        .execute()) as any[];
+        // biome-ignore lint/suspicious/noExplicitAny: Dynamic query result requires type assertion
+        .execute()) as Record<string, unknown>[];
 
       // For each claim, get evidence counts
-      const claimIds = claims.map(c => c.id);
+      const claimIds = claims.map(c => c.id as string);
 
       let evidenceCounts = new Map<string, number>();
       let counterEvidenceCounts = new Map<string, number>();
@@ -1177,17 +1184,19 @@ router.get(
       }
 
       const claimsWithCounts = claims.map(c => {
-        const targetEntity = c.target_entity_id
-          ? targetEntityNames.get(c.target_entity_id)
+        const cId = c.id as string;
+        const cTargetEntityId = c.target_entity_id as string | null;
+        const targetEntity = cTargetEntityId
+          ? targetEntityNames.get(cTargetEntityId)
           : null;
         return {
           ...c,
           target_entity_name: targetEntity?.name || null,
           target_entity_type: targetEntity?.entity_type || null,
-          evidence_count: evidenceCounts.get(c.id) || 0,
-          counter_evidence_count: counterEvidenceCounts.get(c.id) || 0,
-          mitigation_count: mitigationCounts.get(c.id) || 0,
-          external_references: externalRefsByClaimId.get(c.id) || [],
+          evidence_count: evidenceCounts.get(cId) || 0,
+          counter_evidence_count: counterEvidenceCounts.get(cId) || 0,
+          mitigation_count: mitigationCounts.get(cId) || 0,
+          external_references: externalRefsByClaimId.get(cId) || [],
         };
       });
 
@@ -1230,8 +1239,10 @@ router.get(
           'app_user.display_name',
           'app_user.role',
         ])
-        .execute()) as any[];
+        // biome-ignore lint/suspicious/noExplicitAny: Dynamic query result requires type assertion
+        .execute()) as Record<string, unknown>[];
 
+      // biome-ignore lint/suspicious/noExplicitAny: Dynamic query result requires type assertion
       const assessees = (await db
         .selectFrom('assessment_assessee')
         .innerJoin('app_user', (join) =>
@@ -1244,14 +1255,15 @@ router.get(
           'app_user.display_name',
           'app_user.role',
         ])
-        .execute()) as any[];
+        .execute()) as Record<string, unknown>[];
 
       // Deduplicate (a user could be both assessor and assessee)
       const seen = new Set<string>();
-      const participants: any[] = [];
+      const participants: Record<string, unknown>[] = [];
       for (const u of [...assessors, ...assessees]) {
-        if (!seen.has(u.id)) {
-          seen.add(u.id);
+        const uId = u.id as string;
+        if (!seen.has(uId)) {
+          seen.add(uId);
           participants.push(u);
         }
       }
@@ -1303,7 +1315,8 @@ router.get(
           'app_user.username as author_username',
         ])
         .orderBy('work_note.created_at', 'desc')
-        .execute()) as any[];
+        // biome-ignore lint/suspicious/noExplicitAny: Dynamic query result requires type assertion
+        .execute()) as Record<string, unknown>[];
 
       res.json({ data: notes });
     } catch (error) {

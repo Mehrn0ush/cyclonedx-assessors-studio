@@ -815,10 +815,10 @@ export async function runMigrations(): Promise<void> {
   for (const statement of statements) {
     if (statement.trim()) {
       try {
-        // biome-ignore lint/suspicious/noExplicitAny: Kysely executeQuery requires CompiledQuery but we build raw SQL
         await db.executeQuery({
           sql: `${statement};`,
           parameters: [],
+          // biome-ignore lint/suspicious/noExplicitAny: Kysely executeQuery requires CompiledQuery but we build raw SQL
         } as any);
       } catch (error: unknown) {
         const errorMessage = (error as Record<string, unknown> | null)?.message || '';

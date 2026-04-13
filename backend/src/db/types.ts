@@ -149,8 +149,10 @@ export interface NotificationRule {
   user_id?: string | null;
   channel: 'in_app' | 'email' | 'slack' | 'teams' | 'mattermost' | 'webhook';
   event_types: string[] | null; // JSONB: string[]
-  filters: any; // JSONB: Record<string, any>
-  destination: any; // JSONB: channel-specific config
+  // biome-ignore lint/suspicious/noExplicitAny: JSONB column stores dynamic filter configuration
+  filters: Record<string, unknown>;
+  // biome-ignore lint/suspicious/noExplicitAny: JSONB column stores channel-specific configuration
+  destination: Record<string, unknown>;
   enabled: boolean;
   created_by?: string | null;
   created_at: Generated<Date>;
@@ -369,7 +371,8 @@ export interface AuditLog {
   entity_id: string;
   action: 'create' | 'update' | 'delete' | 'state_change' | 'link' | 'unlink';
   user_id: string;
-  changes?: any;
+  // biome-ignore lint/suspicious/noExplicitAny: JSONB column stores dynamic change records
+  changes?: Record<string, unknown>;
   created_at: Generated<Date>;
 }
 
@@ -513,7 +516,8 @@ export interface WebhookDelivery {
   http_status?: number | null;
   attempt: Generated<number>;
   next_retry_at?: Date | null;
-  request_body?: any | null;
+  // biome-ignore lint/suspicious/noExplicitAny: JSONB column stores webhook request payload
+  request_body?: Record<string, unknown> | null;
   response_body?: string | null;
   error_message?: string | null;
   delivered_at?: Date | null;

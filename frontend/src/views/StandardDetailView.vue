@@ -432,7 +432,7 @@ const authStore = useAuthStore()
 
 const loading = ref(true)
 const error = ref('')
-const standard = ref<any>(null)
+const standard = ref<Record<string, unknown> | null>(null)
 const requirements = ref<StandardRequirement[]>([])
 const levels = ref<Record<string, unknown>[]>([])
 const projects = ref<ProjectReference[]>([])
@@ -452,8 +452,7 @@ const editForm = ref({
 
 // Requirement dialog state
 const requirementDialogVisible = ref(false)
-const requirementFormRef = ref()
-const editingRequirement = ref<any>(null)
+const editingRequirement = ref<Record<string, unknown> | null>(null)
 const requirementForm = ref({
   identifier: '',
   name: '',
@@ -473,17 +472,17 @@ const editingLevelValue = ref('')
 
 // Level requirements assignment dialog
 const levelReqsDialogVisible = ref(false)
-const editingLevel = ref<any>(null)
+const editingLevel = ref<Record<string, unknown> | null>(null)
 const selectedLevelReqIds = ref<string[]>([])
 const levelReqSearch = ref('')
 
 // Flatten requirements for the level assignment checklist
 const flatRequirementsWithDepth = computed(() => {
   const result: Array<{ id: string; identifier: string; name: string; depth: number }> = []
-  const flatten = (nodes: any[], depth: number) => {
+  const flatten = (nodes: Record<string, unknown>[], depth: number) => {
     for (const node of nodes) {
-      result.push({ id: node.id, identifier: node.identifier, name: node.name, depth })
-      if (node.children?.length) flatten(node.children, depth + 1)
+      result.push({ id: (node.id as string), identifier: (node.identifier as string), name: (node.name as string), depth })
+      if ((node.children as Record<string, unknown>[] | undefined)?.length) flatten((node.children as Record<string, unknown>[]), depth + 1)
     }
   }
   flatten(requirements.value, 0)
@@ -500,8 +499,8 @@ const filteredFlatRequirements = computed(() => {
 
 // Count total requirements (flattened from tree)
 const requirementCount = computed(() => {
-  const count = (nodes: any[]): number =>
-    nodes.reduce((sum, n) => sum + 1 + count(n.children || []), 0)
+  const count = (nodes: Record<string, unknown>[]): number =>
+    nodes.reduce((sum, n) => sum + 1 + count((n.children as Record<string, unknown>[] | undefined) || []), 0)
   return count(requirements.value)
 })
 
@@ -510,16 +509,16 @@ const availableParentRequirements = computed(() => {
   const editId = editingRequirement.value?.id
   const result: { id: string; label: string }[] = []
 
-  const flatten = (nodes: any[], depth: number = 0) => {
+  const flatten = (nodes: Record<string, unknown>[], depth: number = 0) => {
     for (const node of nodes) {
-      if (editId && node.id === editId) continue // skip self and descendants
+      if (editId && (node.id as string) === editId) continue
       const indent = depth > 0 ? '\u00A0'.repeat(depth * 4) : ''
       result.push({
-        id: node.id,
-        label: `${indent}${node.identifier}: ${node.name}`,
+        id: (node.id as string),
+        label: `${indent}${node.identifier as string}: ${node.name as string}`,
       })
-      if (node.children?.length) {
-        flatten(node.children, depth + 1)
+      if ((node.children as Record<string, unknown>[] | undefined)?.length) {
+        flatten((node.children as Record<string, unknown>[]), depth + 1)
       }
     }
   }
@@ -571,7 +570,7 @@ const fetchProjects = async () => {
   try {
     const { data } = await axios.get(`/api/v1/projects?standardId=${standard.value.id}`)
     projects.value = data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to fetch projects:', err)
     projects.value = []
   } finally {
@@ -588,8 +587,9 @@ const fetchStandard = async () => {
     requirements.value = data.requirements || []
     levels.value = data.levels || []
     await fetchProjects()
-  } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to load standard'
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    error.value = e.response?.data?.error || 'Failed to load standard'
   } finally {
     loading.value = false
   }
@@ -635,8 +635,9 @@ const handleSaveEdit = async () => {
     ElMessage.success('Standard updated successfully')
     editDialogVisible.value = false
     await fetchStandard()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to update standard')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.error || 'Failed to update standard')
   }
 }
 
@@ -652,13 +653,13 @@ const openAddRequirementDialog = () => {
   requirementDialogVisible.value = true
 }
 
-const openEditRequirementDialog = (requirement: any) => {
+const openEditRequirementDialog = (requirement: Record<string, unknown>) => {
   editingRequirement.value = requirement
   requirementForm.value = {
-    identifier: requirement.identifier || '',
-    name: requirement.name || '',
-    description: requirement.description || '',
-    parentId: requirement.parent_id || null,
+    identifier: (requirement.identifier as string) || '',
+    name: (requirement.name as string) || '',
+    description: (requirement.description as string) || '',
+    parentId: (requirement.parent_id as string | null) || null,
   }
   requirementDialogVisible.value = true
 }
@@ -676,33 +677,33 @@ const resetRequirementForm = () => {
 const handleSaveRequirement = async () => {
   try {
     if (editingRequirement.value) {
-      // Update existing requirement
       await axios.put(
-        `/api/v1/standards/${standard.value.id}/requirements/${editingRequirement.value.id}`,
+        `/api/v1/standards/${standard.value.id}/requirements/${editingRequirement.value.id as string}`,
         requirementForm.value
       )
       ElMessage.success('Requirement updated successfully')
     } else {
-      // Create new requirement
       await axios.post(`/api/v1/standards/${standard.value.id}/requirements`, requirementForm.value)
       ElMessage.success('Requirement added successfully')
     }
     requirementDialogVisible.value = false
     await fetchStandard()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to save requirement')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.error || 'Failed to save requirement')
   }
 }
 
-const handleSaveInline = async (row: any, field: string, value: string) => {
+const handleSaveInline = async (row: StandardRequirement, field: string, value: string) => {
   try {
     await axios.put(
       `/api/v1/standards/${standard.value.id}/requirements/${row.id}`,
       { [field]: value }
     )
     await fetchStandard()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || `Failed to update ${field}`)
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    ElMessage.error((e.response as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined | string || `Failed to update ${field}`)
   }
 }
 
@@ -713,12 +714,13 @@ const handleReparent = async (requirementId: string, newParentId: string | null)
       { parent_id: newParentId }
     )
     await fetchStandard()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to move requirement')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.error || 'Failed to move requirement')
   }
 }
 
-const handleDeleteRequirement = async (requirement: any) => {
+const handleDeleteRequirement = async (requirement: Record<string, unknown>) => {
   try {
     await ElMessageBox.confirm(
       'This will delete the requirement. Continue?',
@@ -730,13 +732,14 @@ const handleDeleteRequirement = async (requirement: any) => {
       }
     )
     await axios.delete(
-      `/api/v1/standards/${standard.value.id}/requirements/${requirement.id}`
+      `/api/v1/standards/${standard.value.id}/requirements/${requirement.id as string}`
     )
     ElMessage.success('Requirement deleted successfully')
     await fetchStandard()
-  } catch (err: any) {
-    if (err.message !== 'cancel') {
-      ElMessage.error(err.response?.data?.error || 'Failed to delete requirement')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    if (e.message !== 'cancel') {
+      ElMessage.error(e.response?.data?.error || 'Failed to delete requirement')
     }
   }
 }
@@ -761,58 +764,61 @@ const handleSaveLevel = async () => {
     ElMessage.success('Level added')
     levelDialogVisible.value = false
     await fetchStandard()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to add level')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.error || 'Failed to add level')
   }
 }
 
-const handleDeleteLevel = async (level: any) => {
+const handleDeleteLevel = async (level: Record<string, unknown>) => {
   try {
     await ElMessageBox.confirm(
-      `Delete level "${level.identifier}"? This will also remove all requirement assignments for this level.`,
+      `Delete level "${level.identifier as string}"? This will also remove all requirement assignments for this level.`,
       'Warning',
       { confirmButtonText: 'Delete', cancelButtonText: 'Cancel', type: 'warning' }
     )
-    await axios.delete(`/api/v1/standards/${standard.value.id}/levels/${level.id}`)
+    await axios.delete(`/api/v1/standards/${standard.value.id}/levels/${level.id as string}`)
     ElMessage.success('Level deleted')
     await fetchStandard()
-  } catch (err: any) {
-    if (err !== 'cancel' && err?.message !== 'cancel') {
-      ElMessage.error(err.response?.data?.error || 'Failed to delete level')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    if (e !== 'cancel' && e?.message !== 'cancel') {
+      ElMessage.error(e.response?.data?.error || 'Failed to delete level')
     }
   }
 }
 
-const startEditLevel = (row: any, field: string) => {
-  editingLevelField.value = { id: row.id, field }
-  editingLevelValue.value = row[field] || ''
+const startEditLevel = (row: Record<string, unknown>, field: string) => {
+  editingLevelField.value = { id: (row.id as string), field }
+  editingLevelValue.value = (row[field] as string) || ''
 }
 
-const saveLevelField = async (row: any) => {
+const saveLevelField = async (row: Record<string, unknown>) => {
   if (!editingLevelField.value) return
   try {
     await axios.put(
-      `/api/v1/standards/${standard.value.id}/levels/${row.id}`,
+      `/api/v1/standards/${standard.value.id}/levels/${row.id as string}`,
       { [editingLevelField.value.field]: editingLevelValue.value }
     )
     editingLevelField.value = null
     await fetchStandard()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to update level')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.error || 'Failed to update level')
   }
 }
 
-const toggleLevelExpand = (_row: any) => {
+const toggleLevelExpand = (_row: Record<string, unknown>) => {
   // Placeholder for potential future expand behavior
 }
 
-const levelRowClassName = (_data: any) => {
+const levelRowClassName = (_data: Record<string, unknown>) => {
   return ''
 }
 
-const openLevelRequirementsDialog = (level: any) => {
+const openLevelRequirementsDialog = (level: Record<string, unknown>) => {
   editingLevel.value = level
-  selectedLevelReqIds.value = [...(level.requirementIds || [])]
+  selectedLevelReqIds.value = [...((level.requirementIds as string[] | undefined) || [])]
   levelReqSearch.value = ''
   levelReqsDialogVisible.value = true
 }
@@ -821,14 +827,15 @@ const handleSaveLevelRequirements = async () => {
   if (!editingLevel.value) return
   try {
     await axios.put(
-      `/api/v1/standards/${standard.value.id}/levels/${editingLevel.value.id}/requirements`,
+      `/api/v1/standards/${standard.value.id}/levels/${editingLevel.value.id as string}/requirements`,
       { requirementIds: selectedLevelReqIds.value }
     )
     ElMessage.success('Level requirements updated')
     levelReqsDialogVisible.value = false
     await fetchStandard()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to update level requirements')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.error || 'Failed to update level requirements')
   }
 }
 
@@ -847,9 +854,10 @@ const handleSubmitForApproval = async () => {
     await axios.post(`/api/v1/standards/${standard.value.id}/submit`)
     ElMessage.success('Standard submitted for approval')
     await fetchStandard()
-  } catch (err: any) {
-    if (err.message !== 'cancel') {
-      ElMessage.error(err.response?.data?.error || 'Failed to submit for approval')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    if (e.message !== 'cancel') {
+      ElMessage.error(e.response?.data?.error || 'Failed to submit for approval')
     }
   }
 }
@@ -868,9 +876,10 @@ const handleApprove = async () => {
     await axios.post(`/api/v1/standards/${standard.value.id}/approve`)
     ElMessage.success('Standard approved')
     await fetchStandard()
-  } catch (err: any) {
-    if (err.message !== 'cancel') {
-      ElMessage.error(err.response?.data?.error || 'Failed to approve standard')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    if (e.message !== 'cancel') {
+      ElMessage.error(e.response?.data?.error || 'Failed to approve standard')
     }
   }
 }
@@ -889,9 +898,10 @@ const handleReject = async () => {
     await axios.post(`/api/v1/standards/${standard.value.id}/reject`, { reason })
     ElMessage.success('Standard rejected')
     await fetchStandard()
-  } catch (err: any) {
-    if (err.message !== 'cancel') {
-      ElMessage.error(err.response?.data?.error || 'Failed to reject standard')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    if (e.message !== 'cancel') {
+      ElMessage.error(e.response?.data?.error || 'Failed to reject standard')
     }
   }
 }
@@ -900,9 +910,10 @@ const handleDuplicate = async () => {
   try {
     const { data } = await axios.post(`/api/v1/standards/${standard.value.id}/duplicate`)
     ElMessage.success('Standard duplicated')
-    await router.push(`/standards/${data.id}`)
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to duplicate standard')
+    await router.push(`/standards/${(data as Record<string, unknown>).id as string}`)
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.error || 'Failed to duplicate standard')
   }
 }
 
@@ -916,20 +927,21 @@ const handleExport = async () => {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    const slug = standard.value.name
+    const slug = ((standard.value.name as string) || '')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
-    const suffix = standard.value.version
-      ? standard.value.version.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
+    const suffix = (standard.value.version as string | undefined)
+      ? ((standard.value.version as string) || '').replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
       : new Date().toISOString().replace(/[-:T]/g, '').replace(/\.\d+Z$/, '')
     link.download = `${slug}-${suffix}.cdx.json`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to export standard')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.error || 'Failed to export standard')
   } finally {
     exporting.value = false
   }
@@ -949,9 +961,10 @@ const handleRetire = async () => {
     await axios.post(`/api/v1/standards/${standard.value.id}/retire`)
     ElMessage.success('Standard retired')
     await fetchStandard()
-  } catch (err: any) {
-    if (err.message !== 'cancel') {
-      ElMessage.error(err.response?.data?.error || 'Failed to retire standard')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    if (e.message !== 'cancel') {
+      ElMessage.error(e.response?.data?.error || 'Failed to retire standard')
     }
   }
 }

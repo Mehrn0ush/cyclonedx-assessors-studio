@@ -344,8 +344,10 @@ async function fetchStatus() {
   try {
     const { data } = await axios.get('/api/v1/admin/integrations/status')
     status.value = data
-  } catch (err: any) {
-    error.value = err?.response?.data?.error || err?.message || 'Failed to load integration status'
+  } catch (err: unknown) {
+    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    error.value = e?.response?.data?.error || e?.message || 'Failed to load integration status'
   } finally {
     loading.value = false
   }
@@ -357,8 +359,10 @@ async function testSmtp() {
   try {
     const { data } = await axios.post('/api/v1/admin/integrations/test/smtp')
     smtpTestResult.value = { success: true, message: data.message }
-  } catch (err: any) {
-    const msg = err?.response?.data?.message || err?.message || 'SMTP test failed'
+  } catch (err: unknown) {
+    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
+    const e = err as { response?: { data?: { message?: string } }; message?: string }
+    const msg = e?.response?.data?.message || e?.message || 'SMTP test failed'
     smtpTestResult.value = { success: false, message: msg }
   } finally {
     testingSmtp.value = false

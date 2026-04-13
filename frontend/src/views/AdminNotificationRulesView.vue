@@ -319,7 +319,7 @@ const dialogTitle = computed(() =>
 )
 
 // Safely parse a JSON string or return the value if already an object
-const parseJsonField = (value: any): Record<string, any> => {
+const parseJsonField = (value: Record<string, unknown> | string | null): Record<string, unknown> => {
   if (!value) return {}
   if (typeof value === 'string') {
     try { return JSON.parse(value) } catch { return {} }
@@ -328,10 +328,10 @@ const parseJsonField = (value: any): Record<string, any> => {
 }
 
 // Extract destination string from the stored destination object
-const extractDestinationString = (channel: string, dest: Record<string, any>): string => {
-  if (channel === 'email') return dest.emails || ''
-  if (['slack', 'teams', 'mattermost'].includes(channel)) return dest.integrationId || ''
-  if (channel === 'webhook') return dest.webhookId || ''
+const extractDestinationString = (channel: string, dest: Record<string, unknown>): string => {
+  if (channel === 'email') return (dest.emails as string) || ''
+  if (['slack', 'teams', 'mattermost'].includes(channel)) return (dest.integrationId as string) || ''
+  if (channel === 'webhook') return (dest.webhookId as string) || ''
   return ''
 }
 
@@ -342,8 +342,8 @@ const fetchRules = async () => {
     const { data } = await axios.get('/api/v1/admin/notification-rules')
     const rawRules = data.rules || data
     // Normalize JSON string fields from DB
-    rules.value = rawRules.map((rule: any) => {
-      const parsedFilters = parseJsonField(rule.filters)
+    rules.value = rawRules.map((rule: Record<string, unknown>) => {
+      const parsedFilters = parseJsonField(rule.filters as Record<string, unknown> | string)
       const parsedEventTypes = typeof rule.event_types === 'string'
         ? JSON.parse(rule.event_types)
         : rule.event_types
@@ -352,12 +352,13 @@ const fetchRules = async () => {
         event_types: parsedEventTypes,
         destination: rule.destination,
         filters: parsedFilters,
-        filterProjectId: parsedFilters.projectId || '',
-        filterStandardId: parsedFilters.standardId || '',
+        filterProjectId: (parsedFilters.projectId as string) || '',
+        filterStandardId: (parsedFilters.standardId as string) || '',
       }
     })
-  } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to load notification rules'
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    error.value = e.response?.data?.error || 'Failed to load notification rules'
   } finally {
     loading.value = false
   }
@@ -368,7 +369,7 @@ const fetchChatIntegrations = async () => {
   try {
     const { data } = await axios.get('/api/v1/integrations/chat')
     chatIntegrations.value = data.integrations || data
-  } catch (err: any) {
+  } catch (err: unknown) {
     ElMessage.error('Failed to load chat integrations')
   } finally {
     chatIntegrationsLoading.value = false
@@ -380,7 +381,7 @@ const fetchWebhooks = async () => {
   try {
     const { data } = await axios.get('/api/v1/webhooks')
     webhooks.value = data.webhooks || data
-  } catch (err: any) {
+  } catch (err: unknown) {
     ElMessage.error('Failed to load webhooks')
   } finally {
     webhooksLoading.value = false
@@ -393,11 +394,11 @@ const fetchProjectOptions = async () => {
     const { data } = await axios.get('/api/v1/projects', {
       params: { limit: 100 }
     })
-    projectOptions.value = (data.data || []).map((project: any) => ({
-      value: project.id,
-      label: project.name
+    projectOptions.value = (data.data || []).map((project: Record<string, unknown>) => ({
+      value: project.id as string,
+      label: project.name as string
     }))
-  } catch (err: any) {
+  } catch (err: unknown) {
     ElMessage.error('Failed to load projects')
   } finally {
     projectsLoading.value = false
@@ -410,11 +411,11 @@ const fetchStandardOptions = async () => {
     const { data } = await axios.get('/api/v1/standards', {
       params: { limit: 100 }
     })
-    standardOptions.value = (data.data || []).map((standard: any) => ({
-      value: standard.id,
-      label: standard.name
+    standardOptions.value = (data.data || []).map((standard: Record<string, unknown>) => ({
+      value: standard.id as string,
+      label: standard.name as string
     }))
-  } catch (err: any) {
+  } catch (err: unknown) {
     ElMessage.error('Failed to load standards')
   } finally {
     standardsLoading.value = false
@@ -515,8 +516,9 @@ const handleSave = async () => {
 
     showDialog.value = false
     await fetchRules()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || t('notificationRules.saveFailed'))
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || t('notificationRules.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -527,8 +529,9 @@ const handleToggleEnabled = async (rule: NotificationRule) => {
     await axios.patch(`/api/v1/admin/notification-rules/${rule.id}`, {
       enabled: rule.enabled
     })
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || t('notificationRules.updateFailed'))
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || t('notificationRules.updateFailed'))
     rule.enabled = !rule.enabled
   }
 }
@@ -543,9 +546,10 @@ const handleDelete = async (rule: NotificationRule) => {
     await axios.delete(`/api/v1/admin/notification-rules/${rule.id}`)
     ElMessage.success(t('notificationRules.ruleDeleted'))
     await fetchRules()
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (err !== 'cancel') {
-      ElMessage.error(err.response?.data?.error || t('notificationRules.deleteFailed'))
+      const e = err as { response?: { data?: { error?: string } } }
+      ElMessage.error(e.response?.data?.error || t('notificationRules.deleteFailed'))
     }
   }
 }

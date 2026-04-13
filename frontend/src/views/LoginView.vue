@@ -110,8 +110,9 @@ const handleLogin = async () => {
   try {
     await authStore.login(form.value.username, form.value.password)
     await router.push('/dashboard')
-  } catch (err: any) {
-    error.value = err.response?.data?.error || err.message || t('login.loginFailed')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    error.value = e.response?.data?.error || e.message || t('login.loginFailed')
   } finally {
     loading.value = false
   }

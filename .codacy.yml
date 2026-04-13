@@ -61,6 +61,21 @@ engines:
       # False positive: seed.ts declares `let password = ''` as an accumulator
       # for interactive terminal password input, not a hardcoded credential.
       - codacy.javascript.security.hard-coded-password
+      # False positive: evidence.ts serves binary file content from database/S3 storage.
+      # Content is retrieved from secured storage, not from user input. The eslint-disable
+      # comments are already present but Semgrep doesn't respect them.
+      - javascript.express.security.audit.xss.direct-response-write.direct-response-write
+
+  opengrep:
+    enabled: true
+    disable_rules:
+      # False positive: seed.ts declares `let password = ''` as an accumulator
+      # for interactive terminal password input, not a hardcoded credential.
+      - codacy.javascript.security.hard-coded-password
+      # False positive: evidence.ts serves binary file content from database/S3 storage.
+      # Content is retrieved from secured storage, not from user input. The eslint-disable
+      # comments are already present but Opengrep doesn't respect them.
+      - javascript.express.security.audit.xss.direct-response-write.direct-response-write
 
   eslint:
     enabled: true

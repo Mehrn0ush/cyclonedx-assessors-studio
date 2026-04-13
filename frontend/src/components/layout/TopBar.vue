@@ -126,9 +126,17 @@ import { version } from '../../../package.json'
 
 const { logoSrc } = useLogo()
 const { t } = useI18n()
+interface Notification {
+  id: string
+  title: string
+  message: string
+  createdAt: string
+  link?: string
+}
+
 const showAbout = ref(false)
 const showNotifications = ref(false)
-const notifications = ref<any[]>([])
+const notifications = ref<Notification[]>([])
 const notificationCount = ref(0)
 let notificationPollInterval: ReturnType<typeof setInterval> | null = null
 
@@ -185,7 +193,7 @@ const formatNotificationTime = (timestamp: string): string => {
   return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
 }
 
-const handleNotificationClick = async (notification: any) => {
+const handleNotificationClick = async (notification: Notification) => {
   try {
     await axios.post(`/api/v1/notifications/${notification.id}/read`)
     if (notification.link) {

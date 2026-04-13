@@ -343,6 +343,7 @@ const stats = ref({
 interface DueDateItem { id: string; title: string; projectName: string; dueDate: string; daysUntilDue: number }
 interface CoverageItem { standardId: string; standardName: string; coveragePercent: number; assessedRequirements: number; totalRequirements: number }
 interface DistributionItem { state: string; count: number; label?: string }
+interface ConformanceItem { result: string; count: number }
 interface HealthItem { state: string; count: number }
 interface ExpiringItem { id: string; name: string; expiresOn: string }
 interface RiskInsight { severity: string; type: string; title: string; detail: string }
@@ -357,7 +358,7 @@ const evidenceExpiring = ref<ExpiringItem[]>([])
 const riskInsights = ref<RiskInsight[]>([])
 const projectHealth = ref<ProjectHealthItem[]>([])
 
-const conformanceRaw = ref<DistributionItem[]>([])
+const conformanceRaw = ref<ConformanceItem[]>([])
 
 const pipelineChartHeight = computed(() => {
   const nonZero = assessmentDistribution.value.filter((d) => d.count > 0)
@@ -383,7 +384,7 @@ const conformanceData = computed(() => {
     na: '#909399',
     unassessed: '#484f58',
   }
-  return conformanceRaw.value.map((item: any) => ({
+  return conformanceRaw.value.map((item: ConformanceItem) => ({
     ...item,
     label: labelMap[item.result] || item.result,
     color: colorMap[item.result] || '#909399',
@@ -438,9 +439,6 @@ const getSeverityTagType = (severity: string): string => {
 const renderConformanceChart = () => {
   if (!conformanceChartCanvas.value || conformanceTotal.value === 0) return
   if (conformanceChartInstance) conformanceChartInstance.destroy()
-
-  const style = getComputedStyle(document.documentElement)
-  const textColor = style.getPropertyValue('--cat-text-secondary').trim() || '#8b949e'
 
   // Build radial gradients for each donut segment (lighter center to deeper edge)
   const ctx = conformanceChartCanvas.value.getContext('2d')
@@ -552,9 +550,9 @@ const renderPipelineChart = () => {
   pipelineChartInstance = new Chart(pipelineChartCanvas.value, {
     type: 'bar',
     data: {
-      labels: nonZero.map((d: any) => stateLabels[d.state] || d.state),
+      labels: nonZero.map((d: DistributionItem) => stateLabels[d.state] || d.state),
       datasets: [{
-        data: nonZero.map((d: any) => d.count),
+        data: nonZero.map((d: DistributionItem) => d.count),
         backgroundColor: barGradients,
         borderRadius: 4,
         borderSkipped: false,
@@ -610,8 +608,9 @@ const fetchStats = async () => {
   try {
     const response = await axios.get('/api/v1/dashboard/stats')
     stats.value = response.data
-  } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to load dashboard stats'
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    error.value = e.response?.data?.error || 'Failed to load dashboard stats'
   } finally {
     statsLoading.value = false
   }
@@ -622,7 +621,7 @@ const fetchRecentAssessments = async () => {
   try {
     const response = await axios.get('/api/v1/dashboard/recent-assessments')
     recentAssessments.value = response.data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to load recent assessments:', err)
   } finally {
     assessmentsLoading.value = false
@@ -634,7 +633,7 @@ const fetchUpcomingDueDates = async () => {
   try {
     const response = await axios.get('/api/v1/dashboard/upcoming-due-dates')
     upcomingDueDates.value = response.data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to load upcoming due dates:', err)
   } finally {
     dueDatesLoading.value = false
@@ -646,7 +645,7 @@ const fetchComplianceCoverage = async () => {
   try {
     const response = await axios.get('/api/v1/dashboard/compliance-coverage')
     complianceCoverage.value = response.data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to load compliance coverage:', err)
   } finally {
     coverageLoading.value = false
@@ -657,8 +656,8 @@ const fetchAssessmentDistribution = async () => {
   distributionLoading.value = true
   try {
     const response = await axios.get('/api/v1/dashboard/assessment-distribution')
-    assessmentDistribution.value = (response.data.data || []).filter((d: any) => d.count > 0)
-  } catch (err: any) {
+    assessmentDistribution.value = (response.data.data || []).filter((d: DistributionItem) => d.count > 0)
+  } catch (err: unknown) {
     console.error('Failed to load assessment distribution:', err)
   } finally {
     distributionLoading.value = false
@@ -673,7 +672,7 @@ const fetchEvidenceHealth = async () => {
     const response = await axios.get('/api/v1/dashboard/evidence-health')
     evidenceHealth.value = response.data.data || []
     evidenceExpiring.value = response.data.expiringSoon || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to load evidence health:', err)
   } finally {
     evidenceHealthLoading.value = false
@@ -685,7 +684,7 @@ const fetchConformanceBreakdown = async () => {
   try {
     const response = await axios.get('/api/v1/dashboard/conformance-breakdown')
     conformanceRaw.value = response.data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to load conformance breakdown:', err)
   } finally {
     conformanceLoading.value = false
@@ -699,7 +698,7 @@ const fetchRiskInsights = async () => {
   try {
     const response = await axios.get('/api/v1/dashboard/risk-insights')
     riskInsights.value = response.data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to load risk insights:', err)
   } finally {
     riskInsightsLoading.value = false
@@ -711,7 +710,7 @@ const fetchProjectHealth = async () => {
   try {
     const response = await axios.get('/api/v1/dashboard/project-health')
     projectHealth.value = response.data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to load project health:', err)
   } finally {
     projectHealthLoading.value = false

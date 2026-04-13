@@ -435,13 +435,13 @@ const progressLoading = ref(false)
 // Entity data
 const entity = ref<Entity | null>(null)
 const entityTags = ref<Tag[]>([])
-const assessments = ref<any[]>([])
+const assessments = ref<Record<string, unknown>[]>([])
 const relationships = ref<EntityRelationship[]>([])
 const policies = ref<CompliancePolicy[]>([])
 const progressData = ref<AssessmentProgress[]>([])
-const availableStandards = ref<any[]>([])
-const graphEdges = ref<any[]>([])
-const graphEntities = ref<any[]>([])
+const availableStandards = ref<Record<string, unknown>[]>([])
+const graphEdges = ref<Record<string, unknown>[]>([])
+const graphEntities = ref<Record<string, unknown>[]>([])
 
 // UI state
 const activeTab = ref('relationships')
@@ -499,7 +499,7 @@ const searchResults = ref<Entity[]>([])
 
 // Computed properties
 const showConformanceScore = computed(() => {
-  return assessments.value.some((a: any) => a.conformanceScore !== null && a.conformanceScore !== undefined)
+  return assessments.value.some((a: Record<string, unknown>) => a.conformanceScore !== null && a.conformanceScore !== undefined)
 })
 
 // Unified relationship rows for table and graph views
@@ -532,10 +532,10 @@ const entitySearchOptions = computed<SelectOption[]>(() => {
 })
 
 const standardOptions = computed<SelectOption[]>(() => {
-  return availableStandards.value.map((s: any) => ({
-    value: s.id,
-    label: s.name,
-    description: s.version ? `v${s.version}` : undefined,
+  return availableStandards.value.map((s: Record<string, unknown>) => ({
+    value: s.id as string,
+    label: s.name as string,
+    description: s.version ? `v${s.version as string}` : undefined,
   }))
 })
 
@@ -566,11 +566,11 @@ const filteredAssessments = computed(() => {
   if (!assessmentStateFilter.value) {
     return assessments.value
   }
-  return assessments.value.filter((a: any) => a.state === assessmentStateFilter.value)
+  return assessments.value.filter((a: Record<string, unknown>) => a.state === assessmentStateFilter.value)
 })
 
 const allPolicies = computed(() => {
-  return policies.value.sort((a: any, b: any) => {
+  return policies.value.sort((a: CompliancePolicy, b: CompliancePolicy) => {
     // Direct policies first, then inherited
     if (a.isInherited === b.isInherited) return 0
     return a.isInherited ? 1 : -1
@@ -581,15 +581,16 @@ const allPolicies = computed(() => {
 const policyStandardOptions = computed<SelectOption[]>(() => {
   const seen = new Set<string>()
   return policies.value
-    .filter((p: any) => {
-      if (seen.has(p.standard?.id)) return false
-      seen.add(p.standard?.id)
+    .filter((p: CompliancePolicy) => {
+      const standardId = (p.standard as Record<string, unknown> | undefined)?.id as string | undefined
+      if (seen.has(standardId || '')) return false
+      seen.add(standardId || '')
       return true
     })
-    .map((p: any) => ({
-      value: p.standard?.id || p.standardId,
-      label: p.standard?.name || 'Unknown',
-      description: p.standard?.version ? `v${p.standard.version}` : undefined,
+    .map((p: CompliancePolicy) => ({
+      value: (p.standard as Record<string, unknown> | undefined)?.id as string || p.standardId,
+      label: (p.standard as Record<string, unknown> | undefined)?.name as string || 'Unknown',
+      description: (p.standard as Record<string, unknown> | undefined)?.version ? `v${(p.standard as Record<string, unknown>).version as string}` : undefined,
     }))
 })
 
@@ -626,23 +627,23 @@ const fetchEntity = async () => {
 
     // Extract relationships from the detail response
     // camelCaseResponse middleware transforms snake_case keys automatically
-    const parentRels = (entityData.parents || []).map((r: any) => ({
+    const parentRels = (entityData.parents || []).map((r: Record<string, unknown>) => ({
       ...r,
-      sourceEntity: { id: r.sourceEntityId, name: r.sourceName },
-      targetEntity: { id: r.targetEntityId, name: entityData.entity?.name },
+      sourceEntity: { id: r.sourceEntityId as string, name: r.sourceName as string },
+      targetEntity: { id: r.targetEntityId as string, name: entityData.entity?.name },
     }))
-    const childRels = (entityData.children || []).map((r: any) => ({
+    const childRels = (entityData.children || []).map((r: Record<string, unknown>) => ({
       ...r,
-      sourceEntity: { id: r.sourceEntityId, name: entityData.entity?.name },
-      targetEntity: { id: r.targetEntityId, name: r.targetName },
+      sourceEntity: { id: r.sourceEntityId as string, name: entityData.entity?.name },
+      targetEntity: { id: r.targetEntityId as string, name: r.targetName as string },
     }))
     relationships.value = [...parentRels, ...childRels]
 
     // Extract policies from the detail response
     // camelCaseResponse middleware transforms snake_case keys automatically
-    policies.value = (entityData.policies || []).map((p: any) => ({
+    policies.value = (entityData.policies || []).map((p: Record<string, unknown>) => ({
       ...p,
-      standard: { id: p.standardId, name: p.standardName, version: p.standardVersion, description: p.standardDescription },
+      standard: { id: p.standardId as string, name: p.standardName as string, version: p.standardVersion as string, description: p.standardDescription as string },
     }))
 
     // Fetch remaining data that requires separate endpoints
@@ -650,8 +651,9 @@ const fetchEntity = async () => {
       fetchAssessments(),
       fetchProgress(),
     ])
-  } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to load entity'
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    error.value = e.response?.data?.error || 'Failed to load entity'
   } finally {
     loading.value = false
   }
@@ -662,7 +664,7 @@ const fetchAssessments = async () => {
   try {
     const data = await entitiesAPI.getEntityAssessments(route.params.id as string)
     assessments.value = data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to load assessments:', err)
   } finally {
     assessmentsLoading.value = false
@@ -675,7 +677,7 @@ const fetchProgress = async () => {
   try {
     const data = await entitiesAPI.getEntityProgress(route.params.id as string)
     progressData.value = data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to load progress:', err)
   } finally {
     progressLoading.value = false
@@ -688,7 +690,7 @@ const fetchRelationshipGraph = async () => {
     const data = await entitiesAPI.getEntityRelationshipGraph(route.params.id as string)
     graphEdges.value = data.edges || []
     graphEntities.value = data.entities || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to load relationship graph:', err)
     // Fallback: graph component will use direct relationships
     graphEdges.value = []
@@ -700,7 +702,7 @@ const fetchAvailableStandards = async () => {
   try {
     const { data } = await axios.get('/api/v1/standards')
     availableStandards.value = data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to load standards:', err)
   }
 }
@@ -710,7 +712,7 @@ const searchEntities = async (query: string) => {
   try {
     const { data } = await axios.get('/api/v1/entities', { params: { search: query || undefined, limit: 20 } })
     searchResults.value = data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to search entities:', err)
   } finally {
     entitySearchLoading.value = false
@@ -782,8 +784,9 @@ const saveEntity = async () => {
     ElMessage.success('Entity updated successfully')
     showEditDialog.value = false
     await fetchEntity()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to update entity')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.error || 'Failed to update entity')
   } finally {
     editSaving.value = false
   }
@@ -804,9 +807,10 @@ const handleArchiveEntity = async () => {
     await entitiesAPI.updateEntity(route.params.id as string, { state: 'archived' })
     ElMessage.success('Entity archived successfully')
     await fetchEntity()
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error !== 'cancel') {
-      ElMessage.error(error.response?.data?.error || 'Failed to archive entity')
+      const e = error as { response?: { data?: { error?: string } }; message?: string }
+      ElMessage.error(e.response?.data?.error || 'Failed to archive entity')
     }
   }
 }
@@ -829,8 +833,9 @@ const saveRelationship = async () => {
     resetAddRelationshipForm()
     await fetchEntity()
     fetchRelationshipGraph()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to add relationship')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.error || 'Failed to add relationship')
   } finally {
     addingRelationship.value = false
   }
@@ -847,7 +852,7 @@ const removeRelationshipAction = async (relId: string) => {
     ElMessage.success('Relationship removed')
     await fetchEntity()
     fetchRelationshipGraph()
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error !== 'cancel') {
       ElMessage.error('Failed to remove relationship')
     }
@@ -884,8 +889,9 @@ const createAssessment = async () => {
     showNewAssessmentDialog.value = false
     resetAssessmentForm()
     await fetchAssessments()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to create assessment')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.error || 'Failed to create assessment')
   } finally {
     assessmentCreating.value = false
   }
@@ -895,8 +901,8 @@ const resetAssessmentForm = () => {
   assessmentForm.value = { title: '', standardId: '', description: '', dueDate: null }
 }
 
-const navigateToAssessment = (row: any) => {
-  router.push(`/assessments/${row.id}`)
+const navigateToAssessment = (row: Record<string, unknown>) => {
+  router.push(`/assessments/${row.id as string}`)
 }
 
 // Actions - Policies
@@ -916,8 +922,9 @@ const savePolicy = async () => {
     showAddPolicyDialog.value = false
     resetAddPolicyForm()
     await fetchEntity()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to add policy')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.error || 'Failed to add policy')
   } finally {
     addingPolicy.value = false
   }
@@ -933,7 +940,7 @@ const removePolicyAction = async (policyId: string) => {
     await entitiesAPI.removePolicy(route.params.id as string, policyId)
     ElMessage.success('Policy removed')
     await fetchEntity()
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error !== 'cancel') {
       ElMessage.error('Failed to remove policy')
     }
@@ -951,11 +958,11 @@ const onShowAddPolicyDialog = () => {
   }
 }
 
-const openEditPolicyDialog = (row: any) => {
+const openEditPolicyDialog = (row: Record<string, unknown>) => {
   editPolicyForm.value = {
-    id: row.id,
-    standardId: row.standard?.id || row.standardId,
-    description: row.description || '',
+    id: row.id as string,
+    standardId: (row.standard as Record<string, unknown> | undefined)?.id as string || (row.standardId as string),
+    description: row.description as string || '',
   }
   showEditPolicyDialog.value = true
 }
@@ -984,8 +991,9 @@ const updatePolicyAction = async () => {
     ElMessage.success('Policy updated successfully')
     showEditPolicyDialog.value = false
     await fetchEntity()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to update policy')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.error || 'Failed to update policy')
   } finally {
     updatingPolicy.value = false
   }

@@ -888,11 +888,11 @@ function compareIdentifiers(a: string, b: string): number {
   return 0
 }
 
-const assessment = ref<any>(null)
-const requirements = ref<any[]>([])
-const evidence = ref<any[]>([])
-const assessors = ref<any[]>([])
-const assessees = ref<any[]>([])
+const assessment = ref<Record<string, unknown> | null>(null)
+const requirements = ref<Record<string, unknown>[]>([])
+const evidence = ref<Record<string, unknown>[]>([])
+const assessors = ref<Record<string, unknown>[]>([])
+const assessees = ref<Record<string, unknown>[]>([])
 
 // Read-only state: complete and archived assessments are immutable
 const isReadOnly = computed(() => {
@@ -910,7 +910,7 @@ const selectedRequirementForEvidencePicker = ref<AssessmentRequirement | null>(n
 const evidenceSearchQuery = ref<string>('')
 const workNotes = ref<WorkNote[]>([])
 const attestation = ref<Record<string, unknown> | null>(null)
-const attestationRequirements = ref<any[]>([])
+const attestationRequirements = ref<Record<string, unknown>[]>([])
 const activeTab = ref('requirements')
 const editingRationale = ref<string | null>(null)
 const rationaleEditValue = ref('')
@@ -941,11 +941,11 @@ const createEvidenceForm = ref({
   name: '',
   description: '',
   classification: '',
-  expiresOn: null as any,
+  expiresOn: null as Date | null,
 })
 
 // Claims tab state
-const assessmentClaims = ref<any[]>([])
+const assessmentClaims = ref<Record<string, unknown>[]>([])
 const isLoadingClaims = ref(false)
 const showCreateClaimDialog = ref(false)
 const isCreatingClaim = ref(false)
@@ -958,9 +958,9 @@ const createClaimForm = ref({
   isCounterClaim: false,
 })
 const showClaimDetailDrawer = ref(false)
-const claimDetail = ref<any>(null)
-const claimDetailEvidence = ref<any[]>([])
-const claimDetailCounterEvidence = ref<any[]>([])
+const claimDetail = ref<Record<string, unknown> | null>(null)
+const claimDetailEvidence = ref<Record<string, unknown>[]>([])
+const claimDetailCounterEvidence = ref<Record<string, unknown>[]>([])
 const isLoadingClaimDetail = ref(false)
 const isEditingClaim = ref(false)
 const isSavingClaim = ref(false)
@@ -976,7 +976,7 @@ const editClaimForm = ref({
 
 // Requirement popup state
 const showRequirementPopup = ref(false)
-const requirementPopupData = ref<any>(null)
+const requirementPopupData = ref<Record<string, unknown> | null>(null)
 const requirementPopupHierarchy = ref<Array<{ id: string; identifier: string; name: string; [key: string]: unknown }>>([])
 const requirementPopupLevels = ref<Array<{ id: string; identifier: string; title?: string; [key: string]: unknown }>>([])
 const allRequirementsForStandard = ref<Record<string, unknown>[]>([])
@@ -997,15 +997,15 @@ const newNoteForm = ref({
   content: '',
 })
 
-const mentionParticipants = ref<any[]>([])
+const mentionParticipants = ref<Record<string, unknown>[]>([])
 
 const editScoresForm = ref({
-  scores: [] as any[]
+  scores: [] as Record<string, unknown>[]
 })
 
-const formatUsersList = (users: any[]): string => {
+const formatUsersList = (users: Record<string, unknown>[]): string => {
   if (!Array.isArray(users) || users.length === 0) return '-'
-  return users.map(u => u.displayName || u.username || u.email || 'Unknown').join(', ')
+  return users.map(u => (u.displayName as string) || (u.username as string) || (u.email as string) || 'Unknown').join(', ')
 }
 
 const getScoreColor = (score: number): string => {
@@ -1049,8 +1049,9 @@ const saveRationale = async (row: AssessmentRequirement) => {
     row.rationale = rationaleEditValue.value
     editingRationale.value = null
     ElMessage.success(t('common.success'))
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || t('common.errorOccurred'))
+  } catch (err: unknown) {
+    const error = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(error.response?.data?.error || t('common.errorOccurred'))
   }
 }
 
@@ -1066,9 +1067,9 @@ const handleResultChange = async (row: AssessmentRequirement) => {
   }
 }
 
-const getRequirementRowClass = ({ row }: any) => {
+const getRequirementRowClass = ({ row }: { row: Record<string, unknown> }) => {
   const classes: string[] = []
-  if (incompleteRequirements.value.has(row.requirementId)) {
+  if (incompleteRequirements.value.has(row.requirementId as string)) {
     classes.push('incomplete-requirement')
   }
   if (!row.result) {
@@ -1217,8 +1218,9 @@ const handleSaveNote = async () => {
     showAddNoteDialog.value = false
     newNoteForm.value = { content: '' }
     await fetchWorkNotes()
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.error || t('common.errorOccurred'))
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: { error?: string } } }
+    ElMessage.error(err.response?.data?.error || t('common.errorOccurred'))
     console.error('Failed to save work note:', error)
   } finally {
     isSavingNote.value = false
@@ -1264,8 +1266,9 @@ const handleCreateAttestation = async () => {
     })
     ElMessage.success(t('assessments.attestationCreated'))
     await fetchAttestation()
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.error || t('common.errorOccurred'))
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: { error?: string } } }
+    ElMessage.error(err.response?.data?.error || t('common.errorOccurred'))
     console.error('Failed to create attestation:', error)
   }
 }
@@ -1302,8 +1305,9 @@ const handleSaveScores = async () => {
     ElMessage.success(t('common.success'))
     showEditScoresDialog.value = false
     await fetchAttestation()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || t('common.errorOccurred'))
+  } catch (err: unknown) {
+    const error = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(error.response?.data?.error || t('common.errorOccurred'))
   }
 }
 
@@ -1316,8 +1320,9 @@ const handleSignAttestation = async () => {
     await axios.post(`/api/v1/attestations/${attestation.value.id}/sign`)
     ElMessage.success(t('assessments.attestationSigned'))
     await fetchAttestation()
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.error || t('common.errorOccurred'))
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: { error?: string } } }
+    ElMessage.error(err.response?.data?.error || t('common.errorOccurred'))
     console.error('Failed to sign attestation:', error)
   }
 }
@@ -1366,8 +1371,9 @@ const proceedWithExport = async () => {
     ElMessage.success(t('common.success'))
     showExportPreviewDialog.value = false
     pendingExportType.value = null
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.error || t('common.errorOccurred'))
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: { error?: string } } }
+    ElMessage.error(err.response?.data?.error || t('common.errorOccurred'))
   } finally {
     exportingCycloneDX.value = false
     exportingPDF.value = false
@@ -1394,9 +1400,10 @@ const handleStartAssessment = async () => {
     // Switch to Requirements tab and show banner with loaded count
     activeTab.value = 'requirements'
     startBanner.value = { show: true, count: requirements.value.length }
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error !== 'cancel') {
-      ElMessage.error(error.response?.data?.error || t('common.errorOccurred'))
+      const err = error as { response?: { data?: { error?: string } } }
+      ElMessage.error(err.response?.data?.error || t('common.errorOccurred'))
     }
   }
 }
@@ -1433,17 +1440,18 @@ const handleCompleteAssessment = async () => {
     } catch {
       // User chose "Later" - do nothing
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error !== 'cancel') {
-      const unassessedCount = error.response?.data?.unassessedCount || 0
-      const missingRationaleCount = error.response?.data?.missingRationaleCount || 0
+      const err = error as { response?: { data?: { unassessedCount?: number; missingRationaleCount?: number; error?: string } } }
+      const unassessedCount = err.response?.data?.unassessedCount || 0
+      const missingRationaleCount = err.response?.data?.missingRationaleCount || 0
 
       if (unassessedCount > 0 || missingRationaleCount > 0) {
         completionErrors.value = { unassessedCount, missingRationaleCount }
         incompleteRequirements.value = new Set(
           requirements.value
             .filter(r => !r.result || !r.rationale)
-            .map(r => r.requirementId)
+            .map(r => r.requirementId as string)
         )
         const msgs: string[] = []
         if (unassessedCount > 0) {
@@ -1454,7 +1462,7 @@ const handleCompleteAssessment = async () => {
         }
         ElMessage.warning({ message: msgs.join('. '), duration: 5000 })
       } else {
-        ElMessage.error(error.response?.data?.error || t('common.errorOccurred'))
+        ElMessage.error(err.response?.data?.error || t('common.errorOccurred'))
       }
     }
   }
@@ -1475,9 +1483,10 @@ const handleReopenAssessment = async () => {
     await axios.post(`/api/v1/assessments/${assessmentId}/reopen`)
     ElMessage.success('Assessment reopened')
     await fetchAssessmentData()
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error !== 'cancel') {
-      ElMessage.error(error.response?.data?.error || 'Failed to reopen assessment')
+      const err = error as { response?: { data?: { error?: string } } }
+      ElMessage.error(err.response?.data?.error || 'Failed to reopen assessment')
     }
   }
 }
@@ -1498,9 +1507,10 @@ const handleArchiveAssessment = async () => {
     await axios.post(`/api/v1/assessments/${assessmentId}/archive`)
     ElMessage.success('Assessment archived')
     await fetchAssessmentData()
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error !== 'cancel') {
-      ElMessage.error(error.response?.data?.error || 'Failed to archive assessment')
+      const err = error as { response?: { data?: { error?: string } } }
+      ElMessage.error(err.response?.data?.error || 'Failed to archive assessment')
     }
   }
 }
@@ -1508,12 +1518,12 @@ const handleArchiveAssessment = async () => {
 const openEditDialog = () => {
   if (!assessment.value) return
   editForm.value = {
-    title: assessment.value.title || '',
-    description: assessment.value.description || '',
-    dueDate: assessment.value.dueDate ? new Date(assessment.value.dueDate) : null,
-    state: assessment.value.state || 'new',
-    assessorIds: assessors.value.map((a: any) => a.id || a.user_id),
-    assesseeIds: assessees.value.map((a: any) => a.id || a.user_id),
+    title: (assessment.value.title as string) || '',
+    description: (assessment.value.description as string) || '',
+    dueDate: assessment.value.dueDate ? new Date(assessment.value.dueDate as string) : null,
+    state: (assessment.value.state as string) || 'new',
+    assessorIds: assessors.value.map((a: Record<string, unknown>) => (a.id as string) || (a.user_id as string)),
+    assesseeIds: assessees.value.map((a: Record<string, unknown>) => (a.id as string) || (a.user_id as string)),
   }
   showEditDialog.value = true
 }
@@ -1527,7 +1537,7 @@ const handleSaveEdit = async () => {
   isSaving.value = true
   try {
     const assessmentId = route.params.id as string
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       title: editForm.value.title,
       description: editForm.value.description,
       state: editForm.value.state,
@@ -1544,15 +1554,16 @@ const handleSaveEdit = async () => {
     ElMessage.success(t('assessments.updatedSuccessfully'))
     showEditDialog.value = false
     await fetchAssessmentData()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || t('common.errorOccurred'))
+  } catch (err: unknown) {
+    const error = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(error.response?.data?.error || t('common.errorOccurred'))
   } finally {
     isSaving.value = false
   }
 }
 
-const openEvidencePickerDialog = async (requirement: any) => {
-  selectedRequirementForEvidencePicker.value = requirement
+const openEvidencePickerDialog = async (requirement: Record<string, unknown>) => {
+  selectedRequirementForEvidencePicker.value = requirement as AssessmentRequirement
   evidenceSearchQuery.value = ''
   showEvidencePickerDialog.value = true
 
@@ -1569,7 +1580,7 @@ const filteredAvailableEvidence = computed(() => {
   const query = evidenceSearchQuery.value.toLowerCase()
   return availableEvidence.value.filter(ev =>
     ev.name.toLowerCase().includes(query) ||
-    ((ev.authorName || ev.author) && (ev.authorName || ev.author)!.toLowerCase().includes(query))
+    ((ev.authorName || ev.author) && (ev.authorName || ev.author || '').toLowerCase().includes(query))
   )
 })
 
@@ -1582,15 +1593,15 @@ const isEvidenceLinkedToRequirement = (evidenceId: string): boolean => {
   )
 }
 
-const handleEvidenceCheckboxChange = async (evidenceItem: any) => {
+const handleEvidenceCheckboxChange = async (evidenceItem: Record<string, unknown>) => {
   if (!selectedRequirementForEvidencePicker.value) return
 
-  const isCurrentlyLinked = isEvidenceLinkedToRequirement(evidenceItem.id)
+  const isCurrentlyLinked = isEvidenceLinkedToRequirement(evidenceItem.id as string)
 
   try {
     if (isCurrentlyLinked) {
       // Unlink evidence
-      await axios.delete(`/api/v1/evidence/${evidenceItem.id}/unlink`, {
+      await axios.delete(`/api/v1/evidence/${evidenceItem.id as string}/unlink`, {
         data: {
           assessmentRequirementId: selectedRequirementForEvidencePicker.value.id
         }
@@ -1598,7 +1609,7 @@ const handleEvidenceCheckboxChange = async (evidenceItem: any) => {
       ElMessage.success(t('common.success'))
     } else {
       // Link evidence
-      await axios.post(`/api/v1/evidence/${evidenceItem.id}/link`, {
+      await axios.post(`/api/v1/evidence/${evidenceItem.id as string}/link`, {
         assessmentRequirementId: selectedRequirementForEvidencePicker.value.id
       })
       ElMessage.success(t('common.success'))
@@ -1606,8 +1617,9 @@ const handleEvidenceCheckboxChange = async (evidenceItem: any) => {
 
     // Refresh evidence data
     await fetchEvidence()
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.error || t('common.errorOccurred'))
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: { error?: string } } }
+    ElMessage.error(err.response?.data?.error || t('common.errorOccurred'))
     console.error('Failed to update evidence link:', error)
   }
 }
@@ -1625,7 +1637,7 @@ const handleCreateEvidence = async () => {
 
   isCreatingEvidence.value = true
   try {
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       name: createEvidenceForm.value.name,
       description: createEvidenceForm.value.description || undefined,
       classification: createEvidenceForm.value.classification || null,
@@ -1642,8 +1654,9 @@ const handleCreateEvidence = async () => {
     createEvidenceForm.value = { name: '', description: '', classification: '', expiresOn: null }
     await fetchEvidence()
     await fetchAvailableEvidence()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || 'Failed to create evidence')
+  } catch (err: unknown) {
+    const error = err as { response?: { data?: { message?: string } } }
+    ElMessage.error(error.response?.data?.message || 'Failed to create evidence')
   } finally {
     isCreatingEvidence.value = false
   }
@@ -1653,7 +1666,7 @@ const fetchAssignableUsers = async () => {
   try {
     const response = await axios.get('/api/v1/users/assignable')
     assignableUsers.value = response.data.data || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to fetch assignable users:', err)
   }
 }
@@ -1661,16 +1674,16 @@ const fetchAssignableUsers = async () => {
 // --- Workflow Stepper ---
 const workflowSteps = computed(() => {
   const reqCount = requirements.value.length
-  const assessedCount_ = requirements.value.filter((r: any) => r.result).length
+  const assessedCount_ = requirements.value.filter((r: Record<string, unknown>) => r.result).length
   const evidenceCount = evidence.value.length
   const hasAttestation = !!attestation.value
-  const isComplete = assessment.value?.state === 'complete' || assessment.value?.state === 'archived'
+  const isComplete = (assessment.value?.state as string) === 'complete' || (assessment.value?.state as string) === 'archived'
   const hasStandard = !!assessment.value?.standardId
 
   // Evidence is complete only when every assessed requirement has at least one evidence linked
-  const assessedReqs = requirements.value.filter((r: any) => r.result)
+  const assessedReqs = requirements.value.filter((r: Record<string, unknown>) => r.result)
   const allAssessedHaveEvidence = assessedReqs.length > 0 && assessedReqs.every(
-    (r: any) => getEvidenceCountForRequirement(r.id) > 0
+    (r: Record<string, unknown>) => getEvidenceCountForRequirement(r.id as string) > 0
   )
 
   // Claims complete when at least one claim exists for every assessed requirement with evidence
@@ -1743,13 +1756,13 @@ const fetchClaims = async () => {
   }
 }
 
-const handleClaimRowClick = async (row: any) => {
+const handleClaimRowClick = async (row: Record<string, unknown>) => {
   showClaimDetailDrawer.value = true
   isLoadingClaimDetail.value = true
   try {
     const response = await axios.get(`/api/v1/assessments/${route.params.id}/claims`)
     const claims = Array.isArray(response.data) ? response.data : response.data.data || []
-    claimDetail.value = claims.find((c: any) => c.id === row.id) || row
+    claimDetail.value = (claims.find((c: Record<string, unknown>) => c.id === row.id) as Record<string, unknown>) || row
     // Fetch full claim detail for evidence lists
     const detailResponse = await axios.get(`/api/v1/claims/${row.id}`)
     claimDetailEvidence.value = detailResponse.data.evidence || []
@@ -1767,12 +1780,12 @@ const fetchClaimTargetEntities = async () => {
   try {
     const response = await axios.get('/api/v1/entities', { params: { limit: 200 } })
     const entities = response.data.data || []
-    claimTargetEntityOptions.value = entities.map((e: any) => ({
-      value: e.id,
-      label: e.name,
-      description: e.entityType ? e.entityType.replace('_', ' ') : undefined
+    claimTargetEntityOptions.value = entities.map((e: Record<string, unknown>) => ({
+      value: e.id as string,
+      label: e.name as string,
+      description: e.entityType ? (e.entityType as string).replace('_', ' ') : undefined
     }))
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to fetch entities for claim target:', err)
   }
 }
@@ -1795,7 +1808,7 @@ const handleCreateClaim = async () => {
       if (match) targetText = match.label
     }
 
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       name: createClaimForm.value.name,
       target: targetText,
       targetEntityId: createClaimForm.value.targetEntityId || null,
@@ -1812,8 +1825,9 @@ const handleCreateClaim = async () => {
     showCreateClaimDialog.value = false
     createClaimForm.value = { name: '', targetEntityId: '', predicate: '', reasoning: '', isCounterClaim: false }
     await fetchClaims()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || 'Failed to create claim')
+  } catch (err: unknown) {
+    const error = err as { response?: { data?: { message?: string } } }
+    ElMessage.error(error.response?.data?.message || 'Failed to create claim')
   } finally {
     isCreatingClaim.value = false
   }
@@ -1826,10 +1840,10 @@ const startEditClaim = () => {
     name: claimDetail.value.name || '',
     targetEntityId: claimDetail.value.targetEntityId || '',
     predicate: claimDetail.value.predicate || '',
-    reasoning: claimDetail.value.reasoning || '',
-    isCounterClaim: claimDetail.value.isCounterClaim || false,
-    evidenceIds: claimDetailEvidence.value.map((ev: any) => ev.id),
-    counterEvidenceIds: claimDetailCounterEvidence.value.map((ev: any) => ev.id),
+    reasoning: (claimDetail.value.reasoning as string) || '',
+    isCounterClaim: (claimDetail.value.isCounterClaim as boolean) || false,
+    evidenceIds: claimDetailEvidence.value.map((ev: Record<string, unknown>) => ev.id as string),
+    counterEvidenceIds: claimDetailCounterEvidence.value.map((ev: Record<string, unknown>) => ev.id as string),
   }
   isEditingClaim.value = true
 }
@@ -1849,7 +1863,7 @@ const handleSaveClaim = async () => {
       if (match) targetText = match.label
     }
 
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       name: editClaimForm.value.name,
       target: targetText,
       targetEntityId: editClaimForm.value.targetEntityId || null,
@@ -1860,13 +1874,14 @@ const handleSaveClaim = async () => {
       counterEvidenceIds: editClaimForm.value.counterEvidenceIds,
     }
 
-    await axios.put(`/api/v1/claims/${claimDetail.value.id}`, payload)
+    await axios.put(`/api/v1/claims/${claimDetail.value?.id}`, payload)
     ElMessage.success('Claim updated successfully')
     isEditingClaim.value = false
     showClaimDetailDrawer.value = false
     await fetchClaims()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to update claim')
+  } catch (err: unknown) {
+    const error = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(error.response?.data?.error || 'Failed to update claim')
   } finally {
     isSavingClaim.value = false
   }
@@ -1886,30 +1901,31 @@ const handleDeleteClaim = async () => {
   }
 
   try {
-    await axios.delete(`/api/v1/claims/${claimDetail.value.id}`)
+    await axios.delete(`/api/v1/claims/${claimDetail.value?.id}`)
     ElMessage.success('Claim deleted successfully')
     showClaimDetailDrawer.value = false
     await fetchClaims()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to delete claim')
+  } catch (err: unknown) {
+    const error = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(error.response?.data?.error || 'Failed to delete claim')
   }
 }
 
 // --- Evidence Row Click ---
-const handleEvidenceRowClick = (row: any) => {
-  router.push(`/evidence/${row.id}`)
+const handleEvidenceRowClick = (row: Record<string, unknown>) => {
+  router.push(`/evidence/${row.id as string}`)
 }
 
 // --- Requirement Popup ---
 
 // Flatten a nested requirement tree into a flat array
-const flattenRequirementTree = (tree: any[]): any[] => {
-  const flat: any[] = []
-  const walk = (nodes: any[]) => {
+const flattenRequirementTree = (tree: Record<string, unknown>[]): Record<string, unknown>[] => {
+  const flat: Record<string, unknown>[] = []
+  const walk = (nodes: Record<string, unknown>[]) => {
     for (const node of nodes) {
       flat.push(node)
-      if (node.children && node.children.length > 0) {
-        walk(node.children)
+      if (node.children && (node.children as Record<string, unknown>[]).length > 0) {
+        walk(node.children as Record<string, unknown>[])
       }
     }
   }
@@ -1938,7 +1954,7 @@ const ensureStandardDataLoaded = async () => {
 
 const openRequirementPopup = async (requirementId: string) => {
   // Find the requirement from already-loaded assessment requirements
-  const req = requirements.value.find((r: any) => r.id === requirementId)
+  const req = requirements.value.find((r: Record<string, unknown>) => r.id === requirementId)
   if (!req) return
 
   requirementPopupData.value = req
@@ -1951,15 +1967,15 @@ const openRequirementPopup = async (requirementId: string) => {
 
   // Build hierarchy by walking up parentId chain
   if (req.parentId) {
-    const hierarchy: any[] = []
-    let currentId = req.parentId
+    const hierarchy: Record<string, unknown>[] = []
+    let currentId = req.parentId as string
     const visited = new Set<string>()
     while (currentId && !visited.has(currentId)) {
       visited.add(currentId)
-      const parent = allRequirementsForStandard.value.find((r: any) => r.id === currentId)
+      const parent = allRequirementsForStandard.value.find((r: Record<string, unknown>) => r.id === currentId)
       if (parent) {
         hierarchy.unshift(parent)
-        currentId = parent.parentId
+        currentId = parent.parentId as string
       } else {
         break
       }
@@ -1969,7 +1985,7 @@ const openRequirementPopup = async (requirementId: string) => {
 
   // Find all levels that include this requirement
   requirementPopupLevels.value = levelsForStandard.value.filter(
-    (level: any) => level.requirementIds && level.requirementIds.includes(requirementId)
+    (level: Record<string, unknown>) => level.requirementIds && (level.requirementIds as string[]).includes(requirementId)
   )
 }
 

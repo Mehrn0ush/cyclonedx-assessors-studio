@@ -749,7 +749,8 @@ router.post(
           relationshipType: data.relationshipType,
           createdAt: new Date(),
           updatedAt: new Date(),
-        }) as unknown as any)
+        // biome-ignore lint/suspicious/noExplicitAny: toSnakeCase returns object incompatible with DB row type
+        }) as any)
         .execute();
 
       logger.info('Entity relationship created', {

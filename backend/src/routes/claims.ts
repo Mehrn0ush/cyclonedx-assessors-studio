@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { Response } from 'express';
+import type { Kysely } from 'kysely';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
@@ -14,8 +15,9 @@ const router = Router();
  * Check if the user is a participant in the assessment linked via an attestation.
  * Admins always pass. Returns true if the user is allowed, false otherwise.
  */
+// biome-ignore lint/suspicious/noExplicitAny: Kysely Database type is not imported here
 async function isAttestationParticipant(
-  db: any,
+  db: Kysely<any>,
   userId: string,
   userRole: string,
   attestationId: string | null | undefined
@@ -226,7 +228,8 @@ router.post(
               claimId,
               evidenceId,
               createdAt: new Date(),
-            })) as unknown as any
+              // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic query requires type cast
+            })) as any
           )
           .execute();
       }
@@ -239,7 +242,8 @@ router.post(
               claimId,
               evidenceId,
               createdAt: new Date(),
-            })) as unknown as any
+              // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic query requires type cast
+            })) as any
           )
           .execute();
       }
@@ -287,6 +291,7 @@ router.put(
       }
 
       // Guard: reject if parent assessment is complete/archived
+      // biome-ignore lint/suspicious/noExplicitAny: claim shape is dynamic from query result
       const readOnlyError = await checkClaimAssessmentReadOnly(db, (claim as any).attestation_id);
       if (readOnlyError) {
         res.status(403).json({ error: readOnlyError });
@@ -323,7 +328,8 @@ router.put(
         }
       }
 
-      const updateData: any = {};
+      // biome-ignore lint/suspicious/noExplicitAny: Dynamic update object with partial claim fields
+      const updateData: Record<string, unknown> = {};
 
       if (data.name !== undefined) updateData.name = data.name;
       if (data.target !== undefined) updateData.target = data.target;
@@ -351,7 +357,8 @@ router.put(
                 claimId: req.params.id,
                 evidenceId,
                 createdAt: new Date(),
-              })) as unknown as any
+                // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic query requires type cast
+              })) as any
             )
             .execute();
         }
@@ -371,7 +378,8 @@ router.put(
                 claimId: req.params.id,
                 evidenceId,
                 createdAt: new Date(),
-              })) as unknown as any
+                // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic query requires type cast
+              })) as any
             )
             .execute();
         }
@@ -416,6 +424,7 @@ router.delete(
     }
 
     // Guard: reject if parent assessment is complete/archived
+    // biome-ignore lint/suspicious/noExplicitAny: claim shape is dynamic from query result
     const readOnlyError = await checkClaimAssessmentReadOnly(db, (claim as any).attestation_id);
     if (readOnlyError) {
       res.status(403).json({ error: readOnlyError });

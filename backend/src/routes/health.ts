@@ -37,6 +37,7 @@ async function checkDatabaseConnectivity(): Promise<void> {
     await db.executeQuery({
       sql: 'SELECT 1 AS ok',
       parameters: [],
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely executeQuery requires CompiledQuery
     } as any);
     databaseConnected = true;
   } catch {

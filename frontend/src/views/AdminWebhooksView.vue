@@ -176,7 +176,7 @@ import IconButton from '@/components/shared/IconButton.vue'
 const { t } = useI18n()
 
 // --- State ---
-const webhooks = ref<any[]>([])
+const webhooks = ref<Record<string, unknown>[]>([])
 const loading = ref(false)
 const error = ref('')
 const saving = ref(false)
@@ -193,8 +193,8 @@ const webhookFormData = ref<{ name: string; url: string; eventTypes: string[]; i
 })
 
 // Delivery log state
-const selectedWebhook = ref<any>(null)
-const deliveries = ref<any[]>([])
+const selectedWebhook = ref<Record<string, unknown> | null>(null)
+const deliveries = ref<Record<string, unknown>[]>([])
 const deliveriesLoading = ref(false)
 const deliveryPage = ref(1)
 const deliveryPageSize = 20
@@ -208,8 +208,9 @@ const fetchWebhooks = async () => {
   try {
     const response = await axios.get('/api/v1/webhooks')
     webhooks.value = response.data.data || []
-  } catch (err: any) {
-    error.value = err.response?.data?.error || err.message || 'Failed to fetch webhooks'
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    error.value = e.response?.data?.error || e.message || 'Failed to fetch webhooks'
   } finally {
     loading.value = false
   }
@@ -220,13 +221,14 @@ const fetchDeliveries = async () => {
   deliveriesLoading.value = true
   try {
     const offset = (deliveryPage.value - 1) * deliveryPageSize
-    const response = await axios.get(`/api/v1/webhooks/${selectedWebhook.value.id}/deliveries`, {
+    const response = await axios.get(`/api/v1/webhooks/${(selectedWebhook.value as Record<string, unknown>).id}/deliveries`, {
       params: { limit: deliveryPageSize, offset },
     })
     deliveries.value = response.data.data || []
     deliveryTotal.value = Number(response.data.pagination?.total ?? 0)
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to fetch deliveries')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to fetch deliveries')
   } finally {
     deliveriesLoading.value = false
   }
@@ -242,14 +244,14 @@ const openCreateDialog = () => {
   showDialog.value = true
 }
 
-const openEditDialog = (row: any) => {
+const openEditDialog = (row: Record<string, unknown>) => {
   isEditing.value = true
-  editingId.value = row.id
+  editingId.value = row.id as string
   webhookFormData.value = {
-    name: row.name,
-    url: row.url,
-    eventTypes: [...(row.eventTypes || row.event_types || [])],
-    isActive: row.isActive ?? row.is_active ?? true,
+    name: row.name as string,
+    url: row.url as string,
+    eventTypes: [...((row.eventTypes || row.event_types) as string[] || [])],
+    isActive: (row.isActive ?? row.is_active ?? true) as boolean,
   }
   showDialog.value = true
 }
@@ -294,14 +296,15 @@ const handleSave = async (data: { name: string; url: string; eventTypes: string[
     }
     showDialog.value = false
     fetchWebhooks()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to save webhook')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to save webhook')
   } finally {
     saving.value = false
   }
 }
 
-const handleDelete = async (row: any) => {
+const handleDelete = async (row: Record<string, unknown>) => {
   try {
     await ElMessageBox.confirm(
       t('webhooks.confirmDelete', { name: row.name }),
@@ -318,34 +321,37 @@ const handleDelete = async (row: any) => {
   }
 
   try {
-    await axios.delete(`/api/v1/webhooks/${row.id}`)
+    await axios.delete(`/api/v1/webhooks/${row.id as string}`)
     ElMessage.success(t('webhooks.webhookDeleted'))
     fetchWebhooks()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to delete webhook')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to delete webhook')
   }
 }
 
-const handleEnable = async (row: any) => {
+const handleEnable = async (row: Record<string, unknown>) => {
   try {
-    await axios.post(`/api/v1/webhooks/${row.id}/enable`)
+    await axios.post(`/api/v1/webhooks/${row.id as string}/enable`)
     ElMessage.success(t('webhooks.webhookEnabled'))
     fetchWebhooks()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to enable webhook')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to enable webhook')
   }
 }
 
-const handleTest = async (row: any) => {
+const handleTest = async (row: Record<string, unknown>) => {
   try {
-    const response = await axios.post(`/api/v1/webhooks/${row.id}/test`)
+    const response = await axios.post(`/api/v1/webhooks/${row.id as string}/test`)
     ElMessage.success(t('webhooks.testSent', { eventId: response.data.eventId || '' }))
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to send test event')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to send test event')
   }
 }
 
-const selectWebhook = (row: any) => {
+const selectWebhook = (row: Record<string, unknown>) => {
   selectedWebhook.value = row
   deliveryPage.value = 1
   fetchDeliveries()
@@ -383,7 +389,7 @@ const formatDate = (dateStr: string | null | undefined): string => {
   }
 }
 
-const formatJson = (data: any): string => {
+const formatJson = (data: Record<string, unknown> | string): string => {
   if (!data) return ''
   if (typeof data === 'string') {
     try {

@@ -162,7 +162,7 @@ interface NavItem {
   name: string
   label: string
   path: string
-  icon: any
+  icon: Record<string, unknown>
   badge?: string | number
 }
 

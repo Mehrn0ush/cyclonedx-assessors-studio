@@ -287,7 +287,7 @@ const pageSize = 20
 // Graph state
 const graphLoading = ref(false)
 const graphEntities = ref<Array<{ id: string; name: string }>>([])
-const graphEdges = ref<any[]>([])
+const graphEdges = ref<Record<string, unknown>[]>([])
 
 // Form
 const dialogForm = ref({
@@ -295,7 +295,7 @@ const dialogForm = ref({
   name: '',
   description: '',
   entityType: 'organization' as EntityType,
-  tags: [] as any[],
+  tags: [] as string[],
 })
 
 const formRules = {
@@ -375,8 +375,10 @@ const fetchEntities = async () => {
   try {
     const response = await getEntities()
     entities.value = response.data || []
-  } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to load entities'
+  } catch (err: unknown) {
+    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    error.value = e.response?.data?.error || 'Failed to load entities'
   } finally {
     loading.value = false
   }
@@ -385,14 +387,14 @@ const fetchEntities = async () => {
 const fetchRelationshipGraph = async () => {
   graphLoading.value = true
   try {
-    const params: any = {}
+    const params: Record<string, unknown> = {}
     if (filterPerspective.value) {
       params.perspective = filterPerspective.value
     }
     const response = await axios.get('/api/v1/entities/relationship-graph', { params })
     graphEntities.value = response.data.entities || []
     graphEdges.value = response.data.edges || []
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to fetch relationship graph:', err)
     graphEntities.value = []
     graphEdges.value = []
@@ -410,9 +412,9 @@ const fetchPerspectiveFilter = async () => {
     const response = await axios.get('/api/v1/entities/relationship-graph', {
       params: { perspective: filterPerspective.value }
     })
-    const entityIds = (response.data.entities || []).map((e: any) => e.id)
+    const entityIds = (response.data.entities || []).map((e: Record<string, unknown>) => e.id as string)
     perspectiveEntityIds.value = new Set(entityIds)
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to fetch perspective filter:', err)
     perspectiveEntityIds.value = new Set()
   }
@@ -446,7 +448,7 @@ const openEditDialog = (row: Entity) => {
     name: row.name,
     description: row.description || '',
     entityType: row.entityType,
-    tags: (row.tags || []).map((t: any) => t.name || t),
+    tags: (row.tags || []).map((t: Record<string, unknown> | string) => (typeof t === 'string' ? t : (t.name as string) || '')),
   }
   showDialog.value = true
 }
@@ -475,8 +477,10 @@ const saveEntity = async () => {
     }
     showDialog.value = false
     await fetchEntities()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to save entity')
+  } catch (err: unknown) {
+    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.error || 'Failed to save entity')
   } finally {
     saving.value = false
   }
@@ -503,8 +507,10 @@ const deleteEntity = async (row: Entity) => {
     await deleteEntityAPI(row.id)
     ElMessage.success('Entity deleted successfully')
     await fetchEntities()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to delete entity')
+  } catch (err: unknown) {
+    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.error || 'Failed to delete entity')
   }
 }
 

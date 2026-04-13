@@ -117,7 +117,7 @@ function drawChart() {
           boxHeight: 10,
           boxPadding: 4,
           callbacks: {
-            label: (ctx: any) => {
+            label: (ctx: { parsed: number; label: string }) => {
               const value = ctx.parsed
               const pct = total.value > 0 ? Math.round((value / total.value) * 100) : 0
               return ` ${ctx.label}: ${value} (${pct}%)`

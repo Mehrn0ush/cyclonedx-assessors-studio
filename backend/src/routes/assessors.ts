@@ -30,11 +30,17 @@ router.get('/', requireAuth, asyncHandler(async (_req: AuthRequest, res: Respons
     .selectFrom('assessor')
     // biome-ignore lint/suspicious/noExplicitAny: Kysely cross-table join refs require type cast
     .leftJoin('entity', (join) =>
-      join.onRef('entity.id' as any, '=', 'assessor.entity_id' as any)
+      // biome-ignore lint/suspicious/noExplicitAny: Kysely cross-table join refs require type cast
+      join.onRef('entity.id' as any, '=',
+        // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic query requires type cast
+        'assessor.entity_id' as any)
     )
     // biome-ignore lint/suspicious/noExplicitAny: Kysely cross-table join refs require type cast
     .leftJoin('app_user', (join) =>
-      join.onRef('app_user.id' as any, '=', 'assessor.user_id' as any)
+      // biome-ignore lint/suspicious/noExplicitAny: Kysely cross-table join refs require type cast
+      join.onRef('app_user.id' as any, '=',
+        // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic query requires type cast
+        'assessor.user_id' as any)
     )
     .select([
       'assessor.id',
@@ -62,11 +68,17 @@ router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Respo
     .selectFrom('assessor')
     // biome-ignore lint/suspicious/noExplicitAny: Kysely cross-table join refs require type cast
     .leftJoin('entity', (join) =>
-      join.onRef('entity.id' as any, '=', 'assessor.entity_id' as any)
+      // biome-ignore lint/suspicious/noExplicitAny: Kysely cross-table join refs require type cast
+      join.onRef('entity.id' as any, '=',
+        // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic query requires type cast
+        'assessor.entity_id' as any)
     )
     // biome-ignore lint/suspicious/noExplicitAny: Kysely cross-table join refs require type cast
     .leftJoin('app_user', (join) =>
-      join.onRef('app_user.id' as any, '=', 'assessor.user_id' as any)
+      // biome-ignore lint/suspicious/noExplicitAny: Kysely cross-table join refs require type cast
+      join.onRef('app_user.id' as any, '=',
+        // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic query requires type cast
+        'assessor.user_id' as any)
     )
     .select([
       'assessor.id',
@@ -93,7 +105,10 @@ router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Respo
     .selectFrom('attestation')
     // biome-ignore lint/suspicious/noExplicitAny: Kysely cross-table join refs require type cast
     .leftJoin('assessment', (join) =>
-      join.onRef('assessment.id' as any, '=', 'attestation.assessment_id' as any)
+      // biome-ignore lint/suspicious/noExplicitAny: Kysely cross-table join refs require type cast
+      join.onRef('assessment.id' as any, '=',
+        // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic query requires type cast
+        'attestation.assessment_id' as any)
     )
     .where('attestation.assessor_id', '=', req.params.id)
     .select([

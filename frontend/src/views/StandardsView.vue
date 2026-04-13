@@ -147,7 +147,7 @@ const { t } = useI18n()
 
 const loading = ref(true)
 const error = ref('')
-const standards = ref<any[]>([])
+const standards = ref<Record<string, unknown>[]>([])
 const showImportDialog = ref(false)
 const importing = ref(false)
 const uploadRef = ref()
@@ -160,8 +160,8 @@ const importPreview = ref<{
   owner: string
   description: string
   requirementCount: number
-  requirements: any[]
-  levels: any[]
+  requirements: Record<string, unknown>[]
+  levels: Record<string, unknown>[]
   rawJson: string
 } | null>(null)
 const showCreateDialog = ref(false)
@@ -183,21 +183,22 @@ const fetchStandards = async () => {
   try {
     const { data } = await axios.get('/api/v1/standards')
     standards.value = data.data || []
-  } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to load standards'
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    error.value = e.response?.data?.error || 'Failed to load standards'
   } finally {
     loading.value = false
   }
 }
 
-const navigateToStandard = (row: any) => {
-  router.push(`/standards/${row.id}`)
+const navigateToStandard = (row: Record<string, unknown>) => {
+  router.push(`/standards/${row.id as string}`)
 }
 
-const handleDeleteStandard = async (row: any) => {
+const handleDeleteStandard = async (row: Record<string, unknown>) => {
   try {
     await ElMessageBox.confirm(
-      `Delete "${row.name}"? This action cannot be undone.`,
+      `Delete "${row.name as string}"? This action cannot be undone.`,
       'Delete Standard',
       {
         confirmButtonText: 'Delete',
@@ -205,67 +206,69 @@ const handleDeleteStandard = async (row: any) => {
         type: 'warning',
       }
     )
-    await axios.delete(`/api/v1/standards/${row.id}`)
+    await axios.delete(`/api/v1/standards/${row.id as string}`)
     ElMessage.success('Standard deleted')
     await fetchStandards()
-  } catch (err: any) {
-    if (err !== 'cancel' && err?.message !== 'cancel') {
-      ElMessage.error(err.response?.data?.error || 'Failed to delete standard')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } }; message?: string }
+    if (err !== 'cancel' && e.message !== 'cancel') {
+      ElMessage.error(e.response?.data?.error || 'Failed to delete standard')
     }
   }
 }
 
-const handleExportStandard = async (row: any) => {
+const handleExportStandard = async (row: Record<string, unknown>) => {
   try {
-    const response = await axios.get(`/api/v1/standards/${row.id}/export`, {
+    const response = await axios.get(`/api/v1/standards/${row.id as string}/export`, {
       responseType: 'blob',
     })
     const blob = new Blob([response.data], { type: 'application/vnd.cyclonedx+json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    const slug = row.name
+    const slug = (row.name as string)
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
     const suffix = row.version
-      ? row.version.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
+      ? (row.version as string).replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
       : new Date().toISOString().replace(/[-:T]/g, '').replace(/\.\d+Z$/, '')
     link.download = `${slug}-${suffix}.cdx.json`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to export standard')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to export standard')
   }
 }
 
-const handleFileSelected = async (file: any) => {
-  selectedFile.value = file.raw
+const handleFileSelected = async (file: Record<string, unknown>) => {
+  selectedFile.value = (file.raw as File)
   importParseError.value = ''
   importPreview.value = null
 
   try {
-    const text = await file.raw.text()
+    const text = await (file.raw as File).text()
     const json = JSON.parse(text)
-    let stdMeta: any = {}
-    let requirements: any[] = []
-    let levels: any[] = []
+    let stdMeta: Record<string, unknown> = {}
+    let requirements: Record<string, unknown>[] = []
+    let levels: Record<string, unknown>[] = []
 
-    const parseRequirements = (reqs: any[]) => reqs.map((req: any) => ({
-      identifier: req['bom-ref'] || req.identifier || req.id || '',
-      name: req.title || req.text || req.name || req.identifier || '',
-      description: req.description || req.text || null,
-      openCre: req.openCre || req['open-cre'] || null,
-      parentIdentifier: req.parent || null,
+    const parseRequirements = (reqs: Record<string, unknown>[]) => reqs.map((req: Record<string, unknown>) => ({
+      identifier: (req['bom-ref'] || req.identifier || req.id || '') as string,
+      name: (req.title || req.text || req.name || req.identifier || '') as string,
+      description: (req.description || req.text || null) as string | null,
+      openCre: (req.openCre || req['open-cre'] || null) as unknown,
+      parentIdentifier: (req.parent || null) as string | null,
     }))
 
-    const parseLevels = (lvls: any[]) => lvls.map((lvl: any) => ({
-      identifier: lvl['bom-ref'] || lvl.identifier || '',
-      title: lvl.title || null,
-      description: lvl.description || null,
-      requirements: lvl.requirements || [],
+    const parseLevels = (lvls: Record<string, unknown>[]) => lvls.map((lvl: Record<string, unknown>) => ({
+      identifier: (lvl['bom-ref'] || lvl.identifier || '') as string,
+      title: (lvl.title || null) as string | null,
+      description: (lvl.description || null) as string | null,
+      requirements: (lvl.requirements || []) as unknown[],
     }))
 
     // CycloneDX definitions.standards format
@@ -322,9 +325,10 @@ const handleFileSelected = async (file: any) => {
       requirements,
       levels,
       rawJson: text,
-    }
-  } catch (err: any) {
-    importParseError.value = `Failed to parse file: ${err.message}`
+    } as typeof importPreview.value
+  } catch (err: unknown) {
+    const e = err as { message?: string }
+    importParseError.value = `Failed to parse file: ${e.message || 'Unknown error'}`
     selectedFile.value = null
   }
 }
@@ -356,8 +360,9 @@ const handleImport = async () => {
     showImportDialog.value = false
     resetImportForm()
     await fetchStandards()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to import standard')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to import standard')
   } finally {
     importing.value = false
   }
@@ -421,9 +426,10 @@ const handleCreateStandard = async () => {
     ElMessage.success('Standard created successfully')
     showCreateDialog.value = false
     resetCreateStandardForm()
-    await router.push(`/standards/${data.data.id}`)
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.error || 'Failed to create standard')
+    await router.push(`/standards/${data.data.id as string}`)
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: string } } }
+    ElMessage.error(e.response?.data?.error || 'Failed to create standard')
   } finally {
     creatingStandard.value = false
   }

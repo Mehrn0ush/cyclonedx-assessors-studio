@@ -28,7 +28,8 @@ router.get(
     const config = getConfig();
     const providerName = getStorageProviderName();
 
-    const result: any = {
+    // biome-ignore lint/suspicious/noExplicitAny: Storage config structure varies by provider
+    const result: Record<string, unknown> = {
       provider: providerName,
     };
 
@@ -87,6 +88,7 @@ router.post(
         await db.executeQuery({
           sql: `SELECT 1 AS result`,
           parameters: [],
+          // biome-ignore lint/suspicious/noExplicitAny: Kysely executeQuery requires CompiledQuery
         } as any);
 
         res.json({
@@ -94,11 +96,13 @@ router.post(
           provider: 'database',
           message: 'Database storage verified',
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const err = error as Record<string, unknown> | null;
+        const errorMessage = typeof err?.message === 'string' ? err.message : 'Unknown error';
         res.status(502).json({
           success: false,
           provider: 'database',
-          message: `Database test failed: ${error?.message || 'Unknown error'}`,
+          message: `Database test failed: ${errorMessage}`,
         });
       }
     }
@@ -204,7 +208,8 @@ router.get(
     const config = getConfig();
     const providerName = getStorageProviderName();
 
-    const storageConfig: any = { provider: providerName };
+    // biome-ignore lint/suspicious/noExplicitAny: Storage config structure varies by provider
+    const storageConfig: Record<string, unknown> = { provider: providerName };
     if (providerName === 's3') {
       storageConfig.s3 = {
         bucket: config.S3_BUCKET,

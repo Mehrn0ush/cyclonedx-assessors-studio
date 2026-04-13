@@ -135,13 +135,13 @@ const error = ref('')
 const saving = ref(false)
 const showCreateDialog = ref(false)
 
-const evidence = ref<any[]>([])
+const evidence = ref<Record<string, unknown>[]>([])
 
 const createForm = ref({
   name: '',
   description: '',
   classification: '',
-  expiresOn: null as any,
+  expiresOn: null as Date | null,
   isCounterEvidence: false
 })
 
@@ -153,15 +153,17 @@ const fetchEvidence = async () => {
   loading.value = true
   error.value = ''
   try {
-    const params: any = {}
+    const params: Record<string, unknown> = {}
     if (filterState.value) {
       params.state = filterState.value
     }
 
     const response = await axios.get('/api/v1/evidence', { params })
     evidence.value = response.data.data || []
-  } catch (err: any) {
-    error.value = err.response?.data?.message || t('common.error')
+  } catch (err: unknown) {
+    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
+    const e = err as { response?: { data?: { message?: string } }; message?: string }
+    error.value = e.response?.data?.message || t('common.error')
     console.error('Failed to fetch evidence:', err)
   } finally {
     loading.value = false
@@ -199,7 +201,7 @@ const handleCreate = async () => {
       name: createForm.value.name,
       description: createForm.value.description,
       classification: createForm.value.classification || null,
-      expiresOn: createForm.value.expiresOn ? createForm.value.expiresOn.toISOString().split('T')[0] : null,
+      expiresOn: createForm.value.expiresOn ? (createForm.value.expiresOn as Date).toISOString().split('T')[0] : null,
       isCounterEvidence: createForm.value.isCounterEvidence
     }
 
@@ -208,15 +210,17 @@ const handleCreate = async () => {
     showCreateDialog.value = false
     createForm.value = { name: '', description: '', classification: '', expiresOn: null, isCounterEvidence: false }
     await fetchEvidence()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || 'Failed to create evidence')
+  } catch (err: unknown) {
+    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
+    const e = err as { response?: { data?: { message?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.message || 'Failed to create evidence')
   } finally {
     saving.value = false
   }
 }
 
-const navigateToEvidence = (row: any) => {
-  router.push(`/evidence/${row.id}`)
+const navigateToEvidence = (row: Record<string, unknown>) => {
+  router.push(`/evidence/${row.id as string}`)
 }
 </script>
 

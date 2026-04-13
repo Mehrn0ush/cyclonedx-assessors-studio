@@ -706,6 +706,7 @@ router.get('/progress', requireAuth, asyncHandler(async (req: AuthRequest, res: 
     .selectFrom('assessment')
     .where('assessment.entity_id', 'is not', null)
     .select(db.fn.count<number>(
+      // biome-ignore lint/suspicious/noExplicitAny: Kysely fn() requires any for DISTINCT wrapper
       db.fn('DISTINCT', ['assessment.entity_id'] as any) as any
     ).as('count'));
   if (entityId) {

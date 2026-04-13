@@ -142,7 +142,7 @@ const form = ref({
 })
 
 const groupedPermissions = computed(() => {
-  const grouped: { [key: string]: any[] } = {}
+  const grouped: { [key: string]: Permission[] } = {}
   permissions.value.forEach((perm) => {
     const category = perm.category || 'Other'
     if (!grouped[category]) {
@@ -180,17 +180,13 @@ const fetchPermissions = async () => {
   try {
     const response = await axios.get('/api/v1/roles/permissions')
     permissions.value = response.data.data || []
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || 'Failed to fetch permissions')
+  } catch (err: unknown) {
+    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
+    const e = err as { response?: { data?: { message?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.message || 'Failed to fetch permissions')
   }
 }
 
-const generateKeyFromName = (name: string): string => {
-  return name
-    .toLowerCase()
-    .replace(/\s+/g, '_')
-    .replace(/[^a-z0-9_]/g, '')
-}
 
 const openNewRoleDialog = async () => {
   form.value = {
@@ -233,7 +229,7 @@ const handleEdit = async (row: Role) => {
   }
 }
 
-const handleDelete = async (row: any) => {
+const handleDelete = async (row: Role) => {
   ElMessageBox.confirm(
     t('admin.confirmDeleteRole'),
     t('common.warning'),
@@ -248,8 +244,10 @@ const handleDelete = async (row: any) => {
       await axios.delete(`/api/v1/roles/${row.id}`)
       ElMessage.success(t('admin.roleDeleted'))
       fetchRoles()
-    } catch (err: any) {
-      ElMessage.error(err.response?.data?.message || 'Failed to delete role')
+    } catch (err: unknown) {
+      // biome-ignore lint/suspicious/noExplicitAny: axios error handling
+      const e = err as { response?: { data?: { message?: string } }; message?: string }
+      ElMessage.error(e.response?.data?.message || 'Failed to delete role')
     } finally {
       saving.value = false
     }
@@ -288,8 +286,10 @@ const handleSave = async () => {
 
     showDialog.value = false
     fetchRoles()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || 'Failed to save role')
+  } catch (err: unknown) {
+    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
+    const e = err as { response?: { data?: { message?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.message || 'Failed to save role')
   } finally {
     saving.value = false
   }

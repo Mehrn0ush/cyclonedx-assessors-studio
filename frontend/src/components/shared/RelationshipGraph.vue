@@ -140,8 +140,8 @@ function computeHierarchicalLayout(
     const comp: string[] = []
     const stack = [nid]
     while (stack.length > 0) {
-      const cur = stack.pop()!
-      if (visited.has(cur)) continue
+      const cur = stack.pop() ?? ''
+      if (!cur || visited.has(cur)) continue
       visited.add(cur)
       comp.push(cur)
       for (const c of (childrenOf.get(cur) || [])) { if (!visited.has(c)) stack.push(c) }
@@ -178,12 +178,13 @@ function computeHierarchicalLayout(
     const queue = roots.slice()
     const topoOrder: string[] = []
     while (queue.length > 0) {
-      const cur = queue.shift()!
+      const cur = queue.shift()
+      if (!cur) continue
       topoOrder.push(cur)
       for (const child of (childrenOf.get(cur) || [])) {
         if (!compSet.has(child)) continue
         // Longest path: child layer = max(current, parent + 1)
-        layer.set(child, Math.max(layer.get(child)!, layer.get(cur)! + 1))
+        layer.set(child, Math.max(layer.get(child) ?? 0, (layer.get(cur) ?? 0) + 1))
         const newDeg = inDegree.get(child)! - 1
         inDegree.set(child, newDeg)
         if (newDeg === 0) queue.push(child)
@@ -233,16 +234,20 @@ function computeHierarchicalLayout(
     }
 
     for (const { src, tgt } of longEdges) {
-      const srcLayer = layer.get(src)!
-      const tgtLayer = layer.get(tgt)!
+      const srcLayer = layer.get(src) ?? 0
+      const tgtLayer = layer.get(tgt) ?? 0
 
       // Remove direct edge from expanded adjacency
-      const srcKids = expandedChildren.get(src)!
-      const idx1 = srcKids.indexOf(tgt)
-      if (idx1 >= 0) srcKids.splice(idx1, 1)
-      const tgtPars = expandedParents.get(tgt)!
-      const idx2 = tgtPars.indexOf(src)
-      if (idx2 >= 0) tgtPars.splice(idx2, 1)
+      const srcKids = expandedChildren.get(src)
+      if (srcKids) {
+        const idx1 = srcKids.indexOf(tgt)
+        if (idx1 >= 0) srcKids.splice(idx1, 1)
+      }
+      const tgtPars = expandedParents.get(tgt)
+      if (tgtPars) {
+        const idx2 = tgtPars.indexOf(src)
+        if (idx2 >= 0) tgtPars.splice(idx2, 1)
+      }
 
       // Create chain: src -> v1 -> v2 -> ... -> tgt
       let prev = src
@@ -385,7 +390,7 @@ const buildGraph = () => {
         nodeMap.set(ent.id, { id: ent.id, label: ent.name, isCurrent: ent.id === props.entityId })
       }
     }
-    for (const edge of props.graphEdges!) {
+    for (const edge of (props.graphEdges ?? [])) {
       if (!nodeMap.has(edge.sourceEntityId)) {
         nodeMap.set(edge.sourceEntityId, { id: edge.sourceEntityId, label: edge.sourceName, isCurrent: false })
       }
@@ -528,11 +533,12 @@ const buildGraph = () => {
     .data(nodes)
     .join('g')
     .attr('cursor', 'pointer')
+    // biome-ignore lint/suspicious/noExplicitAny: d3.drag type system requires chaining complex types
     .call((d3.drag<SVGGElement, GraphNode>() as any)
       .clickDistance(4) // movements under 4px count as clicks, not drags
       .on('start', (event: unknown, d: GraphNode) => {
         const eventData = event as { active: boolean; x: number; y: number }
-        if (!eventData.active) simulation!.alphaTarget(0.3).restart()
+        if (!eventData.active) simulation?.alphaTarget(0.3).restart()
         d.__dragStartX = eventData.x
         d.__dragStartY = eventData.y
         d.fx = d.x
@@ -596,8 +602,8 @@ const buildGraph = () => {
   simulation.on('tick', () => {
     // Keep nodes within bounds
     nodes.forEach(d => {
-      d.x = Math.max(40, Math.min(width - 40, d.x!))
-      d.y = Math.max(40, Math.min(height - 40, d.y!))
+      d.x = Math.max(40, Math.min(width - 40, d.x ?? 40))
+      d.y = Math.max(40, Math.min(height - 40, d.y ?? 40))
     })
 
     link

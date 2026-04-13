@@ -169,14 +169,15 @@ export class RulesEngine {
 
     return {
       rule,
-      destination,
+      destination: destination || undefined,
     };
   }
 
   /**
    * Resolve the delivery destination for a rule based on channel and user profile.
    */
-  private async resolveDestination(rule: Selectable<NotificationRule>): Promise<any> {
+  // biome-ignore lint/suspicious/noExplicitAny: Returns dynamic channel-specific configuration
+  private async resolveDestination(rule: Selectable<NotificationRule>): Promise<Record<string, unknown> | null> {
     if (rule.channel === 'in_app') {
       return {};
     }

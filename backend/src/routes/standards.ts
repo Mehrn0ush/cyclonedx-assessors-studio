@@ -392,8 +392,10 @@ router.put(
         })
         .where('id', '=', req.params.id as string)
         .execute();
-    } catch (error: any) {
-      if (error?.message?.includes('duplicate') || error?.message?.includes('unique')) {
+    } catch (error: unknown) {
+      const err = error as Record<string, unknown> | null;
+      const msg = err?.message as string | undefined;
+      if (msg?.includes('duplicate') || msg?.includes('unique')) {
         res.status(409).json({ error: 'A standard with this identifier already exists' });
         return;
       }
@@ -914,8 +916,10 @@ router.put(
         }))
         .where('id', '=', req.params.reqId)
         .execute();
-    } catch (error: any) {
-      if (error?.message?.includes('duplicate') || error?.message?.includes('unique')) {
+    } catch (error: unknown) {
+      const err = error as Record<string, unknown> | null;
+      const msg = err?.message as string | undefined;
+      if (msg?.includes('duplicate') || msg?.includes('unique')) {
         res.status(409).json({ error: 'A requirement with this identifier already exists in this standard' });
         return;
       }
@@ -1017,8 +1021,10 @@ router.post(
         .insertInto('level')
         .values({ id: levelId, identifier, title: title || null, description: description || null, standard_id: req.params.standardId as string })
         .execute();
-    } catch (error: any) {
-      if (error?.message?.includes('duplicate') || error?.message?.includes('unique')) {
+    } catch (error: unknown) {
+      const err = error as Record<string, unknown> | null;
+      const msg = err?.message as string | undefined;
+      if (msg?.includes('duplicate') || msg?.includes('unique')) {
         res.status(409).json({ error: 'A level with this identifier already exists in this standard' });
         return;
       }
@@ -1068,8 +1074,10 @@ router.put(
         })
         .where('id', '=', req.params.levelId)
         .execute();
-    } catch (error: any) {
-      if (error?.message?.includes('duplicate') || error?.message?.includes('unique')) {
+    } catch (error: unknown) {
+      const err = error as Record<string, unknown> | null;
+      const msg = err?.message as string | undefined;
+      if (msg?.includes('duplicate') || msg?.includes('unique')) {
         res.status(409).json({ error: 'A level with this identifier already exists in this standard' });
         return;
       }
@@ -1139,8 +1147,10 @@ router.put(
           .insertInto('level_requirement')
           .values({ level_id: req.params.levelId, requirement_id: reqId })
           .execute();
-      } catch (insertErr: any) {
-        if (insertErr?.message?.includes('duplicate') || insertErr?.message?.includes('unique')) continue;
+      } catch (insertErr: unknown) {
+        const err = insertErr as Record<string, unknown> | null;
+        const msg = err?.message as string | undefined;
+        if (msg?.includes('duplicate') || msg?.includes('unique')) continue;
         throw insertErr;
       }
     }
