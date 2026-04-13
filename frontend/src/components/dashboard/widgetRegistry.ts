@@ -12,7 +12,7 @@ export interface WidgetDefinition {
   minH: number
   maxW?: number
   maxH?: number
-  defaultConfig?: Record<string, any>
+  defaultConfig?: Record<string, unknown>
   component: () => Promise<Component>
 }
 

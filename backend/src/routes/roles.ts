@@ -5,7 +5,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
+import type { AuthRequest } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 
 const router = Router();
@@ -68,7 +69,7 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
 }));
 
 // IMPORTANT: This route must be registered BEFORE /:id to avoid being caught by the param route
-router.get('/permissions', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/permissions', requireAuth, asyncHandler(async (_req: AuthRequest, res: Response): Promise<void> => {
   const db = getDatabase();
 
   const permissions = await db
@@ -198,7 +199,7 @@ router.put(
         return;
       }
 
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
 
       if (data.name !== undefined) updateData.name = data.name;
       if (data.description !== undefined) updateData.description = data.description;

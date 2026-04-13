@@ -5,7 +5,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
+import type { AuthRequest } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ const updateTagSchema = z.object({
 });
 
 // List all tags
-router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/', requireAuth, asyncHandler(async (_req: AuthRequest, res: Response): Promise<void> => {
   const db = getDatabase();
   const tags = await db.selectFrom('tag').selectAll().orderBy('name', 'asc').execute();
   res.json({ data: tags });
@@ -83,7 +84,7 @@ router.put(
         return;
       }
 
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
       if (data.name !== undefined) updateData.name = data.name;
       if (data.color !== undefined) updateData.color = data.color;
 

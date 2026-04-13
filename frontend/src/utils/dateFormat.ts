@@ -1,9 +1,9 @@
-export function formatDate(dateString: string | null | undefined, options?: { relative?: boolean }): string {
+export function formatDate(dateString: string | null | undefined, _options?: { relative?: boolean }): string {
   if (!dateString) return '-'
 
   try {
     const date = new Date(dateString)
-    if (isNaN(date.getTime())) return dateString
+    if (Number.isNaN(date.getTime())) return dateString
 
     // Get locale from document or fall back to browser
     const locale = document.documentElement.lang || navigator.language || 'en-US'
@@ -23,7 +23,7 @@ export function formatDateTime(dateString: string | null | undefined): string {
 
   try {
     const date = new Date(dateString)
-    if (isNaN(date.getTime())) return dateString
+    if (Number.isNaN(date.getTime())) return dateString
 
     const locale = document.documentElement.lang || navigator.language || 'en-US'
 
@@ -44,7 +44,7 @@ export function formatTimestamp(dateString: string | null | undefined): string {
 
   try {
     const date = new Date(dateString)
-    if (isNaN(date.getTime())) return dateString
+    if (Number.isNaN(date.getTime())) return dateString
 
     const locale = document.documentElement.lang || navigator.language || 'en-US'
 

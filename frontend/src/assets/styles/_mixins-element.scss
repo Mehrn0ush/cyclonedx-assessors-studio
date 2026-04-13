@@ -200,11 +200,11 @@
     justify-content: flex-end;
     margin-top: var(--cat-spacing-4);
 
-  // Restore backgrounds stripped by the global `button { background: none }` reset
-  .btn-prev,
-  .btn-next {
-    background: var(--el-pagination-bg-color, var(--el-fill-color-blank));
-  }
+    // Restore backgrounds stripped by the global `button { background: none }` reset
+    .btn-prev,
+    .btn-next {
+      background: var(--el-pagination-bg-color, var(--el-fill-color-blank));
+    }
 
     .el-pager li {
       color: var(--cat-text-primary);

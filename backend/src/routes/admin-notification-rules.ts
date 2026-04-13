@@ -11,7 +11,8 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
+import type { AuthRequest } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 
 const router = Router();
@@ -32,7 +33,7 @@ const updateRuleSchema = createRuleSchema.partial();
  * GET /admin/notification-rules
  * List all system notification rules
  */
-router.get('/', requireAuth, requirePermission('admin.notification_rules'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/', requireAuth, requirePermission('admin.notification_rules'), asyncHandler(async (_req: AuthRequest, res: Response): Promise<void> => {
   const db = getDatabase();
   const rules = await db
     .selectFrom('notification_rule')
@@ -41,7 +42,7 @@ router.get('/', requireAuth, requirePermission('admin.notification_rules'), asyn
     .orderBy('created_at', 'desc')
     .execute();
 
-  res.json(rules);
+  res.json(rules as Record<string, unknown>[]);
 }));
 
 /**
@@ -197,7 +198,7 @@ router.put('/:id', requireAuth, requirePermission('admin.notification_rules'), a
     }
 
     // Update rule
-    const updates: Record<string, any> = {};
+    const updates: Record<string, unknown> = {};
     if (data.name) updates.name = data.name;
     if (data.channel) updates.channel = data.channel;
     if (data.eventTypes) updates.event_types = JSON.stringify(data.eventTypes);

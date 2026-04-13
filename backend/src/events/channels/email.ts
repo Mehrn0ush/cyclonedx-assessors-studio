@@ -101,7 +101,7 @@ export class EmailChannel implements NotificationChannel {
 
     // Validate required fields
     const required: (keyof SmtpConfig)[] = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_FROM'];
-    const missing = required.filter((key) => !this.config![key]);
+    const missing = required.filter((key) => !this.config?.[key]);
     if (missing.length > 0) {
       throw new Error(
         `SMTP_ENABLED is true but required configuration is missing: ${missing.join(', ')}`,
@@ -337,7 +337,7 @@ export class EmailChannel implements NotificationChannel {
       if (!message) return;
 
       await this.transporter.sendMail({
-        from: this.config!.SMTP_FROM,
+        from: this.config?.SMTP_FROM || 'noreply@assessors-studio.local',
         to: message.to,
         subject: message.subject,
         text: message.text,

@@ -4,7 +4,8 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
+import type { AuthRequest } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { validatePagination } from '../utils/pagination.js';
@@ -57,7 +58,7 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
   const tagsByProject = await fetchTagsForEntities(db, 'project_tag', 'project_id', projectIds);
 
   // Fetch standards per project for list view
-  let standardsByProject: Record<string, { id: string; name: string; version: string | null }[]> = {};
+  const standardsByProject: Record<string, { id: string; name: string; version: string | null }[]> = {};
   if (projectIds.length > 0) {
     const projectStandards = await db
       .selectFrom('project_standard')

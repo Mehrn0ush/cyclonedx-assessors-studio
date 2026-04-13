@@ -3,7 +3,8 @@ import type { Response } from 'express';
 import { getDatabase } from '../db/connection.js';
 import { asyncHandler } from '../utils/route-helpers.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth } from '../middleware/auth.js';
+import type { AuthRequest } from '../middleware/auth.js';
+import { requireAuth } from '../middleware/auth.js';
 import { validatePagination } from '../utils/pagination.js';
 
 const router = Router();
@@ -15,7 +16,7 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
 
   let query = db
     .selectFrom('notification')
-    .where('user_id', '=', req.user!.id);
+    .where('user_id', '=', req.user?.id ?? '');
 
   if (unreadOnly) {
     query = query.where('is_read', '=', false);
@@ -50,7 +51,7 @@ router.put('/:id/read', requireAuth, asyncHandler(async (req: AuthRequest, res: 
   const notification = await db
     .selectFrom('notification')
     .where('id', '=', req.params.id)
-    .where('user_id', '=', req.user!.id)
+    .where('user_id', '=', req.user?.id ?? '')
     .selectAll()
     .executeTakeFirst();
 
@@ -83,22 +84,23 @@ router.put('/:id/read', requireAuth, asyncHandler(async (req: AuthRequest, res: 
 router.put('/read-all', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const db = getDatabase();
 
+  const userId = req.user?.id ?? '';
   await db
     .updateTable('notification')
     .set({ is_read: true })
-    .where('user_id', '=', req.user!.id)
+    .where('user_id', '=', userId)
     .where('is_read', '=', false)
     .execute();
 
   logger.info('All notifications marked as read', {
-    userId: req.user!.id,
+    userId,
     requestId: req.requestId,
   });
 
   // Return the updated notifications
   const updatedNotifications = await db
     .selectFrom('notification')
-    .where('user_id', '=', req.user!.id)
+    .where('user_id', '=', userId)
     .selectAll()
     .orderBy('created_at', 'desc')
     .execute();
@@ -112,7 +114,7 @@ router.get('/count', requireAuth, asyncHandler(async (req: AuthRequest, res: Res
   const result = await db
     .selectFrom('notification')
     .select(db.fn.count<number>('id').as('count'))
-    .where('user_id', '=', req.user!.id)
+    .where('user_id', '=', req.user?.id ?? '')
     .where('is_read', '=', false)
     .executeTakeFirstOrThrow();
 

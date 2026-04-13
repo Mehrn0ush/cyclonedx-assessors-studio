@@ -40,7 +40,7 @@ export async function generateStandardCycloneDX(standardId: string): Promise<str
 
   // Serialize requirements in a flat list with parent bom-ref references
   const cdxRequirements = sortedRequirements.map((req) => {
-    const entry: Record<string, any> = {
+    const entry: Record<string, string | string[] | boolean> = {
       'bom-ref': req.identifier,
       identifier: req.identifier,
       title: req.name,
@@ -105,7 +105,7 @@ export async function generateStandardCycloneDX(standardId: string): Promise<str
   }
 
   // Build the standard object
-  const cdxStandard: Record<string, any> = {
+  const cdxStandard: Record<string, string | object[]> = {
     'bom-ref': standard.identifier,
     name: standard.name,
   };

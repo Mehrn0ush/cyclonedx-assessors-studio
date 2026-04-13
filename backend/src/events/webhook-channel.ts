@@ -299,7 +299,7 @@ export class WebhookChannel implements NotificationChannel {
 
     // Increment consecutive failures
     const newFailureCount = webhook.consecutive_failures + 1;
-    const updates: Record<string, any> = {
+    const updates: Record<string, unknown> = {
       consecutive_failures: newFailureCount,
       updated_at: new Date(),
     };
@@ -370,7 +370,7 @@ export class WebhookChannel implements NotificationChannel {
       await db
         .updateTable('webhook_delivery')
         .set({
-          attempt: (row.attempt as number) + 1,
+          attempt: typeof row.attempt === 'number' ? row.attempt + 1 : 2,
           status: 'pending',
           next_retry_at: null,
         })

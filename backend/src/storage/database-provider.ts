@@ -24,6 +24,7 @@ export class DatabaseStorageProvider implements StorageProvider {
     await db
       .updateTable('evidence_attachment')
       .set({
+        // biome-ignore lint/suspicious/noExplicitAny: Kysely BYTEA column accepts Buffer via any
         binary_content: data as any,
         storage_provider: 'database',
         storage_path: key,
@@ -56,6 +57,7 @@ export class DatabaseStorageProvider implements StorageProvider {
     // binary_content is stored as BYTEA; Kysely / pg returns it as a Buffer.
     const data = Buffer.isBuffer(row.binary_content)
       ? row.binary_content
+      // biome-ignore lint/suspicious/noExplicitAny: BYTEA column type varies by driver
       : Buffer.from(row.binary_content as any, 'base64');
 
     return { data, contentType: row.content_type };

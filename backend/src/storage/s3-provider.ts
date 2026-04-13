@@ -21,18 +21,20 @@ export interface S3Config {
  */
 export class S3StorageProvider implements StorageProvider {
   private config: S3Config;
+  // biome-ignore lint/suspicious/noExplicitAny: S3Client is dynamically imported and cannot be statically typed
   private clientPromise: Promise<any> | null = null;
 
   constructor(config: S3Config) {
     this.config = config;
   }
 
+  // biome-ignore lint/suspicious/noExplicitAny: S3Client is dynamically imported
   private async getClient(): Promise<any> {
     if (!this.clientPromise) {
       this.clientPromise = (async () => {
         try {
           const { S3Client } = await import('@aws-sdk/client-s3');
-          const clientConfig: any = {
+          const clientConfig: Record<string, unknown> = {
             region: this.config.region,
             credentials: {
               accessKeyId: this.config.accessKeyId,
@@ -126,8 +128,9 @@ export class S3StorageProvider implements StorageProvider {
         })
       );
       return true;
-    } catch (error: any) {
-      if (error?.name === 'NotFound' || error?.$metadata?.httpStatusCode === 404) {
+    } catch (error: unknown) {
+      const err = error as Record<string, unknown>;
+      if (err?.name === 'NotFound' || (err?.$metadata as Record<string, unknown>)?.httpStatusCode === 404) {
         return false;
       }
       throw error;
@@ -152,8 +155,9 @@ export class S3StorageProvider implements StorageProvider {
 
       await this.delete(testKey);
       return { ok: true };
-    } catch (error: any) {
-      return { ok: false, error: error?.message || 'Unknown error' };
+    } catch (error: unknown) {
+      const errorMessage = (error as Record<string, unknown> | null)?.message || 'Unknown error';
+      return { ok: false, error: typeof errorMessage === 'string' ? errorMessage : 'Unknown error' };
     }
   }
 }

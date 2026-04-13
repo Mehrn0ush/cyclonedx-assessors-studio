@@ -84,9 +84,9 @@ async function authenticateCookie(req: AuthRequest): Promise<AuthRequest['user']
   const token = req.cookies?.token;
   if (!token) return null;
 
-  let decoded: any;
+  let decoded: Record<string, unknown>;
   try {
-    decoded = jwt.verify(token, config.JWT_SECRET);
+    decoded = jwt.verify(token, config.JWT_SECRET) as Record<string, unknown>;
   } catch {
     return null;
   }
@@ -94,7 +94,7 @@ async function authenticateCookie(req: AuthRequest): Promise<AuthRequest['user']
   const db = getDatabase();
   const session = await db
     .selectFrom('session')
-    .where('id', '=', decoded.sessionId)
+    .where('id', '=', decoded.sessionId as string)
     .where('expires_at', '>', new Date())
     .selectAll()
     .executeTakeFirst();

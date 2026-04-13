@@ -5,7 +5,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
+import type { AuthRequest } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -22,14 +23,16 @@ const updateAssessorSchema = z.object({
 });
 
 // GET / - List all assessors
-router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/', requireAuth, asyncHandler(async (_req: AuthRequest, res: Response): Promise<void> => {
   const db = getDatabase();
 
   const assessors = (await db
     .selectFrom('assessor')
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely cross-table join refs require type cast
     .leftJoin('entity', (join) =>
       join.onRef('entity.id' as any, '=', 'assessor.entity_id' as any)
     )
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely cross-table join refs require type cast
     .leftJoin('app_user', (join) =>
       join.onRef('app_user.id' as any, '=', 'assessor.user_id' as any)
     )
@@ -46,7 +49,7 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
       'app_user.display_name as user_display_name',
     ])
     .orderBy('assessor.created_at', 'desc')
-    .execute()) as any[];
+    .execute()) as Record<string, unknown>[];
 
   res.json({ data: assessors });
 }));
@@ -57,9 +60,11 @@ router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Respo
 
   const assessor = await db
     .selectFrom('assessor')
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely cross-table join refs require type cast
     .leftJoin('entity', (join) =>
       join.onRef('entity.id' as any, '=', 'assessor.entity_id' as any)
     )
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely cross-table join refs require type cast
     .leftJoin('app_user', (join) =>
       join.onRef('app_user.id' as any, '=', 'assessor.user_id' as any)
     )
@@ -86,6 +91,7 @@ router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Respo
   // Get attestations by this assessor
   const attestations = (await db
     .selectFrom('attestation')
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely cross-table join refs require type cast
     .leftJoin('assessment', (join) =>
       join.onRef('assessment.id' as any, '=', 'attestation.assessment_id' as any)
     )
@@ -98,7 +104,7 @@ router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Respo
       'assessment.id as assessment_id',
     ])
     .orderBy('attestation.created_at', 'desc')
-    .execute()) as any[];
+    .execute()) as Record<string, unknown>[];
 
   res.json({ ...assessor, attestations });
 }));
@@ -154,7 +160,7 @@ router.put(
         return;
       }
 
-      const updateData: any = { updated_at: new Date() };
+      const updateData: Record<string, unknown> = { updated_at: new Date() };
       if (data.thirdParty !== undefined) updateData.third_party = data.thirdParty;
       if (data.entityId !== undefined) updateData.entity_id = data.entityId;
       if (data.userId !== undefined) updateData.user_id = data.userId;

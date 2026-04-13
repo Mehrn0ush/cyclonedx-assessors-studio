@@ -7,7 +7,7 @@ export interface WidgetLayoutItem {
   w: number
   h: number
   widgetType: string
-  config?: Record<string, any>
+  config?: Record<string, unknown>
 }
 
 export interface DashboardConfig {

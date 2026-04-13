@@ -1,7 +1,9 @@
+import type { Kysely } from 'kysely';
+import type { Database } from '../db/types.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function createNotification(
-  db: any,
+  db: Kysely<Database>,
   params: {
     userId: string;
     type: string;

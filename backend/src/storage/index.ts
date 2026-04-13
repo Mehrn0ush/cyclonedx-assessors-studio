@@ -86,7 +86,6 @@ export function resolveProvider(name: StorageProviderName): StorageProvider {
         forcePathStyle: config.S3_FORCE_PATH_STYLE,
       });
     }
-    case 'database':
     default:
       return new DatabaseStorageProvider();
   }

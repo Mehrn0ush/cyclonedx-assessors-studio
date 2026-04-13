@@ -29,8 +29,9 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await authAPI.login(username, password)
       user.value = response.user
       permissions.value = response.permissions || response.user?.permissions || []
-    } catch (err: any) {
-      error.value = err.message || 'Login failed'
+    } catch (err: unknown) {
+      const error_obj = err as { message?: string } | null
+      error.value = error_obj?.message || 'Login failed'
       throw err
     } finally {
       loading.value = false

@@ -3,7 +3,7 @@ import { KyselyPGlite } from 'kysely-pglite';
 import { Pool } from 'pg';
 import fs from 'node:fs';
 import { getConfig } from '../config/index.js';
-import { Database } from './types.js';
+import type { Database } from './types.js';
 import { logger } from '../utils/logger.js';
 
 let db: Kysely<Database> | null = null;

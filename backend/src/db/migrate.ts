@@ -815,12 +815,14 @@ export async function runMigrations(): Promise<void> {
   for (const statement of statements) {
     if (statement.trim()) {
       try {
+        // biome-ignore lint/suspicious/noExplicitAny: Kysely executeQuery requires CompiledQuery but we build raw SQL
         await db.executeQuery({
-          sql: statement + ';',
+          sql: `${statement};`,
           parameters: [],
         } as any);
-      } catch (error: any) {
-        const msg = error?.message || '';
+      } catch (error: unknown) {
+        const errorMessage = (error as Record<string, unknown> | null)?.message || '';
+        const msg = typeof errorMessage === 'string' ? errorMessage : '';
         // Ignore "already exists" errors from CREATE INDEX / ALTER TABLE
         if (msg.includes('already exists')) {
           continue;

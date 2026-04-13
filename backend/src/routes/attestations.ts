@@ -4,7 +4,8 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
+import type { AuthRequest } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 
@@ -14,7 +15,7 @@ const router = Router();
  * Check if an attestation's parent assessment is read-only.
  * Returns error message if read-only, null if mutable.
  */
-async function checkAttestationAssessmentReadOnly(db: any, assessmentId: string): Promise<string | null> {
+async function checkAttestationAssessmentReadOnly(db: ReturnType<typeof getDatabase>, assessmentId: string): Promise<string | null> {
   const assessment = await db
     .selectFrom('assessment')
     .where('id', '=', assessmentId)
@@ -70,9 +71,11 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
     .selectFrom('attestation')
     .leftJoin('assessment', 'assessment.id', 'attestation.assessment_id')
     .leftJoin('signatory', 'signatory.id', 'attestation.signatory_id')
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely cross-table join refs require type cast
     .leftJoin('assessor', (join) =>
       join.onRef('assessor.id' as any, '=', 'attestation.assessor_id' as any)
     )
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely cross-table join refs require type cast
     .leftJoin('entity as assessor_entity', (join) =>
       join.onRef('assessor_entity.id' as any, '=', 'assessor.entity_id' as any)
     )
@@ -92,7 +95,7 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
     ])
     .limit(limit)
     .offset(offset)
-    .execute()) as any[];
+    .execute()) as Record<string, unknown>[];
 
   res.json({
     data: attestations,
@@ -231,7 +234,7 @@ router.put(
         return;
       }
 
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
 
       if (data.summary !== undefined) updateData.summary = data.summary;
       if (data.signatoryId !== undefined) updateData.signatoryId = data.signatoryId;

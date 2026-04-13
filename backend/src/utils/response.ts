@@ -50,5 +50,5 @@ export interface PaginationResponse<T> {
 
 export interface ErrorResponse {
   error: string;
-  details?: any[];
+  details?: Record<string, unknown>[];
 }

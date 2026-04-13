@@ -37,7 +37,10 @@ export function topologicalSort<
     if (!childrenOf.has(parentKey)) {
       childrenOf.set(parentKey, []);
     }
-    childrenOf.get(parentKey)!.push(row);
+    const children = childrenOf.get(parentKey);
+    if (children) {
+      children.push(row);
+    }
   }
 
   // Sort each sibling group by identifier
@@ -109,7 +112,10 @@ export function buildRequirementTree(
     if (!childrenMap.has(parentKey)) {
       childrenMap.set(parentKey, []);
     }
-    childrenMap.get(parentKey)!.push(req);
+    const children = childrenMap.get(parentKey);
+    if (children) {
+      children.push(req);
+    }
   }
 
   // Sort each sibling group by identifier

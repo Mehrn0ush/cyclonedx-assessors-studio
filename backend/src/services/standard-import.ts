@@ -3,6 +3,35 @@ import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 
 /**
+ * Represents a raw requirement object from CycloneDX standards.
+ */
+export interface RawRequirement {
+  'bom-ref'?: string;
+  bomRef?: string;
+  identifier?: string;
+  title?: string;
+  text?: string;
+  name?: string;
+  description?: string;
+  parent?: string | null;
+  parentIdentifier?: string | null;
+  openCre?: string | string[] | null;
+  'open-cre'?: string | string[] | null;
+}
+
+/**
+ * Represents a raw level object from CycloneDX standards.
+ */
+export interface RawLevel {
+  'bom-ref'?: string;
+  bomRef?: string;
+  identifier?: string;
+  title?: string | null;
+  description?: string | null;
+  requirements?: string[];
+}
+
+/**
  * Represents a raw CycloneDX standard object (from definitions.standards[]).
  * Accepts both CycloneDX native field names (bom-ref, title, text) and
  * pre-normalized camelCase names (identifier, name, description).
@@ -16,8 +45,8 @@ export interface RawStandardInput {
   description?: string;
   version?: string;
   owner?: string;
-  requirements?: any[];
-  levels?: any[];
+  requirements?: RawRequirement[];
+  levels?: RawLevel[];
 }
 
 export interface ImportedStandardResult {
@@ -99,9 +128,9 @@ export async function importStandard(
 
   // Topological sort: parents must be inserted before their children.
   // Build a map of bom-ref -> requirement, then walk from roots down.
-  const reqByRef = new Map<string, any>();
-  const childrenOf = new Map<string, any[]>();
-  const roots: any[] = [];
+  const reqByRef = new Map<string, RawRequirement>();
+  const childrenOf = new Map<string, RawRequirement[]>();
+  const roots: RawRequirement[] = [];
 
   for (const req of requirements) {
     const ref = req['bom-ref'] || req.bomRef || req.identifier || '';
@@ -113,12 +142,15 @@ export async function importStandard(
       if (!childrenOf.has(parentRef)) {
         childrenOf.set(parentRef, []);
       }
-      childrenOf.get(parentRef)!.push(req);
+      const children = childrenOf.get(parentRef);
+      if (children) {
+        children.push(req);
+      }
     }
   }
 
-  const sortedRequirements: any[] = [];
-  const visit = (node: any) => {
+  const sortedRequirements: RawRequirement[] = [];
+  const visit = (node: RawRequirement) => {
     sortedRequirements.push(node);
     const ref = node['bom-ref'] || node.bomRef || node.identifier || '';
     const children = childrenOf.get(ref) || [];
@@ -179,9 +211,11 @@ export async function importStandard(
 
       requirementMap.set(reqBomRef || reqIdentifier, requirementId);
       requirementCount++;
-    } catch (insertError: any) {
+    } catch (insertError: unknown) {
       // Skip duplicates
-      if (insertError?.message?.includes('duplicate') || insertError?.message?.includes('unique')) {
+      const error = insertError as Record<string, unknown>;
+      const message = error?.message ?? '';
+      if (typeof message === 'string' && (message.includes('duplicate') || message.includes('unique'))) {
         continue;
       }
       throw insertError;
@@ -225,8 +259,10 @@ export async function importStandard(
                 requirement_id: reqUuid,
               })
               .execute();
-          } catch (junctionError: any) {
-            if (junctionError?.message?.includes('duplicate') || junctionError?.message?.includes('unique')) {
+          } catch (junctionError: unknown) {
+            const error = junctionError as Record<string, unknown>;
+            const message = error?.message ?? '';
+            if (typeof message === 'string' && (message.includes('duplicate') || message.includes('unique'))) {
               continue;
             }
             throw junctionError;
@@ -235,8 +271,10 @@ export async function importStandard(
       }
 
       levelCount++;
-    } catch (insertError: any) {
-      if (insertError?.message?.includes('duplicate') || insertError?.message?.includes('unique')) {
+    } catch (insertError: unknown) {
+      const error = insertError as Record<string, unknown>;
+      const message = error?.message ?? '';
+      if (typeof message === 'string' && (message.includes('duplicate') || message.includes('unique'))) {
         continue;
       }
       throw insertError;

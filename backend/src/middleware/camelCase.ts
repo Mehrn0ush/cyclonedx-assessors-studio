@@ -34,7 +34,7 @@ function transformKeys(obj: unknown): unknown {
 export function camelCaseResponse(_req: Request, res: Response, next: NextFunction): void {
   const originalJson = res.json.bind(res);
 
-  res.json = function (body: unknown) {
+  res.json = (body: unknown) => {
     return originalJson(transformKeys(body));
   };
 

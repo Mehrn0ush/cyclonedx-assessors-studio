@@ -5,7 +5,8 @@ import PDFDocument from 'pdfkit';
 import { getDatabase } from '../db/connection.js';
 import { asyncHandler } from '../utils/route-helpers.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
+import type { AuthRequest } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 
 const router = Router();
 
