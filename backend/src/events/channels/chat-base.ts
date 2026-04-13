@@ -35,7 +35,15 @@ export abstract class BaseChatChannel implements NotificationChannel {
   abstract platform: string;
   abstract formatMessage(envelope: EventEnvelope, appUrl: string): Record<string, unknown>;
 
-  name: string;
+  // Expose name as a getter so it always reflects the subclass platform
+  // ("slack" / "teams" / "mattermost"). A plain field set in this
+  // constructor would be overridden by the subclass field initializer
+  // (TC39 class-field semantics), which left every chat channel
+  // registering with name "chat" and colliding with each other.
+  get name(): string {
+    return this.platform;
+  }
+
   private getDb: () => Kysely<Database>;
   private retryTimer: ReturnType<typeof setInterval> | null = null;
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
@@ -43,8 +51,6 @@ export abstract class BaseChatChannel implements NotificationChannel {
 
   constructor(getDb: () => Kysely<Database>) {
     this.getDb = getDb;
-    // name will be set after platform is available in subclass constructor
-    this.name = 'chat';
   }
 
   /**
@@ -55,9 +61,6 @@ export abstract class BaseChatChannel implements NotificationChannel {
   }
 
   initialize(): Promise<void> {
-    // Use the platform as the channel name for registry uniqueness
-    this.name = this.platform;
-
     this.retryTimer = setInterval(() => {
       void this.processRetries().catch((err) => {
         logger.error(`Chat channel (${this.platform}) retry processing error`, {

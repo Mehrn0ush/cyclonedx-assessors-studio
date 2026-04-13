@@ -15,6 +15,22 @@ function redactSensitiveData(obj: unknown): unknown {
     return obj.map(redactSensitiveData);
   }
 
+  // Error instances have non-enumerable name/message/stack, so a plain spread
+  // drops them and yields {}. Extract them explicitly before redacting the
+  // remaining own properties.
+  if (obj instanceof Error) {
+    const errorShape: Record<string, unknown> = {
+      name: obj.name,
+      message: obj.message,
+      stack: obj.stack,
+    };
+    if ('code' in obj) errorShape.code = (obj as { code: unknown }).code;
+    if ('cause' in obj && obj.cause !== undefined) {
+      errorShape.cause = redactSensitiveData(obj.cause);
+    }
+    return errorShape;
+  }
+
   const result = { ...(obj as Record<string, unknown>) };
 
   for (const key in result) {

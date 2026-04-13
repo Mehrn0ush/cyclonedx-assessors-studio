@@ -3,6 +3,30 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+/**
+ * Boolean coercion that works correctly for environment variables.
+ *
+ * z.coerce.boolean() uses Boolean(value), which returns true for any
+ * non-empty string — including "false", "0", and "no". Since env vars
+ * are always strings, that makes every _ENABLED=false flag evaluate
+ * to true. This helper recognizes the common textual forms.
+ */
+const envBoolean = (defaultValue: boolean) =>
+  z
+    .preprocess((v) => {
+      if (typeof v === 'boolean') return v;
+      if (v === undefined || v === null) return defaultValue;
+      if (typeof v === 'number') return v !== 0;
+      if (typeof v === 'string') {
+        const s = v.trim().toLowerCase();
+        if (s === '') return defaultValue;
+        if (['true', '1', 'yes', 'on'].includes(s)) return true;
+        if (['false', '0', 'no', 'off'].includes(s)) return false;
+      }
+      return Boolean(v);
+    }, z.boolean())
+    .default(defaultValue);
+
 const envSchema = z.object({
   DATABASE_PROVIDER: z.enum(['pglite', 'postgres']).default('pglite'),
   DATABASE_URL: z.string().default('postgresql://localhost:5432/assessors_studio'),
@@ -24,40 +48,40 @@ const envSchema = z.object({
   S3_ENDPOINT: z.string().default(''),
   S3_ACCESS_KEY_ID: z.string().default(''),
   S3_SECRET_ACCESS_KEY: z.string().default(''),
-  S3_FORCE_PATH_STYLE: z.coerce.boolean().default(false),
+  S3_FORCE_PATH_STYLE: envBoolean(false),
 
   // Application URL (required for external notification channels)
   APP_URL: z.string().default('http://localhost:5173'),
 
   // Email / SMTP channel
-  SMTP_ENABLED: z.coerce.boolean().default(false),
+  SMTP_ENABLED: envBoolean(false),
   SMTP_HOST: z.string().default(''),
   SMTP_PORT: z.coerce.number().int().default(587),
-  SMTP_SECURE: z.coerce.boolean().default(false),
+  SMTP_SECURE: envBoolean(false),
   SMTP_USER: z.string().default(''),
   SMTP_PASS: z.string().default(''),
   SMTP_FROM: z.string().default(''),
-  SMTP_TLS_REJECT_UNAUTHORIZED: z.coerce.boolean().default(true),
+  SMTP_TLS_REJECT_UNAUTHORIZED: envBoolean(true),
 
   // Webhook channel
-  WEBHOOK_ENABLED: z.coerce.boolean().default(true),
+  WEBHOOK_ENABLED: envBoolean(true),
   WEBHOOK_TIMEOUT: z.coerce.number().int().positive().default(10000),
   WEBHOOK_MAX_RETRIES: z.coerce.number().int().positive().default(5),
   WEBHOOK_DELIVERY_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
 
   // Chat channels
-  SLACK_ENABLED: z.coerce.boolean().default(false),
-  TEAMS_ENABLED: z.coerce.boolean().default(false),
-  MATTERMOST_ENABLED: z.coerce.boolean().default(false),
+  SLACK_ENABLED: envBoolean(false),
+  TEAMS_ENABLED: envBoolean(false),
+  MATTERMOST_ENABLED: envBoolean(false),
   CHAT_TIMEOUT: z.coerce.number().int().positive().default(10000),
   CHAT_DELIVERY_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
 
   // Encryption at rest
   MASTER_ENCRYPTION_KEY: z.string().default(''),
-  REQUIRE_ENCRYPTION: z.coerce.boolean().default(false),
+  REQUIRE_ENCRYPTION: envBoolean(false),
 
   // Prometheus metrics
-  METRICS_ENABLED: z.coerce.boolean().default(false),
+  METRICS_ENABLED: envBoolean(false),
   METRICS_TOKEN: z.string().default(''),
   METRICS_PREFIX: z.string().default('cdxa_'),
   METRICS_DOMAIN_REFRESH_INTERVAL: z.coerce.number().int().positive().default(60),
