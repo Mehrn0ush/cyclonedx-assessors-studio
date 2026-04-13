@@ -55,7 +55,10 @@ async function isAttestationParticipant(
  * Claims linked via attestation -> assessment inherit the assessment's read-only state.
  * Returns an error message if read-only, or null if mutable.
  */
-async function checkClaimAssessmentReadOnly(db: any, attestationId: string | null | undefined): Promise<string | null> {
+async function checkClaimAssessmentReadOnly(
+  db: ReturnType<typeof getDatabase>,
+  attestationId: string | null | undefined,
+): Promise<string | null> {
   if (!attestationId) return null; // Unlinked claims are always mutable
 
   const attestation = await db
@@ -83,7 +86,7 @@ async function checkClaimAssessmentReadOnly(db: any, attestationId: string | nul
  * Validate attestation change and check read-only status of target attestation.
  */
 async function validateAttestationChange(
-  db: any,
+  db: ReturnType<typeof getDatabase>,
   newAttestationId: string,
   res: Response
 ): Promise<boolean> {
@@ -110,7 +113,7 @@ async function validateAttestationChange(
 /**
  * Build claim update data from request payload.
  */
-function buildClaimUpdateData(data: any): Record<string, unknown> {
+function buildClaimUpdateData(data: Record<string, unknown>): Record<string, unknown> {
   const updateData: Record<string, unknown> = {};
   if (data.name !== undefined) updateData.name = data.name;
   if (data.target !== undefined) updateData.target = data.target;
@@ -125,7 +128,7 @@ function buildClaimUpdateData(data: any): Record<string, unknown> {
  * Sync evidence associations for a claim.
  */
 async function syncClaimEvidence(
-  db: any,
+  db: ReturnType<typeof getDatabase>,
   claimId: string,
   evidenceIds: string[] | undefined
 ): Promise<void> {
@@ -152,7 +155,7 @@ async function syncClaimEvidence(
  * Sync counter-evidence associations for a claim.
  */
 async function syncClaimCounterEvidence(
-  db: any,
+  db: ReturnType<typeof getDatabase>,
   claimId: string,
   counterEvidenceIds: string[] | undefined
 ): Promise<void> {

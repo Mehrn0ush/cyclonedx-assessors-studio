@@ -185,9 +185,11 @@ async function refreshAssessmentGauge(db: ReturnType<typeof getDatabase>): Promi
       .execute();
     assessmentsTotal.reset();
     for (const row of rows) {
-      assessmentsTotal.set({ state: row.state || 'unknown' }, Number(row.count));
+      assessmentsTotal.set({ state: row.state ?? 'unknown' }, Number(row.count));
     }
-  } catch { /* table may not exist yet */ }
+  } catch (error) {
+    logger.debug('refreshAssessmentGauge skipped', { error });
+  }
 }
 
 /**

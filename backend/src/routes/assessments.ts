@@ -54,11 +54,11 @@ function getReadOnlyError(state: string): string | null {
  * Check if a state change is valid for a complete assessment.
  */
 function isValidCompleteAssessmentStateChange(
-  data: Record<string, any>,
+  data: Record<string, unknown>,
   res: Response
 ): boolean {
   const isStateChangeOnly = data.state !== undefined &&
-    Object.keys(data).filter(k => data[k as keyof typeof data] !== undefined).length === 1;
+    Object.keys(data).filter(k => data[k] !== undefined).length === 1;
   if (!isStateChangeOnly) {
     res.status(403).json({ error: 'Completed assessments are read-only. Reopen the assessment to make changes.' });
     return false;
@@ -74,11 +74,13 @@ function isValidCompleteAssessmentStateChange(
 /**
  * Build assessment update data from request payload.
  */
-function buildAssessmentUpdateData(data: Record<string, any>): Record<string, unknown> {
+function buildAssessmentUpdateData(data: Record<string, unknown>): Record<string, unknown> {
   const updateData: Record<string, unknown> = {};
   if (data.title !== undefined) updateData.title = data.title;
   if (data.description !== undefined) updateData.description = data.description;
-  if (data.dueDate !== undefined && data.dueDate !== null) updateData.due_date = new Date(data.dueDate);
+  if (data.dueDate !== undefined && data.dueDate !== null) {
+    updateData.due_date = new Date(data.dueDate as string | number | Date);
+  }
   if (data.state !== undefined) updateData.state = data.state;
   return updateData;
 }
@@ -142,18 +144,21 @@ async function syncAssessees(
 }
 
 /**
- * Validate completion prerequisites for an assessment.
+ * Shape of an assessment requirement row used for completion and scoring.
  */
-async function validateCompletionPrerequisites(
-  db: Kysely<Database>,
-  assessmentId: string,
-  requirements: Array<any>,
-  res: Response
-): Promise<boolean> {
-  // Check requirement assessment status
+interface AssessmentRequirementRow {
+  result?: string | null;
+  rationale?: string | null;
+}
+
+/**
+ * Count requirements that are missing results or rationale.
+ */
+function countIncompleteRequirements(
+  requirements: AssessmentRequirementRow[],
+): { unassessedCount: number; missingRationaleCount: number } {
   let unassessedCount = 0;
   let missingRationaleCount = 0;
-
   for (const req of requirements) {
     if (req.result === null || req.result === undefined) {
       unassessedCount++;
@@ -162,6 +167,19 @@ async function validateCompletionPrerequisites(
       missingRationaleCount++;
     }
   }
+  return { unassessedCount, missingRationaleCount };
+}
+
+/**
+ * Validate completion prerequisites for an assessment.
+ */
+async function validateCompletionPrerequisites(
+  db: Kysely<Database>,
+  assessmentId: string,
+  requirements: AssessmentRequirementRow[],
+  res: Response
+): Promise<boolean> {
+  const { unassessedCount, missingRationaleCount } = countIncompleteRequirements(requirements);
 
   if (unassessedCount > 0 || missingRationaleCount > 0) {
     res.status(400).json({
@@ -193,7 +211,7 @@ async function validateCompletionPrerequisites(
 /**
  * Calculate conformance score from assessment requirements.
  */
-function calculateConformanceScore(requirements: Array<any>): number | null {
+function calculateConformanceScore(requirements: AssessmentRequirementRow[]): number | null {
   const applicableRequirements = requirements.filter(r => r.result !== 'not_applicable');
   if (applicableRequirements.length === 0) return null;
 

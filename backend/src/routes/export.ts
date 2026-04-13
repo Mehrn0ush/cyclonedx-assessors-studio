@@ -321,6 +321,88 @@ async function buildAssessmentBOM(assessmentId: string): Promise<CycloneDXBOM> {
 
 // ---- Helper functions for PDF generation ----
 
+type ExportDb = ReturnType<typeof getDatabase>;
+
+async function fetchExportAssessors(db: ExportDb, assessmentId: string) {
+  return db
+    .selectFrom('assessment_assessor')
+    .innerJoin('app_user', 'app_user.id', 'assessment_assessor.user_id')
+    .where('assessment_assessor.assessment_id', '=', assessmentId)
+    .select(['app_user.display_name', 'app_user.email'])
+    .execute();
+}
+
+async function fetchExportAssessees(db: ExportDb, assessmentId: string) {
+  return db
+    .selectFrom('assessment_assessee')
+    .innerJoin('app_user', 'app_user.id', 'assessment_assessee.user_id')
+    .where('assessment_assessee.assessment_id', '=', assessmentId)
+    .select(['app_user.display_name', 'app_user.email'])
+    .execute();
+}
+
+async function fetchExportAssessmentRequirements(db: ExportDb, assessmentId: string) {
+  return db
+    .selectFrom('assessment_requirement')
+    .innerJoin('requirement', 'requirement.id', 'assessment_requirement.requirement_id')
+    .where('assessment_requirement.assessment_id', '=', assessmentId)
+    .select([
+      'assessment_requirement.id',
+      'assessment_requirement.result',
+      'assessment_requirement.rationale',
+      'requirement.identifier',
+      'requirement.name',
+    ])
+    .execute();
+}
+
+async function fetchExportEvidenceRecords(
+  db: ExportDb,
+  assessmentId: string,
+  hasRequirements: boolean,
+): Promise<Record<string, unknown>[]> {
+  if (!hasRequirements) return [];
+  return db
+    .selectFrom('evidence')
+    .innerJoin('assessment_requirement_evidence', 'assessment_requirement_evidence.evidence_id', 'evidence.id')
+    .innerJoin('assessment_requirement', 'assessment_requirement.id', 'assessment_requirement_evidence.assessment_requirement_id')
+    .innerJoin('app_user', 'app_user.id', 'evidence.author_id')
+    .where('assessment_requirement.assessment_id', '=', assessmentId)
+    .select([
+      'evidence.name',
+      'evidence.state',
+      'evidence.description',
+      'app_user.display_name',
+    ])
+    .execute();
+}
+
+async function fetchExportAttestationData(db: ExportDb, assessmentId: string) {
+  const attestation = await db
+    .selectFrom('attestation')
+    .where('assessment_id', '=', assessmentId)
+    .selectAll()
+    .executeTakeFirst();
+
+  let attestationRequirements: Record<string, unknown>[] = [];
+  if (attestation) {
+    attestationRequirements = await db
+      .selectFrom('attestation_requirement')
+      .innerJoin('requirement', 'requirement.id', 'attestation_requirement.requirement_id')
+      .where('attestation_requirement.attestation_id', '=', attestation.id)
+      .select([
+        'attestation_requirement.conformance_score',
+        'attestation_requirement.confidence_score',
+        'attestation_requirement.conformance_rationale',
+        'requirement.identifier',
+        'requirement.name',
+      ])
+      .execute();
+  }
+
+  return { attestation, attestationRequirements };
+}
+
 /**
  * Fetch all necessary data for PDF generation.
  */
@@ -345,71 +427,15 @@ async function fetchPDFData(assessmentId: string) {
         .executeTakeFirst()
     : null;
 
-  const assessors = await db
-    .selectFrom('assessment_assessor')
-    .innerJoin('app_user', 'app_user.id', 'assessment_assessor.user_id')
-    .where('assessment_assessor.assessment_id', '=', assessmentId)
-    .select(['app_user.display_name', 'app_user.email'])
-    .execute();
-
-  const assessees = await db
-    .selectFrom('assessment_assessee')
-    .innerJoin('app_user', 'app_user.id', 'assessment_assessee.user_id')
-    .where('assessment_assessee.assessment_id', '=', assessmentId)
-    .select(['app_user.display_name', 'app_user.email'])
-    .execute();
-
-  const assessmentRequirements = await db
-    .selectFrom('assessment_requirement')
-    .innerJoin('requirement', 'requirement.id', 'assessment_requirement.requirement_id')
-    .where('assessment_requirement.assessment_id', '=', assessmentId)
-    .select([
-      'assessment_requirement.id',
-      'assessment_requirement.result',
-      'assessment_requirement.rationale',
-      'requirement.identifier',
-      'requirement.name'
-    ])
-    .execute();
-
-  let evidenceRecords: Record<string, unknown>[] = [];
-  if (assessmentRequirements.length > 0) {
-    evidenceRecords = await db
-      .selectFrom('evidence')
-      .innerJoin('assessment_requirement_evidence', 'assessment_requirement_evidence.evidence_id', 'evidence.id')
-      .innerJoin('assessment_requirement', 'assessment_requirement.id', 'assessment_requirement_evidence.assessment_requirement_id')
-      .innerJoin('app_user', 'app_user.id', 'evidence.author_id')
-      .where('assessment_requirement.assessment_id', '=', assessmentId)
-      .select([
-        'evidence.name',
-        'evidence.state',
-        'evidence.description',
-        'app_user.display_name'
-      ])
-      .execute();
-  }
-
-  const attestation = await db
-    .selectFrom('attestation')
-    .where('assessment_id', '=', assessmentId)
-    .selectAll()
-    .executeTakeFirst();
-
-  let attestationRequirements: Record<string, unknown>[] = [];
-  if (attestation) {
-    attestationRequirements = await db
-      .selectFrom('attestation_requirement')
-      .innerJoin('requirement', 'requirement.id', 'attestation_requirement.requirement_id')
-      .where('attestation_requirement.attestation_id', '=', attestation.id)
-      .select([
-        'attestation_requirement.conformance_score',
-        'attestation_requirement.confidence_score',
-        'attestation_requirement.conformance_rationale',
-        'requirement.identifier',
-        'requirement.name'
-      ])
-      .execute();
-  }
+  const assessors = await fetchExportAssessors(db, assessmentId);
+  const assessees = await fetchExportAssessees(db, assessmentId);
+  const assessmentRequirements = await fetchExportAssessmentRequirements(db, assessmentId);
+  const evidenceRecords = await fetchExportEvidenceRecords(
+    db,
+    assessmentId,
+    assessmentRequirements.length > 0,
+  );
+  const { attestation, attestationRequirements } = await fetchExportAttestationData(db, assessmentId);
 
   return {
     assessment,
@@ -430,7 +456,6 @@ function addTitlePage(
   doc: InstanceType<typeof PDFDocument>,
   assessment: Record<string, unknown>,
   project: Record<string, unknown> | null | undefined,
-  timestamp: string,
 ): void {
   doc.fontSize(36).fillColor('#000000').text('Assessment Report', { align: 'center' });
   doc.fontSize(24).text(assessment.title as string, { align: 'center' });
@@ -451,8 +476,8 @@ function addTitlePage(
 function addAssessmentSummarySection(
   doc: InstanceType<typeof PDFDocument>,
   assessment: Record<string, unknown>,
-  assessors: Array<Record<string, unknown>>,
-  assessees: Array<Record<string, unknown>>,
+  assessors: Record<string, unknown>[],
+  assessees: Record<string, unknown>[],
 ): void {
   doc.fontSize(16).fillColor('#000000').text('Assessment Summary', { underline: true });
   doc.fontSize(11).moveDown(0.5);
@@ -482,7 +507,7 @@ function addAssessmentSummarySection(
  */
 function addRequirementsSection(
   doc: InstanceType<typeof PDFDocument>,
-  assessmentRequirements: Array<Record<string, unknown>>,
+  assessmentRequirements: Record<string, unknown>[],
   footerY: number,
   addFooter: () => void,
 ): void {
@@ -544,7 +569,7 @@ function addRequirementsSection(
  */
 function addEvidenceSection(
   doc: InstanceType<typeof PDFDocument>,
-  evidenceRecords: Array<Record<string, unknown>>,
+  evidenceRecords: Record<string, unknown>[],
   footerY: number,
   addFooter: () => void,
 ): void {
@@ -578,7 +603,7 @@ function addEvidenceSection(
 function addAttestationSection(
   doc: InstanceType<typeof PDFDocument>,
   attestation: Record<string, unknown>,
-  attestationRequirements: Array<Record<string, unknown>>,
+  attestationRequirements: Record<string, unknown>[],
   footerY: number,
   addFooter: () => void,
 ): void {
@@ -587,7 +612,7 @@ function addAttestationSection(
   doc.fontSize(16).fillColor('#000000').text('Attestation Summary', { underline: true });
   doc.fontSize(11).moveDown(0.5);
 
-  if (attestation.summary) {
+  if (typeof attestation.summary === 'string' && attestation.summary.length > 0) {
     doc.text(`Summary: ${attestation.summary}`);
     doc.moveDown();
   }
@@ -650,7 +675,7 @@ async function generateAssessmentPDF(assessmentId: string): Promise<Buffer> {
   };
 
   // Build document sections
-  addTitlePage(doc, assessment, project, timestamp);
+  addTitlePage(doc, assessment, project);
   addFooter();
   doc.addPage();
 

@@ -44,11 +44,10 @@ function isUrlTrusted(urlString: string): boolean {
  */
 async function fetchStandardDocument(url: string): Promise<{ text: string } | { error: string; status: number }> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+  const timeoutId = setTimeout(() => { controller.abort(); }, 30000); // 30 second timeout
 
   try {
     const docResponse = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeoutId);
 
     if (!docResponse.ok) {
       logger.error('Failed to fetch standard document', { url, status: docResponse.status });
@@ -64,23 +63,26 @@ async function fetchStandardDocument(url: string): Promise<{ text: string } | { 
 
     return { text: await docResponse.text() };
   } catch (fetchError) {
-    clearTimeout(timeoutId);
     if (fetchError instanceof Error && fetchError.name === 'AbortError') {
       logger.error('Fetch timeout while downloading standard', { url });
       return { error: 'Request timeout while downloading standard', status: 504 };
     }
     logger.error('Failed to fetch standard document', { url, error: fetchError });
     return { error: 'Failed to download standard', status: 502 };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
 /**
  * Extract standards array from parsed CycloneDX document.
  */
-function extractStandardsFromDoc(cdxDoc: Record<string, any>): Array<Record<string, unknown>> {
+function extractStandardsFromDoc(cdxDoc: Record<string, unknown>): Record<string, unknown>[] {
+  const definitions = cdxDoc.definitions as Record<string, unknown> | undefined;
+  const declarations = cdxDoc.declarations as Record<string, unknown> | undefined;
   return (
-    ((cdxDoc.definitions as Record<string, unknown>)?.standards as Array<Record<string, unknown>>) ||
-    ((cdxDoc.declarations as Record<string, unknown>)?.standards as Array<Record<string, unknown>>) ||
+    (definitions?.standards as Record<string, unknown>[] | undefined) ??
+    (declarations?.standards as Record<string, unknown>[] | undefined) ??
     []
   );
 }
@@ -263,7 +265,7 @@ router.post('/import-standard', async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const importedStandards: Array<{ id: string; identifier: string; name: string; requirementCount: number }> = [];
+    const importedStandards: { id: string; identifier: string; name: string; requirementCount: number }[] = [];
 
     for (const standard of standards) {
       const result = await importStandard(standard, {

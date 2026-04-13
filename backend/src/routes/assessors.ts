@@ -175,7 +175,7 @@ router.put(
 
       await db.updateTable('assessor')
         .set(updateData)
-        .where('id', '=', req.params.id as string)
+        .where('id', '=', req.params.id)
         .execute();
 
       logger.info('Assessor updated', { assessorId: req.params.id, requestId: req.requestId });

@@ -61,17 +61,27 @@ export interface ImportedStandardResult {
 // ---- Helper functions (not exported) ----
 
 /**
+ * Pick the first non-empty string from a list of candidates, or null if none found.
+ */
+function firstNonEmpty(...candidates: (string | null | undefined)[]): string | null {
+  for (const c of candidates) {
+    if (c !== null && c !== undefined && c !== '') return c;
+  }
+  return null;
+}
+
+/**
  * Extract the reference ID from a requirement using multiple fallback formats.
  */
 function getRequirementRef(req: RawRequirement): string {
-  return req['bom-ref'] || req.bomRef || req.identifier || '';
+  return firstNonEmpty(req['bom-ref'], req.bomRef, req.identifier) ?? '';
 }
 
 /**
  * Extract the parent reference from a requirement using multiple fallback formats.
  */
 function getRequirementParentRef(req: RawRequirement): string | null {
-  return req.parent || req.parentIdentifier || null;
+  return req.parent ?? req.parentIdentifier ?? null;
 }
 
 /**
@@ -109,7 +119,7 @@ function visitRequirementNode(
 ): void {
   sorted.push(node);
   const ref = getRequirementRef(node);
-  const children = childrenOf.get(ref) || [];
+  const children = childrenOf.get(ref) ?? [];
   for (const child of children) {
     visitRequirementNode(child, childrenOf, sorted);
   }
@@ -119,13 +129,13 @@ function visitRequirementNode(
  * Normalize standard metadata fields from various input formats.
  */
 function normalizeStandardMetadata(standard: RawStandardInput, fallbackName: string) {
-  const bomRef = standard['bom-ref'] || standard.bomRef || standard.identifier || uuidv4();
+  const bomRef = firstNonEmpty(standard['bom-ref'], standard.bomRef, standard.identifier) ?? uuidv4();
   return {
     identifier: bomRef,
-    name: standard.name || standard.title || fallbackName,
-    description: standard.description || null,
-    version: standard.version || null,
-    owner: standard.owner || null,
+    name: firstNonEmpty(standard.name, standard.title) ?? fallbackName,
+    description: standard.description ?? null,
+    version: standard.version ?? null,
+    owner: standard.owner ?? null,
   };
 }
 
@@ -158,7 +168,7 @@ function normalizeOpenCre(openCreRaw: string | string[] | null): string | null {
   if (Array.isArray(openCreRaw)) {
     return openCreRaw.length > 0 ? openCreRaw.join(', ') : null;
   }
-  return openCreRaw || null;
+  return openCreRaw ?? null;
 }
 
 /**
@@ -166,12 +176,12 @@ function normalizeOpenCre(openCreRaw: string | string[] | null): string | null {
  */
 function normalizeRequirement(req: RawRequirement) {
   const reqBomRef = getRequirementRef(req);
-  const reqIdentifier = req.identifier || reqBomRef;
-  const reqTitle = req.title || req.text || req.name || reqIdentifier;
-  const reqDescription = req.description || req.text || null;
+  const reqIdentifier = firstNonEmpty(req.identifier, reqBomRef) ?? '';
+  const reqTitle = firstNonEmpty(req.title, req.text, req.name, reqIdentifier) ?? '';
+  const reqDescription = firstNonEmpty(req.description, req.text);
   const reqParent = getRequirementParentRef(req);
 
-  const openCreRaw = req.openCre || req['open-cre'] || null;
+  const openCreRaw = req.openCre ?? req['open-cre'] ?? null;
   const openCre = normalizeOpenCre(openCreRaw);
 
   return {
@@ -182,6 +192,28 @@ function normalizeRequirement(req: RawRequirement) {
     parent: reqParent,
     openCre,
   };
+}
+
+/**
+ * Test whether a database error represents a uniqueness/duplicate violation.
+ * Works with both Postgres and SQLite driver error messages.
+ */
+function isDuplicateError(err: unknown): boolean {
+  const error = err as Record<string, unknown>;
+  const message = error?.message ?? '';
+  if (typeof message !== 'string') return false;
+  return message.includes('duplicate') || message.includes('unique');
+}
+
+/**
+ * Resolve the parent UUID for a requirement, given its external parent ref.
+ */
+function resolveParentId(
+  parentRef: string | null,
+  requirementMap: Map<string, string>,
+): string | null {
+  if (parentRef === null || parentRef === '') return null;
+  return requirementMap.get(parentRef) ?? null;
 }
 
 /**
@@ -196,12 +228,7 @@ async function insertRequirement(
 ): Promise<string | null> {
   const normalized = normalizeRequirement(req);
   const requirementId = uuidv4();
-
-  // Resolve parent
-  let parentId: string | null = null;
-  if (normalized.parent && requirementMap.has(normalized.parent)) {
-    parentId = requirementMap.get(normalized.parent) || null;
-  }
+  const parentId = resolveParentId(normalized.parent, requirementMap);
 
   try {
     await db
@@ -217,13 +244,12 @@ async function insertRequirement(
       })
       .execute();
 
-    requirementMap.set(normalized.bomRef || normalized.identifier, requirementId);
+    const mapKey = normalized.bomRef !== '' ? normalized.bomRef : normalized.identifier;
+    requirementMap.set(mapKey, requirementId);
     return requirementId;
   } catch (insertError: unknown) {
-    // Skip duplicates
-    const error = insertError as Record<string, unknown>;
-    const message = error?.message ?? '';
-    if (typeof message === 'string' && (message.includes('duplicate') || message.includes('unique'))) {
+    if (isDuplicateError(insertError)) {
+      logger.debug('Skipping duplicate requirement', { identifier: normalized.identifier });
       return null;
     }
     throw insertError;
@@ -239,7 +265,7 @@ async function importRequirements(
   standard: RawStandardInput,
   standardId: string,
 ): Promise<{ count: number; map: Map<string, string> }> {
-  const requirements = standard.requirements || [];
+  const requirements = standard.requirements ?? [];
   const requirementMap = new Map<string, string>();
   let count = 0;
 
@@ -259,14 +285,36 @@ async function importRequirements(
  * Normalize a single level from various input formats.
  */
 function normalizeLevel(lvl: RawLevel) {
-  const lvlBomRef = lvl['bom-ref'] || lvl.bomRef || '';
+  const lvlBomRef = firstNonEmpty(lvl['bom-ref'], lvl.bomRef);
   return {
     bomRef: lvlBomRef,
-    identifier: lvl.identifier || lvlBomRef,
-    title: lvl.title || null,
-    description: lvl.description || null,
-    requirements: lvl.requirements || [],
+    identifier: firstNonEmpty(lvl.identifier, lvlBomRef),
+    title: lvl.title ?? null,
+    description: lvl.description ?? null,
+    requirements: lvl.requirements ?? [],
   };
+}
+
+/**
+ * Insert a single level_requirement junction row, swallowing duplicate errors.
+ */
+async function insertLevelRequirementLink(
+  db: ReturnType<typeof getDatabase>,
+  levelId: string,
+  requirementId: string,
+): Promise<void> {
+  try {
+    await db
+      .insertInto('level_requirement')
+      .values({ level_id: levelId, requirement_id: requirementId })
+      .execute();
+  } catch (junctionError: unknown) {
+    if (isDuplicateError(junctionError)) {
+      logger.debug('Skipping duplicate level_requirement', { levelId, requirementId });
+      return;
+    }
+    throw junctionError;
+  }
 }
 
 /**
@@ -280,23 +328,8 @@ async function linkLevelRequirements(
 ): Promise<void> {
   for (const reqRef of lvlRequirements) {
     const reqUuid = requirementMap.get(reqRef);
-    if (reqUuid) {
-      try {
-        await db
-          .insertInto('level_requirement')
-          .values({
-            level_id: levelId,
-            requirement_id: reqUuid,
-          })
-          .execute();
-      } catch (junctionError: unknown) {
-        const error = junctionError as Record<string, unknown>;
-        const message = error?.message ?? '';
-        if (typeof message === 'string' && (message.includes('duplicate') || message.includes('unique'))) {
-          continue;
-        }
-        throw junctionError;
-      }
+    if (reqUuid !== undefined) {
+      await insertLevelRequirementLink(db, levelId, reqUuid);
     }
   }
 }
@@ -331,9 +364,8 @@ async function insertLevel(
 
     return levelId;
   } catch (insertError: unknown) {
-    const error = insertError as Record<string, unknown>;
-    const message = error?.message ?? '';
-    if (typeof message === 'string' && (message.includes('duplicate') || message.includes('unique'))) {
+    if (isDuplicateError(insertError)) {
+      logger.debug('Skipping duplicate level', { identifier: normalized.identifier });
       return null;
     }
     throw insertError;
@@ -418,7 +450,7 @@ export async function importStandard(
       license_id: null,
       state: 'published',
       is_imported: markAsImported,
-      source_json: sourceJson || null,
+      source_json: sourceJson ?? null,
     })
     .execute();
 

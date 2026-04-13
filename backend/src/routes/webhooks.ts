@@ -93,10 +93,26 @@ const safeWebhookUrl = z.string().url('URL must be a valid URL').refine(
   'Webhook URL must use HTTPS and cannot target private, reserved, or internal network addresses'
 );
 
+interface WebhookUpdateInput {
+  name?: string;
+  url?: string;
+  eventTypes?: string[];
+  isActive?: boolean;
+  regenerateSecret?: boolean;
+}
+
+interface WebhookRow {
+  id: string;
+  name: string;
+  url: string;
+  event_types: unknown;
+  is_active: boolean;
+}
+
 /**
  * Build webhook update data from request payload.
  */
-function buildWebhookUpdates(data: Record<string, any>): Record<string, unknown> {
+function buildWebhookUpdates(data: WebhookUpdateInput): Record<string, unknown> {
   const updates: Record<string, unknown> = { updated_at: new Date() };
   if (data.name !== undefined) updates.name = data.name;
   if (data.url !== undefined) updates.url = data.url;
@@ -109,20 +125,30 @@ function buildWebhookUpdates(data: Record<string, any>): Record<string, unknown>
 }
 
 /**
+ * Apply update fields from `data` to `result`, returning the mutated object.
+ */
+function applyWebhookUpdatesToResult(
+  result: Record<string, unknown>,
+  webhook: WebhookRow,
+  data: WebhookUpdateInput,
+): Record<string, unknown> {
+  result.name = data.name ?? webhook.name;
+  result.url = data.url ?? webhook.url;
+  result.eventTypes = data.eventTypes ?? webhook.event_types;
+  result.isActive = data.isActive ?? webhook.is_active;
+  return result;
+}
+
+/**
  * Build webhook response object from webhook record and request data.
  */
 function buildWebhookResponse(
-  webhook: Record<string, any>,
-  data: Record<string, any>,
-  newSecret: string | null
+  webhook: WebhookRow,
+  data: WebhookUpdateInput,
+  newSecret: string | null,
 ): Record<string, unknown> {
-  const result: Record<string, unknown> = {
-    id: webhook.id,
-    name: data.name ?? webhook.name,
-    url: data.url ?? webhook.url,
-    eventTypes: data.eventTypes ?? webhook.event_types,
-    isActive: data.isActive ?? webhook.is_active,
-  };
+  const result: Record<string, unknown> = { id: webhook.id };
+  applyWebhookUpdatesToResult(result, webhook, data);
 
   if (newSecret) {
     result.secret = newSecret;

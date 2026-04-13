@@ -25,17 +25,23 @@ const router = Router();
 
 // ---- URL validation per platform ----
 
-const PLATFORM_VALIDATORS: Record<string, (url: string) => boolean> = {
+type ChatPlatform = 'slack' | 'teams' | 'mattermost';
+
+const PLATFORM_VALIDATORS: Record<ChatPlatform, (url: string) => boolean> = {
   slack: (url: string) => SlackChannel.validateWebhookUrl(url),
   teams: (url: string) => TeamsChannel.validateWebhookUrl(url),
   mattermost: (url: string) => MattermostChannel.validateWebhookUrl(url),
 };
 
-const PLATFORM_URL_HINTS: Record<string, string> = {
+const PLATFORM_URL_HINTS: Record<ChatPlatform, string> = {
   slack: 'Must start with https://hooks.slack.com/',
   teams: 'Must start with https:// and contain .webhook.office.com/ or .logic.azure.com/',
   mattermost: 'Must start with https://',
 };
+
+function isChatPlatform(value: string): value is ChatPlatform {
+  return value === 'slack' || value === 'teams' || value === 'mattermost';
+}
 
 // ---- Helper functions ----
 
@@ -47,8 +53,11 @@ function validateWebhookUrlForPlatform(
   webhookUrl: string,
   res: Response
 ): boolean {
+  if (!isChatPlatform(platform)) {
+    return true;
+  }
   const validator = PLATFORM_VALIDATORS[platform];
-  if (validator && !validator(webhookUrl)) {
+  if (!validator(webhookUrl)) {
     res.status(400).json({
       error: 'Invalid webhook URL',
       message: PLATFORM_URL_HINTS[platform],
@@ -61,8 +70,16 @@ function validateWebhookUrlForPlatform(
 /**
  * Build update data object from request payload.
  */
-function buildChatIntegrationUpdates(data: Record<string, any>): Record<string, any> {
-  const updates: Record<string, any> = { updated_at: new Date() };
+interface ChatIntegrationUpdateInput {
+  name?: string;
+  webhookUrl?: string;
+  eventCategories?: string[];
+  channelName?: string | null;
+  isActive?: boolean;
+}
+
+function buildChatIntegrationUpdates(data: ChatIntegrationUpdateInput): Record<string, unknown> {
+  const updates: Record<string, unknown> = { updated_at: new Date() };
   if (data.name !== undefined) updates.name = data.name;
   if (data.webhookUrl !== undefined) updates.webhook_url = data.webhookUrl;
   if (data.eventCategories !== undefined) updates.event_categories = JSON.stringify(data.eventCategories);
@@ -74,13 +91,23 @@ function buildChatIntegrationUpdates(data: Record<string, any>): Record<string, 
   return updates;
 }
 
+interface ChatIntegrationRow {
+  id: string;
+  name: string;
+  platform: string;
+  webhook_url: string;
+  event_categories: string;
+  channel_name: string | null;
+  is_active: boolean;
+}
+
 /**
  * Build response object from request data and existing integration.
  */
 function buildChatIntegrationResponse(
-  integration: Record<string, any>,
-  data: Record<string, any>
-): Record<string, any> {
+  integration: ChatIntegrationRow,
+  data: ChatIntegrationUpdateInput
+): Record<string, unknown> {
   return {
     id: integration.id,
     name: data.name ?? integration.name,
@@ -213,13 +240,13 @@ router.get(
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const db = getDatabase();
 
-    const integration = await checkResourceExists(db, res, 'chat_integration', req.params.id as any, 'Chat integration');
+    const integration = await checkResourceExists(db, res, 'chat_integration', req.params.id as string, 'Chat integration');
     if (!integration) return;
 
     // Delivery stats
     const totalResult = await db
       .selectFrom('chat_delivery')
-      .where('integration_id', '=', req.params.id as string as any)
+      .where('integration_id', '=', req.params.id)
       .select(db.fn.count<number>('id').as('count'))
       .executeTakeFirst();
 
@@ -262,7 +289,7 @@ router.put(
       const data = updateChatIntegrationSchema.parse(req.body);
       const db = getDatabase();
 
-      const integration = await checkResourceExists(db, res, 'chat_integration', req.params.id as any, 'Chat integration');
+      const integration = await checkResourceExists(db, res, 'chat_integration', req.params.id as string, 'Chat integration');
       if (!integration) return;
 
       // Validate webhook URL if provided
@@ -274,7 +301,7 @@ router.put(
       await db
         .updateTable('chat_integration')
         .set(updates)
-        .where('id', '=', req.params.id as any)
+        .where('id', '=', req.params.id)
         .execute();
 
       const response = buildChatIntegrationResponse(integration, data);
@@ -297,12 +324,12 @@ router.delete(
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const db = getDatabase();
 
-    const existing = await checkResourceExists(db, res, 'chat_integration', req.params.id as any, 'Chat integration');
+    const existing = await checkResourceExists(db, res, 'chat_integration', req.params.id as string, 'Chat integration');
     if (!existing) return;
 
     await db
       .deleteFrom('chat_integration')
-      .where('id', '=', req.params.id as any)
+      .where('id', '=', req.params.id)
       .execute();
 
     res.json({ message: 'Chat integration deleted successfully' });
@@ -320,7 +347,7 @@ router.post(
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const db = getDatabase();
 
-    const integration = await checkResourceExists(db, res, 'chat_integration', req.params.id as any, 'Chat integration');
+    const integration = await checkResourceExists(db, res, 'chat_integration', req.params.id as string, 'Chat integration');
     if (!integration) return;
 
     // Find the corresponding chat channel from the registry
@@ -380,7 +407,7 @@ router.post(
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const db = getDatabase();
 
-    const integration = await checkResourceExists(db, res, 'chat_integration', req.params.id as any, 'Chat integration');
+    const integration = await checkResourceExists(db, res, 'chat_integration', req.params.id as string, 'Chat integration');
     if (!integration) return;
 
     await db
@@ -390,7 +417,7 @@ router.post(
         consecutive_failures: 0,
         updated_at: new Date(),
       })
-      .where('id', '=', req.params.id as any)
+      .where('id', '=', req.params.id)
       .execute();
 
     res.json({
@@ -414,7 +441,7 @@ router.get(
     const db = getDatabase();
     const { limit, offset } = validatePagination(req.query);
 
-    const integration = await checkResourceExists(db, res, 'chat_integration', req.params.id as any, 'Chat integration');
+    const integration = await checkResourceExists(db, res, 'chat_integration', req.params.id as string, 'Chat integration');
     if (!integration) return;
 
     const totalResult = await db

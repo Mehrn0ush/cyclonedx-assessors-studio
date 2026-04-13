@@ -72,7 +72,11 @@ export function getEventNature(eventType: string): EventNature {
 /**
  * Handlers for different entity types in getSummary.
  */
-type SummaryHandler = (eventType: string, name: string | undefined, state: string | undefined) => string | null;
+type SummaryHandler = (
+  _eventType: string,
+  _name: string | undefined,
+  _state: string | undefined,
+) => string | null;
 
 const summaryHandlers: Record<string, SummaryHandler> = {
   assessment: (eventType, name, state) => {

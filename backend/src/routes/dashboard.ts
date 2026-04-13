@@ -225,15 +225,15 @@ router.get('/conformance-breakdown', requireAuth, asyncHandler(async (_req: Auth
   const db = getDatabase();
 
   const results = ['yes', 'no', 'partial', 'not_applicable'] as const;
-  const breakdown: Array<{ result: string; count: number }> = await Promise.all(
+  const breakdown: { result: string; count: number }[] = await Promise.all(
     results.map(async (result) => ({
       result,
       count: await countAssessmentRequirementsByResult(db, result),
     }))
   );
 
-  const unassessed = await countWhere(db, 'assessment_requirement', (eb: any) =>
-    eb('result', 'is', null)
+  const unassessed = await countWhere(db, 'assessment_requirement', (eb) =>
+    eb('result', 'is', null),
   );
   breakdown.push({ result: 'unassessed', count: unassessed });
 
