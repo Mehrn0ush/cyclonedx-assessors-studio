@@ -202,7 +202,14 @@ function configureStaticAndErrorRoutes(app: Express): void {
   if (config.NODE_ENV === 'production') {
     const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
     app.use(express.static(frontendDistPath));
-    app.get('*', (req: Request, res: Response) => {
+    // SPA fallback: serve index.html for any non-API GET that didn't match
+    // a static asset. Uses app.use (no path) because Express 5 /
+    // path-to-regexp v8 no longer accepts a bare '*' route pattern.
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (req.method !== 'GET') {
+        next();
+        return;
+      }
       if (req.path.startsWith('/api/')) {
         res.status(404).json({ error: 'Not found' });
         return;
