@@ -7,6 +7,9 @@
 #
 # Required environment variables (set in .env or shell):
 #   JWT_SECRET          - At least 32 characters, cryptographically random
+#   ADMIN_USERNAME      - Username for initial admin (first run only)
+#   ADMIN_EMAIL         - Email for initial admin (first run only)
+#   ADMIN_PASSWORD      - Password for initial admin (first run only, min 8 chars)
 #
 # Optional overrides:
 #   POSTGRES_PASSWORD   - Database password (default: assessors_studio)
@@ -46,6 +49,7 @@ services:
       db:
         condition: service_healthy
     environment:
+      # Core
       NODE_ENV: production
       PORT: 3001
       DATABASE_PROVIDER: postgres
@@ -54,6 +58,58 @@ services:
       JWT_EXPIRY: ${JWT_EXPIRY:-24h}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      # Initial admin user (first-run seed only)
+      ADMIN_USERNAME: ${ADMIN_USERNAME:?ADMIN_USERNAME must be set}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?ADMIN_EMAIL must be set}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set}
+      ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME:-}
+
+      # Evidence storage
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-database}
+      UPLOAD_MAX_FILE_SIZE: ${UPLOAD_MAX_FILE_SIZE:-52428800}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-false}
+
+      # Event system
+      APP_URL: ${APP_URL:-http://localhost:3001}
+
+      # Webhook channel
+      WEBHOOK_ENABLED: ${WEBHOOK_ENABLED:-true}
+      WEBHOOK_TIMEOUT: ${WEBHOOK_TIMEOUT:-10000}
+      WEBHOOK_MAX_RETRIES: ${WEBHOOK_MAX_RETRIES:-5}
+      WEBHOOK_DELIVERY_RETENTION_DAYS: ${WEBHOOK_DELIVERY_RETENTION_DAYS:-30}
+
+      # Email channel (SMTP)
+      SMTP_ENABLED: ${SMTP_ENABLED:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_TLS_REJECT_UNAUTHORIZED: ${SMTP_TLS_REJECT_UNAUTHORIZED:-true}
+
+      # Chat channels
+      SLACK_ENABLED: ${SLACK_ENABLED:-false}
+      TEAMS_ENABLED: ${TEAMS_ENABLED:-false}
+      MATTERMOST_ENABLED: ${MATTERMOST_ENABLED:-false}
+      CHAT_TIMEOUT: ${CHAT_TIMEOUT:-10000}
+      CHAT_DELIVERY_RETENTION_DAYS: ${CHAT_DELIVERY_RETENTION_DAYS:-30}
+
+      # Prometheus metrics
+      METRICS_ENABLED: ${METRICS_ENABLED:-false}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+      METRICS_PREFIX: ${METRICS_PREFIX:-cdxa_}
+      METRICS_DOMAIN_REFRESH_INTERVAL: ${METRICS_DOMAIN_REFRESH_INTERVAL:-60}
+
+      # Encryption at rest
+      MASTER_ENCRYPTION_KEY: ${MASTER_ENCRYPTION_KEY:-}
+      REQUIRE_ENCRYPTION: ${REQUIRE_ENCRYPTION:-false}
     restart: unless-stopped
 
 volumes:
