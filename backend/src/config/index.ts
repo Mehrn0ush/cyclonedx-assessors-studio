@@ -84,4 +84,13 @@ export function getConfig(): Env {
   return config;
 }
 
+/**
+ * Invalidate the cached config so the next getConfig() call
+ * re-reads process.env.  Used by test helpers that override
+ * environment variables after the module has been loaded.
+ */
+export function resetConfig(): void {
+  config = null;
+}
+
 export default getConfig();

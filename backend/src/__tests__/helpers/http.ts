@@ -73,6 +73,12 @@ export function setupHttpTests() {
     process.env.CORS_ORIGIN = '*';
     process.env.METRICS_ENABLED = 'true';
 
+    // Invalidate the cached config so the env-var overrides above are
+    // picked up.  The config module may already have been loaded (and
+    // cached) via static imports in the test file.
+    const { resetConfig } = await import('../../config/index.js');
+    resetConfig();
+
     // Dynamic imports so env vars are picked up by config on first access
     const { initializeDatabase } = await import('../../db/connection.js');
     const { runMigrations } = await import('../../db/migrate.js');
@@ -112,6 +118,8 @@ export function setupHttpTests() {
       const password = `Password123!`;
       const passwordHash = await hashPassword(password);
 
+      // Upsert so the test is idempotent even when a previous run left
+      // stale data in the PGlite directory.
       await db.insertInto('app_user').values({
         id: userId,
         username,
@@ -120,9 +128,21 @@ export function setupHttpTests() {
         display_name: `Test ${role.charAt(0).toUpperCase() + role.slice(1)}`,
         role: role as 'admin' | 'assessor' | 'assessee' | 'standards_manager' | 'standards_approver',
         is_active: true,
-      }).execute();
+      })
+        .onConflict((oc) => oc.column('username').doUpdateSet({
+          password_hash: passwordHash,
+          is_active: true,
+        }))
+        .execute();
 
-      testUsers[role] = { id: userId, username, email: `${username}@test.local`, password };
+      // Fetch the actual user id (may differ from userId if the row
+      // already existed from a previous run).
+      const existing = await db.selectFrom('app_user')
+        .select(['id', 'email'])
+        .where('username', '=', username)
+        .executeTakeFirstOrThrow();
+
+      testUsers[role] = { id: existing.id, username, email: existing.email, password };
     }
 
     // Mark setup complete so the setup gate passes

@@ -6,14 +6,16 @@ import { getConfig } from '../config/index.js';
 import { Database } from './types.js';
 import { logger } from '../utils/logger.js';
 
-const config = getConfig();
-
 let db: Kysely<Database> | null = null;
 
 export async function initializeDatabase(): Promise<Kysely<Database>> {
   if (db) {
     return db;
   }
+
+  // Read config at call time (not module load time) so that test helpers
+  // can override environment variables before initialisation.
+  const config = getConfig();
 
   try {
     if (config.DATABASE_PROVIDER === 'pglite') {
