@@ -181,13 +181,21 @@ export async function loginAs(role: 'admin' | 'assessor' | 'assessee'): Promise<
   const user = testUsers[role];
   if (!user) throw new Error(`No test user for role "${role}". Did setupHttpTests() run?`);
 
+  return loginWithCredentials(user.username, user.password);
+}
+
+/**
+ * Returns a supertest agent that carries the session cookie for the
+ * provided credentials. Each call logs in fresh so tests are isolated.
+ */
+export async function loginWithCredentials(username: string, password: string): Promise<ReturnType<typeof supertest.agent>> {
   const agent = supertest.agent(baseUrl);
   const res = await agent
     .post('/api/v1/auth/login')
-    .send({ username: user.username, password: user.password });
+    .send({ username, password });
 
   if (res.status !== 201 && res.status !== 200) {
-    throw new Error(`Login failed for ${role}: ${res.status} ${JSON.stringify(res.body)}`);
+    throw new Error(`Login failed for ${username}: ${res.status} ${JSON.stringify(res.body)}`);
   }
 
   return agent;

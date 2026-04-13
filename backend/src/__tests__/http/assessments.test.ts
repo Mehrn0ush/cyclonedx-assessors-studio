@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { setupHttpTests, loginAs, getAgent } from '../helpers/http.js';
+import { setupHttpTests, loginAs, loginWithCredentials, getAgent, testUsers } from '../helpers/http.js';
 
 describe('Assessments HTTP Routes', () => {
   setupHttpTests();
@@ -70,6 +70,31 @@ describe('Assessments HTTP Routes', () => {
     expect(assessmentRes.status).toBe(201);
 
     return { projectId, standardId, assessmentId: assessmentRes.body.id, requirementIds };
+  }
+
+  async function createUnrelatedAssessor(adminAgent: any) {
+    const username = `unrelated_assessor_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const password = 'Password123!';
+
+    const res = await adminAgent
+      .post('/api/v1/users')
+      .send({
+        username,
+        email: `${username}@test.local`,
+        displayName: 'Unrelated Assessor',
+        password,
+        role: 'assessor',
+      });
+
+    expect(res.status).toBe(201);
+
+    return { username, password };
+  }
+
+  async function expectRoleHasPermission(roleKey: string, permissionKey: string) {
+    const { getPermissionsForRole } = await import('../../middleware/auth.js');
+    const permissions = await getPermissionsForRole(roleKey);
+    expect(permissions).toContain(permissionKey);
   }
 
   /**
@@ -732,6 +757,30 @@ describe('Assessments HTTP Routes', () => {
 
       expect(res.status).toBe(403);
     });
+
+    it('should forbid unrelated assessor from updating a foreign assessment', async () => {
+      const adminAgent = await loginAs('admin');
+      const ownerAgent = await loginAs('assessor');
+      const unrelatedAssessor = await createUnrelatedAssessor(adminAgent);
+      const unrelatedAgent = await loginWithCredentials(unrelatedAssessor.username, unrelatedAssessor.password);
+      const updatedTitle = `Foreign assessment update ${Date.now()}`;
+
+      await expectRoleHasPermission('assessor', 'assessments.edit');
+
+      const { assessmentId } = await createFullAssessment(adminAgent, {
+        assessorIds: [testUsers.assessor.id],
+      });
+
+      const res = await unrelatedAgent
+        .put(`/api/v1/assessments/${assessmentId}`)
+        .send({ title: updatedTitle });
+
+      expect(res.status).toBe(403);
+
+      const verifyRes = await ownerAgent.get(`/api/v1/assessments/${assessmentId}`);
+      expect(verifyRes.status).toBe(200);
+      expect(verifyRes.body.assessment.title).not.toBe(updatedTitle);
+    });
   });
 
   describe('POST /api/v1/assessments/:id/start', () => {
@@ -800,6 +849,24 @@ describe('Assessments HTTP Routes', () => {
       const { assessmentId } = await createFullAssessment(adminAgent);
 
       const res = await assesseeAgent
+        .post(`/api/v1/assessments/${assessmentId}/start`)
+        .send({});
+
+      expect(res.status).toBe(403);
+    });
+
+    it('should forbid unrelated assessor from starting a foreign assessment', async () => {
+      const adminAgent = await loginAs('admin');
+      const unrelatedAssessor = await createUnrelatedAssessor(adminAgent);
+      const unrelatedAgent = await loginWithCredentials(unrelatedAssessor.username, unrelatedAssessor.password);
+
+      await expectRoleHasPermission('assessor', 'assessments.manage');
+
+      const { assessmentId } = await createFullAssessment(adminAgent, {
+        assessorIds: [testUsers.assessor.id],
+      });
+
+      const res = await unrelatedAgent
         .post(`/api/v1/assessments/${assessmentId}/start`)
         .send({});
 

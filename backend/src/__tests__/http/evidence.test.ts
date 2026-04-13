@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   setupHttpTests,
   loginAs,
+  loginWithCredentials,
   getAgent,
+  testUsers,
 } from '../helpers/http.js';
 
 describe('Evidence HTTP Routes', () => {
@@ -77,6 +79,98 @@ describe('Evidence HTTP Routes', () => {
     }
 
     return { projectId, standardId, assessmentId, assessmentRequirementId, requirementId };
+  }
+
+  async function createUnrelatedAssessor(adminAgent: any) {
+    const username = `unrelated_assessor_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const password = 'Password123!';
+
+    const res = await adminAgent
+      .post('/api/v1/users')
+      .send({
+        username,
+        email: `${username}@test.local`,
+        displayName: 'Unrelated Assessor',
+        password,
+        role: 'assessor',
+      });
+
+    expect(res.status).toBe(201);
+
+    return { username, password };
+  }
+
+  async function expectRoleHasPermission(roleKey: string, permissionKey: string) {
+    const { getPermissionsForRole } = await import('../../middleware/auth.js');
+    const permissions = await getPermissionsForRole(roleKey);
+    expect(permissions).toContain(permissionKey);
+  }
+
+  async function createForeignEvidenceFixture() {
+    const adminAgent = await loginAs('admin');
+    const ownerAgent = await loginAs('assessor');
+    const unrelatedAssessor = await createUnrelatedAssessor(adminAgent);
+    const unrelatedAgent = await loginWithCredentials(unrelatedAssessor.username, unrelatedAssessor.password);
+    const { assessmentId } = await createTestData(adminAgent);
+
+    const assignRes = await adminAgent
+      .put(`/api/v1/assessments/${assessmentId}`)
+      .send({
+        assessorIds: [testUsers.assessor.id],
+      });
+    expect(assignRes.status).toBe(200);
+
+    const startRes = await ownerAgent
+      .post(`/api/v1/assessments/${assessmentId}/start`)
+      .send({});
+    expect(startRes.status).toBe(200);
+
+    const evidenceRes = await ownerAgent
+      .post('/api/v1/evidence')
+      .send({
+        name: `Foreign Evidence ${Date.now()}`,
+        description: 'Evidence owned by the assigned assessor',
+      });
+    expect(evidenceRes.status).toBe(201);
+    const evidenceId = evidenceRes.body.id;
+
+    const attachmentRes = await ownerAgent
+      .post(`/api/v1/evidence/${evidenceId}/attachments`)
+      .send({
+        filename: 'foreign.txt',
+        contentType: 'text/plain',
+        binaryContent: Buffer.from('foreign evidence attachment').toString('base64'),
+      });
+    expect(attachmentRes.status).toBe(201);
+    const attachmentId = attachmentRes.body.attachments[0].id;
+
+    const noteRes = await ownerAgent
+      .post(`/api/v1/evidence/${evidenceId}/notes`)
+      .send({ content: 'Owner-authored note on foreign evidence.' });
+    expect(noteRes.status).toBe(201);
+
+    const { getDatabase } = await import('../../db/connection.js');
+    const db = getDatabase();
+    const assessmentReq = await db
+      .selectFrom('assessment_requirement')
+      .where('assessment_id', '=', assessmentId)
+      .select('id')
+      .executeTakeFirstOrThrow();
+
+    await db
+      .insertInto('assessment_requirement_evidence')
+      .values({
+        assessment_requirement_id: assessmentReq.id,
+        evidence_id: evidenceId,
+        created_at: new Date(),
+      })
+      .execute();
+
+    return {
+      unrelatedAgent,
+      evidenceId,
+      attachmentId,
+    };
   }
 
   describe('POST /api/v1/evidence', () => {
@@ -367,6 +461,16 @@ describe('Evidence HTTP Routes', () => {
 
       expect(res.status).toBe(401);
     });
+
+    it('should not list foreign evidence for an unrelated assessor', async () => {
+      await expectRoleHasPermission('assessor', 'evidence.view');
+      const { unrelatedAgent, evidenceId } = await createForeignEvidenceFixture();
+
+      const res = await unrelatedAgent.get('/api/v1/evidence?limit=100&offset=0');
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.map((evidence: any) => evidence.id)).not.toContain(evidenceId);
+    });
   });
 
   describe('GET /api/v1/evidence/:id', () => {
@@ -452,6 +556,15 @@ describe('Evidence HTTP Routes', () => {
       const res = await unauthAgent.get('/api/v1/evidence/00000000-0000-0000-0000-000000000000');
 
       expect(res.status).toBe(401);
+    });
+
+    it('should forbid unrelated assessor from fetching foreign evidence detail', async () => {
+      await expectRoleHasPermission('assessor', 'evidence.view');
+      const { unrelatedAgent, evidenceId } = await createForeignEvidenceFixture();
+
+      const res = await unrelatedAgent.get(`/api/v1/evidence/${evidenceId}`);
+
+      expect(res.status).toBe(403);
     });
 
     it('should not include binary content by default', async () => {
@@ -658,6 +771,20 @@ describe('Evidence HTTP Routes', () => {
 
       expect(res.status).toBe(403);
     });
+
+    it('should forbid unrelated assessor from updating foreign evidence', async () => {
+      await expectRoleHasPermission('assessor', 'evidence.edit');
+      const { unrelatedAgent, evidenceId } = await createForeignEvidenceFixture();
+
+      const res = await unrelatedAgent
+        .put(`/api/v1/evidence/${evidenceId}`)
+        .send({
+          name: 'Foreign evidence update',
+          classification: 'tampered',
+        });
+
+      expect(res.status).toBe(403);
+    });
   });
 
   describe('POST /api/v1/evidence/:id/notes', () => {
@@ -753,6 +880,17 @@ describe('Evidence HTTP Routes', () => {
       const res = await assesseeAgent
         .post(`/api/v1/evidence/${evidenceId}/notes`)
         .send({ content: 'Unauthorized note' });
+
+      expect(res.status).toBe(403);
+    });
+
+    it('should forbid unrelated assessor from adding a note to foreign evidence', async () => {
+      await expectRoleHasPermission('assessor', 'evidence.edit');
+      const { unrelatedAgent, evidenceId } = await createForeignEvidenceFixture();
+
+      const res = await unrelatedAgent
+        .post(`/api/v1/evidence/${evidenceId}/notes`)
+        .send({ content: 'Unauthorized foreign note' });
 
       expect(res.status).toBe(403);
     });
@@ -861,6 +999,7 @@ describe('Evidence HTTP Routes', () => {
 
       expect(res.status).toBe(403);
     });
+
   });
 
   describe('DELETE /api/v1/evidence/:id/unlink', () => {
@@ -949,6 +1088,7 @@ describe('Evidence HTTP Routes', () => {
 
       expect(res.status).toBe(403);
     });
+
   });
 
   describe('POST /api/v1/evidence/:id/submit-for-review', () => {
@@ -1399,6 +1539,21 @@ describe('Evidence HTTP Routes', () => {
 
       expect(res.status).toBe(403);
     });
+
+    it('should forbid unrelated assessor from uploading an attachment to foreign evidence', async () => {
+      await expectRoleHasPermission('assessor', 'evidence.edit');
+      const { unrelatedAgent, evidenceId } = await createForeignEvidenceFixture();
+
+      const res = await unrelatedAgent
+        .post(`/api/v1/evidence/${evidenceId}/attachments`)
+        .send({
+          filename: 'unauthorized.txt',
+          contentType: 'text/plain',
+          binaryContent: Buffer.from('unauthorized upload').toString('base64'),
+        });
+
+      expect(res.status).toBe(403);
+    });
   });
 
   describe('GET /api/v1/evidence/:id/attachments/:attachmentId/download', () => {
@@ -1447,6 +1602,15 @@ describe('Evidence HTTP Routes', () => {
       );
 
       expect(res.status).toBe(401);
+    });
+
+    it('should forbid unrelated assessor from downloading a foreign attachment', async () => {
+      await expectRoleHasPermission('assessor', 'evidence.view');
+      const { unrelatedAgent, evidenceId, attachmentId } = await createForeignEvidenceFixture();
+
+      const res = await unrelatedAgent.get(`/api/v1/evidence/${evidenceId}/attachments/${attachmentId}/download`);
+
+      expect(res.status).toBe(403);
     });
   });
 
