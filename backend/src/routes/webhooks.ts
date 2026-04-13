@@ -11,7 +11,6 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import { getDatabase } from '../db/connection.js';
-import { logger } from '../utils/logger.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { getEventBus } from '../events/index.js';
@@ -109,7 +108,7 @@ router.get(
   '/',
   requireAuth,
   requirePermission('admin.webhooks'),
-  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  asyncHandler(async (_req: AuthRequest, res: Response): Promise<void> => {
     const db = getDatabase();
 
     const webhooks = await db
@@ -264,7 +263,7 @@ router.put(
 
       if (data.name !== undefined) updates.name = data.name;
       if (data.url !== undefined) updates.url = data.url;
-      if (data.eventTypes !== undefined) updates.event_types = data.eventTypes as string[];
+      if (data.eventTypes !== undefined) updates.event_types = data.eventTypes;
       if (data.isActive !== undefined) {
         updates.is_active = data.isActive;
         if (data.isActive) updates.consecutive_failures = 0;
@@ -356,6 +355,11 @@ router.post(
     }
 
     // Emit a test event through the event bus
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
     const eventBus = getEventBus();
     const envelope = eventBus.emit(
       CHANNEL_TEST,
@@ -364,7 +368,7 @@ router.post(
         webhookName: webhook.name,
         message: 'This is a test delivery from CycloneDX Assessors Studio',
       },
-      { userId: req.user!.id, displayName: req.user!.displayName },
+      { userId: req.user.id, displayName: req.user.displayName },
     );
 
     res.json({

@@ -214,7 +214,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
             'assessment_requirement.requirement_id'
           )
       )
-      .where('assessment_requirement.assessment_id', '=', req.params.id as string)
+      .where('assessment_requirement.assessment_id', '=', req.params.id)
       .selectAll()
       .execute()) as Record<string, unknown>[];
 
@@ -229,7 +229,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
             'assessment_assessor.user_id'
           )
       )
-      .where('assessment_assessor.assessment_id', '=', req.params.id as string)
+      .where('assessment_assessor.assessment_id', '=', req.params.id)
       .selectAll()
       .execute()) as Record<string, unknown>[];
 
@@ -244,7 +244,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
             'assessment_assessee.user_id'
           )
       )
-      .where('assessment_assessee.assessment_id', '=', req.params.id as string)
+      .where('assessment_assessee.assessment_id', '=', req.params.id)
       .selectAll()
       .execute()) as Record<string, unknown>[];
 
@@ -412,7 +412,7 @@ router.put('/:id', requireAuth, requirePermission('assessments.edit'), asyncHand
     if (data.assessorIds !== undefined) {
       await db
         .deleteFrom('assessment_assessor')
-        .where('assessment_id', '=', req.params.id as string)
+        .where('assessment_id', '=', req.params.id)
         .execute();
 
       if (data.assessorIds.length > 0) {
@@ -578,16 +578,18 @@ router.post(
           .execute();
       }
 
-      req.eventBus?.emit(
-        ASSESSMENT_STATE_CHANGED,
-        {
-          assessmentId: req.params.id as string,
-          assessmentTitle: assessment.title,
-          previousState: assessment.state,
-          newState: 'in_progress',
-        },
-        { userId: req.user!.id, displayName: req.user!.displayName },
-      );
+      if (req.user) {
+        req.eventBus?.emit(
+          ASSESSMENT_STATE_CHANGED,
+          {
+            assessmentId: req.params.id as string,
+            assessmentTitle: assessment.title,
+            previousState: assessment.state,
+            newState: 'in_progress',
+          },
+          { userId: req.user.id, displayName: req.user.displayName },
+        );
+      }
 
       logger.info('Assessment started', {
         assessmentId: req.params.id as string,
@@ -855,7 +857,7 @@ router.put(
 
       const assessmentReq = await db
         .selectFrom('assessment_requirement')
-        .where('assessment_id', '=', req.params.id as string)
+        .where('assessment_id', '=', req.params.id)
         .where('requirement_id', '=', req.params.requirementId as string)
         .selectAll()
         .executeTakeFirst();
@@ -1100,9 +1102,9 @@ router.get(
       // For each claim, get evidence counts
       const claimIds = claims.map(c => c.id as string);
 
-      let evidenceCounts = new Map<string, number>();
-      let counterEvidenceCounts = new Map<string, number>();
-      let mitigationCounts = new Map<string, number>();
+      const evidenceCounts = new Map<string, number>();
+      const counterEvidenceCounts = new Map<string, number>();
+      const mitigationCounts = new Map<string, number>();
 
       if (claimIds.length > 0) {
         const evCounts = await db
@@ -1146,7 +1148,7 @@ router.get(
       }
 
       // Fetch target entity names for claims that have target_entity_id
-      let targetEntityNames = new Map<string, { name: string; entity_type: string }>();
+      const targetEntityNames = new Map<string, { name: string; entity_type: string }>();
       const targetEntityIds = claims
         .map(c => c.target_entity_id)
         .filter((id): id is string => id != null);
@@ -1162,7 +1164,7 @@ router.get(
       }
 
       // Fetch external references for all claims
-      let externalRefsByClaimId = new Map<string, any[]>();
+      const externalRefsByClaimId = new Map<string, Record<string, unknown>[]>();
       if (claimIds.length > 0) {
         const extRefs = (await db
           .selectFrom('claim_external_reference')
@@ -1191,12 +1193,12 @@ router.get(
           : null;
         return {
           ...c,
-          target_entity_name: targetEntity?.name || null,
-          target_entity_type: targetEntity?.entity_type || null,
-          evidence_count: evidenceCounts.get(cId) || 0,
-          counter_evidence_count: counterEvidenceCounts.get(cId) || 0,
-          mitigation_count: mitigationCounts.get(cId) || 0,
-          external_references: externalRefsByClaimId.get(cId) || [],
+          target_entity_name: targetEntity?.name ?? null,
+          target_entity_type: targetEntity?.entity_type ?? null,
+          evidence_count: evidenceCounts.get(cId) ?? 0,
+          counter_evidence_count: counterEvidenceCounts.get(cId) ?? 0,
+          mitigation_count: mitigationCounts.get(cId) ?? 0,
+          external_references: externalRefsByClaimId.get(cId) ?? [],
         };
       });
 
@@ -1306,7 +1308,7 @@ router.get(
               'work_note.user_id'
             )
         )
-        .where('work_note.assessment_id', '=', req.params.id as string)
+        .where('work_note.assessment_id', '=', req.params.id)
         .select([
           'work_note.id',
           'work_note.content',
@@ -1352,12 +1354,17 @@ router.post(
 
       const noteId = uuidv4();
 
+      if (!req.user) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
       await db
         .insertInto('work_note')
         .values({
           id: noteId,
           assessment_id: req.params.id as string,
-          user_id: req.user!.id,
+          user_id: req.user.id,
           content: data.content,
           created_at: new Date(),
           updated_at: new Date(),
@@ -1389,7 +1396,7 @@ router.post(
               type: 'work_note_mention',
               title: 'You were mentioned in a work note',
               message: `${authorDisplayName} mentioned you in a work note on assessment "${assessment.title}"`,
-              link: `/assessments/${req.params.id as string}`,
+              link: `/assessments/${req.params.id}`,
             });
           }
         }

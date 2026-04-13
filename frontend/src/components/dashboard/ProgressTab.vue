@@ -209,8 +209,8 @@ const loading = ref(false)
 
 // Data
 const entities = ref<Array<{ id: string; name: string }>>([])
-const standardsData = ref<Array<any>>([])
-const timelineAssessments = ref<Array<any>>([])
+const standardsData = ref<Array<{ id: string; name: string; version: string; latestScore: number; assessments: Array<{ id: string; title: string; entityName: string; score: number; hasResults: boolean; completedDate: string; state: string }> }>>([])
+const timelineAssessments = ref<Array<{ id: string; title: string; entityName: string; standardName: string; score: number; state: string; completedDate: string }>>([])
 
 // Summary stats
 const summaryStats = ref({

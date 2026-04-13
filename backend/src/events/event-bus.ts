@@ -71,8 +71,8 @@ export class EventBus {
    * Register a listener that receives all events.
    */
   onAny(handler: (envelope: EventEnvelope) => Promise<void>): void {
-    this.emitter.on(WILDCARD, (_envelope: EventEnvelope) => {
-      this.safeInvoke(handler, _envelope, WILDCARD);
+    this.emitter.on(WILDCARD, (envelope: EventEnvelope) => {
+      this.safeInvoke(handler, envelope, WILDCARD);
     });
   }
 

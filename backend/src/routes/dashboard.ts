@@ -9,7 +9,7 @@ import { AuthRequest, requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
-router.get('/stats', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/stats', requireAuth, asyncHandler(async (_req: AuthRequest, res: Response): Promise<void> => {
   const db = getDatabase();
 
   const totalProjects = await db
@@ -265,7 +265,7 @@ router.get('/evidence-health', requireAuth, asyncHandler(async (req: AuthRequest
 }));
 
 // Requirement conformance breakdown (pass/fail/NA across all assessment requirements)
-router.get('/conformance-breakdown', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/conformance-breakdown', requireAuth, asyncHandler(async (_req: AuthRequest, res: Response): Promise<void> => {
   const db = getDatabase();
 
   const results = ['yes', 'no', 'partial', 'not_applicable'] as const;
@@ -295,9 +295,9 @@ router.get('/conformance-breakdown', requireAuth, asyncHandler(async (req: AuthR
 }));
 
 // Risk insights: blind spots, gaps, and warnings
-router.get('/risk-insights', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/risk-insights', requireAuth, asyncHandler(async (_req: AuthRequest, res: Response): Promise<void> => {
   const db = getDatabase();
-  const insights: Array<{ type: string; severity: string; title: string; detail: string }> = [];
+  const insights: { type: string; severity: string; title: string; detail: string }[] = [];
 
   // Blind spots: standards linked to projects but with 0% assessment coverage
   const standards = await db
@@ -897,7 +897,7 @@ router.get('/progress', requireAuth, asyncHandler(async (req: AuthRequest, res: 
       }
 
       const stdLabel = a.standard_name
-        ? `${a.standard_name}${a.standard_version ? ' ' + a.standard_version : ''}`
+        ? `${a.standard_name}${a.standard_version ? ` ${a.standard_version}` : ''}`
         : 'Unknown';
 
       return {

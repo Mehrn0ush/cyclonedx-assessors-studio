@@ -121,7 +121,7 @@ router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Respo
           'project_standard.standard_id'
         )
     )
-    .where('project_standard.project_id', '=', req.params.id as string)
+    .where('project_standard.project_id', '=', req.params.id)
     .select([
       'standard.id as id',
       'standard.name as name',
@@ -255,7 +255,7 @@ router.put(
       }
 
       logger.info('Project updated', {
-        projectId: req.params.id as string,
+        projectId: req.params.id,
         requestId: req.requestId,
       });
 
@@ -412,7 +412,7 @@ router.get(
     // Fetch assessments
     const assessments = (await db
       .selectFrom('assessment')
-      .where('project_id', '=', req.params.id as string)
+      .where('project_id', '=', req.params.id)
       .selectAll()
       .execute()) as Record<string, unknown>[];
 

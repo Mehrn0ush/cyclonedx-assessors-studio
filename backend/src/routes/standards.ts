@@ -82,7 +82,7 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
     .limit(limit)
     .offset(offset)
     .orderBy('name', 'asc')
-    .execute()) as Array<Selectable<Standard>>;
+    .execute()) as Selectable<Standard>[];
 
   // Fetch requirement counts per standard in one query
   const reqCounts = await db
@@ -129,7 +129,7 @@ router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Respo
 
   const standard = await db
     .selectFrom('standard')
-    .where('id', '=', req.params.id as string)
+    .where('id', '=', req.params.id)
     .selectAll()
     .executeTakeFirst();
 
@@ -409,7 +409,7 @@ router.put(
       .executeTakeFirst();
 
     logger.info('Standard updated', {
-      standardId: req.params.id as string,
+      standardId: req.params.id,
       requestId: req.requestId,
     });
 
@@ -455,9 +455,14 @@ router.post(
       .selectAll()
       .executeTakeFirst();
 
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
     logger.info('Standard submitted for approval', {
       standardId: req.params.id as string,
-      userId: req.user!.id,
+      userId: req.user.id,
       requestId: req.requestId,
     });
 
@@ -546,7 +551,12 @@ router.post(
       return;
     }
 
-    if (standard.authored_by === req.user!.id) {
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    if (standard.authored_by === req.user.id) {
       res.status(403).json({ error: 'Cannot reject your own standard submission' });
       return;
     }
@@ -857,7 +867,7 @@ router.put(
     const db = getDatabase();
     const standard = await db
       .selectFrom('standard')
-      .where('id', '=', req.params.standardId as string)
+      .where('id', '=', req.params.standardId)
       .selectAll()
       .executeTakeFirst();
 
@@ -874,7 +884,7 @@ router.put(
     const requirement = await db
       .selectFrom('requirement')
       .where('id', '=', req.params.reqId)
-      .where('standard_id', '=', req.params.standardId as string)
+      .where('standard_id', '=', req.params.standardId)
       .selectAll()
       .executeTakeFirst();
 
@@ -933,7 +943,7 @@ router.put(
       .executeTakeFirst();
 
     logger.info('Requirement updated in standard', {
-      standardId: req.params.standardId as string,
+      standardId: req.params.standardId,
       requirementId: req.params.reqId,
       requestId: req.requestId,
     });
@@ -1098,7 +1108,7 @@ router.delete(
     const db = getDatabase();
     const standard = await db
       .selectFrom('standard')
-      .where('id', '=', req.params.standardId as string)
+      .where('id', '=', req.params.standardId)
       .selectAll()
       .executeTakeFirst();
 
@@ -1155,7 +1165,7 @@ router.put(
       }
     }
 
-    logger.info('Level requirements updated', { standardId: req.params.standardId as string, levelId: req.params.levelId, count: requirementIds.length, requestId: req.requestId });
+    logger.info('Level requirements updated', { standardId: req.params.standardId, levelId: req.params.levelId, count: requirementIds.length, requestId: req.requestId });
     res.json({ success: true, count: requirementIds.length });
   })
 );

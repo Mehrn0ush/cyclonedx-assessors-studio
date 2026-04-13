@@ -28,7 +28,7 @@ export async function createEntity(entity: { name: string; description?: string 
 }
 
 export async function updateEntity(id: string, updates: { name?: string; description?: string | null; state?: string; entityType?: string; tags?: string[] }) {
-  const payload: Record<string, any> = {}
+  const payload: Record<string, string | string[] | null | undefined> = {}
   if (updates.name !== undefined) payload.name = updates.name
   if (updates.description !== undefined) payload.description = updates.description
   if (updates.state !== undefined) payload.state = updates.state

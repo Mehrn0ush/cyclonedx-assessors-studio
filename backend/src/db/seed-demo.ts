@@ -147,7 +147,7 @@ async function seedEntitiesAndRelationships(db: Kysely<Database>, data: DemoData
 }
 
 // Helper: Seed compliance policies
-async function seedCompliancePolicies(db: Kysely<Database>, data: DemoData, firstStandardId: string | null, secondStandardId: string | null): Promise<void> {
+async function seedCompliancePolicies(db: Kysely<Database>, _data: DemoData, firstStandardId: string | null, secondStandardId: string | null): Promise<void> {
   if (!firstStandardId) return;
 
   const policies = [
@@ -258,9 +258,13 @@ async function seedAssessments(db: Kysely<Database>, data: DemoData, resolveId: 
   for (const aa of data.assessment_assessees) {
     // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
     const aaData = aa as any;
+    const resolved = resolveId(aaData.user_id as string);
+    if (!resolved) {
+      throw new Error(`Failed to resolve user_id: ${aaData.user_id}`);
+    }
     await db.insertInto('assessment_assessee').values({
       assessment_id: aaData.assessment_id as string,
-      user_id: resolveId(aaData.user_id as string)!,
+      user_id: resolved,
       created_at: new Date(),
     }).execute();
   }
@@ -313,7 +317,7 @@ async function seedEvidence(db: Kysely<Database>, data: DemoData, resolveId: (va
 }
 
 // Helper: Seed assessment requirements and work notes
-async function seedAssessmentRequirements(db: Kysely<Database>, data: DemoData, firstStandardId: string | null, adminUserId: string): Promise<void> {
+async function seedAssessmentRequirements(db: Kysely<Database>, _data: DemoData, firstStandardId: string | null, _adminUserId: string): Promise<void> {
   if (!firstStandardId) return;
 
   const requirements = await db
@@ -736,9 +740,13 @@ async function seedFinalEntities(db: Kysely<Database>, data: DemoData, resolveId
   for (const notif of data.notifications) {
     // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
     const notifData = notif as any;
+    const resolved = resolveId(notifData.user_id as string);
+    if (!resolved) {
+      throw new Error(`Failed to resolve user_id: ${notifData.user_id}`);
+    }
     await db.insertInto('notification').values({
       ...notif,
-      user_id: resolveId(notifData.user_id as string)!,
+      user_id: resolved,
       // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
     } as any).execute();
   }
@@ -747,12 +755,16 @@ async function seedFinalEntities(db: Kysely<Database>, data: DemoData, resolveId
   for (const log of data.audit_logs) {
     // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
     const logData = log as any;
+    const resolved = resolveId(logData.user_id as string);
+    if (!resolved) {
+      throw new Error(`Failed to resolve user_id: ${logData.user_id}`);
+    }
     await db.insertInto('audit_log').values({
       id: uuidv4(),
       entity_type: logData.entity_type as string,
       entity_id: logData.entity_id as string,
       action: logData.action as string,
-      user_id: resolveId(logData.user_id as string)!,
+      user_id: resolved,
       changes: JSON.stringify(logData.changes),
     }).execute();
   }
@@ -761,11 +773,15 @@ async function seedFinalEntities(db: Kysely<Database>, data: DemoData, resolveId
   for (const dash of data.dashboards) {
     // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
     const dashData = dash as any;
+    const resolved = resolveId(dashData.owner_id as string);
+    if (!resolved) {
+      throw new Error(`Failed to resolve owner_id: ${dashData.owner_id}`);
+    }
     await db.insertInto('dashboard').values({
       id: dashData.id as string,
       name: dashData.name as string,
       description: dashData.description as string,
-      owner_id: resolveId(dashData.owner_id as string)!,
+      owner_id: resolved,
       is_default: dashData.is_default as boolean,
       is_shared: dashData.is_shared as boolean,
       layout: JSON.stringify(dashData.layout),
@@ -796,7 +812,7 @@ interface DemoData {
   assessment_assessees: Record<string, unknown>[];
   assessment_tags: Record<string, unknown>[];
   evidence: Record<string, unknown>[];
-  evidence_tags: Array<Record<string, unknown>>;
+  evidence_tags: Record<string, unknown>[];
   evidence_notes: Record<string, unknown>[];
   evidence_attachments: Record<string, unknown>[];
   claims: Record<string, unknown>[];

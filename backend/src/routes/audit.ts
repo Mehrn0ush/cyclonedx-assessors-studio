@@ -2,7 +2,7 @@ import { Router } from 'express';
 import type { Response } from 'express';
 import { getDatabase } from '../db/connection.js';
 import { asyncHandler } from '../utils/route-helpers.js';
-import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
+import { type AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { validatePagination } from '../utils/pagination.js';
 
 const router = Router();

@@ -214,11 +214,18 @@ const props = withDefaults(defineProps<{
 })
 
 defineEmits<{
-  (e: 'navigate-assessment', assessmentId: string): void
+  'navigate-assessment': (assessmentId: string) => void
 }>()
 
 const loading = ref(true)
-const stats = ref<any>(null)
+const stats = ref<{
+  assessmentCompletion: { total: number; completed: number; inProgress: number; percent: number };
+  timeline: { projectStartDate: string | null; projectDueDate: string | null; overdue: number; upcomingDueDates: Array<{ id: string; title: string; dueDate: unknown; state: unknown }>; earliestDueDate: Date | null; latestDueDate: Date | null };
+  evidenceCoverage: { totalRequirements: number; requirementsWithEvidence: number; totalEvidenceItems: number; percent: number | null };
+  conformance: { averageScore: number | null; assessments: Array<{ id: string; title: string; score: number; state: unknown }> };
+  warnings: Array<{ type: string; severity: 'critical' | 'warning' | 'info'; message: string; assessmentId?: string }>;
+  assessmentBreakdown?: Array<{ id: unknown; title: unknown; state: unknown; startDate: unknown; dueDate: unknown; conformanceScore: number | null }>;
+} | null>(null)
 
 const fetchStats = async () => {
   loading.value = true

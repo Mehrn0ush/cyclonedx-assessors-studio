@@ -11,6 +11,7 @@ function escapeRegExp(s: string): string {
 }
 
 function getCookie(name: string): string | null {
+  // eslint-disable-next-line security-node/non-literal-reg-expr
   const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${escapeRegExp(name)}=([^;]*)`))
   return match ? decodeURIComponent(match[1]) : null
 }

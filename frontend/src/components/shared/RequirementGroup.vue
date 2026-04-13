@@ -274,7 +274,7 @@ const onDragEnd = () => {
   emit('drag-end')
 }
 
-const onDragOver = (event: DragEvent, element: RequirementItem) => {
+const onDragOver = (_event: DragEvent, element: RequirementItem) => {
   if (props.dragNodeId === element.id) return
   dropTargetId.value = element.id
 }

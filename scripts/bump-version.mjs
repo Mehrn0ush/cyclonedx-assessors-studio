@@ -47,7 +47,7 @@ for (const relPath of PACKAGE_FILES) {
   const previous = pkg.version
   pkg.version = version
   // eslint-disable-next-line security/detect-non-literal-fs-filename
-  writeFileSync(filePath, JSON.stringify(pkg, null, 2) + '\n')
+  writeFileSync(filePath, `${JSON.stringify(pkg, null, 2)}\n`)
   console.log(`${relPath}: ${previous} -> ${version}`)
 }
 

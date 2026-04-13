@@ -98,11 +98,11 @@ async function validateEvidenceSubmission(
 /**
  * Validate evidence approval
  */
-async function validateEvidenceApproval(
+function validateEvidenceApproval(
   evidence: Record<string, unknown> | undefined,
   userId: string,
   hasReviewAccess: boolean,
-): Promise<{ valid: boolean; error?: string }> {
+): { valid: boolean; error?: string } {
   if (!evidence) {
     return { valid: false, error: 'Evidence not found' };
   }
@@ -235,7 +235,7 @@ router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Respo
     .selectFrom('evidence')
     .leftJoin('app_user as author', (join) => join.onRef('author.id', '=', 'evidence.author_id'))
     .leftJoin('app_user as reviewer', (join) => join.onRef('reviewer.id', '=', 'evidence.reviewer_id'))
-    .where('evidence.id', '=', req.params.id as string)
+    .where('evidence.id', '=', req.params.id)
     .select([
       'evidence.id',
       'evidence.bom_ref',
@@ -271,14 +271,14 @@ router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Respo
           'evidence_note.user_id'
         )
     )
-    .where('evidence_note.evidence_id', '=', req.params.id as string)
+    .where('evidence_note.evidence_id', '=', req.params.id)
     .selectAll()
     .orderBy('evidence_note.created_at', 'desc')
     .execute()) as unknown[];
 
   const attachmentsQuery = db
     .selectFrom('evidence_attachment')
-    .where('evidence_attachment.evidence_id', '=', req.params.id as string);
+    .where('evidence_attachment.evidence_id', '=', req.params.id);
 
   const attachments = await (includeContent
     ? attachmentsQuery.selectAll().execute()
@@ -315,7 +315,7 @@ interface ClaimRecord {
 // Get claims referencing a specific evidence item
 router.get('/:id/claims', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const db = getDatabase();
-  const evidenceId = req.params.id as string;
+  const evidenceId = req.params.id;
 
   // Find claims where this evidence is supporting, counter, or mitigation
   const supportingClaims = (await db
@@ -489,7 +489,7 @@ router.put('/:id', requireAuth, requirePermission('evidence.edit'), asyncHandler
       await db
         .updateTable('evidence')
         .set(toSnakeCase(updateData))
-        .where('id', '=', req.params.id as string)
+        .where('id', '=', req.params.id)
         .execute();
 
       await logAudit(db, {
@@ -506,7 +506,7 @@ router.put('/:id', requireAuth, requirePermission('evidence.edit'), asyncHandler
     }
 
     logger.info('Evidence updated', {
-      evidenceId: req.params.id as string,
+      evidenceId: req.params.id,
       requestId: req.requestId,
     });
 
@@ -630,7 +630,7 @@ router.post(
       const existing = await db
         .selectFrom('assessment_requirement_evidence')
         .where('assessment_requirement_id', '=', data.assessmentRequirementId)
-        .where('evidence_id', '=', req.params.id as string)
+        .where('evidence_id', '=', req.params.id)
         .selectAll()
         .executeTakeFirst();
 
@@ -1096,12 +1096,12 @@ router.post(
         const contentHash = computeContentHash(buffer);
         const sizeBytes = buffer.length;
         const resolvedContentType = detectCycloneDXMediaType(data.filename, data.contentType, buffer);
-        const storageKey = `evidence/${req.params.id as string}/${attachmentId}-${data.filename}`;
+        const storageKey = `evidence/${req.params.id}/${attachmentId}-${data.filename}`;
 
         // Build the row based on provider
         const row: Record<string, unknown> = {
           id: attachmentId,
-          evidenceId: req.params.id as string,
+          evidenceId: req.params.id,
           filename: data.filename,
           contentType: resolvedContentType,
           sizeBytes,
@@ -1162,12 +1162,12 @@ router.post(
       const attachments: Record<string, unknown>[] = [];
       let fileSizeLimitHit = false;
 
-      bb.on('file', async (_fieldname, file, info) => {
+      bb.on('file', (_fieldname, file, info) => {
         try {
           const attachmentId = uuidv4();
           const filename = info.filename;
           const contentTypeFromFile = info.mimeType;
-          const storageKey = `evidence/${req.params.id as string}/${attachmentId}-${filename}`;
+          const storageKey = `evidence/${req.params.id}/${attachmentId}-${filename}`;
 
           const chunks: Buffer[] = [];
 
@@ -1280,7 +1280,7 @@ router.get(
     const attachment = await db
       .selectFrom('evidence_attachment')
       .where('evidence_attachment.id', '=', req.params.attachmentId)
-      .where('evidence_attachment.evidence_id', '=', req.params.id as string)
+      .where('evidence_attachment.evidence_id', '=', req.params.id)
       .selectAll()
       .executeTakeFirst();
 

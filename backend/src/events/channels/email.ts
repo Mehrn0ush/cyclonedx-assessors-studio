@@ -206,7 +206,7 @@ export class EmailChannel implements NotificationChannel {
           .select(['email'])
           .executeTakeFirst();
 
-        if (!user || !user.email) {
+        if (!user?.email) {
           logger.debug('User has no email address', { eventId: envelope.id, userId });
           continue;
         }

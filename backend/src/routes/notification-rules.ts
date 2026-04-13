@@ -12,7 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth } from '../middleware/auth.js';
+import { type AuthRequest, requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 

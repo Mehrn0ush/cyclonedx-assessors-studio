@@ -151,7 +151,7 @@ router.get('/relationship-graph', requireAuth, async (req: AuthRequest, res: Res
       filteredRelationships = relationships.filter((r) => producerRelTypes.has((r as Record<string, unknown>).relationship_type as string));
       filteredEntityIds = new Set<string>();
       for (const rel of filteredRelationships) {
-        const relationship = rel as Record<string, unknown>;
+        const relationship = rel;
         filteredEntityIds.add(relationship.source_entity_id as string);
         filteredEntityIds.add(relationship.target_entity_id as string);
       }
@@ -160,7 +160,7 @@ router.get('/relationship-graph', requireAuth, async (req: AuthRequest, res: Res
       filteredRelationships = relationships.filter((r) => consumerRelTypes.has((r as Record<string, unknown>).relationship_type as string));
       filteredEntityIds = new Set<string>();
       for (const rel of filteredRelationships) {
-        const relationship = rel as Record<string, unknown>;
+        const relationship = rel;
         filteredEntityIds.add(relationship.source_entity_id as string);
         filteredEntityIds.add(relationship.target_entity_id as string);
       }
@@ -209,7 +209,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
 
     const entity = await db
       .selectFrom('entity')
-      .where('id', '=', req.params.id as string)
+      .where('id', '=', req.params.id)
       .selectAll()
       .executeTakeFirst();
 
@@ -222,7 +222,7 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
     const parentRelationships = (await db
       .selectFrom('entity_relationship')
       .innerJoin('entity', 'entity.id', 'entity_relationship.source_entity_id')
-      .where('entity_relationship.target_entity_id', '=', req.params.id as string)
+      .where('entity_relationship.target_entity_id', '=', req.params.id)
       .select([
         'entity_relationship.id as id',
         'entity_relationship.source_entity_id as source_entity_id',
@@ -373,19 +373,19 @@ router.put(
         await db
           .updateTable('entity')
           .set(updateData)
-          .where('id', '=', req.params.id as string)
+          .where('id', '=', req.params.id)
           .execute();
       }
 
       logger.info('Entity updated', {
-        entityId: req.params.id as string,
+        entityId: req.params.id,
         requestId: req.requestId,
       });
 
       // Fetch and return the updated entity
       const updatedEntity = await db
         .selectFrom('entity')
-        .where('id', '=', req.params.id as string)
+        .where('id', '=', req.params.id)
         .selectAll()
         .executeTakeFirst();
 
@@ -528,7 +528,7 @@ router.get('/:id/history', requireAuth, asyncHandler(async (req: AuthRequest, re
     const assessments = (await db
       .selectFrom('assessment')
       .leftJoin('standard', 'standard.id', 'assessment.standard_id')
-      .where('assessment.entity_id', '=', req.params.id as string)
+      .where('assessment.entity_id', '=', req.params.id)
       .select([
         'assessment.id as id',
         'assessment.title as title',
@@ -544,7 +544,7 @@ router.get('/:id/history', requireAuth, asyncHandler(async (req: AuthRequest, re
     // Group by standard
     const history: Record<string, Record<string, unknown>> = {};
     for (const assessment of assessments) {
-      const assessmentRecord = assessment as Record<string, unknown>;
+      const assessmentRecord = assessment;
       const standardKey = (assessmentRecord.standard_name as string) || 'unknown';
       if (!history[standardKey]) {
         history[standardKey] = {
@@ -645,7 +645,7 @@ router.get('/:id/relationship-graph', requireAuth, async (req: AuthRequest, res:
 
       const allRels = [...outbound, ...inbound];
       for (const rel of allRels) {
-        const relRecord = rel as Record<string, unknown>;
+        const relRecord = rel;
         const relId = relRecord.id as string;
         const sourceEntityId = relRecord.source_entity_id as string;
         const targetEntityId = relRecord.target_entity_id as string;
@@ -856,7 +856,7 @@ router.get('/:id/policies', requireAuth, asyncHandler(async (req: AuthRequest, r
       .selectFrom('entity_relationship')
       .where((eb) =>
         eb.and([
-          eb('target_entity_id', '=', req.params.id as string),
+          eb('target_entity_id', '=', req.params.id),
           eb('relationship_type', 'in', ['owns', 'contains', 'governs']),
         ])
       )

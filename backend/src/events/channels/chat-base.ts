@@ -33,7 +33,7 @@ const CLEANUP_INTERVAL_MS = 3_600_000; // 1 hour
 
 export abstract class BaseChatChannel implements NotificationChannel {
   abstract platform: string;
-  abstract formatMessage(_envelope: EventEnvelope, appUrl: string): Record<string, unknown>;
+  abstract formatMessage(envelope: EventEnvelope, appUrl: string): Record<string, unknown>;
 
   name: string;
   private getDb: () => Kysely<Database>;

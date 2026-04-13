@@ -107,6 +107,11 @@ router.post(
       const db = getDatabase();
       const id = uuidv4();
 
+      if (!req.user) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
       await db
         .insertInto('chat_integration')
         .values({
@@ -118,7 +123,7 @@ router.post(
           channel_name: data.channelName || null,
           is_active: true,
           consecutive_failures: 0,
-          created_by: req.user!.id,
+          created_by: req.user.id,
           created_at: new Date(),
           updated_at: new Date(),
         })

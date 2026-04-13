@@ -2,14 +2,14 @@ import { Router } from 'express';
 import type { Response } from 'express';
 import { getConfig } from '../config/index.js';
 import { getDatabase } from '../db/connection.js';
-import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
+import { type AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import {
   getStorageProviderName,
   resolveProvider,
-  S3StorageProvider,
+  type S3StorageProvider,
 } from '../storage/index.js';
 import { getChannelRegistry } from '../events/index.js';
-import { EmailChannel } from '../events/channels/email.js';
+import type { EmailChannel } from '../events/channels/email.js';
 import { asyncHandler } from '../utils/route-helpers.js';
 
 const router = Router();
@@ -164,7 +164,7 @@ router.post(
       .select(['email'])
       .executeTakeFirst();
 
-    if (!user || !user.email) {
+    if (!user?.email) {
       res.status(400).json({ success: false, message: 'Your account does not have an email address configured' });
       return;
     }

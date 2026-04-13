@@ -93,7 +93,7 @@ export interface RequirementTreeNode {
 }
 
 export function buildRequirementTree(
-  requirements: Array<{
+  requirements: {
     id: string;
     identifier: string;
     name: string;
@@ -103,9 +103,9 @@ export function buildRequirementTree(
     standard_id: string;
     created_at: Date;
     updated_at: Date;
-  }>,
+  }[],
 ): RequirementTreeNode[] {
-  const childrenMap = new Map<string | null, Array<(typeof requirements)[number]>>();
+  const childrenMap = new Map<string | null, (typeof requirements)[number][]>();
 
   for (const req of requirements) {
     const parentKey = req.parent_id ?? null;

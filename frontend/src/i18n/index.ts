@@ -43,6 +43,7 @@ export async function loadLocaleMessages(locale: string): Promise<void> {
     return;
   }
   try {
+    // eslint-disable-next-line no-unsanitized/method
     const messages = await import(`./locales/${locale}.json`);
     i18n.global.setLocaleMessage(locale, messages.default);
     const localeRef = i18n.global.locale as unknown;

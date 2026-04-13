@@ -72,7 +72,7 @@ interface KeyVersion {
 }
 
 /** In-memory cache of key versions loaded from the database. */
-let keyVersions: Map<number, KeyVersion> = new Map();
+let keyVersions = new Map<number, KeyVersion>();
 let activeKeyVersion: number = 0;
 
 /**

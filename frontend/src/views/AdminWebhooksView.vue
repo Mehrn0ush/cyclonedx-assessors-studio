@@ -371,7 +371,7 @@ const copySecret = async () => {
 const truncateUrl = (url: string): string => {
   if (!url) return ''
   if (url.length <= 50) return url
-  return url.substring(0, 47) + '...'
+  return `${url.substring(0, 47)}...`
 }
 
 const formatEventTypes = (types: string[] | undefined): string => {

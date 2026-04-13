@@ -215,7 +215,7 @@ router.put(
       if (data.permissionIds !== undefined) {
         await db
           .deleteFrom('role_permission')
-          .where('role_id', '=', req.params.id as string)
+          .where('role_id', '=', req.params.id)
           .execute();
 
         if (data.permissionIds.length > 0) {
@@ -233,7 +233,7 @@ router.put(
       }
 
       logger.info('Role updated', {
-        roleId: req.params.id as string,
+        roleId: req.params.id,
         requestId: req.requestId,
       });
 

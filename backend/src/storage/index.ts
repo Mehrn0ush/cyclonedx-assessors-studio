@@ -42,7 +42,6 @@ export function initializeStorage(): void {
       });
       break;
     }
-    case 'database':
     default: {
       activeProvider = new DatabaseStorageProvider();
       logger.info('Storage provider initialized: database');

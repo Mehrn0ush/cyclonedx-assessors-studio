@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Response } from 'express';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { getDatabase } from '../db/connection.js';
 import { AuthRequest, requireAuth, hashApiKey, getPermissionsForRole } from '../middleware/auth.js';
 import { asyncHandler } from '../utils/route-helpers.js';
@@ -82,12 +82,12 @@ router.post(
       .executeTakeFirstOrThrow();
 
     // Add audit log entry when creating a key for another user
-    if (targetUserId !== req.user!.id) {
+    if (req.user && targetUserId !== req.user.id) {
       await logAudit(db, {
         entityType: 'api_key',
         entityId: row.id,
         action: 'create_for_other',
-        userId: req.user!.id,
+        userId: req.user.id,
         changes: { targetUserId, keyName: name },
       });
     }
@@ -123,10 +123,15 @@ router.get(
       .selectFrom('api_key')
       .select(['id', 'name', 'prefix', 'user_id', 'expires_at', 'last_used_at', 'created_at']);
 
-    const userPermissions = await getPermissionsForRole(req.user!.role);
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    const userPermissions = await getPermissionsForRole(req.user.role);
     const isAdmin = userPermissions.includes('admin.settings');
     if (!isAdmin) {
-      query = query.where('user_id', '=', req.user!.id);
+      query = query.where('user_id', '=', req.user.id);
     }
 
     const keys = await query.orderBy('created_at', 'desc').execute();

@@ -255,7 +255,7 @@ export class RulesEngine {
         } else {
           // Other channels are dispatched via the channel registry
           const channel = this.channelRegistry.getChannel(channelName);
-          if (channel && channel.handles(envelope)) {
+          if (channel?.handles(envelope)) {
             // For now, the channel's process() handles it
             // In future, we could call a specialized method with matches
             await channel.process(envelope);

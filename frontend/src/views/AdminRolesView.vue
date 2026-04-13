@@ -258,12 +258,12 @@ const handleDelete = async (row: Role) => {
 
 const handleSave = async () => {
   if (!form.value.name || !form.value.key) {
-    ElMessage.error(t('common.error') + ': Please fill in all required fields')
+    ElMessage.error(`${t('common.error')}: Please fill in all required fields`)
     return
   }
 
   if (form.value.permissionIds.length === 0) {
-    ElMessage.error(t('common.error') + ': Please select at least one permission')
+    ElMessage.error(`${t('common.error')}: Please select at least one permission`)
     return
   }
 

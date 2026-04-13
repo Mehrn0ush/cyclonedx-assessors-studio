@@ -25,7 +25,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response): Promise<void> 
   // Optional bearer token auth
   if (config.METRICS_TOKEN) {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader?.startsWith('Bearer ')) {
       res.status(401).json({ error: 'Authorization required' });
       return;
     }

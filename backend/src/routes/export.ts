@@ -58,12 +58,12 @@ interface CycloneDXStandard {
   identifier: string;
   name: string;
   version?: string;
-  requirements: Array<{
+  requirements: {
     'bom-ref': string;
     identifier: string;
     name: string;
     description?: string;
-  }>;
+  }[];
 }
 
 interface CycloneDXBOM {
@@ -75,11 +75,11 @@ interface CycloneDXBOM {
   metadata: {
     timestamp: string;
     tools: {
-      components: Array<{
+      components: {
         type: string;
         name: string;
         version?: string;
-      }>;
+      }[];
     };
   };
   declarations: {
