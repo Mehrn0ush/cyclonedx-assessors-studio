@@ -214,17 +214,17 @@ const props = withDefaults(defineProps<{
 })
 
 defineEmits<{
-  'navigate-assessment': (assessmentId: string) => void
+  'navigate-assessment': [assessmentId: string]
 }>()
 
 const loading = ref(true)
 const stats = ref<{
   assessmentCompletion: { total: number; completed: number; inProgress: number; percent: number };
-  timeline: { projectStartDate: string | null; projectDueDate: string | null; overdue: number; upcomingDueDates: Array<{ id: string; title: string; dueDate: unknown; state: unknown }>; earliestDueDate: Date | null; latestDueDate: Date | null };
+  timeline: { projectStartDate: string | null; projectDueDate: string | null; overdue: number; upcomingDueDates: Array<{ id: string; title: string; dueDate: string; state: string }>; earliestDueDate: Date | null; latestDueDate: Date | null };
   evidenceCoverage: { totalRequirements: number; requirementsWithEvidence: number; totalEvidenceItems: number; percent: number | null };
-  conformance: { averageScore: number | null; assessments: Array<{ id: string; title: string; score: number; state: unknown }> };
+  conformance: { averageScore: number | null; assessments: Array<{ id: string; title: string; score: number; state: string }> };
   warnings: Array<{ type: string; severity: 'critical' | 'warning' | 'info'; message: string; assessmentId?: string }>;
-  assessmentBreakdown?: Array<{ id: unknown; title: unknown; state: unknown; startDate: unknown; dueDate: unknown; conformanceScore: number | null }>;
+  assessmentBreakdown?: Array<{ id: string; title: string; state: string; startDate: string | null; dueDate: string | null; conformanceScore: number | null }>;
 } | null>(null)
 
 const fetchStats = async () => {
@@ -385,8 +385,8 @@ const ganttItems = computed((): GanttItem[] => {
     id: string
     title: string
     state: string
-    startDate?: string
-    dueDate?: string
+    startDate: string | null
+    dueDate: string | null
   }
 
   return stats.value.assessmentBreakdown
@@ -412,10 +412,10 @@ const projectGanttBar = computed(() => {
   if (!stats.value?.timeline.projectStartDate && !stats.value?.timeline.projectDueDate) return null
   const start = stats.value.timeline.projectStartDate
     ? new Date(stats.value.timeline.projectStartDate)
-    : new Date(stats.value.timeline.projectDueDate)
+    : new Date(stats.value.timeline.projectDueDate!)
   const end = stats.value.timeline.projectDueDate
     ? new Date(stats.value.timeline.projectDueDate)
-    : new Date(stats.value.timeline.projectStartDate)
+    : new Date(stats.value.timeline.projectStartDate!)
   const leftPercent = toPercent(start)
   const rightPercent = toPercent(end)
   return {

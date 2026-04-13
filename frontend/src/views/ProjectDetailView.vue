@@ -34,7 +34,7 @@
             </div>
           </div>
         </template>
-        <ProjectDashboard :key="dashboardKey" :project-id="(route.params.id as string)" :view="dashboardView" @navigate-assessment="navigateToAssessment" />
+        <ProjectDashboard :key="dashboardKey" :project-id="(route.params.id as string)" :view="dashboardView" @navigate-assessment="(id: string) => navigateToAssessment(id)" />
       </el-card>
 
       <el-card class="project-info-card">
