@@ -145,9 +145,9 @@ function toggleCategory(category: string, checked: boolean) {
   const events = eventCategories.value[category] || []
   const current = new Set(props.modelValue)
   if (checked) {
-    events.forEach((evt) => current.add(evt))
+    events.forEach((evt) => { current.add(evt) })
   } else {
-    events.forEach((evt) => current.delete(evt))
+    events.forEach((evt) => { current.delete(evt) })
   }
   emit('update:modelValue', [...current])
 }

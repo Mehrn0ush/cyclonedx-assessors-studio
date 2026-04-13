@@ -51,4 +51,4 @@ for (const relPath of PACKAGE_FILES) {
   console.log(`${relPath}: ${previous} -> ${version}`)
 }
 
-console.log(`\nAll package.json files set to ${version}`)
+console.log(`\nAll package.json files set to version ${version}`)

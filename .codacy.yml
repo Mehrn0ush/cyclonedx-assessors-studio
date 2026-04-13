@@ -88,6 +88,12 @@ engines:
       # in try/catch and returns null on failure. The rule cannot see that
       # error handling is complete within the async function body.
       - ESLint8_security-node_detect-unhandled-async-errors
+      # False positive: bump-version.mjs uses console.error() with template
+      # literals for CLI error messages, not HTML output.
+      - ESLint8_xss_no-mixed-html
+      # False positive: bump-version.mjs constructs file paths from a static
+      # list of known package.json locations, not from user input.
+      - ESLint8_security_detect-non-literal-fs-filename
 
   securitypatterns:
     enabled: true

@@ -127,7 +127,7 @@ const filteredOptions = computed(() => {
   const q = searchQuery.value.toLowerCase()
   return props.options.filter(o =>
     o.label.toLowerCase().includes(q) ||
-    (o.description && o.description.toLowerCase().includes(q))
+    (o.description?.toLowerCase().includes(q))
   )
 })
 

@@ -24,7 +24,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import TopBar from '@/components/layout/TopBar.vue'
 import SideBar from '@/components/layout/SideBar.vue'
@@ -32,7 +31,6 @@ import StatusBar from '@/components/layout/StatusBar.vue'
 
 const route = useRoute()
 const router = useRouter()
-const authStore = useAuthStore()
 const uiStore = useUIStore()
 
 const routerReady = ref(false)
