@@ -275,7 +275,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf  # v6.0.0
         with:
-          images: cyclonedx/assessors-studio
+          images: cyclonedx/cyclonedx-assessors-studio
           tags: |
             type=raw,value=${{ needs.validate.outputs.version }}
             type=raw,value=latest,enable=${{ inputs.prerelease == false }}
