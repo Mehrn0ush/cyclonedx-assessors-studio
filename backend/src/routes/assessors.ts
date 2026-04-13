@@ -7,6 +7,7 @@ import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { logger } from '../utils/logger.js';
 import type { AuthRequest } from '../middleware/auth.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
+import { checkResourceExists } from '../utils/resource-checks.js';
 
 const router = Router();
 
@@ -164,16 +165,8 @@ router.put(
       const data = updateAssessorSchema.parse(req.body);
       const db = getDatabase();
 
-      const existing = await db
-        .selectFrom('assessor')
-        .where('id', '=', req.params.id)
-        .selectAll()
-        .executeTakeFirst();
-
-      if (!existing) {
-        res.status(404).json({ error: 'Assessor not found' });
-        return;
-      }
+      const existing = await checkResourceExists(db, res, 'assessor', req.params.id as string, 'Assessor');
+      if (!existing) return;
 
       const updateData: Record<string, unknown> = { updated_at: new Date() };
       if (data.thirdParty !== undefined) updateData.third_party = data.thirdParty;
@@ -182,7 +175,7 @@ router.put(
 
       await db.updateTable('assessor')
         .set(updateData)
-        .where('id', '=', req.params.id)
+        .where('id', '=', req.params.id as string)
         .execute();
 
       logger.info('Assessor updated', { assessorId: req.params.id, requestId: req.requestId });
@@ -202,19 +195,11 @@ router.delete(
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const db = getDatabase();
 
-    const existing = await db
-      .selectFrom('assessor')
-      .where('id', '=', req.params.id)
-      .selectAll()
-      .executeTakeFirst();
-
-    if (!existing) {
-      res.status(404).json({ error: 'Assessor not found' });
-      return;
-    }
+    const existing = await checkResourceExists(db, res, 'assessor', req.params.id as string, 'Assessor');
+    if (!existing) return;
 
     await db.deleteFrom('assessor')
-      .where('id', '=', req.params.id)
+      .where('id', '=', req.params.id as string)
       .execute();
 
     logger.info('Assessor deleted', { assessorId: req.params.id, requestId: req.requestId });

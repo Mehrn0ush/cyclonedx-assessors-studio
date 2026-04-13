@@ -28,6 +28,39 @@ function generateSecret(): string {
 }
 
 /**
+ * Check if hostname matches reserved internal hostnames.
+ */
+function isReservedHostname(hostname: string): boolean {
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '::1' ||
+    hostname === '0.0.0.0' ||
+    hostname.endsWith('.local') ||
+    hostname.endsWith('.internal')
+  );
+}
+
+/**
+ * Check if hostname is a cloud metadata endpoint.
+ */
+function isCloudMetadataEndpoint(hostname: string): boolean {
+  return hostname === '169.254.169.254' || hostname === 'metadata.google.internal';
+}
+
+/**
+ * Check if an IPv4 address is in a private or reserved range.
+ */
+function isPrivateIpv4(a: number, b: number): boolean {
+  if (a === 10) return true;                             // 10.0.0.0/8
+  if (a === 172 && b >= 16 && b <= 31) return true;     // 172.16.0.0/12
+  if (a === 192 && b === 168) return true;               // 192.168.0.0/16
+  if (a === 169 && b === 254) return true;               // 169.254.0.0/16 (link-local)
+  if (a === 127) return true;                            // 127.0.0.0/8 (loopback)
+  return a === 0;                                         // 0.0.0.0/8
+}
+
+/**
  * Validate that a webhook URL does not target private/internal networks (SSRF protection).
  * Blocks localhost, link-local, private RFC 1918, and cloud metadata endpoints.
  */
@@ -36,20 +69,7 @@ function isPrivateOrReservedUrl(urlString: string): boolean {
     const parsed = new URL(urlString);
     const hostname = parsed.hostname.toLowerCase();
 
-    // Block obvious internal hostnames
-    if (
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname === '::1' ||
-      hostname === '0.0.0.0' ||
-      hostname.endsWith('.local') ||
-      hostname.endsWith('.internal')
-    ) {
-      return true;
-    }
-
-    // Block cloud metadata endpoints (AWS, GCP, Azure)
-    if (hostname === '169.254.169.254' || hostname === 'metadata.google.internal') {
+    if (isReservedHostname(hostname) || isCloudMetadataEndpoint(hostname)) {
       return true;
     }
 
@@ -57,20 +77,11 @@ function isPrivateOrReservedUrl(urlString: string): boolean {
     const ipv4Match = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
     if (ipv4Match) {
       const [, a, b] = ipv4Match.map(Number);
-      if (a === 10) return true;                             // 10.0.0.0/8
-      if (a === 172 && b >= 16 && b <= 31) return true;     // 172.16.0.0/12
-      if (a === 192 && b === 168) return true;               // 192.168.0.0/16
-      if (a === 169 && b === 254) return true;               // 169.254.0.0/16 (link-local)
-      if (a === 127) return true;                            // 127.0.0.0/8 (loopback)
-      if (a === 0) return true;                              // 0.0.0.0/8
+      if (isPrivateIpv4(a, b)) return true;
     }
 
     // Require HTTPS for webhook endpoints
-    if (parsed.protocol !== 'https:') {
-      return true;
-    }
-
-    return false;
+    return parsed.protocol !== 'https:';
   } catch {
     return true; // Invalid URL
   }
@@ -81,6 +92,44 @@ const safeWebhookUrl = z.string().url('URL must be a valid URL').refine(
   (url) => !isPrivateOrReservedUrl(url),
   'Webhook URL must use HTTPS and cannot target private, reserved, or internal network addresses'
 );
+
+/**
+ * Build webhook update data from request payload.
+ */
+function buildWebhookUpdates(data: Record<string, any>): Record<string, unknown> {
+  const updates: Record<string, unknown> = { updated_at: new Date() };
+  if (data.name !== undefined) updates.name = data.name;
+  if (data.url !== undefined) updates.url = data.url;
+  if (data.eventTypes !== undefined) updates.event_types = data.eventTypes;
+  if (data.isActive !== undefined) {
+    updates.is_active = data.isActive;
+    if (data.isActive) updates.consecutive_failures = 0;
+  }
+  return updates;
+}
+
+/**
+ * Build webhook response object from webhook record and request data.
+ */
+function buildWebhookResponse(
+  webhook: Record<string, any>,
+  data: Record<string, any>,
+  newSecret: string | null
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {
+    id: webhook.id,
+    name: data.name ?? webhook.name,
+    url: data.url ?? webhook.url,
+    eventTypes: data.eventTypes ?? webhook.event_types,
+    isActive: data.isActive ?? webhook.is_active,
+  };
+
+  if (newSecret) {
+    result.secret = newSecret;
+  }
+
+  return result;
+}
 
 // ---- Schemas ----
 
@@ -258,16 +307,9 @@ router.put(
         return;
       }
 
-      const updates: Record<string, unknown> = { updated_at: new Date() };
+      const updates = buildWebhookUpdates(data);
       let newSecret: string | null = null;
 
-      if (data.name !== undefined) updates.name = data.name;
-      if (data.url !== undefined) updates.url = data.url;
-      if (data.eventTypes !== undefined) updates.event_types = data.eventTypes;
-      if (data.isActive !== undefined) {
-        updates.is_active = data.isActive;
-        if (data.isActive) updates.consecutive_failures = 0;
-      }
       if (data.regenerateSecret) {
         newSecret = generateSecret();
         updates.secret = encryptionService.encrypt(newSecret);
@@ -279,19 +321,7 @@ router.put(
         .where('id', '=', req.params.id)
         .execute();
 
-      const result: Record<string, unknown> = {
-        id: webhook.id,
-        name: data.name ?? webhook.name,
-        url: data.url ?? webhook.url,
-        eventTypes: data.eventTypes ?? webhook.event_types,
-        isActive: data.isActive ?? webhook.is_active,
-      };
-
-      // Only include secret if it was regenerated
-      if (newSecret) {
-        result.secret = newSecret;
-      }
-
+      const result = buildWebhookResponse(webhook, data, newSecret);
       res.json(result);
     } catch (error) {
       if (handleValidationError(res, error)) return;

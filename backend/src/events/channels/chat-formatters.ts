@@ -70,46 +70,64 @@ export function getEventNature(eventType: string): EventNature {
 }
 
 /**
+ * Handlers for different entity types in getSummary.
+ */
+type SummaryHandler = (eventType: string, name: string | undefined, state: string | undefined) => string | null;
+
+const summaryHandlers: Record<string, SummaryHandler> = {
+  assessment: (eventType, name, state) => {
+    if (eventType.includes('created')) return `Assessment Created: ${name || 'New Assessment'}`;
+    if (eventType.includes('state_changed')) return `Assessment ${state || 'Updated'}`;
+    if (eventType.includes('assigned')) return `Assessment Assigned: ${name || 'Assessment'}`;
+    if (eventType.includes('deleted')) return `Assessment Deleted: ${name || 'Assessment'}`;
+    return null;
+  },
+  evidence: (eventType, name, state) => {
+    if (eventType.includes('created')) return `Evidence Created: ${name || 'New Evidence'}`;
+    if (eventType.includes('state_changed')) return `Evidence ${state || 'Updated'}`;
+    if (eventType.includes('attachment_added')) return `Evidence Attachment Added: ${name || 'Evidence'}`;
+    if (eventType.includes('attachment_removed')) return `Evidence Attachment Removed: ${name || 'Evidence'}`;
+    return null;
+  },
+  attestation: (eventType, name) => {
+    if (eventType.includes('created')) return `Attestation Created: ${name || 'New Attestation'}`;
+    if (eventType.includes('signed')) return `Attestation Signed: ${name || 'Attestation'}`;
+    if (eventType.includes('exported')) return `Attestation Exported: ${name || 'Attestation'}`;
+    return null;
+  },
+  claim: (eventType, name) => {
+    if (eventType.includes('created')) return `Claim Created: ${name || 'New Claim'}`;
+    if (eventType.includes('updated')) return `Claim Updated: ${name || 'Claim'}`;
+    return null;
+  },
+  project: (eventType, name, state) => {
+    if (eventType.includes('created')) return `Project Created: ${name || 'New Project'}`;
+    if (eventType.includes('state_changed')) return `Project ${state || 'Updated'}`;
+    if (eventType.includes('archived')) return `Project Archived: ${name || 'Project'}`;
+    return null;
+  },
+  standard: (eventType, name, state) => {
+    if (eventType.includes('imported')) return `Standard Imported: ${name || 'New Standard'}`;
+    if (eventType.includes('state_changed')) return `Standard ${state || 'Updated'}`;
+    return null;
+  },
+};
+
+/**
  * Build a human-readable summary line from the event type and data.
  */
 export function getSummary(eventType: string, data: Record<string, unknown>): string {
   const name = (data.name || data.title || data.entityName) as string | undefined;
   const state = (data.state || data.newState) as string | undefined;
 
-  if (eventType.includes('assessment')) {
-    if (eventType.includes('created')) return `Assessment Created: ${name || 'New Assessment'}`;
-    if (eventType.includes('state_changed')) return `Assessment ${state || 'Updated'}`;
-    if (eventType.includes('assigned')) return `Assessment Assigned: ${name || 'Assessment'}`;
-    if (eventType.includes('deleted')) return `Assessment Deleted: ${name || 'Assessment'}`;
-  }
-
-  if (eventType.includes('evidence')) {
-    if (eventType.includes('created')) return `Evidence Created: ${name || 'New Evidence'}`;
-    if (eventType.includes('state_changed')) return `Evidence ${state || 'Updated'}`;
-    if (eventType.includes('attachment_added')) return `Evidence Attachment Added: ${name || 'Evidence'}`;
-    if (eventType.includes('attachment_removed')) return `Evidence Attachment Removed: ${name || 'Evidence'}`;
-  }
-
-  if (eventType.includes('attestation')) {
-    if (eventType.includes('created')) return `Attestation Created: ${name || 'New Attestation'}`;
-    if (eventType.includes('signed')) return `Attestation Signed: ${name || 'Attestation'}`;
-    if (eventType.includes('exported')) return `Attestation Exported: ${name || 'Attestation'}`;
-  }
-
-  if (eventType.includes('claim')) {
-    if (eventType.includes('created')) return `Claim Created: ${name || 'New Claim'}`;
-    if (eventType.includes('updated')) return `Claim Updated: ${name || 'Claim'}`;
-  }
-
-  if (eventType.includes('project')) {
-    if (eventType.includes('created')) return `Project Created: ${name || 'New Project'}`;
-    if (eventType.includes('state_changed')) return `Project ${state || 'Updated'}`;
-    if (eventType.includes('archived')) return `Project Archived: ${name || 'Project'}`;
-  }
-
-  if (eventType.includes('standard')) {
-    if (eventType.includes('imported')) return `Standard Imported: ${name || 'New Standard'}`;
-    if (eventType.includes('state_changed')) return `Standard ${state || 'Updated'}`;
+  // Try each entity-type handler
+  for (const [entityType, handler] of Object.entries(summaryHandlers)) {
+    if (eventType.includes(entityType)) {
+      const result = handler(eventType, name, state);
+      if (result) {
+        return result;
+      }
+    }
   }
 
   // Fallback: convert dot-separated type to readable string

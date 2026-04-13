@@ -51,6 +51,165 @@ function getReadOnlyError(state: string): string | null {
 }
 
 /**
+ * Check if a state change is valid for a complete assessment.
+ */
+function isValidCompleteAssessmentStateChange(
+  data: Record<string, any>,
+  res: Response
+): boolean {
+  const isStateChangeOnly = data.state !== undefined &&
+    Object.keys(data).filter(k => data[k as keyof typeof data] !== undefined).length === 1;
+  if (!isStateChangeOnly) {
+    res.status(403).json({ error: 'Completed assessments are read-only. Reopen the assessment to make changes.' });
+    return false;
+  }
+  // Only allow transitioning to in_progress (reopen) or archived
+  if (data.state !== 'in_progress' && data.state !== 'archived') {
+    res.status(403).json({ error: 'Completed assessments can only be reopened or archived' });
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Build assessment update data from request payload.
+ */
+function buildAssessmentUpdateData(data: Record<string, any>): Record<string, unknown> {
+  const updateData: Record<string, unknown> = {};
+  if (data.title !== undefined) updateData.title = data.title;
+  if (data.description !== undefined) updateData.description = data.description;
+  if (data.dueDate !== undefined && data.dueDate !== null) updateData.due_date = new Date(data.dueDate);
+  if (data.state !== undefined) updateData.state = data.state;
+  return updateData;
+}
+
+/**
+ * Sync assessor assignments for an assessment.
+ */
+async function syncAssessors(
+  db: Kysely<Database>,
+  assessmentId: string,
+  assessorIds: string[] | undefined
+): Promise<void> {
+  if (assessorIds === undefined) return;
+
+  await db
+    .deleteFrom('assessment_assessor')
+    .where('assessment_id', '=', assessmentId)
+    .execute();
+
+  if (assessorIds.length > 0) {
+    await db
+      .insertInto('assessment_assessor')
+      .values(
+        assessorIds.map(userId => ({
+          assessment_id: assessmentId,
+          user_id: userId,
+          created_at: new Date(),
+        }))
+      )
+      .execute();
+  }
+}
+
+/**
+ * Sync assessee assignments for an assessment.
+ */
+async function syncAssessees(
+  db: Kysely<Database>,
+  assessmentId: string,
+  assesseeIds: string[] | undefined
+): Promise<void> {
+  if (assesseeIds === undefined) return;
+
+  await db
+    .deleteFrom('assessment_assessee')
+    .where('assessment_id', '=', assessmentId)
+    .execute();
+
+  if (assesseeIds.length > 0) {
+    await db
+      .insertInto('assessment_assessee')
+      .values(
+        assesseeIds.map(userId => ({
+          assessment_id: assessmentId,
+          user_id: userId,
+          created_at: new Date(),
+        }))
+      )
+      .execute();
+  }
+}
+
+/**
+ * Validate completion prerequisites for an assessment.
+ */
+async function validateCompletionPrerequisites(
+  db: Kysely<Database>,
+  assessmentId: string,
+  requirements: Array<any>,
+  res: Response
+): Promise<boolean> {
+  // Check requirement assessment status
+  let unassessedCount = 0;
+  let missingRationaleCount = 0;
+
+  for (const req of requirements) {
+    if (req.result === null || req.result === undefined) {
+      unassessedCount++;
+    }
+    if (req.rationale === null || req.rationale === undefined || req.rationale.trim() === '') {
+      missingRationaleCount++;
+    }
+  }
+
+  if (unassessedCount > 0 || missingRationaleCount > 0) {
+    res.status(400).json({
+      error: 'Cannot complete assessment',
+      unassessedCount,
+      missingRationaleCount,
+    });
+    return false;
+  }
+
+  // Check that at least one evidence item is linked
+  const evidenceLinks = await db
+    .selectFrom('assessment_requirement_evidence')
+    .innerJoin('assessment_requirement', 'assessment_requirement.id', 'assessment_requirement_evidence.assessment_requirement_id')
+    .where('assessment_requirement.assessment_id', '=', assessmentId)
+    .selectAll()
+    .execute();
+
+  if (evidenceLinks.length === 0) {
+    res.status(400).json({
+      error: 'Cannot complete assessment without any evidence. At least one evidence item must be linked to a requirement.',
+    });
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Calculate conformance score from assessment requirements.
+ */
+function calculateConformanceScore(requirements: Array<any>): number | null {
+  const applicableRequirements = requirements.filter(r => r.result !== 'not_applicable');
+  if (applicableRequirements.length === 0) return null;
+
+  const scoreMap = {
+    'yes': 1.0,
+    'partial': 0.5,
+    'no': 0.0,
+  };
+  let totalScore = 0;
+  for (const req of applicableRequirements) {
+    totalScore += scoreMap[req.result as keyof typeof scoreMap] || 0;
+  }
+  return Math.round((totalScore / applicableRequirements.length) * 100);
+}
+
+/**
  * Fetch assessment state by ID and return 403 if read-only.
  * Returns the assessment if mutable, or null if response was already sent.
  */
@@ -376,26 +535,12 @@ router.put('/:id', requireAuth, requirePermission('assessments.edit'), asyncHand
 
     // Complete assessments only allow state transitions (reopen or archive)
     if (assessment.state === 'complete') {
-      const isStateChangeOnly = data.state !== undefined &&
-        Object.keys(data).filter(k => data[k as keyof typeof data] !== undefined).length === 1;
-      if (!isStateChangeOnly) {
-        res.status(403).json({ error: 'Completed assessments are read-only. Reopen the assessment to make changes.' });
-        return;
-      }
-      // Only allow transitioning to in_progress (reopen) or archived
-      if (data.state !== 'in_progress' && data.state !== 'archived') {
-        res.status(403).json({ error: 'Completed assessments can only be reopened or archived' });
+      if (!isValidCompleteAssessmentStateChange(data, res)) {
         return;
       }
     }
 
-    const updateData: Record<string, unknown> = {};
-
-    if (data.title !== undefined) updateData.title = data.title;
-    if (data.description !== undefined) updateData.description = data.description;
-    if (data.dueDate !== undefined && data.dueDate !== null) updateData.due_date = new Date(data.dueDate);
-    if (data.state !== undefined) updateData.state = data.state;
-
+    const updateData = buildAssessmentUpdateData(data);
     if (Object.keys(updateData).length > 0) {
       await db
         .updateTable('assessment')
@@ -404,51 +549,13 @@ router.put('/:id', requireAuth, requirePermission('assessments.edit'), asyncHand
         .execute();
     }
 
+    // Sync tags and assignments
     if (data.tags !== undefined) {
       await syncEntityTags(db, 'assessment_tag', 'assessment_id', req.params.id as string, data.tags);
     }
 
-    // Sync assessor assignments (delete + re-insert)
-    if (data.assessorIds !== undefined) {
-      await db
-        .deleteFrom('assessment_assessor')
-        .where('assessment_id', '=', req.params.id)
-        .execute();
-
-      if (data.assessorIds.length > 0) {
-        await db
-          .insertInto('assessment_assessor')
-          .values(
-            data.assessorIds.map(userId => ({
-              assessment_id: req.params.id as string,
-              user_id: userId,
-              created_at: new Date(),
-            }))
-          )
-          .execute();
-      }
-    }
-
-    // Sync assessee assignments (delete + re-insert)
-    if (data.assesseeIds !== undefined) {
-      await db
-        .deleteFrom('assessment_assessee')
-        .where('assessment_id', '=', req.params.id as string)
-        .execute();
-
-      if (data.assesseeIds.length > 0) {
-        await db
-          .insertInto('assessment_assessee')
-          .values(
-            data.assesseeIds.map(userId => ({
-              assessment_id: req.params.id as string,
-              user_id: userId,
-              created_at: new Date(),
-            }))
-          )
-          .execute();
-      }
-    }
+    await syncAssessors(db, req.params.id as string, data.assessorIds);
+    await syncAssessees(db, req.params.id as string, data.assesseeIds);
 
     logger.info('Assessment updated', {
       assessmentId: req.params.id as string,
@@ -639,57 +746,13 @@ router.post(
         .selectAll()
         .execute();
 
-      let unassessedCount = 0;
-      let missingRationaleCount = 0;
-
-      for (const req of requirements) {
-        if (req.result === null || req.result === undefined) {
-          unassessedCount++;
-        }
-        if (req.rationale === null || req.rationale === undefined || req.rationale.trim() === '') {
-          missingRationaleCount++;
-        }
-      }
-
-      if (unassessedCount > 0 || missingRationaleCount > 0) {
-        res.status(400).json({
-          error: 'Cannot complete assessment',
-          unassessedCount,
-          missingRationaleCount,
-        });
-        return;
-      }
-
-      // Check that at least one evidence item is linked to the assessment
-      const evidenceLinks = await db
-        .selectFrom('assessment_requirement_evidence')
-        .innerJoin('assessment_requirement', 'assessment_requirement.id', 'assessment_requirement_evidence.assessment_requirement_id')
-        .where('assessment_requirement.assessment_id', '=', assessment.id)
-        .selectAll()
-        .execute();
-
-      if (evidenceLinks.length === 0) {
-        res.status(400).json({
-          error: 'Cannot complete assessment without any evidence. At least one evidence item must be linked to a requirement.',
-        });
+      // Validate all prerequisites for completion
+      if (!await validateCompletionPrerequisites(db, req.params.id as string, requirements, res)) {
         return;
       }
 
       // Calculate conformance score
-      let conformanceScore: number | null = null;
-      const applicableRequirements = requirements.filter(r => r.result !== 'not_applicable');
-      if (applicableRequirements.length > 0) {
-        const scoreMap = {
-          'yes': 1.0,
-          'partial': 0.5,
-          'no': 0.0,
-        };
-        let totalScore = 0;
-        for (const req of applicableRequirements) {
-          totalScore += scoreMap[req.result as keyof typeof scoreMap] || 0;
-        }
-        conformanceScore = Math.round((totalScore / applicableRequirements.length) * 100);
-      }
+      const conformanceScore = calculateConformanceScore(requirements);
 
       await db
         .updateTable('assessment')

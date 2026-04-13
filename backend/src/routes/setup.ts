@@ -39,6 +39,52 @@ function isUrlTrusted(urlString: string): boolean {
   }
 }
 
+/**
+ * Fetch a standard document from a trusted URL with timeout and size limits.
+ */
+async function fetchStandardDocument(url: string): Promise<{ text: string } | { error: string; status: number }> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+  try {
+    const docResponse = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!docResponse.ok) {
+      logger.error('Failed to fetch standard document', { url, status: docResponse.status });
+      return { error: 'Failed to download standard', status: 502 };
+    }
+
+    // Check Content-Length to prevent large downloads
+    const contentLength = docResponse.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > 10 * 1024 * 1024) { // 10MB limit
+      logger.error('Standard document too large', { url, contentLength });
+      return { error: 'Standard document is too large (max 10MB)', status: 400 };
+    }
+
+    return { text: await docResponse.text() };
+  } catch (fetchError) {
+    clearTimeout(timeoutId);
+    if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+      logger.error('Fetch timeout while downloading standard', { url });
+      return { error: 'Request timeout while downloading standard', status: 504 };
+    }
+    logger.error('Failed to fetch standard document', { url, error: fetchError });
+    return { error: 'Failed to download standard', status: 502 };
+  }
+}
+
+/**
+ * Extract standards array from parsed CycloneDX document.
+ */
+function extractStandardsFromDoc(cdxDoc: Record<string, any>): Array<Record<string, unknown>> {
+  return (
+    ((cdxDoc.definitions as Record<string, unknown>)?.standards as Array<Record<string, unknown>>) ||
+    ((cdxDoc.declarations as Record<string, unknown>)?.standards as Array<Record<string, unknown>>) ||
+    []
+  );
+}
+
 const setupSchema = z.object({
   username: z.string()
     .min(3, 'Username must be at least 3 characters')
@@ -199,49 +245,19 @@ router.post('/import-standard', async (req: Request, res: Response): Promise<voi
     }
 
     // Fetch the CycloneDX standards document
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-    let rawText: string;
-    try {
-      const docResponse = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      if (!docResponse.ok) {
-        logger.error('Failed to fetch standard document', { url, status: docResponse.status });
-        res.status(502).json({ error: `Failed to download standard: ${title || url}` });
-        return;
-      }
-
-      // Check Content-Length to prevent large downloads
-      const contentLength = docResponse.headers.get('content-length');
-      if (contentLength && parseInt(contentLength, 10) > 10 * 1024 * 1024) { // 10MB limit
-        logger.error('Standard document too large', { url, contentLength });
-        res.status(400).json({ error: 'Standard document is too large (max 10MB)' });
-        return;
-      }
-
-      rawText = await docResponse.text();
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        logger.error('Fetch timeout while downloading standard', { url });
-        res.status(504).json({ error: 'Request timeout while downloading standard' });
-      } else {
-        logger.error('Failed to fetch standard document', { url, error: fetchError });
-        res.status(502).json({ error: `Failed to download standard: ${title || url}` });
-      }
+    const fetchResult = await fetchStandardDocument(url);
+    if ('error' in fetchResult) {
+      res.status(fetchResult.status).json({ error: fetchResult.error });
       return;
     }
+
+    const rawText = fetchResult.text;
 
     // biome-ignore lint/suspicious/noExplicitAny: CycloneDX document has dynamic structure
     const cdxDoc = JSON.parse(rawText) as Record<string, unknown>;
 
     // Extract standards from definitions (CycloneDX 1.6+) or declarations (older)
-    const standards =
-      ((cdxDoc.definitions as Record<string, unknown>)?.standards as Array<Record<string, unknown>>) ||
-      ((cdxDoc.declarations as Record<string, unknown>)?.standards as Array<Record<string, unknown>>) ||
-      [];
+    const standards = extractStandardsFromDoc(cdxDoc);
     if (standards.length === 0) {
       res.status(422).json({ error: 'No standards found in this CycloneDX document' });
       return;

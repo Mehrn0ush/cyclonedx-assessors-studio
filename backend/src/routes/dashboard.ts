@@ -6,88 +6,52 @@ import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { AuthRequest, requireAuth } from '../middleware/auth.js';
+import {
+  countAll,
+  countByColumn,
+  countAssessmentsByState,
+  countEvidenceByState,
+  countEvidenceExpiringWithin,
+  countOverdueAssessments,
+  countAssessmentRequirementsByResult,
+  countWhere,
+} from '../utils/count-queries.js';
+import {
+  calculateAssessmentScore,
+  calculateAverageConformance,
+} from '../utils/assessment-scoring.js';
 
 const router = Router();
 
 router.get('/stats', requireAuth, asyncHandler(async (_req: AuthRequest, res: Response): Promise<void> => {
   const db = getDatabase();
 
-  const totalProjects = await db
-    .selectFrom('project')
-    .select(db.fn.count<number>('id').as('count'))
-    .executeTakeFirstOrThrow()
-    .then(r => Number(r.count));
+  const [
+    totalProjects,
+    projectsInProgress,
+    totalAssessments,
+    assessmentsInProgress,
+    assessmentsComplete,
+    totalEvidence,
+    totalClaims,
+    totalAttestations,
+    totalStandards,
+    evidenceExpiringSoon,
+    assessmentsOverdue,
+  ] = await Promise.all([
+    countAll(db, 'project'),
+    countByColumn(db, 'project', 'state', 'in_progress'),
+    countAll(db, 'assessment'),
+    countAssessmentsByState(db, 'in_progress'),
+    countAssessmentsByState(db, 'complete'),
+    countAll(db, 'evidence'),
+    countAll(db, 'claim'),
+    countAll(db, 'attestation'),
+    countAll(db, 'standard'),
+    countEvidenceExpiringWithin(db, 30),
+    countOverdueAssessments(db),
+  ]);
 
-  const projectsInProgress = await db
-    .selectFrom('project')
-    .where('state', '=', 'in_progress')
-    .select(db.fn.count<number>('id').as('count'))
-    .executeTakeFirstOrThrow()
-    .then(r => Number(r.count));
-
-  const totalAssessments = await db
-    .selectFrom('assessment')
-    .select(db.fn.count<number>('id').as('count'))
-    .executeTakeFirstOrThrow()
-    .then(r => Number(r.count));
-
-  const assessmentsInProgress = await db
-    .selectFrom('assessment')
-    .where('state', '=', 'in_progress')
-    .select(db.fn.count<number>('id').as('count'))
-    .executeTakeFirstOrThrow()
-    .then(r => Number(r.count));
-
-  const assessmentsComplete = await db
-    .selectFrom('assessment')
-    .where('state', '=', 'complete')
-    .select(db.fn.count<number>('id').as('count'))
-    .executeTakeFirstOrThrow()
-    .then(r => Number(r.count));
-
-  const totalEvidence = await db
-    .selectFrom('evidence')
-    .select(db.fn.count<number>('id').as('count'))
-    .executeTakeFirstOrThrow()
-    .then(r => Number(r.count));
-
-  const totalClaims = await db
-    .selectFrom('claim')
-    .select(db.fn.count<number>('id').as('count'))
-    .executeTakeFirstOrThrow()
-    .then(r => Number(r.count));
-
-  const totalAttestations = await db
-    .selectFrom('attestation')
-    .select(db.fn.count<number>('id').as('count'))
-    .executeTakeFirstOrThrow()
-    .then(r => Number(r.count));
-
-  const totalStandards = await db
-    .selectFrom('standard')
-    .select(db.fn.count<number>('id').as('count'))
-    .executeTakeFirstOrThrow()
-    .then(r => Number(r.count));
-
-  const evidenceExpiringSoon = await db
-    .selectFrom('evidence')
-    .where('expires_on', '>', new Date())
-    .where('expires_on', '<', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
-    .where('state', '!=', 'expired')
-    .select(db.fn.count<number>('id').as('count'))
-    .executeTakeFirstOrThrow()
-    .then(r => Number(r.count));
-
-  const assessmentsOverdue = await db
-    .selectFrom('assessment')
-    .where('due_date', '<', new Date())
-    .where('state', '!=', 'complete')
-    .where('state', '!=', 'cancelled')
-    .select(db.fn.count<number>('id').as('count'))
-    .executeTakeFirstOrThrow()
-    .then(r => Number(r.count));
-
-  // Completion rate
   const completionRate = totalAssessments > 0
     ? Math.round((assessmentsComplete / totalAssessments) * 100)
     : 0;
@@ -214,15 +178,10 @@ router.get('/assessment-distribution', requireAuth, asyncHandler(async (req: Aut
 
   const states = ['new', 'pending', 'in_progress', 'on_hold', 'cancelled', 'complete', 'archived'] as const;
   const distribution = await Promise.all(
-    states.map(async (state) => {
-      const count = await db
-        .selectFrom('assessment')
-        .where('state', '=', state)
-        .select(db.fn.count<number>('id').as('count'))
-        .executeTakeFirstOrThrow()
-        .then(r => Number(r.count));
-      return { state, count };
-    })
+    states.map(async (state) => ({
+      state,
+      count: await countAssessmentsByState(db, state),
+    }))
   );
 
   res.json({ data: distribution });
@@ -234,21 +193,18 @@ router.get('/evidence-health', requireAuth, asyncHandler(async (req: AuthRequest
 
   const states = ['in_review', 'in_progress', 'claimed', 'expired'] as const;
   const health = await Promise.all(
-    states.map(async (state) => {
-      const count = await db
-        .selectFrom('evidence')
-        .where('state', '=', state)
-        .select(db.fn.count<number>('id').as('count'))
-        .executeTakeFirstOrThrow()
-        .then(r => Number(r.count));
-      return { state, count };
-    })
+    states.map(async (state) => ({
+      state,
+      count: await countEvidenceByState(db, state),
+    }))
   );
 
+  const now = new Date();
+  const expiryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   const expiringSoon = await db
     .selectFrom('evidence')
-    .where('expires_on', '>', new Date())
-    .where('expires_on', '<', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
+    .where('expires_on', '>', now)
+    .where('expires_on', '<', expiryDate)
     .where('state', '!=', 'expired')
     .selectAll()
     .execute();
@@ -269,26 +225,16 @@ router.get('/conformance-breakdown', requireAuth, asyncHandler(async (_req: Auth
   const db = getDatabase();
 
   const results = ['yes', 'no', 'partial', 'not_applicable'] as const;
-  type ResultType = typeof results[number];
   const breakdown: Array<{ result: string; count: number }> = await Promise.all(
-    results.map(async (result) => {
-      const count = await db
-        .selectFrom('assessment_requirement')
-        .where('result', '=', result)
-        .select(db.fn.count<number>('id').as('count'))
-        .executeTakeFirstOrThrow()
-        .then(r => Number(r.count));
-      return { result, count };
-    })
+    results.map(async (result) => ({
+      result,
+      count: await countAssessmentRequirementsByResult(db, result),
+    }))
   );
 
-  const unassessed = await db
-    .selectFrom('assessment_requirement')
-    .where('result', 'is', null)
-    .select(db.fn.count<number>('id').as('count'))
-    .executeTakeFirstOrThrow()
-    .then(r => Number(r.count));
-
+  const unassessed = await countWhere(db, 'assessment_requirement', (eb: any) =>
+    eb('result', 'is', null)
+  );
   breakdown.push({ result: 'unassessed', count: unassessed });
 
   res.json({ data: breakdown });
@@ -744,28 +690,7 @@ router.get('/progress', requireAuth, asyncHandler(async (req: AuthRequest, res: 
     .then(r => Number(r.count));
 
   // Average conformance: compute from assessment_requirement results
-  // yes = 100, partial = 50, no = 0, not_applicable and null are excluded
-  let conformanceQuery = db
-    .selectFrom('assessment_requirement')
-    .innerJoin('assessment', 'assessment.id', 'assessment_requirement.assessment_id')
-    .where('assessment_requirement.result', 'is not', null)
-    .where('assessment_requirement.result', '!=', 'not_applicable');
-  if (entityId) {
-    conformanceQuery = conformanceQuery.where('assessment.entity_id', '=', entityId);
-  }
-  const conformanceRows = await conformanceQuery
-    .select(['assessment_requirement.result'])
-    .execute();
-
-  let averageConformance = 0;
-  if (conformanceRows.length > 0) {
-    const total = conformanceRows.reduce((sum, r) => {
-      if (r.result === 'yes') return sum + 100;
-      if (r.result === 'partial') return sum + 50;
-      return sum; // 'no' = 0
-    }, 0);
-    averageConformance = Math.round(total / conformanceRows.length);
-  }
+  const averageConformance = await calculateAverageConformance(db, entityId);
 
   // ---- Conformance by Standard ----
 
@@ -811,15 +736,7 @@ router.get('/progress', requireAuth, asyncHandler(async (req: AuthRequest, res: 
             .select('result')
             .execute();
 
-          let score = 0;
-          if (reqs.length > 0) {
-            const total = reqs.reduce((sum, r) => {
-              if (r.result === 'yes') return sum + 100;
-              if (r.result === 'partial') return sum + 50;
-              return sum;
-            }, 0);
-            score = Math.round(total / reqs.length);
-          }
+          const score = await calculateAssessmentScore(db, a.id);
 
           return {
             id: a.id,
@@ -878,23 +795,7 @@ router.get('/progress', requireAuth, asyncHandler(async (req: AuthRequest, res: 
 
   const timelineAssessments = await Promise.all(
     timelineRows.map(async (a) => {
-      const reqs = await db
-        .selectFrom('assessment_requirement')
-        .where('assessment_id', '=', a.id)
-        .where('result', 'is not', null)
-        .where('result', '!=', 'not_applicable')
-        .select('result')
-        .execute();
-
-      let score = 0;
-      if (reqs.length > 0) {
-        const total = reqs.reduce((sum, r) => {
-          if (r.result === 'yes') return sum + 100;
-          if (r.result === 'partial') return sum + 50;
-          return sum;
-        }, 0);
-        score = Math.round(total / reqs.length);
-      }
+      const score = await calculateAssessmentScore(db, a.id);
 
       const stdLabel = a.standard_name
         ? `${a.standard_name}${a.standard_version ? ` ${a.standard_version}` : ''}`

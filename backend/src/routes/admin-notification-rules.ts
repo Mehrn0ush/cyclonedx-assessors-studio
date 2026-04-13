@@ -14,20 +14,9 @@ import { logger } from '../utils/logger.js';
 import type { AuthRequest } from '../middleware/auth.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
+import { createRuleSchema, updateRuleSchema, ADMIN_VALID_EVENT_TYPES, validateEventTypes } from './notification-rules-helpers.js';
 
 const router = Router();
-
-// Validation schemas
-const createRuleSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  channel: z.enum(['in_app', 'email', 'slack', 'teams', 'mattermost', 'webhook']),
-  eventTypes: z.array(z.string()).min(1, 'At least one event type is required'),
-  filters: z.record(z.string(), z.unknown()).optional().default({}),
-  destination: z.record(z.string(), z.unknown()).optional().default({}),
-  enabled: z.boolean().optional().default(true),
-});
-
-const updateRuleSchema = createRuleSchema.partial();
 
 /**
  * GET /admin/notification-rules
@@ -55,45 +44,11 @@ router.post('/', requireAuth, requirePermission('admin.notification_rules'), asy
     const db = getDatabase();
     const ruleId = uuidv4();
 
-    // Validate event types are from catalog (basic validation)
-    const validEventTypes = [
-      // Assessment
-      'assessment.created',
-      'assessment.state_changed',
-      'assessment.deleted',
-      'assessment.assigned',
-      // Evidence
-      'evidence.created',
-      'evidence.state_changed',
-      'evidence.attachment_added',
-      'evidence.attachment_removed',
-      // Claim
-      'claim.created',
-      'claim.updated',
-      // Attestation
-      'attestation.created',
-      'attestation.signed',
-      'attestation.exported',
-      // Project
-      'project.created',
-      'project.state_changed',
-      'project.archived',
-      // Standard
-      'standard.imported',
-      'standard.state_changed',
-      // System
-      'user.created',
-      'user.deactivated',
-      'apikey.created',
-      // Wildcard
-      '*',
-    ];
-
-    for (const eventType of data.eventTypes) {
-      if (!validEventTypes.includes(eventType)) {
-        res.status(400).json({ error: `Invalid event type: ${eventType}` });
-        return;
-      }
+    // Validate event types are from catalog
+    const validationError = validateEventTypes(data.eventTypes, ADMIN_VALID_EVENT_TYPES);
+    if (validationError) {
+      res.status(400).json({ error: validationError });
+      return;
     }
 
     // Create rule
@@ -178,22 +133,10 @@ router.put('/:id', requireAuth, requirePermission('admin.notification_rules'), a
 
     // Validate event types if provided
     if (data.eventTypes) {
-      const validEventTypes = [
-        'assessment.created', 'assessment.state_changed', 'assessment.deleted', 'assessment.assigned',
-        'evidence.created', 'evidence.state_changed', 'evidence.attachment_added', 'evidence.attachment_removed',
-        'claim.created', 'claim.updated',
-        'attestation.created', 'attestation.signed', 'attestation.exported',
-        'project.created', 'project.state_changed', 'project.archived',
-        'standard.imported', 'standard.state_changed',
-        'user.created', 'user.deactivated', 'apikey.created',
-        '*',
-      ];
-
-      for (const eventType of data.eventTypes) {
-        if (!validEventTypes.includes(eventType)) {
-          res.status(400).json({ error: `Invalid event type: ${eventType}` });
-          return;
-        }
+      const validationError = validateEventTypes(data.eventTypes, ADMIN_VALID_EVENT_TYPES);
+      if (validationError) {
+        res.status(400).json({ error: validationError });
+        return;
       }
     }
 

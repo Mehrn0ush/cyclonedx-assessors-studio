@@ -8,6 +8,7 @@ import { hashPassword } from '../utils/crypto.js';
 import { logger } from '../utils/logger.js';
 import { type AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
+import { fetchUserById, fetchAssignableUsers, USER_PROFILE_COLUMNS } from '../utils/user-queries.js';
 
 const router = Router();
 
@@ -39,16 +40,7 @@ router.get('/', requireAuth, requirePermission('admin.users'), asyncHandler(asyn
 
   const users = await db
     .selectFrom('app_user')
-    .select([
-      'id',
-      'username',
-      'email',
-      'display_name',
-      'role',
-      'is_active',
-      'last_login_at',
-      'created_at',
-    ])
+    .select(USER_PROFILE_COLUMNS)
     .limit(limit)
     .offset(offset)
     .execute();
@@ -67,12 +59,7 @@ router.get('/', requireAuth, requirePermission('admin.users'), asyncHandler(asyn
 router.get('/assignable', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const db = getDatabase();
 
-  const users = await db
-    .selectFrom('app_user')
-    .where('is_active', '=', true)
-    .select(['id', 'display_name', 'username', 'role'])
-    .orderBy('display_name', 'asc')
-    .execute();
+  const users = await fetchAssignableUsers(db);
 
   res.json({ data: users });
 }));
@@ -80,20 +67,7 @@ router.get('/assignable', requireAuth, asyncHandler(async (req: AuthRequest, res
 router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const db = getDatabase();
 
-  const user = await db
-    .selectFrom('app_user')
-    .where('id', '=', req.params.id)
-    .select([
-      'id',
-      'username',
-      'email',
-      'display_name',
-      'role',
-      'is_active',
-      'last_login_at',
-      'created_at',
-    ])
-    .executeTakeFirst();
+  const user = await fetchUserById(db, req.params.id as string);
 
   if (!user) {
     res.status(404).json({ error: 'User not found' });
@@ -226,20 +200,7 @@ router.put(
       });
 
       // Fetch and return the updated user
-      const updatedUser = await db
-        .selectFrom('app_user')
-        .where('id', '=', req.params.id)
-        .select([
-          'id',
-          'username',
-          'email',
-          'display_name',
-          'role',
-          'is_active',
-          'last_login_at',
-          'created_at',
-        ])
-        .executeTakeFirst();
+      const updatedUser = await fetchUserById(db, req.params.id as string);
 
       res.json(updatedUser);
     } catch (error) {
@@ -279,20 +240,7 @@ router.put(
     });
 
     // Fetch and return the updated user
-    const updatedUser = await db
-      .selectFrom('app_user')
-      .where('id', '=', req.params.id)
-      .select([
-        'id',
-        'username',
-        'email',
-        'display_name',
-        'role',
-        'is_active',
-        'last_login_at',
-        'created_at',
-      ])
-      .executeTakeFirst();
+    const updatedUser = await fetchUserById(db, req.params.id as string);
 
     res.json(updatedUser);
   })
@@ -333,20 +281,7 @@ router.put(
     });
 
     // Fetch and return the updated user
-    const updatedUser = await db
-      .selectFrom('app_user')
-      .where('id', '=', req.params.id)
-      .select([
-        'id',
-        'username',
-        'email',
-        'display_name',
-        'role',
-        'is_active',
-        'last_login_at',
-        'created_at',
-      ])
-      .executeTakeFirst();
+    const updatedUser = await fetchUserById(db, req.params.id as string);
 
     res.json(updatedUser);
   })

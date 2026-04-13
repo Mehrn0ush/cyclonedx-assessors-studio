@@ -171,6 +171,132 @@ export const eventsEmittedTotal = new client.Counter({
 
 let domainRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
+// ---- Helper functions for gauge updates ----
+
+/**
+ * Refresh assessments gauge (by state).
+ */
+async function refreshAssessmentGauge(db: ReturnType<typeof getDatabase>): Promise<void> {
+  try {
+    const rows = await db
+      .selectFrom('assessment')
+      .select(['state', db.fn.count<number>('id').as('count')])
+      .groupBy('state')
+      .execute();
+    assessmentsTotal.reset();
+    for (const row of rows) {
+      assessmentsTotal.set({ state: row.state || 'unknown' }, Number(row.count));
+    }
+  } catch { /* table may not exist yet */ }
+}
+
+/**
+ * Refresh evidence gauge (by state).
+ */
+async function refreshEvidenceGauge(db: ReturnType<typeof getDatabase>): Promise<void> {
+  try {
+    const rows = await db
+      .selectFrom('evidence')
+      .select(['state', db.fn.count<number>('id').as('count')])
+      .groupBy('state')
+      .execute();
+    evidenceTotal.reset();
+    for (const row of rows) {
+      evidenceTotal.set({ state: row.state || 'unknown' }, Number(row.count));
+    }
+  } catch { /* table may not exist yet */ }
+}
+
+/**
+ * Refresh projects gauge (by state).
+ */
+async function refreshProjectsGauge(db: ReturnType<typeof getDatabase>): Promise<void> {
+  try {
+    const rows = await db
+      .selectFrom('project')
+      .select(['state', db.fn.count<number>('id').as('count')])
+      .groupBy('state')
+      .execute();
+    projectsTotal.reset();
+    for (const row of rows) {
+      projectsTotal.set({ state: row.state || 'unknown' }, Number(row.count));
+    }
+  } catch { /* table may not exist yet */ }
+}
+
+/**
+ * Refresh users gauge (by role and active status).
+ */
+async function refreshUsersGauge(db: ReturnType<typeof getDatabase>): Promise<void> {
+  try {
+    const rows = await db
+      .selectFrom('app_user')
+      .select(['role', 'is_active', db.fn.count<number>('id').as('count')])
+      .groupBy(['role', 'is_active'])
+      .execute();
+    usersTotal.reset();
+    for (const row of rows) {
+      usersTotal.set(
+        { role: row.role || 'unknown', active: String(row.is_active) },
+        Number(row.count),
+      );
+    }
+  } catch { /* table may not exist yet */ }
+}
+
+/**
+ * Refresh claims total gauge (simple count).
+ */
+async function refreshClaimsGauge(db: ReturnType<typeof getDatabase>): Promise<void> {
+  try {
+    const rows = await db
+      .selectFrom('claim')
+      .select(db.fn.count<number>('id').as('count'))
+      .execute();
+    claimsTotal.set(Number(rows[0]?.count ?? 0));
+  } catch { /* table may not exist yet */ }
+}
+
+/**
+ * Refresh attestations total gauge (simple count).
+ */
+async function refreshAttestationsGauge(db: ReturnType<typeof getDatabase>): Promise<void> {
+  try {
+    const rows = await db
+      .selectFrom('attestation')
+      .select(db.fn.count<number>('id').as('count'))
+      .execute();
+    attestationsTotal.set(Number(rows[0]?.count ?? 0));
+  } catch { /* table may not exist yet */ }
+}
+
+/**
+ * Refresh standards total gauge (simple count).
+ */
+async function refreshStandardsGauge(db: ReturnType<typeof getDatabase>): Promise<void> {
+  try {
+    const rows = await db
+      .selectFrom('standard')
+      .select(db.fn.count<number>('id').as('count'))
+      .execute();
+    standardsTotal.set(Number(rows[0]?.count ?? 0));
+  } catch { /* table may not exist yet */ }
+}
+
+/**
+ * Refresh active sessions gauge (non-expired sessions only).
+ */
+async function refreshSessionsGauge(db: ReturnType<typeof getDatabase>): Promise<void> {
+  try {
+    const rows = await db
+      .selectFrom('session')
+      .select(db.fn.count<number>('id').as('count'))
+      .where('expires_at', '>', new Date())
+      .execute();
+    authActiveSessions.set(Number(rows[0]?.count ?? 0));
+  } catch { /* table may not exist yet */ }
+}
+
 /**
  * Query the database and update all domain gauges.
  */
@@ -178,97 +304,14 @@ export async function refreshDomainGauges(): Promise<void> {
   try {
     const db = getDatabase();
 
-    // Assessments by state
-    try {
-      const rows = await db
-        .selectFrom('assessment')
-        .select(['state', db.fn.count<number>('id').as('count')])
-        .groupBy('state')
-        .execute();
-      assessmentsTotal.reset();
-      for (const row of rows) {
-        assessmentsTotal.set({ state: row.state || 'unknown' }, Number(row.count));
-      }
-    } catch { /* table may not exist yet */ }
-
-    // Evidence by state
-    try {
-      const rows = await db
-        .selectFrom('evidence')
-        .select(['state', db.fn.count<number>('id').as('count')])
-        .groupBy('state')
-        .execute();
-      evidenceTotal.reset();
-      for (const row of rows) {
-        evidenceTotal.set({ state: row.state || 'unknown' }, Number(row.count));
-      }
-    } catch { /* table may not exist yet */ }
-
-    // Projects by state
-    try {
-      const rows = await db
-        .selectFrom('project')
-        .select(['state', db.fn.count<number>('id').as('count')])
-        .groupBy('state')
-        .execute();
-      projectsTotal.reset();
-      for (const row of rows) {
-        projectsTotal.set({ state: row.state || 'unknown' }, Number(row.count));
-      }
-    } catch { /* table may not exist yet */ }
-
-    // Users by role and active status
-    try {
-      const rows = await db
-        .selectFrom('app_user')
-        .select(['role', 'is_active', db.fn.count<number>('id').as('count')])
-        .groupBy(['role', 'is_active'])
-        .execute();
-      usersTotal.reset();
-      for (const row of rows) {
-        usersTotal.set(
-          { role: row.role || 'unknown', active: String(row.is_active) },
-          Number(row.count),
-        );
-      }
-    } catch { /* table may not exist yet */ }
-
-    // Claims total
-    try {
-      const rows = await db
-        .selectFrom('claim')
-        .select(db.fn.count<number>('id').as('count'))
-        .execute();
-      claimsTotal.set(Number(rows[0]?.count ?? 0));
-    } catch { /* table may not exist yet */ }
-
-    // Attestations total
-    try {
-      const rows = await db
-        .selectFrom('attestation')
-        .select(db.fn.count<number>('id').as('count'))
-        .execute();
-      attestationsTotal.set(Number(rows[0]?.count ?? 0));
-    } catch { /* table may not exist yet */ }
-
-    // Standards total
-    try {
-      const rows = await db
-        .selectFrom('standard')
-        .select(db.fn.count<number>('id').as('count'))
-        .execute();
-      standardsTotal.set(Number(rows[0]?.count ?? 0));
-    } catch { /* table may not exist yet */ }
-
-    // Active sessions
-    try {
-      const rows = await db
-        .selectFrom('session')
-        .select(db.fn.count<number>('id').as('count'))
-        .where('expires_at', '>', new Date())
-        .execute();
-      authActiveSessions.set(Number(rows[0]?.count ?? 0));
-    } catch { /* table may not exist yet */ }
+    await refreshAssessmentGauge(db);
+    await refreshEvidenceGauge(db);
+    await refreshProjectsGauge(db);
+    await refreshUsersGauge(db);
+    await refreshClaimsGauge(db);
+    await refreshAttestationsGauge(db);
+    await refreshStandardsGauge(db);
+    await refreshSessionsGauge(db);
   } catch (error) {
     logger.warn('Failed to refresh domain gauges', { error });
   }

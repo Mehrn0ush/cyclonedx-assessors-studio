@@ -11,6 +11,8 @@ import { AuthRequest, requireAuth, getPermissionsForRole } from '../middleware/a
 import { hashPassword, verifyPassword, generateToken, hashToken } from '../utils/crypto.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { authLoginTotal } from '../metrics/index.js';
+import { fetchUserById, fetchUserByUsername, formatUserProfile } from '../utils/user-queries.js';
+import { checkResourceExists } from '../utils/resource-checks.js';
 
 const router = Router();
 const config = getConfig();
@@ -32,11 +34,7 @@ router.post('/login', asyncHandler(async (req: AuthRequest, res: Response): Prom
     const { username, password } = loginSchema.parse(req.body);
     const db = getDatabase();
 
-    const user = await db
-      .selectFrom('app_user')
-      .where('username', '=', username)
-      .selectAll()
-      .executeTakeFirst();
+    const user = await fetchUserByUsername(db, username);
 
     if (!user) {
       authLoginTotal.inc({ method: 'local', result: 'failure' });
@@ -115,14 +113,7 @@ router.post('/login', asyncHandler(async (req: AuthRequest, res: Response): Prom
 
     // Token is in the httpOnly cookie only. Never expose it in the response body.
     res.json({
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        displayName: user.display_name,
-        role: user.role,
-        hasCompletedOnboarding: user.has_completed_onboarding || false,
-      },
+      user: formatUserProfile(user),
       permissions,
     });
   } catch (error) {
@@ -265,16 +256,8 @@ router.put(
       const data = changePasswordSchema.parse(req.body);
       const db = getDatabase();
 
-      const user = await db
-        .selectFrom('app_user')
-        .where('id', '=', req.user.id)
-        .selectAll()
-        .executeTakeFirst();
-
-      if (!user) {
-        res.status(404).json({ error: 'User not found' });
-        return;
-      }
+      const user = await checkResourceExists(db, res, 'app_user', req.user.id, 'User');
+      if (!user) return;
 
       const passwordValid = await verifyPassword(user.password_hash, data.currentPassword);
 
@@ -307,22 +290,11 @@ router.put(
       });
 
       // Fetch and return the updated user (without password hash)
-      const updatedUser = await db
-        .selectFrom('app_user')
-        .where('id', '=', req.user.id)
-        .selectAll()
-        .executeTakeFirst();
+      const updatedUser = await fetchUserById(db, req.user.id);
 
       res.json({
         message: 'Password changed successfully. Please log in again.',
-        user: {
-          id: updatedUser?.id,
-          username: updatedUser?.username,
-          email: updatedUser?.email,
-          displayName: updatedUser?.display_name,
-          role: updatedUser?.role,
-          hasCompletedOnboarding: updatedUser?.has_completed_onboarding || false,
-        },
+        user: updatedUser ? formatUserProfile(updatedUser) : null,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -353,16 +325,8 @@ router.put(
       const data = updateProfileSchema.parse(req.body);
       const db = getDatabase();
 
-      const user = await db
-        .selectFrom('app_user')
-        .where('id', '=', req.user.id)
-        .selectAll()
-        .executeTakeFirst();
-
-      if (!user) {
-        res.status(404).json({ error: 'User not found' });
-        return;
-      }
+      const user = await checkResourceExists(db, res, 'app_user', req.user.id, 'User');
+      if (!user) return;
 
       await db
         .updateTable('app_user')
@@ -376,21 +340,10 @@ router.put(
       });
 
       // Fetch and return the updated user
-      const updatedUser = await db
-        .selectFrom('app_user')
-        .where('id', '=', req.user.id)
-        .selectAll()
-        .executeTakeFirst();
+      const updatedUser = await fetchUserById(db, req.user.id);
 
       res.json({
-        user: {
-          id: updatedUser?.id,
-          username: updatedUser?.username,
-          email: updatedUser?.email,
-          displayName: updatedUser?.display_name,
-          role: updatedUser?.role,
-          hasCompletedOnboarding: updatedUser?.has_completed_onboarding || false,
-        },
+        user: updatedUser ? formatUserProfile(updatedUser) : null,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -458,21 +411,10 @@ router.post('/complete-onboarding', requireAuth, asyncHandler(async (req: AuthRe
     });
 
     // Fetch and return the updated user
-    const updatedUser = await db
-      .selectFrom('app_user')
-      .where('id', '=', req.user.id)
-      .selectAll()
-      .executeTakeFirst();
+    const updatedUser = await fetchUserById(db, req.user.id);
 
     res.json({
-      user: {
-        id: updatedUser?.id,
-        username: updatedUser?.username,
-        email: updatedUser?.email,
-        displayName: updatedUser?.display_name,
-        role: updatedUser?.role,
-        hasCompletedOnboarding: updatedUser?.has_completed_onboarding || false,
-      },
+      user: updatedUser ? formatUserProfile(updatedUser) : null,
     });
   } catch (error) {
     logger.error('Complete onboarding error', { error, requestId: req.requestId });

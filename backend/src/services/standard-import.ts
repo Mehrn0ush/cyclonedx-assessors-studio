@@ -58,6 +58,311 @@ export interface ImportedStandardResult {
   skipped: boolean;
 }
 
+// ---- Helper functions (not exported) ----
+
+/**
+ * Extract the reference ID from a requirement using multiple fallback formats.
+ */
+function getRequirementRef(req: RawRequirement): string {
+  return req['bom-ref'] || req.bomRef || req.identifier || '';
+}
+
+/**
+ * Extract the parent reference from a requirement using multiple fallback formats.
+ */
+function getRequirementParentRef(req: RawRequirement): string | null {
+  return req.parent || req.parentIdentifier || null;
+}
+
+/**
+ * Build parent-child relationships from requirements.
+ */
+function buildRelationshipMaps(requirements: RawRequirement[]): {
+  childrenOf: Map<string, RawRequirement[]>;
+  roots: RawRequirement[];
+} {
+  const childrenOf = new Map<string, RawRequirement[]>();
+  const roots: RawRequirement[] = [];
+
+  for (const req of requirements) {
+    const parentRef = getRequirementParentRef(req);
+    if (!parentRef) {
+      roots.push(req);
+    } else {
+      if (!childrenOf.has(parentRef)) {
+        childrenOf.set(parentRef, []);
+      }
+      childrenOf.get(parentRef)?.push(req);
+    }
+  }
+
+  return { childrenOf, roots };
+}
+
+/**
+ * Recursively visit a node and its children in DFS order.
+ */
+function visitRequirementNode(
+  node: RawRequirement,
+  childrenOf: Map<string, RawRequirement[]>,
+  sorted: RawRequirement[]
+): void {
+  sorted.push(node);
+  const ref = getRequirementRef(node);
+  const children = childrenOf.get(ref) || [];
+  for (const child of children) {
+    visitRequirementNode(child, childrenOf, sorted);
+  }
+}
+
+/**
+ * Normalize standard metadata fields from various input formats.
+ */
+function normalizeStandardMetadata(standard: RawStandardInput, fallbackName: string) {
+  const bomRef = standard['bom-ref'] || standard.bomRef || standard.identifier || uuidv4();
+  return {
+    identifier: bomRef,
+    name: standard.name || standard.title || fallbackName,
+    description: standard.description || null,
+    version: standard.version || null,
+    owner: standard.owner || null,
+  };
+}
+
+/**
+ * Build a topologically sorted list of requirements (parents before children).
+ */
+function topologicalSortRequirements(requirements: RawRequirement[]): RawRequirement[] {
+  const { childrenOf, roots } = buildRelationshipMaps(requirements);
+
+  const sorted: RawRequirement[] = [];
+  for (const root of roots) {
+    visitRequirementNode(root, childrenOf, sorted);
+  }
+
+  // Append any orphans whose parent ref doesn't match
+  const visited = new Set(sorted);
+  for (const req of requirements) {
+    if (!visited.has(req)) {
+      sorted.push(req);
+    }
+  }
+
+  return sorted;
+}
+
+/**
+ * Normalize openCre from various formats (array, string, or null).
+ */
+function normalizeOpenCre(openCreRaw: string | string[] | null): string | null {
+  if (Array.isArray(openCreRaw)) {
+    return openCreRaw.length > 0 ? openCreRaw.join(', ') : null;
+  }
+  return openCreRaw || null;
+}
+
+/**
+ * Normalize a single requirement from various input formats.
+ */
+function normalizeRequirement(req: RawRequirement) {
+  const reqBomRef = getRequirementRef(req);
+  const reqIdentifier = req.identifier || reqBomRef;
+  const reqTitle = req.title || req.text || req.name || reqIdentifier;
+  const reqDescription = req.description || req.text || null;
+  const reqParent = getRequirementParentRef(req);
+
+  const openCreRaw = req.openCre || req['open-cre'] || null;
+  const openCre = normalizeOpenCre(openCreRaw);
+
+  return {
+    bomRef: reqBomRef,
+    identifier: reqIdentifier,
+    title: reqTitle,
+    description: reqDescription,
+    parent: reqParent,
+    openCre,
+  };
+}
+
+/**
+ * Insert a single requirement into the database.
+ * Returns the requirement ID or null if duplicate and skipped.
+ */
+async function insertRequirement(
+  db: ReturnType<typeof getDatabase>,
+  req: RawRequirement,
+  standardId: string,
+  requirementMap: Map<string, string>,
+): Promise<string | null> {
+  const normalized = normalizeRequirement(req);
+  const requirementId = uuidv4();
+
+  // Resolve parent
+  let parentId: string | null = null;
+  if (normalized.parent && requirementMap.has(normalized.parent)) {
+    parentId = requirementMap.get(normalized.parent) || null;
+  }
+
+  try {
+    await db
+      .insertInto('requirement')
+      .values({
+        id: requirementId,
+        identifier: normalized.identifier,
+        name: normalized.title,
+        description: normalized.description,
+        open_cre: normalized.openCre,
+        parent_id: parentId,
+        standard_id: standardId,
+      })
+      .execute();
+
+    requirementMap.set(normalized.bomRef || normalized.identifier, requirementId);
+    return requirementId;
+  } catch (insertError: unknown) {
+    // Skip duplicates
+    const error = insertError as Record<string, unknown>;
+    const message = error?.message ?? '';
+    if (typeof message === 'string' && (message.includes('duplicate') || message.includes('unique'))) {
+      return null;
+    }
+    throw insertError;
+  }
+}
+
+/**
+ * Import all requirements for a standard.
+ * Returns count of successfully imported requirements.
+ */
+async function importRequirements(
+  db: ReturnType<typeof getDatabase>,
+  standard: RawStandardInput,
+  standardId: string,
+): Promise<{ count: number; map: Map<string, string> }> {
+  const requirements = standard.requirements || [];
+  const requirementMap = new Map<string, string>();
+  let count = 0;
+
+  const sortedRequirements = topologicalSortRequirements(requirements);
+
+  for (const req of sortedRequirements) {
+    const id = await insertRequirement(db, req, standardId, requirementMap);
+    if (id) {
+      count++;
+    }
+  }
+
+  return { count, map: requirementMap };
+}
+
+/**
+ * Normalize a single level from various input formats.
+ */
+function normalizeLevel(lvl: RawLevel) {
+  const lvlBomRef = lvl['bom-ref'] || lvl.bomRef || '';
+  return {
+    bomRef: lvlBomRef,
+    identifier: lvl.identifier || lvlBomRef,
+    title: lvl.title || null,
+    description: lvl.description || null,
+    requirements: lvl.requirements || [],
+  };
+}
+
+/**
+ * Link a level to its requirements via junction table.
+ */
+async function linkLevelRequirements(
+  db: ReturnType<typeof getDatabase>,
+  levelId: string,
+  lvlRequirements: string[],
+  requirementMap: Map<string, string>,
+): Promise<void> {
+  for (const reqRef of lvlRequirements) {
+    const reqUuid = requirementMap.get(reqRef);
+    if (reqUuid) {
+      try {
+        await db
+          .insertInto('level_requirement')
+          .values({
+            level_id: levelId,
+            requirement_id: reqUuid,
+          })
+          .execute();
+      } catch (junctionError: unknown) {
+        const error = junctionError as Record<string, unknown>;
+        const message = error?.message ?? '';
+        if (typeof message === 'string' && (message.includes('duplicate') || message.includes('unique'))) {
+          continue;
+        }
+        throw junctionError;
+      }
+    }
+  }
+}
+
+/**
+ * Insert a single level into the database.
+ * Returns the level ID or null if duplicate and skipped.
+ */
+async function insertLevel(
+  db: ReturnType<typeof getDatabase>,
+  lvl: RawLevel,
+  standardId: string,
+  requirementMap: Map<string, string>,
+): Promise<string | null> {
+  const normalized = normalizeLevel(lvl);
+  const levelId = uuidv4();
+
+  try {
+    await db
+      .insertInto('level')
+      .values({
+        id: levelId,
+        identifier: normalized.identifier,
+        title: normalized.title,
+        description: normalized.description,
+        standard_id: standardId,
+      })
+      .execute();
+
+    // Link requirements to this level
+    await linkLevelRequirements(db, levelId, normalized.requirements, requirementMap);
+
+    return levelId;
+  } catch (insertError: unknown) {
+    const error = insertError as Record<string, unknown>;
+    const message = error?.message ?? '';
+    if (typeof message === 'string' && (message.includes('duplicate') || message.includes('unique'))) {
+      return null;
+    }
+    throw insertError;
+  }
+}
+
+/**
+ * Import all levels for a standard.
+ * Returns count of successfully imported levels.
+ */
+async function importLevels(
+  db: ReturnType<typeof getDatabase>,
+  standard: RawStandardInput,
+  standardId: string,
+  requirementMap: Map<string, string>,
+): Promise<number> {
+  const levels = standard.levels ?? [];
+  let count = 0;
+
+  for (const lvl of levels) {
+    const id = await insertLevel(db, lvl, standardId, requirementMap);
+    if (id) {
+      count++;
+    }
+  }
+
+  return count;
+}
+
 /**
  * Import a single standard (with requirements and levels) into the database.
  *
@@ -78,24 +383,19 @@ export async function importStandard(
   const db = getDatabase();
   const { fallbackName = 'Unknown Standard', markAsImported = true, sourceJson } = options;
 
-  const bomRef = standard['bom-ref'] || standard.bomRef || standard.identifier || uuidv4();
-  const standardName = standard.name || standard.title || fallbackName;
-  const standardDesc = standard.description || null;
-  const standardVersion = standard.version || null;
-  const standardOwner = standard.owner || null;
-  const identifier = bomRef;
+  const meta = normalizeStandardMetadata(standard, fallbackName);
 
   // Check if already imported (idempotent)
   const existing = await db
     .selectFrom('standard')
-    .where('identifier', '=', identifier)
+    .where('identifier', '=', meta.identifier)
     .select(['id', 'name'])
     .executeTakeFirst();
 
   if (existing) {
     return {
       id: existing.id,
-      identifier,
+      identifier: meta.identifier,
       name: existing.name,
       requirementCount: 0,
       levelCount: 0,
@@ -105,15 +405,16 @@ export async function importStandard(
 
   const standardId = uuidv4();
 
+  // Create the standard record
   await db
     .insertInto('standard')
     .values({
       id: standardId,
-      identifier,
-      name: standardName,
-      description: standardDesc,
-      owner: standardOwner,
-      version: standardVersion,
+      identifier: meta.identifier,
+      name: meta.name,
+      description: meta.description,
+      owner: meta.owner,
+      version: meta.version,
       license_id: null,
       state: 'published',
       is_imported: markAsImported,
@@ -121,178 +422,22 @@ export async function importStandard(
     })
     .execute();
 
-  // --- Requirements ---
-  let requirementCount = 0;
-  const requirements = standard.requirements || [];
-  const requirementMap = new Map<string, string>();
-
-  // Topological sort: parents must be inserted before their children.
-  // Build a map of bom-ref -> requirement, then walk from roots down.
-  const reqByRef = new Map<string, RawRequirement>();
-  const childrenOf = new Map<string, RawRequirement[]>();
-  const roots: RawRequirement[] = [];
-
-  for (const req of requirements) {
-    const ref = req['bom-ref'] || req.bomRef || req.identifier || '';
-    reqByRef.set(ref, req);
-    const parentRef = req.parent || req.parentIdentifier || null;
-    if (!parentRef) {
-      roots.push(req);
-    } else {
-      if (!childrenOf.has(parentRef)) {
-        childrenOf.set(parentRef, []);
-      }
-      const children = childrenOf.get(parentRef);
-      if (children) {
-        children.push(req);
-      }
-    }
-  }
-
-  const sortedRequirements: RawRequirement[] = [];
-  const visit = (node: RawRequirement) => {
-    sortedRequirements.push(node);
-    const ref = node['bom-ref'] || node.bomRef || node.identifier || '';
-    const children = childrenOf.get(ref) || [];
-    for (const child of children) {
-      visit(child);
-    }
-  };
-  for (const root of roots) {
-    visit(root);
-  }
-
-  // Append any orphans whose parent ref doesn't match a known requirement
-  // (fallback: they get null parent_id)
-  const visited = new Set(sortedRequirements);
-  for (const req of requirements) {
-    if (!visited.has(req)) {
-      sortedRequirements.push(req);
-    }
-  }
-
-  for (const req of sortedRequirements) {
-    const reqBomRef = req['bom-ref'] || req.bomRef || req.identifier || '';
-    const reqIdentifier = req.identifier || reqBomRef;
-    const reqTitle = req.title || req.text || req.name || reqIdentifier;
-    const reqDescription = req.description || req.text || null;
-    const reqParent = req.parent || req.parentIdentifier || null;
-
-    // Normalize openCre: may be an array, a string, or absent
-    const openCreRaw = req.openCre || req['open-cre'] || null;
-    let openCre: string | null = null;
-    if (Array.isArray(openCreRaw)) {
-      openCre = openCreRaw.length > 0 ? openCreRaw.join(', ') : null;
-    } else if (openCreRaw) {
-      openCre = openCreRaw;
-    }
-
-    const requirementId = uuidv4();
-
-    // Resolve parent
-    let parentId: string | null = null;
-    if (reqParent && requirementMap.has(reqParent)) {
-      parentId = requirementMap.get(reqParent) || null;
-    }
-
-    try {
-      await db
-        .insertInto('requirement')
-        .values({
-          id: requirementId,
-          identifier: reqIdentifier,
-          name: reqTitle,
-          description: reqDescription,
-          open_cre: openCre,
-          parent_id: parentId,
-          standard_id: standardId,
-        })
-        .execute();
-
-      requirementMap.set(reqBomRef || reqIdentifier, requirementId);
-      requirementCount++;
-    } catch (insertError: unknown) {
-      // Skip duplicates
-      const error = insertError as Record<string, unknown>;
-      const message = error?.message ?? '';
-      if (typeof message === 'string' && (message.includes('duplicate') || message.includes('unique'))) {
-        continue;
-      }
-      throw insertError;
-    }
-  }
-
-  // --- Levels ---
-  const levels = standard.levels ?? [];
-  let levelCount = 0;
-
-  for (const lvl of levels) {
-    const lvlBomRef = lvl['bom-ref'] || lvl.bomRef || '';
-    const lvlIdentifier = lvl.identifier || lvlBomRef;
-    const lvlTitle = lvl.title || null;
-    const lvlDescription = lvl.description || null;
-
-    const levelId = uuidv4();
-
-    try {
-      await db
-        .insertInto('level')
-        .values({
-          id: levelId,
-          identifier: lvlIdentifier,
-          title: lvlTitle,
-          description: lvlDescription,
-          standard_id: standardId,
-        })
-        .execute();
-
-      // Associate requirements with this level
-      const lvlRequirements: string[] = lvl.requirements || [];
-      for (const reqRef of lvlRequirements) {
-        const reqUuid = requirementMap.get(reqRef);
-        if (reqUuid) {
-          try {
-            await db
-              .insertInto('level_requirement')
-              .values({
-                level_id: levelId,
-                requirement_id: reqUuid,
-              })
-              .execute();
-          } catch (junctionError: unknown) {
-            const error = junctionError as Record<string, unknown>;
-            const message = error?.message ?? '';
-            if (typeof message === 'string' && (message.includes('duplicate') || message.includes('unique'))) {
-              continue;
-            }
-            throw junctionError;
-          }
-        }
-      }
-
-      levelCount++;
-    } catch (insertError: unknown) {
-      const error = insertError as Record<string, unknown>;
-      const message = error?.message ?? '';
-      if (typeof message === 'string' && (message.includes('duplicate') || message.includes('unique'))) {
-        continue;
-      }
-      throw insertError;
-    }
-  }
+  // Import requirements and levels
+  const { count: requirementCount, map: requirementMap } = await importRequirements(db, standard, standardId);
+  const levelCount = await importLevels(db, standard, standardId, requirementMap);
 
   logger.info('Standard imported', {
     standardId,
-    identifier,
-    name: standardName,
+    identifier: meta.identifier,
+    name: meta.name,
     requirementCount,
     levelCount,
   });
 
   return {
     id: standardId,
-    identifier,
-    name: standardName,
+    identifier: meta.identifier,
+    name: meta.name,
     requirementCount,
     levelCount,
     skipped: false,

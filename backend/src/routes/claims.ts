@@ -79,6 +79,102 @@ async function checkClaimAssessmentReadOnly(db: any, attestationId: string | nul
   return null;
 }
 
+/**
+ * Validate attestation change and check read-only status of target attestation.
+ */
+async function validateAttestationChange(
+  db: any,
+  newAttestationId: string,
+  res: Response
+): Promise<boolean> {
+  const newAttestation = await db
+    .selectFrom('attestation')
+    .where('id', '=', newAttestationId)
+    .selectAll()
+    .executeTakeFirst();
+
+  if (!newAttestation) {
+    res.status(404).json({ error: 'Target attestation not found' });
+    return false;
+  }
+
+  const targetReadOnlyError = await checkClaimAssessmentReadOnly(db, newAttestationId);
+  if (targetReadOnlyError) {
+    res.status(403).json({ error: targetReadOnlyError });
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Build claim update data from request payload.
+ */
+function buildClaimUpdateData(data: any): Record<string, unknown> {
+  const updateData: Record<string, unknown> = {};
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.target !== undefined) updateData.target = data.target;
+  if (data.predicate !== undefined) updateData.predicate = data.predicate;
+  if (data.reasoning !== undefined) updateData.reasoning = data.reasoning;
+  if (data.isCounterClaim !== undefined) updateData.isCounterClaim = data.isCounterClaim;
+  if (data.attestationId !== undefined) updateData.attestationId = data.attestationId;
+  return updateData;
+}
+
+/**
+ * Sync evidence associations for a claim.
+ */
+async function syncClaimEvidence(
+  db: any,
+  claimId: string,
+  evidenceIds: string[] | undefined
+): Promise<void> {
+  if (evidenceIds === undefined) return;
+
+  await db.deleteFrom('claim_evidence').where('claim_id', '=', claimId).execute();
+
+  if (evidenceIds.length > 0) {
+    await db
+      .insertInto('claim_evidence')
+      .values(
+        evidenceIds.map(evidenceId => toSnakeCase({
+          claimId,
+          evidenceId,
+          createdAt: new Date(),
+          // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic query requires type cast
+        })) as any
+      )
+      .execute();
+  }
+}
+
+/**
+ * Sync counter-evidence associations for a claim.
+ */
+async function syncClaimCounterEvidence(
+  db: any,
+  claimId: string,
+  counterEvidenceIds: string[] | undefined
+): Promise<void> {
+  if (counterEvidenceIds === undefined) return;
+
+  await db.deleteFrom('claim_counter_evidence').where('claim_id', '=', claimId).execute();
+
+  if (counterEvidenceIds.length > 0) {
+    await db
+      .insertInto('claim_counter_evidence')
+      .values(
+        counterEvidenceIds.map(evidenceId => toSnakeCase({
+          claimId,
+          evidenceId,
+          createdAt: new Date(),
+          // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic query requires type cast
+        })) as any
+      )
+      .execute();
+  }
+}
+
 const createClaimSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   target: z.string().min(1, 'Target is required'),
@@ -291,7 +387,6 @@ router.put(
       }
 
       // Guard: reject if parent assessment is complete/archived
-      // biome-ignore lint/suspicious/noExplicitAny: claim shape is dynamic from query result
       const readOnlyError = await checkClaimAssessmentReadOnly(db, (claim as any).attestation_id);
       if (readOnlyError) {
         res.status(403).json({ error: readOnlyError });
@@ -307,37 +402,13 @@ router.put(
 
       // If changing attestation, validate the new one exists and check its read-only status
       if (data.attestationId !== undefined && data.attestationId !== (claim as Record<string, unknown>).attestation_id) {
-        if (data.attestationId) {
-          const newAttestation = await db
-            .selectFrom('attestation')
-            .where('id', '=', data.attestationId)
-            .selectAll()
-            .executeTakeFirst();
-
-          if (!newAttestation) {
-            res.status(404).json({ error: 'Target attestation not found' });
-            return;
-          }
-
-          // Check if the target assessment is read-only
-          const targetReadOnlyError = await checkClaimAssessmentReadOnly(db, data.attestationId);
-          if (targetReadOnlyError) {
-            res.status(403).json({ error: targetReadOnlyError });
-            return;
-          }
+        if (data.attestationId && !await validateAttestationChange(db, data.attestationId, res)) {
+          return;
         }
       }
 
-      // biome-ignore lint/suspicious/noExplicitAny: Dynamic update object with partial claim fields
-      const updateData: Record<string, unknown> = {};
-
-      if (data.name !== undefined) updateData.name = data.name;
-      if (data.target !== undefined) updateData.target = data.target;
-      if (data.predicate !== undefined) updateData.predicate = data.predicate;
-      if (data.reasoning !== undefined) updateData.reasoning = data.reasoning;
-      if (data.isCounterClaim !== undefined) updateData.isCounterClaim = data.isCounterClaim;
-      if (data.attestationId !== undefined) updateData.attestationId = data.attestationId;
-
+      // Update main claim fields
+      const updateData = buildClaimUpdateData(data);
       if (Object.keys(updateData).length > 0) {
         await db
           .updateTable('claim')
@@ -346,44 +417,9 @@ router.put(
           .execute();
       }
 
-      if (data.evidenceIds !== undefined) {
-        await db.deleteFrom('claim_evidence').where('claim_id', '=', req.params.id).execute();
-
-        if (data.evidenceIds.length > 0) {
-          await db
-            .insertInto('claim_evidence')
-            .values(
-              data.evidenceIds.map(evidenceId => toSnakeCase({
-                claimId: req.params.id,
-                evidenceId,
-                createdAt: new Date(),
-                // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic query requires type cast
-              })) as any
-            )
-            .execute();
-        }
-      }
-
-      if (data.counterEvidenceIds !== undefined) {
-        await db
-          .deleteFrom('claim_counter_evidence')
-          .where('claim_id', '=', req.params.id)
-          .execute();
-
-        if (data.counterEvidenceIds.length > 0) {
-          await db
-            .insertInto('claim_counter_evidence')
-            .values(
-              data.counterEvidenceIds.map(evidenceId => toSnakeCase({
-                claimId: req.params.id,
-                evidenceId,
-                createdAt: new Date(),
-                // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic query requires type cast
-              })) as any
-            )
-            .execute();
-        }
-      }
+      // Sync evidence associations
+      await syncClaimEvidence(db, req.params.id as string, data.evidenceIds);
+      await syncClaimCounterEvidence(db, req.params.id as string, data.counterEvidenceIds);
 
       logger.info('Claim updated', {
         claimId: req.params.id,

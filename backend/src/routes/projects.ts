@@ -10,6 +10,7 @@ import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { validatePagination } from '../utils/pagination.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
+import { fetchProjectStandards, fetchStandardsByProjects, syncProjectStandards } from '../utils/project-queries.js';
 
 const router = Router();
 
@@ -58,27 +59,7 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
   const tagsByProject = await fetchTagsForEntities(db, 'project_tag', 'project_id', projectIds);
 
   // Fetch standards per project for list view
-  const standardsByProject: Record<string, { id: string; name: string; version: string | null }[]> = {};
-  if (projectIds.length > 0) {
-    const projectStandards = await db
-      .selectFrom('project_standard')
-      .innerJoin('standard', (join) =>
-        join.onRef('standard.id', '=', 'project_standard.standard_id')
-      )
-      .where('project_standard.project_id', 'in', projectIds)
-      .select([
-        'project_standard.project_id as project_id',
-        'standard.id as id',
-        'standard.name as name',
-        'standard.version as version',
-      ])
-      .execute() as { project_id: string; id: string; name: string; version: string | null }[];
-
-    for (const ps of projectStandards) {
-      if (!standardsByProject[ps.project_id]) standardsByProject[ps.project_id] = [];
-      standardsByProject[ps.project_id].push({ id: ps.id, name: ps.name, version: ps.version });
-    }
-  }
+  const standardsByProject = await fetchStandardsByProjects(db, projectIds);
 
   const projectsWithTags = projects.map((p) => ({
     ...p,
@@ -110,25 +91,7 @@ router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Respo
     return;
   }
 
-  const standards = (await db
-    .selectFrom('project_standard')
-    .innerJoin(
-      'standard',
-      (join) =>
-        join.onRef(
-          'standard.id',
-          '=',
-          'project_standard.standard_id'
-        )
-    )
-    .where('project_standard.project_id', '=', req.params.id)
-    .select([
-      'standard.id as id',
-      'standard.name as name',
-      'standard.version as version',
-      'standard.description as description',
-    ])
-    .execute()) as { id: string; name: string; version: string | null; description: string | null }[];
+  const standards = await fetchProjectStandards(db, req.params.id as string);
 
   const tagsByProject = await fetchTagsForEntities(db, 'project_tag', 'project_id', [req.params.id as string]);
 
@@ -162,16 +125,7 @@ router.post(
         .execute();
 
       if (data.standardIds && data.standardIds.length > 0) {
-        await db
-          .insertInto('project_standard')
-          .values(
-            data.standardIds.map(standardId => ({
-              project_id: projectId,
-              standard_id: standardId,
-              created_at: new Date(),
-            }))
-          )
-          .execute();
+        await syncProjectStandards(db, projectId, data.standardIds);
       }
 
       if (data.tags && data.tags.length > 0) {
@@ -234,20 +188,7 @@ router.put(
       }
 
       if (data.standardIds !== undefined) {
-        await db.deleteFrom('project_standard').where('project_id', '=', req.params.id as string).execute();
-
-        if (data.standardIds.length > 0) {
-          await db
-            .insertInto('project_standard')
-            .values(
-              data.standardIds.map(standardId => ({
-                project_id: req.params.id as string,
-                standard_id: standardId,
-                created_at: new Date(),
-              }))
-            )
-            .execute();
-        }
+        await syncProjectStandards(db, req.params.id as string, data.standardIds);
       }
 
       if (data.tags !== undefined) {
@@ -266,25 +207,7 @@ router.put(
         .selectAll()
         .executeTakeFirst();
 
-      const standards = (await db
-        .selectFrom('project_standard')
-        .innerJoin(
-          'standard',
-          (join) =>
-            join.onRef(
-              'standard.id',
-              '=',
-              'project_standard.standard_id'
-            )
-        )
-        .where('project_standard.project_id', '=', req.params.id as string)
-        .select([
-          'standard.id as id',
-          'standard.name as name',
-          'standard.version as version',
-          'standard.description as description',
-        ])
-        .execute()) as { id: string; name: string; version: string | null; description: string | null }[];
+      const standards = await fetchProjectStandards(db, req.params.id as string);
 
       const tagsByProject = await fetchTagsForEntities(db, 'project_tag', 'project_id', [req.params.id as string]);
 
@@ -389,25 +312,7 @@ router.get(
     }
 
     // Fetch standards
-    const standards = (await db
-      .selectFrom('project_standard')
-      .innerJoin(
-        'standard',
-        (join) =>
-          join.onRef(
-            'standard.id',
-            '=',
-            'project_standard.standard_id'
-          )
-      )
-      .where('project_standard.project_id', '=', req.params.id as string)
-      .select([
-        'standard.id as id',
-        'standard.name as name',
-        'standard.version as version',
-        'standard.description as description',
-      ])
-      .execute()) as { id: string; name: string; version: string | null; description: string | null }[];
+    const standards = await fetchProjectStandards(db, req.params.id as string);
 
     // Fetch assessments
     const assessments = (await db

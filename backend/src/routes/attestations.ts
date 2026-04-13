@@ -8,25 +8,16 @@ import type { AuthRequest } from '../middleware/auth.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
+import {
+  checkAttestationAssessmentReadOnly,
+  fetchAttestationById,
+  fetchAttestationRequirements,
+  fetchAttestationClaims,
+  fetchSignatory,
+  checkRequirementExists,
+} from '../utils/attestation-queries.js';
 
 const router = Router();
-
-/**
- * Check if an attestation's parent assessment is read-only.
- * Returns error message if read-only, null if mutable.
- */
-async function checkAttestationAssessmentReadOnly(db: ReturnType<typeof getDatabase>, assessmentId: string): Promise<string | null> {
-  const assessment = await db
-    .selectFrom('assessment')
-    .where('id', '=', assessmentId)
-    .select(['state'])
-    .executeTakeFirst();
-
-  if (!assessment) return null;
-  if (assessment.state === 'archived') return 'This attestation belongs to an archived assessment and cannot be modified';
-  if (assessment.state === 'complete') return 'This attestation belongs to a completed assessment. Reopen the assessment to make changes.';
-  return null;
-}
 
 const createAttestationSchema = z.object({
   summary: z.string().optional(),
@@ -116,37 +107,16 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
 router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const db = getDatabase();
 
-  const attestation = await db
-    .selectFrom('attestation')
-    .where('id', '=', req.params.id)
-    .selectAll()
-    .executeTakeFirst();
+  const attestation = await fetchAttestationById(db, req.params.id as string);
 
   if (!attestation) {
     res.status(404).json({ error: 'Attestation not found' });
     return;
   }
 
-  const requirements = await db
-    .selectFrom('attestation_requirement')
-    .innerJoin('requirement', 'requirement.id', 'attestation_requirement.requirement_id')
-    .where('attestation_requirement.attestation_id', '=', req.params.id)
-    .selectAll()
-    .execute();
-
-  const claims = await db
-    .selectFrom('claim')
-    .where('attestation_id', '=', req.params.id)
-    .selectAll()
-    .execute();
-
-  const signatory = attestation.signatory_id
-    ? await db
-        .selectFrom('signatory')
-        .where('id', '=', attestation.signatory_id)
-        .selectAll()
-        .executeTakeFirst()
-    : null;
+  const requirements = await fetchAttestationRequirements(db, req.params.id as string);
+  const claims = await fetchAttestationClaims(db, req.params.id as string);
+  const signatory = await fetchSignatory(db, attestation.signatory_id || null);
 
   res.json({
     attestation,
@@ -222,11 +192,7 @@ router.put(
       const data = updateAttestationSchema.parse(req.body);
       const db = getDatabase();
 
-      const attestation = await db
-        .selectFrom('attestation')
-        .where('id', '=', req.params.id)
-        .selectAll()
-        .executeTakeFirst();
+      const attestation = await fetchAttestationById(db, req.params.id as string);
 
       if (!attestation) {
         res.status(404).json({ error: 'Attestation not found' });
@@ -282,11 +248,7 @@ router.post(
       const data = addRequirementSchema.parse(req.body);
       const db = getDatabase();
 
-      const attestation = await db
-        .selectFrom('attestation')
-        .where('id', '=', req.params.id)
-        .selectAll()
-        .executeTakeFirst();
+      const attestation = await fetchAttestationById(db, req.params.id as string);
 
       if (!attestation) {
         res.status(404).json({ error: 'Attestation not found' });
@@ -311,12 +273,7 @@ router.post(
         return;
       }
 
-      const existingReq = await db
-        .selectFrom('attestation_requirement')
-        .where('attestation_id', '=', req.params.id)
-        .where('requirement_id', '=', data.requirementId)
-        .selectAll()
-        .executeTakeFirst();
+      const existingReq = await checkRequirementExists(db, req.params.id as string, data.requirementId);
 
       if (existingReq) {
         await db
@@ -426,23 +383,14 @@ router.get(
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const db = getDatabase();
 
-    const attestation = await db
-      .selectFrom('attestation')
-      .where('id', '=', req.params.id)
-      .selectAll()
-      .executeTakeFirst();
+    const attestation = await fetchAttestationById(db, req.params.id as string);
 
     if (!attestation) {
       res.status(404).json({ error: 'Attestation not found' });
       return;
     }
 
-    const requirements = await db
-      .selectFrom('attestation_requirement')
-      .innerJoin('requirement', 'requirement.id', 'attestation_requirement.requirement_id')
-      .where('attestation_requirement.attestation_id', '=', req.params.id)
-      .selectAll()
-      .execute();
+    const requirements = await fetchAttestationRequirements(db, req.params.id as string);
 
     res.json({ data: requirements });
   })
@@ -457,11 +405,7 @@ router.post(
       const { signatoryId } = z.object({ signatoryId: z.string().uuid() }).parse(req.body);
       const db = getDatabase();
 
-      const attestation = await db
-        .selectFrom('attestation')
-        .where('id', '=', req.params.id)
-        .selectAll()
-        .executeTakeFirst();
+      const attestation = await fetchAttestationById(db, req.params.id as string);
 
       if (!attestation) {
         res.status(404).json({ error: 'Attestation not found' });
