@@ -2,8 +2,8 @@
 # CycloneDX Assessors Studio - Production Deployment
 # Uses PostgreSQL as the database backend.
 #
-# Usage:
-#   cd deploy/docker && docker compose -f docker-compose.production.yml up -d
+# This file is standalone. Download it anywhere and run:
+#   docker compose -f docker-compose.production.yml up -d
 #
 # Required environment variables (set in .env or shell):
 #   JWT_SECRET          - At least 32 characters, cryptographically random
@@ -12,12 +12,14 @@
 #   ADMIN_PASSWORD      - Password for initial admin (first run only, min 8 chars)
 #
 # Optional overrides:
+#   APP_IMAGE           - Container image (default: cyclonedx/cyclonedx-assessors-studio:latest)
+#                         Pin to a version for production, e.g. cyclonedx/cyclonedx-assessors-studio:1.0.0
 #   POSTGRES_PASSWORD   - Database password (default: assessors_studio)
 #   PORT                - Host port mapping (default: 3001)
 #   CORS_ORIGIN         - Allowed CORS origin (default: *)
 #
 # TLS: For production TLS, place a reverse proxy (nginx, traefik, caddy)
-# in front of this stack. See deploy/nginx.conf.example for a sample config.
+# in front of this stack.
 ###############################################################################
 
 services:
@@ -40,9 +42,8 @@ services:
     #   - "5432:5432"
 
   app:
-    build:
-      context: ../..
-      dockerfile: deploy/docker/Dockerfile
+    image: ${APP_IMAGE:-cyclonedx/cyclonedx-assessors-studio:snapshot}
+    pull_policy: always
     ports:
       - "${PORT:-3001}:3001"
     depends_on:

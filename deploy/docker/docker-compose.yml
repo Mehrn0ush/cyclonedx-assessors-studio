@@ -1,18 +1,26 @@
 ###############################################################################
 # CycloneDX Assessors Studio
-# Development / Testing compose file using PGlite (embedded database)
+# Quick-start / evaluation compose file using PGlite (embedded database)
 #
-# Usage:
-#   cd deploy/docker && docker compose up --build
+# This file is standalone. Download it anywhere and run:
+#   docker compose up -d
 #
 # The app will be available at http://localhost:3001
+#
+# Optional overrides:
+#   APP_IMAGE           - Container image (default: cyclonedx/cyclonedx-assessors-studio:latest)
+#   PORT                - Host port mapping (default: 3001)
+#
+# To build from source instead of pulling the published image, run from the
+# repository root:
+#   docker build -f deploy/docker/Dockerfile -t cyclonedx/cyclonedx-assessors-studio:dev .
+#   APP_IMAGE=cyclonedx/cyclonedx-assessors-studio:dev docker compose up -d
 ###############################################################################
 
 services:
   app:
-    build:
-      context: ../..
-      dockerfile: deploy/docker/Dockerfile
+    image: ${APP_IMAGE:-cyclonedx/cyclonedx-assessors-studio:snapshot}
+    pull_policy: always
     ports:
       - "${PORT:-3001}:3001"
     environment:
