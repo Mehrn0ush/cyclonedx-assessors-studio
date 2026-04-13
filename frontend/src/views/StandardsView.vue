@@ -294,14 +294,16 @@ const handleFileSelected = async (file: Record<string, unknown>) => {
 
     // Flat array of requirements (no standard metadata available)
     if (!stdMeta.name && Array.isArray(json)) {
-      stdMeta = { name: file.name.replace(/\.(cdx\.)?json$/, ''), identifier: '', version: '', owner: '', description: '' }
+      const fileName = (file.name as string).replace(/\.(cdx\.)?json$/, '')
+      stdMeta = { name: fileName, identifier: '', version: '', owner: '', description: '' }
       requirements = parseRequirements(json)
     }
 
     // { requirements: [...] } format
     if (!stdMeta.name && json.requirements && Array.isArray(json.requirements)) {
+      const fileName = (file.name as string).replace(/\.(cdx\.)?json$/, '')
       stdMeta = {
-        name: json.name || json.title || file.name.replace(/\.(cdx\.)?json$/, ''),
+        name: json.name || json.title || fileName,
         identifier: json['bom-ref'] || json.identifier || '',
         version: json.version || '',
         owner: json.owner || '',
@@ -320,12 +322,16 @@ const handleFileSelected = async (file: Record<string, unknown>) => {
     }
 
     importPreview.value = {
-      ...stdMeta,
+      name: (stdMeta.name as string) || '',
+      identifier: (stdMeta.identifier as string) || '',
+      version: (stdMeta.version as string) || '',
+      owner: (stdMeta.owner as string) || '',
+      description: (stdMeta.description as string) || '',
       requirementCount: requirements.length,
       requirements,
       levels,
       rawJson: text,
-    } as typeof importPreview.value
+    }
   } catch (err: unknown) {
     const e = err as { message?: string }
     importParseError.value = `Failed to parse file: ${e.message || 'Unknown error'}`

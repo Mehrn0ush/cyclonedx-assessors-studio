@@ -41,7 +41,7 @@ const stats = ref({
 
 interface StatDef {
   label: string
-  icon: unknown
+  icon: Record<string, unknown>
   accent: string
   suffix?: string
   accentFn?: (val: number) => string
@@ -61,7 +61,7 @@ const statDefs: Record<string, StatDef> = {
 
 const def = computed(() => statDefs[statKey.value] || statDefs.totalProjects)
 const label = computed(() => def.value.label)
-const iconComponent = computed(() => def.value.icon)
+const iconComponent = computed(() => def.value.icon as Record<string, unknown>)
 const rawValue = computed(() => (stats.value as Record<string, number>)[statKey.value] ?? 0)
 const displayValue = computed(() => def.value.suffix ? rawValue.value + def.value.suffix : rawValue.value)
 const accentColor = computed(() => def.value.accentFn ? def.value.accentFn(rawValue.value) : def.value.accent)

@@ -418,6 +418,7 @@ import type { SelectOption } from '@/components/shared/SearchSelect.vue'
 import RelationshipGraph from '@/components/shared/RelationshipGraph.vue'
 import * as entitiesAPI from '@/api/entities'
 import type { Entity, EntityRelationship, CompliancePolicy, AssessmentProgress, Tag } from '@/types'
+import type { GraphEdge } from '@/components/shared/RelationshipGraph.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -440,8 +441,8 @@ const relationships = ref<EntityRelationship[]>([])
 const policies = ref<CompliancePolicy[]>([])
 const progressData = ref<AssessmentProgress[]>([])
 const availableStandards = ref<Record<string, unknown>[]>([])
-const graphEdges = ref<Record<string, unknown>[]>([])
-const graphEntities = ref<Record<string, unknown>[]>([])
+const graphEdges = ref<GraphEdge[]>([])
+const graphEntities = ref<Array<{ id: string; name: string }>>([])
 
 // UI state
 const activeTab = ref('relationships')
@@ -582,15 +583,15 @@ const policyStandardOptions = computed<SelectOption[]>(() => {
   const seen = new Set<string>()
   return policies.value
     .filter((p: CompliancePolicy) => {
-      const standardId = (p.standard as Record<string, unknown> | undefined)?.id as string | undefined
+      const standardId = p.standard?.id
       if (seen.has(standardId || '')) return false
       seen.add(standardId || '')
       return true
     })
     .map((p: CompliancePolicy) => ({
-      value: (p.standard as Record<string, unknown> | undefined)?.id as string || p.standardId,
-      label: (p.standard as Record<string, unknown> | undefined)?.name as string || 'Unknown',
-      description: (p.standard as Record<string, unknown> | undefined)?.version ? `v${(p.standard as Record<string, unknown>).version as string}` : undefined,
+      value: p.standard?.id || p.standardId,
+      label: p.standard?.name || 'Unknown',
+      description: p.standard?.version ? `v${p.standard.version}` : undefined,
     }))
 })
 

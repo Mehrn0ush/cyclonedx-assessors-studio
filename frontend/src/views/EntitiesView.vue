@@ -251,7 +251,8 @@ import RowActions from '@/components/shared/RowActions.vue'
 import TagInput from '@/components/shared/TagInput.vue'
 import RelationshipGraph from '@/components/shared/RelationshipGraph.vue'
 import { getEntities, createEntity, updateEntity, deleteEntity as deleteEntityAPI } from '@/api/entities'
-import type { Entity, EntityType } from '@/types'
+import type { Entity, EntityType, Tag } from '@/types'
+import type { GraphEdge } from '@/components/shared/RelationshipGraph.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -287,7 +288,7 @@ const pageSize = 20
 // Graph state
 const graphLoading = ref(false)
 const graphEntities = ref<Array<{ id: string; name: string }>>([])
-const graphEdges = ref<Record<string, unknown>[]>([])
+const graphEdges = ref<GraphEdge[]>([])
 
 // Form
 const dialogForm = ref({
@@ -448,7 +449,7 @@ const openEditDialog = (row: Entity) => {
     name: row.name,
     description: row.description || '',
     entityType: row.entityType,
-    tags: (row.tags || []).map((t: Record<string, unknown> | string) => (typeof t === 'string' ? t : (t.name as string) || '')),
+    tags: (row.tags || []).map((t: Tag | string) => (typeof t === 'string' ? t : t.name)),
   }
   showDialog.value = true
 }

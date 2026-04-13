@@ -307,6 +307,7 @@ import StateBadge from '@/components/shared/StateBadge.vue'
 import IconButton from '@/components/shared/IconButton.vue'
 import { useAuthStore } from '@/stores/auth'
 import { formatDate } from '@/utils/dateFormat'
+import type { Evidence } from '@/types'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -314,21 +315,21 @@ const authStore = useAuthStore()
 
 const loading = ref(true)
 const error = ref<string | null>(null)
-const evidence = ref<Record<string, unknown>>({
+const evidence = ref<Evidence>({
   id: '',
   name: '',
   description: '',
-  state: '',
+  state: 'draft',
   classification: '',
-  authorId: '',
-  reviewerId: '',
+  author: '',
+  isCounterEvidence: false,
   createdAt: '',
-  expiresOn: '',
-  isCounterEvidence: false
+  updatedAt: '',
+  attachments: [],
 })
 const attachments = ref<Record<string, unknown>[]>([])
 const claims = ref<Record<string, unknown>[]>([])
-const notes = ref<Record<string, unknown>[]>([])
+const notes = ref<Array<{ id: string; displayName?: string; username?: string; createdAt: string; content: string }>>([])
 const isAddNoteDialogVisible = ref(false)
 const newNoteContent = ref('')
 const addingNote = ref(false)
@@ -359,7 +360,7 @@ const reviewerDisplay = computed(() => {
   return evidence.value.reviewerName || evidence.value.reviewerId || t('common.pending')
 })
 
-const formatDateDisplay = (dateString: string | null | undefined): string => {
+const formatDateDisplay = (dateString: string | null | undefined = null): string => {
   if (!dateString) return t('common.notSet')
   return formatDate(dateString) || dateString
 }
@@ -380,7 +381,7 @@ const isViewable = (contentType: string | null | undefined): boolean => {
 
 const downloadAttachment = async (attachment: Record<string, unknown>) => {
   try {
-    const evidenceId = route.params.id
+    const evidenceId = route.params.id as string
     const response = await axios.get(
       `/api/v1/evidence/${evidenceId}/attachments/${attachment.id as string}/download`,
       { responseType: 'blob' }
@@ -401,7 +402,7 @@ const downloadAttachment = async (attachment: Record<string, unknown>) => {
 
 const viewAttachment = async (attachment: Record<string, unknown>) => {
   try {
-    const evidenceId = route.params.id
+    const evidenceId = route.params.id as string
     const response = await axios.get(
       `/api/v1/evidence/${evidenceId}/attachments/${attachment.id as string}/download`,
       { responseType: 'blob' }
@@ -417,10 +418,10 @@ const viewAttachment = async (attachment: Record<string, unknown>) => {
 
 const openEditDialog = () => {
   editForm.value = {
-    name: evidence.value.name || '',
-    description: evidence.value.description || '',
-    classification: evidence.value.classification || '',
-    expiresOn: evidence.value.expiresOn || null,
+    name: evidence.value.name,
+    description: evidence.value.description,
+    classification: evidence.value.classification,
+    expiresOn: (evidence.value.expiresOn as string | null) || null,
   }
   showEditDialog.value = true
 }
@@ -441,7 +442,7 @@ const handleSaveEdit = async () => {
   }
   try {
     savingEdit.value = true
-    const evidenceId = route.params.id
+    const evidenceId = route.params.id as string
     await axios.put(`/api/v1/evidence/${evidenceId}`, editForm.value)
     ElMessage.success('Evidence updated successfully')
     showEditDialog.value = false
@@ -489,7 +490,7 @@ const fetchClaims = async () => {
   try {
     const evidenceId = route.params.id as string
     const response = await axios.get(`/api/v1/evidence/${evidenceId}/claims`)
-    claims.value = Array.isArray(response.data) ? response.data : response.data.data || []
+    claims.value = Array.isArray(response.data) ? response.data : (response.data.data || [])
   } catch (err: unknown) {
     // Endpoint may not exist yet, silently handle
     console.error('Failed to fetch claims for evidence:', err)
@@ -510,7 +511,7 @@ const fetchEvidenceData = async () => {
   try {
     loading.value = true
     error.value = null
-    const evidenceId = route.params.id
+    const evidenceId = route.params.id as string
 
     const response = await axios.get(`/api/v1/evidence/${evidenceId}`)
     const { evidence: evidenceData, notes: notesData, attachments: attachmentsData } = response.data
@@ -540,7 +541,7 @@ const addNote = async () => {
 
   try {
     addingNote.value = true
-    const evidenceId = route.params.id
+    const evidenceId = route.params.id as string
 
     await axios.post(`/api/v1/evidence/${evidenceId}/notes`, {
       content: newNoteContent.value
@@ -563,7 +564,7 @@ const addNote = async () => {
 
 const handleApprove = async () => {
   try {
-    const evidenceId = route.params.id
+    const evidenceId = route.params.id as string
     await axios.post(`/api/v1/evidence/${evidenceId}/approve`)
     ElMessage.success('Evidence approved successfully')
     await fetchEvidenceData()
@@ -583,7 +584,7 @@ const handleSubmitForReview = async () => {
 
   try {
     submittingForReview.value = true
-    const evidenceId = route.params.id
+    const evidenceId = route.params.id as string
     await axios.post(`/api/v1/evidence/${evidenceId}/submit-for-review`, {
       reviewerId: selectedReviewer.value
     })
@@ -609,7 +610,7 @@ const handleReject = async () => {
 
   try {
     rejecting.value = true
-    const evidenceId = route.params.id
+    const evidenceId = route.params.id as string
     await axios.post(`/api/v1/evidence/${evidenceId}/reject`, {
       note: rejectionNote.value
     })

@@ -120,6 +120,7 @@ import PageHeader from '@/components/shared/PageHeader.vue'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import HelpTip from '@/components/shared/HelpTip.vue'
 import { formatDate } from '@/utils/dateFormat'
+import type { Evidence } from '@/types'
 
 const { t } = useI18n()
 
@@ -135,7 +136,7 @@ const error = ref('')
 const saving = ref(false)
 const showCreateDialog = ref(false)
 
-const evidence = ref<Record<string, unknown>[]>([])
+const evidence = ref<Evidence[]>([])
 
 const createForm = ref({
   name: '',
@@ -219,8 +220,8 @@ const handleCreate = async () => {
   }
 }
 
-const navigateToEvidence = (row: Record<string, unknown>) => {
-  router.push(`/evidence/${row.id as string}`)
+const navigateToEvidence = (row: Evidence) => {
+  router.push(`/evidence/${row.id}`)
 }
 </script>
 

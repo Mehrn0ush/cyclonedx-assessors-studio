@@ -444,15 +444,15 @@ const openEditDialog = (rule: NotificationRule) => {
   const destString = extractDestinationString(rule.channel, parsedDest)
 
   // Parse filters to extract project/standard IDs
-  const parsedFilters = parseJsonField(rule.filters)
+  const parsedFilters = parseJsonField(rule.filters ?? null)
 
   form.value = {
     name: rule.name,
     channel: rule.channel,
     eventTypes: rule.eventTypes || rule.event_types || [],
     destination: destString,
-    filterProjectId: rule.filterProjectId || parsedFilters.projectId || '',
-    filterStandardId: rule.filterStandardId || parsedFilters.standardId || '',
+    filterProjectId: rule.filterProjectId || (parsedFilters.projectId as string) || '',
+    filterStandardId: rule.filterStandardId || (parsedFilters.standardId as string) || '',
     enabled: rule.enabled
   }
   fetchProjectOptions()

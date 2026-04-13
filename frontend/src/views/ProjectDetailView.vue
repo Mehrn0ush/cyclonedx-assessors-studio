@@ -103,7 +103,7 @@
             <div v-if="projectStandards.length > 0" class="info-field">
               <label id="project-standards-label">{{ t('projects.standards') }}</label>
               <div class="standards-list" aria-labelledby="project-standards-label">
-                <p v-for="std in projectStandards" :key="std.id">{{ std.name }}{{ std.version ? ` v${std.version}` : '' }}</p>
+                <p v-for="std in projectStandards" :key="std.id as string">{{ std.name }}{{ std.version ? ` v${std.version}` : '' }}</p>
               </div>
             </div>
           </el-col>
@@ -113,7 +113,7 @@
               <div class="info-pill-list" aria-labelledby="project-tags-label">
                 <span
                   v-for="tag in projectTags"
-                  :key="tag.name"
+                  :key="tag.name as string"
                   class="tag-display-pill"
                 >{{ tag.name }}</span>
               </div>
@@ -245,6 +245,7 @@ import { useI18n } from 'vue-i18n'
 import { ArrowRight, Loading, Edit as EditIcon, ArrowDown, Odometer } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
+import type { Project, Standard, Assessment, Tag } from '@/types'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import TagInput from '@/components/shared/TagInput.vue'
 import ProjectDashboard from '@/components/shared/ProjectDashboard.vue'
@@ -256,9 +257,9 @@ const { t } = useI18n()
 const loading = ref(true)
 const error = ref('')
 const pdfExporting = ref(false)
-const project = ref<Record<string, unknown> | null>(null)
-const projectStandards = ref<Record<string, unknown>[]>([])
-const assessments = ref<Record<string, unknown>[]>([])
+const project = ref<(Project & { startDate?: string; dueDate?: string }) | null>(null)
+const projectStandards = ref<Standard[]>([])
+const assessments = ref<Assessment[]>([])
 const assessmentsLoading = ref(true)
 const activeTab = ref('assessments')
 const dashboardKey = ref(0)
@@ -269,8 +270,8 @@ const refreshDashboard = () => { dashboardKey.value++ }
 const showEditDialog = ref(false)
 const editSaving = ref(false)
 const editFormRef = ref()
-const availableStandards = ref<Record<string, unknown>[]>([])
-const projectTags = ref<Record<string, unknown>[]>([])
+const availableStandards = ref<Standard[]>([])
+const projectTags = ref<Tag[]>([])
 const editForm = ref({
   name: '',
   description: '',
@@ -340,25 +341,25 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-const navigateToAssessment = (rowOrId: string | Record<string, unknown>) => {
-  const id = typeof rowOrId === 'string' ? rowOrId : (rowOrId.id as string)
+const navigateToAssessment = (rowOrId: string | Assessment) => {
+  const id = typeof rowOrId === 'string' ? rowOrId : rowOrId.id
   router.push(`/assessments/${id}`)
 }
 
-const navigateToStandard = (row: Record<string, unknown>) => {
-  router.push(`/standards/${row.id as string}`)
+const navigateToStandard = (row: Standard) => {
+  router.push(`/standards/${row.id}`)
 }
 
 // Edit project
 const openEditDialog = async () => {
   editForm.value = {
-    name: (project.value?.name as string) || '',
-    description: (project.value?.description as string) || '',
-    state: (project.value?.state as string) || 'new',
-    standardIds: projectStandards.value.map((s: Record<string, unknown>) => s.id as string),
-    tags: projectTags.value.map((t: Record<string, unknown>) => t.name as string),
-    startDate: project.value?.startDate ? new Date(project.value.startDate as string) : null,
-    dueDate: project.value?.dueDate ? new Date(project.value.dueDate as string) : null,
+    name: project.value?.name || '',
+    description: project.value?.description || '',
+    state: project.value?.state || 'new',
+    standardIds: projectStandards.value.map((s) => s.id),
+    tags: projectTags.value.map((t) => t.name),
+    startDate: project.value?.startDate ? new Date(project.value.startDate) : null,
+    dueDate: project.value?.dueDate ? new Date(project.value.dueDate) : null,
   }
   await fetchAvailableStandards()
   showEditDialog.value = true

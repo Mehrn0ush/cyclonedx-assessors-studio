@@ -183,6 +183,7 @@ import PageHeader from '@/components/shared/PageHeader.vue'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import RowActions from '@/components/shared/RowActions.vue'
 import { formatDate } from '@/utils/dateFormat'
+import type { Assessment } from '@/types'
 
 const { t } = useI18n()
 
@@ -200,7 +201,7 @@ const error = ref('')
 const saving = ref(false)
 const showCreateDialog = ref(false)
 
-const assessments = ref<Record<string, unknown>[]>([])
+const assessments = ref<Assessment[]>([])
 const projects = ref<Record<string, unknown>[]>([])
 const standards = ref<Record<string, unknown>[]>([])
 const assignableUsers = ref<Record<string, unknown>[]>([])
@@ -319,10 +320,10 @@ const fetchAssessments = async () => {
 }
 
 const filteredAssessments = computed(() => {
-  const filtered = assessments.value.filter(assessment => {
+  const filtered = assessments.value.filter((assessment: Assessment) => {
     const matchesSearch = !searchText.value ||
       assessment.title.toLowerCase().includes(searchText.value.toLowerCase()) ||
-      (assessment.projectName && assessment.projectName.toLowerCase().includes(searchText.value.toLowerCase()))
+      (assessment.project?.name && assessment.project.name.toLowerCase().includes(searchText.value.toLowerCase()))
     return matchesSearch
   })
   const start = (currentPage.value - 1) * pageSize.value
@@ -331,10 +332,10 @@ const filteredAssessments = computed(() => {
 })
 
 const totalAssessments = computed(() => {
-  return assessments.value.filter(assessment => {
+  return assessments.value.filter((assessment: Assessment) => {
     const matchesSearch = !searchText.value ||
       assessment.title.toLowerCase().includes(searchText.value.toLowerCase()) ||
-      (assessment.projectName && assessment.projectName.toLowerCase().includes(searchText.value.toLowerCase()))
+      (assessment.project?.name && assessment.project.name.toLowerCase().includes(searchText.value.toLowerCase()))
     return matchesSearch
   }).length
 })

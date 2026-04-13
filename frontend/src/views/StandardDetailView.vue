@@ -43,7 +43,7 @@
           <el-col :span="6">
             <div class="info-group">
               <label>{{ t('common.state') }}</label>
-              <StateBadge :state="standard.state" />
+              <StateBadge :state="standard.state || 'draft'" />
             </div>
           </el-col>
           <el-col :span="6">
@@ -407,18 +407,9 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import IconButton from '@/components/shared/IconButton.vue'
-import RequirementTree from '@/components/shared/RequirementTree.vue'
+import RequirementTree, { type RequirementNode } from '@/components/shared/RequirementTree.vue'
 import { useAuthStore } from '@/stores/auth'
-
-interface StandardRequirement {
-  id: string
-  identifier: string
-  name: string
-  description: string | null
-  parent_id?: string | null
-  open_cre?: string | null
-  children: StandardRequirement[]
-}
+import { type Standard } from '@/types'
 
 interface ProjectReference {
   id: string
@@ -432,8 +423,8 @@ const authStore = useAuthStore()
 
 const loading = ref(true)
 const error = ref('')
-const standard = ref<Record<string, unknown> | null>(null)
-const requirements = ref<StandardRequirement[]>([])
+const standard = ref<Standard | null>(null)
+const requirements = ref<RequirementNode[]>([])
 const levels = ref<Record<string, unknown>[]>([])
 const projects = ref<ProjectReference[]>([])
 const projectsLoading = ref(false)
@@ -452,12 +443,12 @@ const editForm = ref({
 
 // Requirement dialog state
 const requirementDialogVisible = ref(false)
-const editingRequirement = ref<Record<string, unknown> | null>(null)
+const editingRequirement = ref<RequirementNode | null>(null)
 const requirementForm = ref({
   identifier: '',
   name: '',
   description: '',
-  parentId: null,
+  parentId: null as string | null,
 })
 
 // Inline editing is now handled by RequirementTree component
@@ -609,7 +600,7 @@ const formatDate = (dateString: string): string => {
 const openEditDialog = () => {
   if (standard.value) {
     editForm.value = {
-      name: standard.value.name || '',
+      name: standard.value.name,
       identifier: standard.value.identifier || '',
       version: standard.value.version || '',
       owner: standard.value.owner || '',
@@ -631,6 +622,10 @@ const resetEditForm = () => {
 
 const handleSaveEdit = async () => {
   try {
+    if (!standard.value?.id) {
+      ElMessage.error('Standard ID is missing')
+      return
+    }
     await axios.put(`/api/v1/standards/${standard.value.id}`, editForm.value)
     ElMessage.success('Standard updated successfully')
     editDialogVisible.value = false
@@ -653,13 +648,13 @@ const openAddRequirementDialog = () => {
   requirementDialogVisible.value = true
 }
 
-const openEditRequirementDialog = (requirement: Record<string, unknown>) => {
+const openEditRequirementDialog = (requirement: RequirementNode) => {
   editingRequirement.value = requirement
   requirementForm.value = {
-    identifier: (requirement.identifier as string) || '',
-    name: (requirement.name as string) || '',
-    description: (requirement.description as string) || '',
-    parentId: (requirement.parent_id as string | null) || null,
+    identifier: requirement.identifier,
+    name: requirement.name,
+    description: requirement.description || '',
+    parentId: requirement.parent_id || null,
   }
   requirementDialogVisible.value = true
 }
@@ -676,9 +671,13 @@ const resetRequirementForm = () => {
 
 const handleSaveRequirement = async () => {
   try {
+    if (!standard.value?.id) {
+      ElMessage.error('Standard ID is missing')
+      return
+    }
     if (editingRequirement.value) {
       await axios.put(
-        `/api/v1/standards/${standard.value.id}/requirements/${editingRequirement.value.id as string}`,
+        `/api/v1/standards/${standard.value.id}/requirements/${editingRequirement.value.id}`,
         requirementForm.value
       )
       ElMessage.success('Requirement updated successfully')
@@ -694,8 +693,12 @@ const handleSaveRequirement = async () => {
   }
 }
 
-const handleSaveInline = async (row: StandardRequirement, field: string, value: string) => {
+const handleSaveInline = async (row: RequirementNode, field: string, value: string) => {
   try {
+    if (!standard.value?.id) {
+      ElMessage.error('Standard ID is missing')
+      return
+    }
     await axios.put(
       `/api/v1/standards/${standard.value.id}/requirements/${row.id}`,
       { [field]: value }
@@ -703,12 +706,16 @@ const handleSaveInline = async (row: StandardRequirement, field: string, value: 
     await fetchStandard()
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } }; message?: string }
-    ElMessage.error((e.response as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined | string || `Failed to update ${field}`)
+    ElMessage.error(e.response?.data?.error || `Failed to update ${field}`)
   }
 }
 
 const handleReparent = async (requirementId: string, newParentId: string | null) => {
   try {
+    if (!standard.value?.id) {
+      ElMessage.error('Standard ID is missing')
+      return
+    }
     await axios.put(
       `/api/v1/standards/${standard.value.id}/requirements/${requirementId}/reparent`,
       { parent_id: newParentId }
@@ -720,8 +727,12 @@ const handleReparent = async (requirementId: string, newParentId: string | null)
   }
 }
 
-const handleDeleteRequirement = async (requirement: Record<string, unknown>) => {
+const handleDeleteRequirement = async (requirement: RequirementNode) => {
   try {
+    if (!standard.value?.id) {
+      ElMessage.error('Standard ID is missing')
+      return
+    }
     await ElMessageBox.confirm(
       'This will delete the requirement. Continue?',
       'Warning',
@@ -732,7 +743,7 @@ const handleDeleteRequirement = async (requirement: Record<string, unknown>) => 
       }
     )
     await axios.delete(
-      `/api/v1/standards/${standard.value.id}/requirements/${requirement.id as string}`
+      `/api/v1/standards/${standard.value.id}/requirements/${requirement.id}`
     )
     ElMessage.success('Requirement deleted successfully')
     await fetchStandard()
@@ -760,6 +771,10 @@ const handleSaveLevel = async () => {
     return
   }
   try {
+    if (!standard.value?.id) {
+      ElMessage.error('Standard ID is missing')
+      return
+    }
     await axios.post(`/api/v1/standards/${standard.value.id}/levels`, levelForm.value)
     ElMessage.success('Level added')
     levelDialogVisible.value = false
@@ -772,6 +787,10 @@ const handleSaveLevel = async () => {
 
 const handleDeleteLevel = async (level: Record<string, unknown>) => {
   try {
+    if (!standard.value?.id) {
+      ElMessage.error('Standard ID is missing')
+      return
+    }
     await ElMessageBox.confirm(
       `Delete level "${level.identifier as string}"? This will also remove all requirement assignments for this level.`,
       'Warning',
@@ -782,7 +801,7 @@ const handleDeleteLevel = async (level: Record<string, unknown>) => {
     await fetchStandard()
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } }; message?: string }
-    if (e !== 'cancel' && e?.message !== 'cancel') {
+    if (e.message !== 'cancel') {
       ElMessage.error(e.response?.data?.error || 'Failed to delete level')
     }
   }
@@ -796,6 +815,10 @@ const startEditLevel = (row: Record<string, unknown>, field: string) => {
 const saveLevelField = async (row: Record<string, unknown>) => {
   if (!editingLevelField.value) return
   try {
+    if (!standard.value?.id) {
+      ElMessage.error('Standard ID is missing')
+      return
+    }
     await axios.put(
       `/api/v1/standards/${standard.value.id}/levels/${row.id as string}`,
       { [editingLevelField.value.field]: editingLevelValue.value }
@@ -826,6 +849,10 @@ const openLevelRequirementsDialog = (level: Record<string, unknown>) => {
 const handleSaveLevelRequirements = async () => {
   if (!editingLevel.value) return
   try {
+    if (!standard.value?.id) {
+      ElMessage.error('Standard ID is missing')
+      return
+    }
     await axios.put(
       `/api/v1/standards/${standard.value.id}/levels/${editingLevel.value.id as string}/requirements`,
       { requirementIds: selectedLevelReqIds.value }
@@ -842,6 +869,10 @@ const handleSaveLevelRequirements = async () => {
 // Workflow action handlers
 const handleSubmitForApproval = async () => {
   try {
+    if (!standard.value?.id) {
+      ElMessage.error('Standard ID is missing')
+      return
+    }
     await ElMessageBox.confirm(
       'Submit this standard for approval? It will be locked from further edits.',
       'Submit for Approval',
@@ -864,6 +895,10 @@ const handleSubmitForApproval = async () => {
 
 const handleApprove = async () => {
   try {
+    if (!standard.value?.id) {
+      ElMessage.error('Standard ID is missing')
+      return
+    }
     await ElMessageBox.confirm(
       'Approve this standard? It will become published.',
       'Approve Standard',
@@ -886,6 +921,10 @@ const handleApprove = async () => {
 
 const handleReject = async () => {
   try {
+    if (!standard.value?.id) {
+      ElMessage.error('Standard ID is missing')
+      return
+    }
     const { value: reason } = await ElMessageBox.prompt(
       'Please provide a reason for rejection',
       'Reject Standard',
@@ -908,6 +947,10 @@ const handleReject = async () => {
 
 const handleDuplicate = async () => {
   try {
+    if (!standard.value?.id) {
+      ElMessage.error('Standard ID is missing')
+      return
+    }
     const { data } = await axios.post(`/api/v1/standards/${standard.value.id}/duplicate`)
     ElMessage.success('Standard duplicated')
     await router.push(`/standards/${(data as Record<string, unknown>).id as string}`)
@@ -920,6 +963,10 @@ const handleDuplicate = async () => {
 const handleExport = async () => {
   exporting.value = true
   try {
+    if (!standard.value?.id) {
+      ElMessage.error('Standard ID is missing')
+      return
+    }
     const response = await axios.get(`/api/v1/standards/${standard.value.id}/export`, {
       responseType: 'blob',
     })
@@ -927,12 +974,12 @@ const handleExport = async () => {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    const slug = ((standard.value.name as string) || '')
+    const slug = (standard.value.name || '')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
-    const suffix = (standard.value.version as string | undefined)
-      ? ((standard.value.version as string) || '').replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
+    const suffix = standard.value.version
+      ? (standard.value.version).replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
       : new Date().toISOString().replace(/[-:T]/g, '').replace(/\.\d+Z$/, '')
     link.download = `${slug}-${suffix}.cdx.json`
     document.body.appendChild(link)
@@ -949,6 +996,10 @@ const handleExport = async () => {
 
 const handleRetire = async () => {
   try {
+    if (!standard.value?.id) {
+      ElMessage.error('Standard ID is missing')
+      return
+    }
     await ElMessageBox.confirm(
       'Retire this standard? It will no longer be available for use.',
       'Retire Standard',

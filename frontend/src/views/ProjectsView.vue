@@ -197,6 +197,7 @@ import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, Upload, FolderOpened } from '@element-plus/icons-vue'
 import axios from 'axios'
+import type { Project, Standard, Tag } from '@/types'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import RowActions from '@/components/shared/RowActions.vue'
@@ -209,8 +210,8 @@ const { t } = useI18n()
 // State
 const loading = ref(true)
 const error = ref('')
-const projects = ref<Record<string, unknown>[]>([])
-const availableStandards = ref<Record<string, unknown>[]>([])
+const projects = ref<(Project & { standards?: Standard[]; tags?: Tag[] })[]>([])
+const availableStandards = ref<Standard[]>([])
 const showDialog = ref(false)
 const saving = ref(false)
 const isEditMode = ref(false)
@@ -238,10 +239,10 @@ const formRules = {
 const filteredProjects = computed(() => {
   const filtered = projects.value.filter(project => {
     const matchesState = !filterState.value || project.state === filterState.value
-    const matchesTag = !filterTag.value || (project.tags || []).some((t: Record<string, unknown>) => (t.name as string).toLowerCase().includes(filterTag.value.toLowerCase()))
+    const matchesTag = !filterTag.value || (project.tags || []).some((t) => t.name.toLowerCase().includes(filterTag.value.toLowerCase()))
     const matchesSearch = !searchText.value ||
-      (project.name as string).toLowerCase().includes(searchText.value.toLowerCase()) ||
-      ((project.description as string) || '').toLowerCase().includes(searchText.value.toLowerCase())
+      project.name.toLowerCase().includes(searchText.value.toLowerCase()) ||
+      (project.description || '').toLowerCase().includes(searchText.value.toLowerCase())
     return matchesState && matchesTag && matchesSearch
   })
   return filtered.slice((currentPage.value - 1) * pageSize.value, currentPage.value * pageSize.value)
@@ -250,10 +251,10 @@ const filteredProjects = computed(() => {
 const totalCount = computed(() => {
   return projects.value.filter(project => {
     const matchesState = !filterState.value || project.state === filterState.value
-    const matchesTag = !filterTag.value || (project.tags || []).some((t: Record<string, unknown>) => (t.name as string).toLowerCase().includes(filterTag.value.toLowerCase()))
+    const matchesTag = !filterTag.value || (project.tags || []).some((t) => t.name.toLowerCase().includes(filterTag.value.toLowerCase()))
     const matchesSearch = !searchText.value ||
-      (project.name as string).toLowerCase().includes(searchText.value.toLowerCase()) ||
-      ((project.description as string) || '').toLowerCase().includes(searchText.value.toLowerCase())
+      project.name.toLowerCase().includes(searchText.value.toLowerCase()) ||
+      (project.description || '').toLowerCase().includes(searchText.value.toLowerCase())
     return matchesState && matchesTag && matchesSearch
   }).length
 })
@@ -294,14 +295,14 @@ const showCreateDialog = async () => {
   showDialog.value = true
 }
 
-const openEditDialog = async (row: Record<string, unknown>) => {
+const openEditDialog = async (row: Project & { standards?: Standard[]; tags?: Tag[] }) => {
   isEditMode.value = true
   dialogForm.value = {
-    id: row.id as string,
-    name: row.name as string,
-    description: row.description as string,
-    standardIds: ((row.standards || []) as Array<Record<string, unknown>>).map((s) => s.id as string),
-    tags: ((row.tags || []) as Array<Record<string, unknown>>).map((t) => t.name as string)
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    standardIds: (row.standards || []).map((s) => s.id),
+    tags: (row.tags || []).map((t) => t.name)
   }
   await fetchStandards()
   showDialog.value = true
@@ -341,7 +342,7 @@ const saveProject = async () => {
   }
 }
 
-const deleteProject = (row: Record<string, unknown>) => {
+const deleteProject = (row: Project) => {
   ElMessageBox.confirm('Are you sure you want to delete this project?', 'Warning', {
     confirmButtonText: 'Delete',
     cancelButtonText: 'Cancel',
@@ -349,7 +350,7 @@ const deleteProject = (row: Record<string, unknown>) => {
   })
     .then(async () => {
       try {
-        await axios.delete(`/api/v1/projects/${row.id as string}`)
+        await axios.delete(`/api/v1/projects/${row.id}`)
         ElMessage.success('Project deleted successfully')
         await fetchProjects()
       } catch (err: unknown) {
@@ -373,19 +374,19 @@ const resetForm = () => {
   formRef.value?.clearValidate()
 }
 
-const navigateToProject = (row: Record<string, unknown>) => {
-  router.push(`/projects/${row.id as string}`)
+const navigateToProject = (row: Project) => {
+  router.push(`/projects/${row.id}`)
 }
 
 // Import attestation state
 const showImportAttestationDialog = ref(false)
 const importing = ref(false)
-const importData = ref<Record<string, unknown> | null>(null)
-const importPreview = ref<Record<string, unknown> | null>(null)
-const importResult = ref<Record<string, unknown> | null>(null)
+const importData = ref<any | null>(null)
+const importPreview = ref<any | null>(null)
+const importResult = ref<any | null>(null)
 const uploadRef = ref()
 
-const handleImportFileChange = (file: Record<string, unknown>) => {
+const handleImportFileChange = (file: any) => {
   const reader = new FileReader()
   reader.onload = (e) => {
     try {

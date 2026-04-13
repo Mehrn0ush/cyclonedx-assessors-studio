@@ -34,7 +34,7 @@ interface RelationshipRow {
   direction: 'parent' | 'child' | 'other'
 }
 
-interface GraphEdge {
+export interface GraphEdge {
   id: string
   sourceEntityId: string
   sourceName: string

@@ -800,22 +800,22 @@
     <!-- Requirement Detail Popup -->
     <el-dialog
       v-model="showRequirementPopup"
-      :title="requirementPopupData?.identifier || 'Requirement'"
+      :title="requirementPopupData?.requirement?.identifier || 'Requirement'"
       width="600px"
       class="requirement-popup-dialog"
     >
       <div v-if="requirementPopupData" class="requirement-popup-content">
         <div class="req-popup-field">
           <label>Identifier</label>
-          <p>{{ requirementPopupData.identifier }}</p>
+          <p>{{ requirementPopupData.requirement?.identifier }}</p>
         </div>
         <div class="req-popup-field">
           <label>Name</label>
-          <p>{{ requirementPopupData.name }}</p>
+          <p>{{ requirementPopupData.requirement?.name }}</p>
         </div>
-        <div v-if="requirementPopupData.description && requirementPopupData.description !== requirementPopupData.name" class="req-popup-field">
+        <div v-if="requirementPopupData.requirement?.description && requirementPopupData.requirement?.description !== requirementPopupData.requirement?.name" class="req-popup-field">
           <label>Description</label>
-          <p class="req-description">{{ requirementPopupData.description }}</p>
+          <p class="req-description">{{ requirementPopupData.requirement?.description }}</p>
         </div>
         <div v-if="requirementPopupHierarchy.length > 0" class="req-popup-field">
           <label>Hierarchy</label>
@@ -839,9 +839,9 @@
             </el-tag>
           </div>
         </div>
-        <div v-if="requirementPopupData.openCre" class="req-popup-field">
+        <div v-if="requirementPopupData.requirement?.openCre" class="req-popup-field">
           <label>OpenCRE</label>
-          <p>{{ requirementPopupData.openCre }}</p>
+          <p>{{ requirementPopupData.requirement?.openCre }}</p>
         </div>
       </div>
       <template #footer>
@@ -859,12 +859,19 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowRight, Check } from '@element-plus/icons-vue'
 import axios from 'axios'
-import type { Evidence, WorkNote, AssessmentRequirement, User } from '@/types'
+import type { Evidence, WorkNote, AssessmentRequirement, User, Assessment, Requirement } from '@/types'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import HelpTip from '@/components/shared/HelpTip.vue'
 import SearchSelect from '@/components/shared/SearchSelect.vue'
 import MentionTextarea from '@/components/shared/MentionTextarea.vue'
 import { formatDate } from '@/utils/dateFormat'
+
+interface Participant {
+  id: string
+  username: string
+  displayName: string
+  role?: string
+}
 
 const { t } = useI18n()
 const route = useRoute()
@@ -888,11 +895,11 @@ function compareIdentifiers(a: string, b: string): number {
   return 0
 }
 
-const assessment = ref<Record<string, unknown> | null>(null)
-const requirements = ref<Record<string, unknown>[]>([])
-const evidence = ref<Record<string, unknown>[]>([])
-const assessors = ref<Record<string, unknown>[]>([])
-const assessees = ref<Record<string, unknown>[]>([])
+const assessment = ref<Assessment | null>(null)
+const requirements = ref<AssessmentRequirement[]>([])
+const evidence = ref<Evidence[]>([])
+const assessors = ref<User[]>([])
+const assessees = ref<User[]>([])
 
 // Read-only state: complete and archived assessments are immutable
 const isReadOnly = computed(() => {
@@ -909,8 +916,8 @@ const evidenceCountByRequirement = ref<Map<string, number>>(new Map())
 const selectedRequirementForEvidencePicker = ref<AssessmentRequirement | null>(null)
 const evidenceSearchQuery = ref<string>('')
 const workNotes = ref<WorkNote[]>([])
-const attestation = ref<Record<string, unknown> | null>(null)
-const attestationRequirements = ref<Record<string, unknown>[]>([])
+const attestation = ref<{ id: string; [key: string]: unknown } | null>(null)
+const attestationRequirements = ref<Array<{ id: string; identifier?: string; conformance_score?: number; confidence_score?: number; [key: string]: unknown }>>([])
 const activeTab = ref('requirements')
 const editingRationale = ref<string | null>(null)
 const rationaleEditValue = ref('')
@@ -945,7 +952,7 @@ const createEvidenceForm = ref({
 })
 
 // Claims tab state
-const assessmentClaims = ref<Record<string, unknown>[]>([])
+const assessmentClaims = ref<Array<{ id: string; name: string; [key: string]: unknown }>>([])
 const isLoadingClaims = ref(false)
 const showCreateClaimDialog = ref(false)
 const isCreatingClaim = ref(false)
@@ -958,9 +965,9 @@ const createClaimForm = ref({
   isCounterClaim: false,
 })
 const showClaimDetailDrawer = ref(false)
-const claimDetail = ref<Record<string, unknown> | null>(null)
-const claimDetailEvidence = ref<Record<string, unknown>[]>([])
-const claimDetailCounterEvidence = ref<Record<string, unknown>[]>([])
+const claimDetail = ref<{ id?: string; name?: string; targetEntityId?: string; predicate?: string; reasoning?: string; isCounterClaim?: boolean; [key: string]: unknown } | null>(null)
+const claimDetailEvidence = ref<Array<{ id: string; [key: string]: unknown }>>([])
+const claimDetailCounterEvidence = ref<Array<{ id: string; [key: string]: unknown }>>([])
 const isLoadingClaimDetail = ref(false)
 const isEditingClaim = ref(false)
 const isSavingClaim = ref(false)
@@ -976,10 +983,10 @@ const editClaimForm = ref({
 
 // Requirement popup state
 const showRequirementPopup = ref(false)
-const requirementPopupData = ref<Record<string, unknown> | null>(null)
-const requirementPopupHierarchy = ref<Array<{ id: string; identifier: string; name: string; [key: string]: unknown }>>([])
-const requirementPopupLevels = ref<Array<{ id: string; identifier: string; title?: string; [key: string]: unknown }>>([])
-const allRequirementsForStandard = ref<Record<string, unknown>[]>([])
+const requirementPopupData = ref<AssessmentRequirement | null>(null)
+const requirementPopupHierarchy = ref<Array<{ id: string; identifier: string; name: string; parentId?: string | null; [key: string]: unknown }>>([])
+const requirementPopupLevels = ref<Array<{ id: string; identifier: string; title?: string; requirementIds?: string[]; [key: string]: unknown }>>([])
+const allRequirementsForStandard = ref<Array<{ id: string; identifier: string; name: string; parentId?: string | null; children?: Array<{ [key: string]: unknown }>; [key: string]: unknown }>>([])
 const levelsForStandard = ref<Array<{ id: string; identifier: string; title?: string; requirementIds?: string[]; [key: string]: unknown }>>([])
 
 const assignableUsers = ref<User[]>([])
@@ -997,15 +1004,15 @@ const newNoteForm = ref({
   content: '',
 })
 
-const mentionParticipants = ref<Record<string, unknown>[]>([])
+const mentionParticipants = ref<Participant[]>([])
 
 const editScoresForm = ref({
   scores: [] as Record<string, unknown>[]
 })
 
-const formatUsersList = (users: Record<string, unknown>[]): string => {
+const formatUsersList = (users: User[]): string => {
   if (!Array.isArray(users) || users.length === 0) return '-'
-  return users.map(u => (u.displayName as string) || (u.username as string) || (u.email as string) || 'Unknown').join(', ')
+  return users.map(u => u.displayName || u.username || u.email || 'Unknown').join(', ')
 }
 
 const getScoreColor = (score: number): string => {
@@ -1067,9 +1074,9 @@ const handleResultChange = async (row: AssessmentRequirement) => {
   }
 }
 
-const getRequirementRowClass = ({ row }: { row: Record<string, unknown> }) => {
+const getRequirementRowClass = ({ row }: { row: AssessmentRequirement }) => {
   const classes: string[] = []
-  if (incompleteRequirements.value.has(row.requirementId as string)) {
+  if (incompleteRequirements.value.has(row.requirementId)) {
     classes.push('incomplete-requirement')
   }
   if (!row.result) {
@@ -1145,7 +1152,7 @@ const fetchAvailableEvidence = async () => {
 const buildEvidenceCountMap = () => {
   const countMap = new Map<string, number>()
   evidence.value.forEach(ev => {
-    const reqIds = ev.requirementIds || (ev.requirementId ? [ev.requirementId] : [])
+    const reqIds = ev.requirementIds || []
     for (const rid of reqIds) {
       countMap.set(rid, (countMap.get(rid) || 0) + 1)
     }
@@ -1160,13 +1167,13 @@ const getEvidenceCountForRequirement = (requirementId: string): number => {
 const getRequirementIdentifierForEvidence = (requirementId: string | null): string | null => {
   if (!requirementId) return null
   const req = requirements.value.find(r => r.id === requirementId)
-  return req?.identifier || null
+  return req?.requirement?.identifier || null
 }
 
 const getRequirementIdentifier = (requirementId: string | null): string => {
   if (!requirementId) return '-'
   const req = requirements.value.find(r => r.id === requirementId)
-  return req?.identifier || '-'
+  return req?.requirement?.identifier || '-'
 }
 
 const fetchWorkNotes = async () => {
@@ -1275,16 +1282,20 @@ const handleCreateAttestation = async () => {
 
 const openEditScoresDialog = () => {
   if (attestation.value && attestationRequirements.value.length > 0) {
-    editScoresForm.value.scores = attestationRequirements.value.map(req => ({
-      id: req.id,
-      identifier: req.identifier,
-      conformance_score: req.conformance_score,
-      conformance_score_display: req.conformance_score ? Math.round(req.conformance_score * 100) : 0,
-      confidence_score: req.confidence_score,
-      confidence_score_display: req.confidence_score ? Math.round(req.confidence_score * 100) : 0,
-      conformance_rationale: req.conformance_rationale,
-      confidence_rationale: req.confidence_rationale
-    }))
+    editScoresForm.value.scores = attestationRequirements.value.map(req => {
+      const conformanceScore = typeof req.conformance_score === 'number' ? req.conformance_score : 0
+      const confidenceScore = typeof req.confidence_score === 'number' ? req.confidence_score : 0
+      return {
+        id: req.id,
+        identifier: req.identifier,
+        conformance_score: conformanceScore,
+        conformance_score_display: conformanceScore ? Math.round(conformanceScore * 100) : 0,
+        confidence_score: confidenceScore,
+        confidence_score_display: confidenceScore ? Math.round(confidenceScore * 100) : 0,
+        conformance_rationale: req.conformance_rationale,
+        confidence_rationale: req.confidence_rationale
+      }
+    })
     showEditScoresDialog.value = true
   }
 }
@@ -1292,11 +1303,15 @@ const openEditScoresDialog = () => {
 const handleSaveScores = async () => {
   try {
     const assessmentId = route.params.id as string
-    const payload = editScoresForm.value.scores.map(score => ({
-      id: score.id,
-      conformanceScore: score.conformance_score_display / 100,
-      confidenceScore: score.confidence_score_display / 100
-    }))
+    const payload = editScoresForm.value.scores.map(score => {
+      const conformanceDisplay = typeof score.conformance_score_display === 'number' ? score.conformance_score_display : 0
+      const confidenceDisplay = typeof score.confidence_score_display === 'number' ? score.confidence_score_display : 0
+      return {
+        id: score.id,
+        conformanceScore: conformanceDisplay / 100,
+        confidenceScore: confidenceDisplay / 100
+      }
+    })
 
     if (!attestation.value?.id) {
       throw new Error('Attestation not loaded')
@@ -1518,12 +1533,12 @@ const handleArchiveAssessment = async () => {
 const openEditDialog = () => {
   if (!assessment.value) return
   editForm.value = {
-    title: (assessment.value.title as string) || '',
-    description: (assessment.value.description as string) || '',
-    dueDate: assessment.value.dueDate ? new Date(assessment.value.dueDate as string) : null,
-    state: (assessment.value.state as string) || 'new',
-    assessorIds: assessors.value.map((a: Record<string, unknown>) => (a.id as string) || (a.user_id as string)),
-    assesseeIds: assessees.value.map((a: Record<string, unknown>) => (a.id as string) || (a.user_id as string)),
+    title: assessment.value.title || '',
+    description: assessment.value.description || '',
+    dueDate: assessment.value.dueDate ? new Date(assessment.value.dueDate) : null,
+    state: assessment.value.state || 'new',
+    assessorIds: assessors.value.map((a: User) => a.id),
+    assesseeIds: assessees.value.map((a: User) => a.id),
   }
   showEditDialog.value = true
 }
@@ -1562,8 +1577,8 @@ const handleSaveEdit = async () => {
   }
 }
 
-const openEvidencePickerDialog = async (requirement: Record<string, unknown>) => {
-  selectedRequirementForEvidencePicker.value = requirement as AssessmentRequirement
+const openEvidencePickerDialog = async (requirement: AssessmentRequirement) => {
+  selectedRequirementForEvidencePicker.value = requirement
   evidenceSearchQuery.value = ''
   showEvidencePickerDialog.value = true
 
@@ -1586,22 +1601,22 @@ const filteredAvailableEvidence = computed(() => {
 
 const isEvidenceLinkedToRequirement = (evidenceId: string): boolean => {
   if (!selectedRequirementForEvidencePicker.value) return false
-  const reqId = selectedRequirementForEvidencePicker.value?.id
+  const reqId = selectedRequirementForEvidencePicker.value.id
   if (!reqId) return false
   return evidence.value.some(
     ev => ev.id === evidenceId && (ev.requirementIds || []).includes(reqId)
   )
 }
 
-const handleEvidenceCheckboxChange = async (evidenceItem: Record<string, unknown>) => {
+const handleEvidenceCheckboxChange = async (evidenceItem: Evidence) => {
   if (!selectedRequirementForEvidencePicker.value) return
 
-  const isCurrentlyLinked = isEvidenceLinkedToRequirement(evidenceItem.id as string)
+  const isCurrentlyLinked = isEvidenceLinkedToRequirement(evidenceItem.id)
 
   try {
     if (isCurrentlyLinked) {
       // Unlink evidence
-      await axios.delete(`/api/v1/evidence/${evidenceItem.id as string}/unlink`, {
+      await axios.delete(`/api/v1/evidence/${evidenceItem.id}/unlink`, {
         data: {
           assessmentRequirementId: selectedRequirementForEvidencePicker.value.id
         }
@@ -1609,7 +1624,7 @@ const handleEvidenceCheckboxChange = async (evidenceItem: Record<string, unknown
       ElMessage.success(t('common.success'))
     } else {
       // Link evidence
-      await axios.post(`/api/v1/evidence/${evidenceItem.id as string}/link`, {
+      await axios.post(`/api/v1/evidence/${evidenceItem.id}/link`, {
         assessmentRequirementId: selectedRequirementForEvidencePicker.value.id
       })
       ElMessage.success(t('common.success'))
@@ -1674,16 +1689,16 @@ const fetchAssignableUsers = async () => {
 // --- Workflow Stepper ---
 const workflowSteps = computed(() => {
   const reqCount = requirements.value.length
-  const assessedCount_ = requirements.value.filter((r: Record<string, unknown>) => r.result).length
+  const assessedCount_ = requirements.value.filter((r) => r.result).length
   const evidenceCount = evidence.value.length
   const hasAttestation = !!attestation.value
-  const isComplete = (assessment.value?.state as string) === 'complete' || (assessment.value?.state as string) === 'archived'
+  const isComplete = assessment.value?.state === 'complete' || assessment.value?.state === 'archived'
   const hasStandard = !!assessment.value?.standardId
 
   // Evidence is complete only when every assessed requirement has at least one evidence linked
-  const assessedReqs = requirements.value.filter((r: Record<string, unknown>) => r.result)
+  const assessedReqs = requirements.value.filter((r) => r.result)
   const allAssessedHaveEvidence = assessedReqs.length > 0 && assessedReqs.every(
-    (r: Record<string, unknown>) => getEvidenceCountForRequirement(r.id as string) > 0
+    (r) => getEvidenceCountForRequirement(r.id) > 0
   )
 
   // Claims complete when at least one claim exists for every assessed requirement with evidence
@@ -1756,13 +1771,13 @@ const fetchClaims = async () => {
   }
 }
 
-const handleClaimRowClick = async (row: Record<string, unknown>) => {
+const handleClaimRowClick = async (row: { id: string; [key: string]: unknown }) => {
   showClaimDetailDrawer.value = true
   isLoadingClaimDetail.value = true
   try {
     const response = await axios.get(`/api/v1/assessments/${route.params.id}/claims`)
     const claims = Array.isArray(response.data) ? response.data : response.data.data || []
-    claimDetail.value = (claims.find((c: Record<string, unknown>) => c.id === row.id) as Record<string, unknown>) || row
+    claimDetail.value = (claims.find((c: { id: string; [key: string]: unknown }) => c.id === row.id)) || row
     // Fetch full claim detail for evidence lists
     const detailResponse = await axios.get(`/api/v1/claims/${row.id}`)
     claimDetailEvidence.value = detailResponse.data.evidence || []
@@ -1840,10 +1855,10 @@ const startEditClaim = () => {
     name: claimDetail.value.name || '',
     targetEntityId: claimDetail.value.targetEntityId || '',
     predicate: claimDetail.value.predicate || '',
-    reasoning: (claimDetail.value.reasoning as string) || '',
-    isCounterClaim: (claimDetail.value.isCounterClaim as boolean) || false,
-    evidenceIds: claimDetailEvidence.value.map((ev: Record<string, unknown>) => ev.id as string),
-    counterEvidenceIds: claimDetailCounterEvidence.value.map((ev: Record<string, unknown>) => ev.id as string),
+    reasoning: typeof claimDetail.value.reasoning === 'string' ? claimDetail.value.reasoning : '',
+    isCounterClaim: typeof claimDetail.value.isCounterClaim === 'boolean' ? claimDetail.value.isCounterClaim : false,
+    evidenceIds: claimDetailEvidence.value.map((ev) => ev.id),
+    counterEvidenceIds: claimDetailCounterEvidence.value.map((ev) => ev.id),
   }
   isEditingClaim.value = true
 }
@@ -1919,13 +1934,13 @@ const handleEvidenceRowClick = (row: Record<string, unknown>) => {
 // --- Requirement Popup ---
 
 // Flatten a nested requirement tree into a flat array
-const flattenRequirementTree = (tree: Record<string, unknown>[]): Record<string, unknown>[] => {
-  const flat: Record<string, unknown>[] = []
-  const walk = (nodes: Record<string, unknown>[]) => {
+const flattenRequirementTree = (tree: Array<{ id: string; children?: Array<{ [key: string]: unknown }>; [key: string]: unknown }>): Array<{ id: string; identifier: string; name: string; parentId?: string | null; [key: string]: unknown }> => {
+  const flat: Array<{ id: string; identifier: string; name: string; parentId?: string | null; [key: string]: unknown }> = []
+  const walk = (nodes: Array<{ id: string; children?: Array<{ [key: string]: unknown }>; [key: string]: unknown }>) => {
     for (const node of nodes) {
-      flat.push(node)
-      if (node.children && (node.children as Record<string, unknown>[]).length > 0) {
-        walk(node.children as Record<string, unknown>[])
+      flat.push(node as { id: string; identifier: string; name: string; parentId?: string | null; [key: string]: unknown })
+      if (node.children && node.children.length > 0) {
+        walk(node.children as Array<{ id: string; children?: Array<{ [key: string]: unknown }>; [key: string]: unknown }>)
       }
     }
   }
@@ -1954,7 +1969,7 @@ const ensureStandardDataLoaded = async () => {
 
 const openRequirementPopup = async (requirementId: string) => {
   // Find the requirement from already-loaded assessment requirements
-  const req = requirements.value.find((r: Record<string, unknown>) => r.id === requirementId)
+  const req = requirements.value.find((r) => r.id === requirementId)
   if (!req) return
 
   requirementPopupData.value = req
@@ -1966,16 +1981,16 @@ const openRequirementPopup = async (requirementId: string) => {
   await ensureStandardDataLoaded()
 
   // Build hierarchy by walking up parentId chain
-  if (req.parentId) {
-    const hierarchy: Record<string, unknown>[] = []
-    let currentId = req.parentId as string
+  if (req.requirement?.parentId) {
+    const hierarchy: Array<{ id: string; identifier: string; name: string; parentId?: string | null; [key: string]: unknown }> = []
+    let currentId: string | null = req.requirement.parentId
     const visited = new Set<string>()
     while (currentId && !visited.has(currentId)) {
       visited.add(currentId)
-      const parent = allRequirementsForStandard.value.find((r: Record<string, unknown>) => r.id === currentId)
+      const parent = allRequirementsForStandard.value.find((r) => r.id === currentId)
       if (parent) {
         hierarchy.unshift(parent)
-        currentId = parent.parentId as string
+        currentId = parent.parentId ?? null
       } else {
         break
       }
@@ -1985,7 +2000,7 @@ const openRequirementPopup = async (requirementId: string) => {
 
   // Find all levels that include this requirement
   requirementPopupLevels.value = levelsForStandard.value.filter(
-    (level: Record<string, unknown>) => level.requirementIds && (level.requirementIds as string[]).includes(requirementId)
+    (level) => level.requirementIds && level.requirementIds.includes(requirementId)
   )
 }
 

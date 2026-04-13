@@ -33,6 +33,12 @@ export interface Standard {
   version: string
   description: string
   owner: string
+  identifier?: string
+  state?: 'draft' | 'in_review' | 'published' | 'retired'
+  is_imported?: boolean
+  authored_by?: string
+  approved_by?: string | null
+  approved_at?: string | null
   requirementsCount: number
   requirements: Requirement[]
   createdAt: string
@@ -80,14 +86,14 @@ export interface Assessment {
   createdAt: string
 }
 
-export type AssessmentState = 'new' | 'pending' | 'in_progress' | 'on_hold' | 'complete' | 'cancelled'
+export type AssessmentState = 'new' | 'pending' | 'in_progress' | 'on_hold' | 'complete' | 'archived' | 'cancelled'
 
 export interface AssessmentRequirement {
   id: string
   assessmentId: string
   requirementId: string
   requirement?: Requirement
-  result?: 'yes' | 'no' | 'na'
+  result?: 'yes' | 'no' | 'na' | 'partial' | 'not_applicable'
   rationale: string
   evidenceLink?: string
   status: 'pending' | 'assessed' | 'confirmed'
@@ -101,7 +107,10 @@ export interface Evidence {
   classification: string
   author: string
   authorName?: string
+  authorId?: string
   reviewer?: string
+  reviewerId?: string
+  reviewerName?: string
   isCounterEvidence: boolean
   createdAt: string
   updatedAt: string
@@ -111,7 +120,7 @@ export interface Evidence {
   requirementIds?: string[]
 }
 
-export type EvidenceState = 'draft' | 'submitted' | 'reviewed' | 'approved' | 'archived'
+export type EvidenceState = 'draft' | 'submitted' | 'reviewed' | 'approved' | 'archived' | 'claimed' | 'in_progress' | 'in_review'
 
 export interface Attachment {
   id: string
