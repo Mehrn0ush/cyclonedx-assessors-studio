@@ -7,9 +7,10 @@
 #
 # Required environment variables (set in .env or shell):
 #   JWT_SECRET          - At least 32 characters, cryptographically random
-#   ADMIN_USERNAME      - Username for initial admin (first run only)
-#   ADMIN_EMAIL         - Email for initial admin (first run only)
-#   ADMIN_PASSWORD      - Password for initial admin (first run only, min 8 chars)
+#
+# The initial administrator account is created via the in-browser setup
+# wizard at /setup on first visit. No admin credentials are configured
+# here.
 #
 # Optional overrides:
 #   APP_IMAGE           - Container image (default: cyclonedx/cyclonedx-assessors-studio:latest)
@@ -55,16 +56,14 @@ services:
       PORT: 3001
       DATABASE_PROVIDER: postgres
       DATABASE_URL: postgresql://assessors_studio:${POSTGRES_PASSWORD:-assessors_studio}@db:5432/assessors_studio
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set (>= 32 chars, cryptographically random)}
       JWT_EXPIRY: ${JWT_EXPIRY:-24h}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
       LOG_LEVEL: ${LOG_LEVEL:-info}
 
-      # Initial admin user (first-run seed only)
-      ADMIN_USERNAME: ${ADMIN_USERNAME:?ADMIN_USERNAME must be set}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:?ADMIN_EMAIL must be set}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set}
-      ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME:-}
+      # The initial administrator account is created via the in-browser
+      # setup wizard at /setup on first visit. No admin credentials are
+      # configured here.
 
       # Evidence storage
       STORAGE_PROVIDER: ${STORAGE_PROVIDER:-database}

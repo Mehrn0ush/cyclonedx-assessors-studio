@@ -79,18 +79,11 @@ database:
     storageClass: ""
 
 #######################################
-# Initial admin user (CONFIGURATION.md § Initial Admin User)
-# Seed-only; ignored after an admin account exists.
+# Initial administrator account
+#
+# The first admin is created via the in-browser setup wizard at /setup
+# on first visit. No admin credentials are configured through Helm.
 #######################################
-admin:
-  username: "admin"             # ADMIN_USERNAME
-  email: "admin@localhost"      # ADMIN_EMAIL
-  displayName: ""               # ADMIN_DISPLAY_NAME (defaults to username)
-  # Provide via existingSecret for production. If left unset, the chart will
-  # create a Kubernetes secret from admin.password below (not recommended).
-  existingSecret: ""
-  existingSecretPasswordKey: "admin-password"
-  password: ""                  # ADMIN_PASSWORD (only used if existingSecret unset)
 
 #######################################
 # JWT signing secret

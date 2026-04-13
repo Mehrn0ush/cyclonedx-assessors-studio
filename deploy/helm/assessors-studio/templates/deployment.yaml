@@ -73,20 +73,9 @@ spec:
                   name: {{ .Values.secrets.jwtSecretName | default (printf "%s-secrets" (include "assessors-studio.fullname" .)) }}
                   key: {{ .Values.secrets.jwtSecretKey }}
 
-            # ---- Initial admin user ---------------------------------------
-            - name: ADMIN_USERNAME
-              value: {{ .Values.admin.username | quote }}
-            - name: ADMIN_EMAIL
-              value: {{ .Values.admin.email | quote }}
-            {{- if .Values.admin.displayName }}
-            - name: ADMIN_DISPLAY_NAME
-              value: {{ .Values.admin.displayName | quote }}
-            {{- end }}
-            - name: ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.admin.existingSecret | default (printf "%s-secrets" (include "assessors-studio.fullname" .)) }}
-                  key: {{ .Values.admin.existingSecretPasswordKey }}
+            # The initial administrator account is created via the
+            # in-browser setup wizard at /setup on first visit. No admin
+            # credentials are configured through Helm.
 
             # ---- Evidence storage -----------------------------------------
             - name: STORAGE_PROVIDER
