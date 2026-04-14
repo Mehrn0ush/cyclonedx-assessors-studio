@@ -215,5 +215,23 @@ describe('Setup Middleware', () => {
 
       expect(next).toHaveBeenCalled();
     });
+
+    it('should allow non-API requests even when setup is incomplete', () => {
+      // The packaged SPA serves its own shell at / and lets the frontend
+      // router send the user to /setup. The setup gate must not intercept
+      // the SPA shell or any of its static assets.
+      const paths = ['/', '/setup', '/index.html', '/assets/app.abc.js', '/favicon.ico'];
+
+      for (const path of paths) {
+        const req = mockReq(path);
+        const res = mockRes();
+        const next = vi.fn();
+
+        requireSetup(req as Request, res as Response, next);
+
+        expect(next).toHaveBeenCalled();
+        expect(res.status).not.toHaveBeenCalled();
+      }
+    });
   });
 });

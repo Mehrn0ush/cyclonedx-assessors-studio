@@ -28,12 +28,23 @@ export function markSetupComplete(): void {
 }
 
 /**
- * Middleware that gates the entire API behind setup completion.
- * If no users exist, only /api/v1/setup and /api/health are accessible.
- * All other API requests get a 503 with a redirect hint.
+ * Middleware that gates the API behind setup completion.
+ *
+ * If no users exist, only /api/v1/setup and /api/health are accessible
+ * on the API surface. All other API requests get a 503 with a redirect
+ * hint. Non-API requests (the packaged SPA, static assets, favicon) are
+ * always allowed through so the frontend can render the setup wizard
+ * for the user.
  */
 export function requireSetup(req: Request, res: Response, next: NextFunction): void {
-  // Always allow health check, setup endpoint, and non-API requests
+  // Non-API requests (SPA shell, static assets) are never gated here;
+  // the SPA is responsible for routing the user to /setup when needed.
+  if (!req.path.startsWith('/api/')) {
+    next();
+    return;
+  }
+
+  // Always allow health check and the setup endpoint.
   if (
     req.path === '/api/health' ||
     req.path.startsWith('/api/v1/setup')
