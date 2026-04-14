@@ -296,6 +296,10 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # Docker snapshot (main branch only) - build and push snapshot image
+  #
+  # Publishes a single image that serves both the Vue 3 SPA and the
+  # JSON API on the same origin:
+  #   cyclonedx/cyclonedx-assessors-studio:snapshot
   # ---------------------------------------------------------------------------
   docker:
     name: "Docker / Snapshot"

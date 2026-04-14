@@ -1,6 +1,7 @@
 import express from 'express';
 import type { Request, Response, NextFunction, Express } from 'express';
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -9,6 +10,7 @@ import cookieParser from 'cookie-parser';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 import { getConfig } from './config/index.js';
 import { logger } from './utils/logger.js';
 import { requestIdMiddleware } from './middleware/security.js';
@@ -196,27 +198,74 @@ function registerAPIRoutes(app: Express): void {
   app.use('/api/v1/integrations/chat', chatIntegrationRoutes);
 }
 
+// Helper: Resolve the frontend bundle directory, if one is packaged
+// alongside the backend. Returns null when no bundle is present (for
+// example during local development when the frontend is served by
+// Vite on a separate port).
+//
+// The production image copies the built Vue 3 bundle to
+// /app/frontend/dist. After TypeScript compiles this file to
+// dist/app.js, __dirname resolves to /app/backend/dist, so
+// ../../frontend/dist points at the bundle.
+function resolveFrontendDistPath(): string | null {
+  const candidate = path.resolve(__dirname, '../../frontend/dist');
+  const indexHtml = path.join(candidate, 'index.html');
+  try {
+    if (fs.existsSync(indexHtml)) {
+      return candidate;
+    }
+  } catch {
+    // fall through
+  }
+  return null;
+}
+
 // Helper: Configure static file serving and 404 handling
+//
+// When the frontend bundle is packaged with the backend, Express
+// serves the SPA shell plus hashed assets at /, and falls back to
+// index.html for any non-API GET so that client-side routing works on
+// deep links. When no bundle is present (typical in local dev, where
+// Vite serves the SPA), only the API 404 handler is installed.
+//
+// The decision is based on whether index.html exists on disk rather
+// than on NODE_ENV, so a misconfigured NODE_ENV can never silently
+// disable static serving.
 function configureStaticAndErrorRoutes(app: Express): void {
-  const config = getConfig();
-  if (config.NODE_ENV === 'production') {
-    const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
-    app.use(express.static(frontendDistPath));
-    // SPA fallback: serve index.html for any non-API GET that didn't match
-    // a static asset. Uses app.use (no path) because Express 5 /
+  const frontendDistPath = resolveFrontendDistPath();
+
+  if (frontendDistPath) {
+    logger.info('Serving frontend bundle', { path: frontendDistPath });
+
+    app.use(express.static(frontendDistPath, {
+      index: false, // index.html is handled explicitly below so we can set cache headers
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          // Hashed Vite assets are safe to cache aggressively
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      },
+    }));
+
+    // SPA fallback: serve index.html for any non-API GET that did not
+    // match a static asset. Uses app.use (no path) because Express 5 /
     // path-to-regexp v8 no longer accepts a bare '*' route pattern.
     app.use((req: Request, res: Response, next: NextFunction) => {
       if (req.method !== 'GET') {
         next();
         return;
       }
-      if (req.path.startsWith('/api/')) {
+      if (req.path.startsWith('/api/') || req.path === '/metrics') {
         res.status(404).json({ error: 'Not found' });
         return;
       }
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
       res.sendFile(path.join(frontendDistPath, 'index.html'));
     });
   } else {
+    logger.info('No frontend bundle found; running API-only');
     app.use((_req: Request, res: Response) => {
       res.status(404).json({ error: 'Not found' });
     });

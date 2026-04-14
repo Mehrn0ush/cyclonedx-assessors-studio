@@ -15,7 +15,8 @@ RUN npm ci
 COPY backend/ ./
 RUN npm run build
 
-# Stage 3: Production image
+# Stage 3: Production image (backend serves the API on /api and the
+# compiled Vue 3 single-page application on /).
 FROM node:24-alpine AS production
 WORKDIR /app
 
@@ -30,7 +31,9 @@ WORKDIR /app
 # Copy compiled backend
 COPY --from=backend-build /app/backend/dist ./backend/dist
 
-# Copy frontend build output
+# Copy frontend bundle. The backend detects this directory at startup
+# and serves its contents plus a SPA fallback. When the directory is
+# absent the backend runs in API-only mode.
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
 # Create data directory for PGlite (if used)

@@ -243,7 +243,10 @@ jobs:
             assessors-studio-frontend-${{ needs.validate.outputs.version }}.tar.gz
 
   # ---------------------------------------------------------------------------
-  # Build and publish Docker image to Docker Hub
+  # Build and publish the Docker image to Docker Hub
+  #
+  # Publishes a single image that serves both the Vue 3 SPA and the
+  # JSON API on the same origin, tagged with version/latest/sha.
   # ---------------------------------------------------------------------------
   docker:
     name: "Docker / Publish"
