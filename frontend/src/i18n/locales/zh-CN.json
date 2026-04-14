@@ -86,7 +86,9 @@
     "aboutDescription": "一个用于管理安全评估、证明和合规工作流的网络应用程序，使用 CycloneDX Attestations (CDXA) 标准。支持标准导入、证据管理和 CycloneDX BOM 导出。",
     "source": "源代码",
     "license": "许可证",
-    "menu": "菜单"
+    "menu": "菜单",
+    "website": "网站",
+    "documentation": "文档"
   },
   "states": {
     "active": "活跃",

@@ -86,7 +86,9 @@
     "aboutDescription": "Eine Webanwendung zur Verwaltung von Sicherheitsbewertungen, Bestätigung und Compliance-Workflows unter Verwendung des CycloneDX Attestations (CDXA) Standards. Unterstützt den Import von Normen, die Verwaltung von Nachweisen und den Export von CycloneDX BOM.",
     "source": "Quelle",
     "license": "Lizenz",
-    "menu": "Menü"
+    "menu": "Menü",
+    "website": "Website",
+    "documentation": "Dokumentation"
   },
   "states": {
     "active": "Aktiv",

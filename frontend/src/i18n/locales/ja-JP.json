@@ -86,7 +86,9 @@
     "aboutDescription": "CycloneDX Attestations (CDXA) 標準を使用して、セキュリティ評価、証明書、およびコンプライアンスワークフローを管理するためのウェブアプリケーション。標準インポート、証拠管理、CycloneDX BOM エクスポートに対応しています。",
     "source": "ソースコード",
     "license": "ライセンス",
-    "menu": "メニュー"
+    "menu": "メニュー",
+    "website": "ウェブサイト",
+    "documentation": "ドキュメント"
   },
   "states": {
     "active": "有効",

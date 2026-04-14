@@ -81,7 +81,7 @@
       </el-dropdown>
     </div>
 
-    <el-dialog v-model="showAbout" :title="t('topbar.about')" width="480px" class="about-dialog">
+    <el-dialog v-model="showAbout" :title="t('topbar.about')" width="600px" class="about-dialog">
       <div class="about-content">
         <div class="about-header">
           <img :src="logoSrc" alt="CycloneDX" class="about-logo-img" />
@@ -94,6 +94,14 @@
         <p class="about-description">{{ t('topbar.aboutDescription') }}</p>
 
         <div class="about-links">
+          <div class="about-link-row">
+            <span class="about-link-label">{{ t('topbar.website') }}</span>
+            <a href="https://assessors.studio" target="_blank" rel="noopener noreferrer" class="about-link-value" aria-label="Website">assessors.studio</a>
+          </div>
+          <div class="about-link-row">
+            <span class="about-link-label">{{ t('topbar.documentation') }}</span>
+            <a href="https://docs.assessors.studio" target="_blank" rel="noopener noreferrer" class="about-link-value" aria-label="Documentation">docs.assessors.studio</a>
+          </div>
           <div class="about-link-row">
             <span class="about-link-label">{{ t('topbar.source') }}</span>
             <a href="https://github.com/CycloneDX/cyclonedx-assessors-studio" target="_blank" rel="noopener noreferrer" class="about-link-value" aria-label="Open source code on GitHub">github.com/CycloneDX/cyclonedx-assessors-studio</a>
@@ -396,14 +404,10 @@ onUnmounted(() => {
   display: flex;
   gap: 16px;
   padding: 8px 0;
-
-  &:not(:last-child) {
-    border-bottom: 1px solid var(--cat-border-muted);
-  }
 }
 
 .about-link-label {
-  width: 80px;
+  width: 100px;
   flex-shrink: 0;
   font-size: 13px;
   font-weight: 500;
