@@ -9,11 +9,11 @@ A project groups related assessments under a single umbrella so you can track pr
 
 Projects are optional. A standalone assessment that evaluates one entity against one standard works fine on its own. Projects become valuable in situations like these:
 
-An annual compliance review requires assessing an entity against three standards on a coordinated timeline. A project ties those assessments together, gives you a single due date, and surfaces warnings when any individual assessment falls behind.
+- An annual compliance review requires assessing an entity against three standards on a coordinated timeline. A project ties those assessments together, gives you a single due date, and surfaces warnings when any individual assessment falls behind.
 
-A vendor onboarding cycle involves multiple assessments across different entities and standards, all driven by the same business initiative. A project lets you see aggregate conformance and evidence coverage without clicking into each assessment individually.
+- A vendor onboarding cycle involves multiple assessments across different entities and standards, all driven by the same business initiative. A project lets you see aggregate conformance and evidence coverage without clicking into each assessment individually.
 
-An internal maturity program tracks progress against a baseline over several quarters. Each quarter produces a new set of assessments, and the project dashboard shows the trend.
+- An internal maturity program tracks progress against a baseline over several quarters. Each quarter produces a new set of assessments, and the project dashboard shows the trend.
 
 If the work involves a single assessment with a single standard, a project adds overhead without much benefit. Skip it and create the assessment directly.
 
