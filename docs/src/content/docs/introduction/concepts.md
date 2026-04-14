@@ -23,11 +23,33 @@ An entity is the subject of an assessment. It is whatever the organization decid
 
 Entities can be related to each other. A product entity might depend on a service entity that depends on a vendor entity. The [Entities](/user-guide/entities/) page explains how the relationship graph is navigated in the UI.
 
+## Project
+
+A project is an organizational container that groups related assessments together. Projects are useful when you need to assess the same entity (or set of entities) against multiple standards, coordinate a compliance initiative that spans several teams, or track a time bounded engagement such as an annual review or a vendor onboarding cycle.
+
+Each project is associated with one or more standards. When you create an assessment inside a project, the system pulls the requirements from the project's standards automatically. Projects have their own lifecycle states (New, In Progress, On Hold, Complete, Operational, Retired), their own start and due dates, and a dashboard that aggregates conformance scores, evidence coverage, timeline health, and warnings across every assessment in the project.
+
+Projects are optional. A standalone assessment that evaluates one entity against one standard does not need a project. Projects become valuable when the work is large enough that you want a single place to see progress, manage deadlines, and export a consolidated report.
+
 ## Assessment
 
-An assessment is a scoped engagement that evaluates one entity against one standard over a defined period. It has a start date, an end date, a team of participants (assessors and assessees), and a state machine that tracks whether it is being planned, executed, reviewed, or completed.
+An assessment is a scoped engagement that evaluates one entity against one standard over a defined period. It has a start date, an end date, a team of participants (assessors and assessees), and a lifecycle state machine that governs what actions are available at each stage.
 
 An assessment produces one or more claims, and ultimately, when the participants sign off, it produces an attestation. Multiple assessments can exist for the same entity against the same standard at different points in time; the platform treats them as distinct historical records.
+
+### Assessment lifecycle
+
+Every assessment moves through a defined set of states.
+
+| State | Description |
+|-------|-------------|
+| New | Initial state. The scope, team, and schedule are configured but no claim work has started. Moving to In Progress loads requirements and sets the start date. |
+| Pending | Optional holding state for assessments waiting on prerequisites before work can begin. |
+| In Progress | Active working state. Assessors draft claims, request evidence, and record rationale. Assessees respond with evidence and clarification. |
+| On Hold | Pause state for assessments that are temporarily blocked. Returns to In Progress when the blocker is resolved. |
+| Cancelled | Terminal state for assessments that will not be finished. Remains in the system for historical reference. |
+| Complete | All claims have a final rating and the system has calculated a conformance score. Read only. Can be reopened (back to In Progress) or archived. |
+| Archived | Final resting state. Irreversible. Cannot be reopened or modified in any way. |
 
 ## Claim
 
@@ -57,4 +79,4 @@ A role is a bundle of permissions that governs what a user can do in the platfor
 
 ## Where these concepts live in the platform
 
-Standards, requirements, entities, assessments, claims, evidence, and attestations each have a dedicated area in the navigation. The [Tour](/getting-started/tour/) page shows you where each one lives. The [User Guide](/user-guide/dashboards/) covers each in depth with screenshots and common workflows.
+Standards, requirements, entities, projects, assessments, claims, evidence, and attestations each have a dedicated area in the navigation. The [Tour](/getting-started/tour/) page shows you where each one lives. The [User Guide](/user-guide/dashboards/) covers each in depth with screenshots and common workflows.

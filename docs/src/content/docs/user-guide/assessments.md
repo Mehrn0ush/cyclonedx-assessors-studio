@@ -7,21 +7,29 @@ An assessment is a scoped engagement that evaluates one entity against one stand
 
 ## The assessment lifecycle
 
-Every assessment moves through four states: Planned, In Progress, Review, and Completed. The state machine is deliberate: a claim state cannot regress from Completed back to In Progress without an explicit reopen action, because the integrity of the audit trail depends on forward-only transitions.
+Every assessment moves through a defined set of states. The state machine is deliberate: transitions are forward only by default, and reversing a completed assessment requires an explicit reopen action, because the integrity of the audit trail depends on controlled state changes.
 
-Planned is the initial state. The assessment has a scope, a team, and a reference to a specific version of a standard, but the assessor has not yet started working through claims. The assessor opens the assessment and moves it to In Progress when work begins.
+| State | Description |
+|-------|-------------|
+| New | Initial state. The scope, team, entity, standard, and schedule are configured but no claim work has started. Requirements have not yet been loaded. |
+| Pending | Optional holding state for assessments waiting on prerequisites before work can begin, such as a pending approval or a dependency on another assessment. |
+| In Progress | Active working state. When started, the system loads requirements from the associated standard (or from the project's or entity's standards, depending on scope) and creates a claim placeholder for each one. The start date is set automatically. Assessors draft claims, request evidence, and record rationale. Assessees respond with evidence and clarification. |
+| On Hold | Pause state for assessments that are temporarily blocked. Returns to In Progress when the blocker is resolved. Claims and evidence remain accessible in read only mode. |
+| Cancelled | Terminal state for assessments that will not be finished. Remains in the system for historical reference but cannot be modified. |
+| Complete | All requirements have a claim with a final rating (Met, Partially Met, Not Met, Not Applicable, or Inconclusive). The system calculates a conformance score and sets the end date. Read only. Two actions are available: reopen (returns to In Progress, clears end date) and archive (seals permanently). |
+| Archived | Final resting state. Irreversible. Cannot be reopened or modified in any way. Exists solely as a historical record. |
 
-In Progress is the active state. The assessor navigates the requirements tree and works each requirement, drafting claims, requesting evidence, and recording the reasoning. The assessee responds to requests, attaches evidence, and clarifies questions. Both parties collaborate inside the same assessment; there is no back-and-forth over email because everything happens inside the record.
+### Valid transitions
 
-Review is the state between work-is-done and sign-off. The assessor moves the assessment to Review once every claim has a final state (Met, Partially Met, Not Met, Not Applicable, or Inconclusive). The reviewer (often a senior assessor, sometimes the entity owner) reads the claims in aggregate and checks that the narrative is consistent, the evidence is sufficient, and the conclusions are defensible. The reviewer can send the assessment back to In Progress with comments if something is not ready.
+The following transitions are enforced by the system:
 
-Completed is the terminal state. A completed assessment is an immutable historical record. Its claims and evidence can no longer be edited, which is precisely what a downstream consumer of the attestation wants. If the entity is later reassessed against the same standard, a new assessment is created; the old one is preserved.
+New to In Progress (start), New to Pending, Pending to In Progress, In Progress to On Hold, On Hold to In Progress, In Progress to Complete, In Progress to Cancelled, Complete to In Progress (reopen), and Complete to Archived (archive). No other transitions are permitted.
 
 ## Planning an assessment
 
 From Activity → Assessments, click New Assessment. The form captures the subject (entity), the reference (standard and version), the scope, the schedule (start and target completion dates), and the team. The team is a list of users with roles inside the assessment: Assessor, Reviewer, and Assessee. A single user can play multiple roles if the installation's permission model allows it.
 
-When you save the form the system creates a claim placeholder for every requirement in the standard. The assessment opens in Planned state; move it to In Progress to begin.
+When you save the form the assessment opens in the New state. Start the assessment to move it to In Progress, at which point the system loads the requirements from the standard and creates a claim placeholder for each one.
 
 ## Working claims
 
@@ -43,9 +51,9 @@ Assessments support threaded comments on every claim. A comment can be addressed
 
 ## Finalizing the assessment
 
-To move an assessment to Review, every claim must have a final state. The Complete action checks the condition and lists any claims that still need attention if it cannot succeed. Once in Review, the designated Reviewer walks through the assessment and signs off.
+To complete an assessment, every requirement must have a claim with a final rating. The Complete action checks this condition and lists any claims that still need attention if it cannot succeed. Once complete, the assessment is read only and a conformance score is calculated.
 
-Signing off moves the assessment to Completed. The Produce Attestation action on a completed assessment generates the CDXA document. See [Producing Attestations](/user-guide/producing-attestations/) for the signing and export workflow.
+The Produce Attestation action on a completed assessment generates the CDXA document. See [Producing Attestations](/user-guide/producing-attestations/) for the signing and export workflow. If something needs to change after completion, the Reopen action returns the assessment to In Progress. Once finalized for good, the Archive action seals the assessment permanently.
 
 ## Reassessing
 

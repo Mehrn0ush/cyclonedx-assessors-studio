@@ -65,6 +65,7 @@ export default defineConfig({
           items: [
             { label: 'Dashboards', slug: 'user-guide/dashboards' },
             { label: 'Entities', slug: 'user-guide/entities' },
+            { label: 'Projects', slug: 'user-guide/projects' },
             { label: 'Standards', slug: 'user-guide/standards' },
             { label: 'Assessments', slug: 'user-guide/assessments' },
             {

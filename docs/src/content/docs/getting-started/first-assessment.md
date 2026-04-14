@@ -34,7 +34,7 @@ Navigate to Activity → Assessments and click New Assessment. In the form:
 3. Choose yourself as the assessor. Leave the assessee fields blank for the walkthrough; you are playing both roles.
 4. Set a short scope ("Walkthrough assessment for the getting-started guide") and a target completion date a week from today.
 
-Save the assessment. The system creates a claim placeholder for every requirement in the standard and puts the assessment in Planned state. Move it into In Progress to start work.
+Save the assessment. It opens in the New state. Click Start to move it to In Progress. The system loads the requirements from the standard and creates a claim placeholder for each one.
 
 ## Step 4: Work a single claim
 
@@ -58,7 +58,7 @@ For the walkthrough you can leave the remaining claims unrated, or batch-mark th
 
 From the assessment detail page, click Complete. The system checks that every claim has a final state (Met, Not Met, Partially Met, Not Applicable, or Inconclusive). If any are still Pending, the action is blocked with a list of the offenders. For the walkthrough, set any remaining claims to Not Applicable, then try again.
 
-The assessment moves into Review state. Click Approve to finalize it.
+The assessment moves to the Complete state. Its claims and evidence are now read only, and a conformance score is calculated.
 
 ## Step 8: Produce the attestation
 

@@ -7,7 +7,11 @@ This glossary is alphabetical. Terms that belong together are cross referenced s
 
 ## Assessment
 
-The workspace where a standard is applied to an entity over a defined scope and period. An assessment ties together an entity, a standard, an assessor team, an assessee team, a schedule, and the claims that result from evaluating each requirement in the standard. Assessments move through states (draft, in progress, under review, complete, published) and produce an [attestation](#attestation) when complete.
+The workspace where a standard is applied to an entity over a defined scope and period. An assessment ties together an entity, a standard, an assessor team, an assessee team, a schedule, and the claims that result from evaluating each requirement in the standard. Assessments move through a defined [lifecycle](#assessment-lifecycle) (New, Pending, In Progress, On Hold, Cancelled, Complete, Archived) and produce an [attestation](#attestation) when complete.
+
+## Assessment lifecycle
+
+The state machine that governs an [assessment](#assessment). Valid states are New (created but not started), Pending (awaiting prerequisites), In Progress (active claim work), On Hold (temporarily paused), Cancelled (abandoned), Complete (all claims finalized, read only), and Archived (permanently sealed). Key transitions: start moves New to In Progress, complete moves In Progress to Complete, reopen moves Complete back to In Progress, and archive moves Complete to Archived. Archived is irreversible. See [Assessments](/user-guide/assessments/) for the full workflow.
 
 ## Assessor
 
@@ -76,6 +80,14 @@ The Open Worldwide Application Security Project. The nonprofit that sponsors Cyc
 ## Permission
 
 A named capability in the application. Every action is gated by a permission key (for example `assessments.create`, `claims.rate`, `admin.encryption.rotate`). Permissions are granted through [roles](#role); they cannot be granted directly to users.
+
+## Project
+
+An organizational container that groups related [assessments](#assessment) under a shared set of [standards](#standard), a timeline, and an aggregate dashboard. Projects are useful for coordinated compliance initiatives, annual reviews, vendor onboarding cycles, or any engagement that spans multiple assessments. Projects have their own lifecycle states (New, In Progress, On Hold, Complete, Operational, Retired) and can be exported as a consolidated CycloneDX attestation or a summary report. See [Projects](/user-guide/projects/) for the full guide.
+
+## Project state
+
+The lifecycle position of a [project](#project). Valid states are New (just created), In Progress (active work), On Hold (paused), Complete (objectives met), Operational (long running continuous program), and Retired (archived, read only).
 
 ## Requirement
 
