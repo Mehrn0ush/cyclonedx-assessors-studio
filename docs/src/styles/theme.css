@@ -1,0 +1,751 @@
+/*
+ * Assessors Studio documentation theme.
+ *
+ * Mirrors the public assessors.studio marketing site so the docs feel like
+ * a continuous experience. Palette: near black canvas, indigo blue brand
+ * accent, magenta and teal secondary accents.
+ *
+ * All overrides target Starlight CSS custom properties so we do not fork
+ * any Starlight component.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  /* Typography */
+  --sl-font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --sl-font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono',
+    'Source Code Pro', Menlo, monospace;
+
+  /* Content sizing */
+  --sl-content-width: 52rem;
+  --sl-sidebar-width: 18rem;
+
+  /* Brand tokens shared across modes, taken directly from the marketing
+   * site's tailwind theme so colors stay 1:1 in sync. */
+  --cdxa-bg-primary: #09090b;
+  --cdxa-bg-secondary: #0f0f13;
+  --cdxa-bg-card: #16161d;
+  --cdxa-bg-card-hover: #1c1c26;
+  --cdxa-border: #23232f;
+  --cdxa-border-glow: #3b3b5c;
+  --cdxa-text-primary: #f0f0f5;
+  --cdxa-text-secondary: #9494a8;
+  --cdxa-text-muted: #5e5e72;
+  --cdxa-accent: #447ff2;
+  --cdxa-accent-light: #6699ff;
+  --cdxa-accent-2: #00d4aa;
+  --cdxa-pink: #e044a0;
+  --cdxa-warning: #f59e0b;
+  --cdxa-danger: #ef4444;
+}
+
+/*
+ * Dark theme (primary brand mode).
+ * Matches the near-black canvas of assessors.studio.
+ */
+:root[data-theme='dark'] {
+  --sl-color-white: var(--cdxa-text-primary);
+  --sl-color-gray-1: #e2e2ec;
+  --sl-color-gray-2: var(--cdxa-text-secondary);
+  --sl-color-gray-3: #6f6f86;
+  --sl-color-gray-4: var(--cdxa-text-muted);
+  --sl-color-gray-5: var(--cdxa-border-glow);
+  --sl-color-gray-6: var(--cdxa-border);
+  --sl-color-gray-7: var(--cdxa-bg-card);
+  --sl-color-black: var(--cdxa-bg-primary);
+
+  --sl-color-accent-low: rgba(68, 127, 242, 0.16);
+  --sl-color-accent: var(--cdxa-accent);
+  --sl-color-accent-high: var(--cdxa-accent-light);
+
+  --sl-color-text: var(--sl-color-white);
+  --sl-color-text-accent: var(--cdxa-accent-light);
+  --sl-color-text-invert: #ffffff;
+
+  --sl-color-bg: var(--cdxa-bg-primary);
+  --sl-color-bg-nav: rgba(9, 9, 11, 0.75);
+  --sl-color-bg-sidebar: var(--cdxa-bg-secondary);
+  --sl-color-bg-inline-code: var(--cdxa-bg-card);
+  --sl-color-bg-accent: var(--cdxa-accent);
+
+  --sl-color-hairline-light: var(--cdxa-border);
+  --sl-color-hairline: var(--cdxa-border);
+  --sl-color-hairline-shade: #1a1a23;
+
+  --sl-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --sl-shadow-md: 0 6px 16px rgba(0, 0, 0, 0.55);
+  --sl-shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+
+/*
+ * Light theme.
+ * Neutral, readable counterpart for the dark canvas.
+ */
+:root[data-theme='light'] {
+  --sl-color-white: #0f0f13;
+  --sl-color-gray-1: #1a1a23;
+  --sl-color-gray-2: #2c2c3a;
+  --sl-color-gray-3: #4a4a5e;
+  --sl-color-gray-4: #6b6b80;
+  --sl-color-gray-5: #cfcfd9;
+  --sl-color-gray-6: #e4e4ec;
+  --sl-color-gray-7: #f3f3f7;
+  --sl-color-black: #ffffff;
+
+  --sl-color-accent-low: #e6efff;
+  --sl-color-accent: var(--cdxa-accent);
+  --sl-color-accent-high: #2a55b8;
+
+  --sl-color-text: #0f0f13;
+  --sl-color-text-accent: #2a55b8;
+  --sl-color-text-invert: #ffffff;
+
+  --sl-color-bg: #ffffff;
+  --sl-color-bg-nav: #ffffff;
+  --sl-color-bg-sidebar: #f7f7fb;
+  --sl-color-bg-inline-code: #ececf3;
+  --sl-color-bg-accent: var(--cdxa-accent);
+
+  --sl-color-hairline-light: #e4e4ec;
+  --sl-color-hairline: #d4d4dc;
+  --sl-color-hairline-shade: #b9b9c4;
+}
+
+/*
+ * Body and global feel.
+ */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/*
+ * Top header. The marketing site uses a translucent, blurred header on a
+ * near-black canvas. Reproduce that here so the docs nav feels continuous
+ * with the marketing nav.
+ */
+header.header {
+  background: rgba(9, 9, 11, 0.75);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--cdxa-border);
+}
+
+:root[data-theme='light'] header.header {
+  background: rgba(255, 255, 255, 0.85);
+  border-bottom: 1px solid var(--sl-color-hairline);
+}
+
+/*
+ * Header alignment.
+ *
+ * Doc pages (default): keep Starlight's native nav padding so the logo
+ * hugs the left edge and lines up with the sidebar items.
+ *
+ * Splash template: there is no sidebar and the hero sits inside
+ * .sl-container, capped at --sl-content-width and centered. Cap the
+ * inner header at the same width and center it so the CycloneDX logo's
+ * left edge lines up with the hero card's left edge.
+ */
+.page:has(.hero) header.header {
+  padding-inline: 0 !important;
+}
+
+.page:has(.hero) header.header > div.header {
+  max-width: var(--sl-content-width);
+  margin: 0 auto;
+  width: 100%;
+  padding-inline: 1rem;
+  box-sizing: content-box;
+}
+
+/*
+ * Sidebar.
+ */
+.sidebar-pane {
+  background: var(--sl-color-bg-sidebar);
+}
+
+.sidebar a[aria-current='page'] {
+  color: var(--cdxa-accent-light);
+  font-weight: 600;
+  background: rgba(68, 127, 242, 0.1);
+}
+
+/*
+ * Headings. Matches the tightened tracking and bold weight of the
+ * marketing hero.
+ */
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3 {
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+.sl-markdown-content h1 {
+  font-weight: 800;
+}
+
+/*
+ * Brand gradient text. Used by the landing hero, mirroring the marketing
+ * site's accent-to-pink gradient on the headline.
+ */
+.cdxa-gradient-text {
+  background: linear-gradient(135deg, var(--cdxa-accent) 0%, var(--cdxa-pink) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/*
+ * Site title in the top nav. Mirror the marketing site's nav sizing so
+ * the CycloneDX logo and "Assessors Studio" wordmark read at the same
+ * optical weight as on assessors.studio.
+ */
+.site-title {
+  gap: 0.6rem;
+  align-items: center;
+}
+
+/*
+ * Lock the CycloneDX logo to the marketing site's h-7 (1.75rem / 28px)
+ * height. Width is allowed to scale freely so the wordmark keeps its
+ * natural aspect ratio.
+ */
+.site-title img {
+  height: 1.75rem !important;
+  width: auto !important;
+  max-height: 1.75rem;
+}
+
+.site-title,
+.site-title:hover {
+  color: var(--cdxa-text-primary);
+  text-decoration: none;
+}
+
+:root[data-theme='light'] .site-title,
+:root[data-theme='light'] .site-title:hover {
+  color: #0f0f13;
+}
+
+.site-title span {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-size: 1.05rem;
+  color: var(--cdxa-text-primary);
+  position: relative;
+  padding-left: 0.75rem;
+}
+
+:root[data-theme='light'] .site-title span {
+  color: #0f0f13;
+}
+
+/*
+ * Subtle divider between the CycloneDX mark and the product name, just
+ * like the "|" used on the marketing nav.
+ */
+.site-title span::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 1.25rem;
+  width: 1px;
+  background: var(--cdxa-text-muted);
+  opacity: 0.5;
+}
+
+/*
+ * Splash hero (used on the landing page via template: splash).
+ * Layered radial gradients echo the marketing hero's "background glow".
+ */
+.hero {
+  position: relative;
+  padding: 3rem 1.5rem 2.5rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      ellipse at 20% 0%,
+      rgba(68, 127, 242, 0.18),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse at 90% 90%,
+      rgba(224, 68, 160, 0.12),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse at 50% 50%,
+      rgba(0, 212, 170, 0.06),
+      transparent 70%
+    ),
+    linear-gradient(180deg, var(--cdxa-bg-secondary), var(--cdxa-bg-primary));
+  border: 1px solid var(--cdxa-border);
+  margin-bottom: 2.5rem;
+}
+
+:root[data-theme='light'] .hero {
+  background:
+    radial-gradient(
+      ellipse at 20% 0%,
+      rgba(68, 127, 242, 0.12),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse at 90% 90%,
+      rgba(224, 68, 160, 0.08),
+      transparent 55%
+    ),
+    linear-gradient(180deg, #f7f7fb, #ffffff);
+}
+
+.hero h1 {
+  font-size: clamp(2.25rem, 5vw, 3.25rem);
+  line-height: 1.1;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, var(--cdxa-accent) 0%, var(--cdxa-pink) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.hero .tagline {
+  font-size: 1.125rem;
+  max-width: 42rem;
+  color: var(--cdxa-text-secondary);
+}
+
+/*
+ * Splash hero CTAs. Matches the marketing site button styling: solid
+ * accent for the primary, dark card with subtle border for the secondary.
+ */
+.hero .actions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.7rem 1.25rem;
+  border-radius: 0.625rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: transform 0.15s ease, background-color 0.2s ease,
+    border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hero .actions a[data-variant='primary'] {
+  background: var(--cdxa-accent);
+  color: #ffffff;
+  box-shadow: 0 0 30px rgba(68, 127, 242, 0.25);
+}
+
+.hero .actions a[data-variant='primary']:hover {
+  transform: translateY(-1px);
+  background: var(--cdxa-accent-light);
+  box-shadow: 0 0 50px rgba(68, 127, 242, 0.35);
+}
+
+.hero .actions a[data-variant='secondary'] {
+  background: var(--cdxa-bg-card);
+  color: var(--cdxa-text-primary);
+  border-color: var(--cdxa-border);
+}
+
+.hero .actions a[data-variant='secondary']:hover {
+  background: var(--cdxa-bg-card-hover);
+  border-color: var(--cdxa-border-glow);
+  transform: translateY(-1px);
+}
+
+:root[data-theme='light'] .hero .actions a[data-variant='secondary'] {
+  background: #ffffff;
+  color: #0f0f13;
+  border-color: var(--sl-color-hairline);
+}
+
+/*
+ * Card grid density. Starlight defaults to minmax(18rem, 1fr) which on
+ * the splash template can still break to two columns even on wide
+ * displays. Tighten the minimum so three audience cards sit side-by-side
+ * on large screens, with graceful wrapping below.
+ */
+.sl-markdown-content .card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+
+/*
+ * Card (CardGrid component) styled to match the marketing site's feature
+ * cards: dark panel, subtle border, gentle hover lift.
+ */
+.sl-markdown-content .card {
+  background: var(--cdxa-bg-card);
+  border: 1px solid var(--cdxa-border);
+  border-radius: 1rem;
+  padding: 1.25rem 1.5rem;
+  transition: border-color 0.2s ease, background-color 0.2s ease,
+    transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.sl-markdown-content .card:hover {
+  background: var(--cdxa-bg-card-hover);
+  border-color: var(--cdxa-border-glow);
+  transform: translateY(-2px);
+  box-shadow: 0 0 40px rgba(68, 127, 242, 0.1);
+}
+
+:root[data-theme='light'] .sl-markdown-content .card {
+  background: #ffffff;
+  border-color: var(--sl-color-hairline);
+}
+
+:root[data-theme='light'] .sl-markdown-content .card:hover {
+  background: #f7f7fb;
+  border-color: var(--cdxa-accent);
+}
+
+.sl-markdown-content .card .icon {
+  color: var(--cdxa-accent-light);
+}
+
+.sl-markdown-content .card .title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/*
+ * Inline code: dense pill, teal accent color so technical tokens read
+ * distinctly from body text without colliding with the blue link color.
+ * Mirrors the marketing site's use of teal for API verbs and code accents.
+ */
+.sl-markdown-content :not(pre) > code {
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.35rem;
+  color: var(--cdxa-accent-2);
+  background: var(--sl-color-bg-inline-code);
+  border: 1px solid var(--cdxa-border);
+  font-weight: 500;
+}
+
+:root[data-theme='light'] .sl-markdown-content :not(pre) > code {
+  /* Slightly darker teal in light mode for contrast against the cream pill. */
+  color: #00876d;
+  border-color: var(--sl-color-hairline);
+}
+
+/*
+ * Inline code inside a link should keep the link color so the affordance
+ * stays obvious. The pill background still reads as code.
+ */
+.sl-markdown-content a :not(pre) > code,
+.sl-markdown-content a > code {
+  color: inherit;
+}
+
+/*
+ * Tables: denser rows for reference content.
+ */
+.sl-markdown-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0 1.5rem;
+}
+
+.sl-markdown-content table th,
+.sl-markdown-content table td {
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--sl-color-hairline);
+  vertical-align: top;
+}
+
+.sl-markdown-content table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--sl-color-white);
+  background: var(--sl-color-bg-sidebar);
+}
+
+/*
+ * Asides.
+ */
+.sl-markdown-content .starlight-aside--tip {
+  border-color: var(--cdxa-accent-2);
+}
+
+.sl-markdown-content .starlight-aside--note {
+  border-color: var(--cdxa-accent);
+}
+
+.sl-markdown-content .starlight-aside--caution {
+  border-color: var(--cdxa-warning);
+}
+
+.sl-markdown-content .starlight-aside--danger {
+  border-color: var(--cdxa-danger);
+}
+
+/*
+ * Links inside content. Keep the brand accent for hover affordance.
+ */
+.sl-markdown-content a:not(.card):not(.button) {
+  color: var(--cdxa-accent-light);
+  text-decoration-color: rgba(102, 153, 255, 0.4);
+  text-underline-offset: 3px;
+}
+
+.sl-markdown-content a:not(.card):not(.button):hover {
+  color: var(--cdxa-pink);
+  text-decoration-color: var(--cdxa-pink);
+}
+
+:root[data-theme='light'] .sl-markdown-content a:not(.card):not(.button) {
+  color: #2a55b8;
+}
+
+:root[data-theme='light'] .sl-markdown-content a:not(.card):not(.button):hover {
+  color: var(--cdxa-pink);
+}
+
+/*
+ * Code blocks (Expressive Code).
+ *
+ * Hybrid of the two marketing patterns:
+ *   - Rounded dark card with border, matching the "Example" strip on the
+ *     Automation section of the marketing site.
+ *   - When a title is provided via `title="..."` on the fenced block, the
+ *     title renders as an uppercase tracked-out label at the top of the
+ *     card, just like "EXAMPLE: GENERATE AN ATTESTATION FROM YOUR PIPELINE".
+ *   - Terminal-style blocks (```sh/bash/shell) lean toward the Download
+ *     widget's look: tighter card, prompt color applied to shell lines.
+ *
+ * Expressive Code exposes CSS variables on .expressive-code and the .frame
+ * element. We override those and a small number of selectors; we do not
+ * fork any component.
+ */
+.expressive-code {
+  --ec-brdRad: 1rem;
+  --ec-frm-edBg: var(--cdxa-bg-card);
+  --ec-frm-edActTabBg: var(--cdxa-bg-card-hover);
+  --ec-frm-edActTabIndBrdCol: var(--cdxa-accent);
+  --ec-frm-edTabBarBg: var(--cdxa-bg-secondary);
+  --ec-frm-edTabBarBrdBtmCol: var(--cdxa-border);
+  --ec-frm-trmBg: var(--cdxa-bg-card);
+  --ec-frm-trmTtbBg: var(--cdxa-bg-secondary);
+  --ec-frm-trmTtbDefTxtCol: var(--cdxa-text-muted);
+  --ec-frm-trmTtbBrdBtmCol: var(--cdxa-border);
+  --ec-frm-frameBoxShdCssVal: 0 0 40px rgba(68, 127, 242, 0.08);
+  margin: 1.25rem 0 1.5rem;
+}
+
+.expressive-code .frame {
+  border-radius: 1rem;
+  border: 1px solid var(--cdxa-border);
+  background: var(--cdxa-bg-card);
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(68, 127, 242, 0.08);
+}
+
+.expressive-code .frame pre {
+  background: transparent !important;
+  padding: 1.25rem 1.5rem;
+  font-size: 0.85rem;
+  line-height: 1.65;
+}
+
+.expressive-code .frame code {
+  font-family: var(--sl-font-mono);
+}
+
+/*
+ * Titled code block -> uppercase "EXAMPLE" style label, matching the
+ * marketing site's Automation card. Applies to any code fence that uses
+ * title="..." or has the has-title frame state.
+ */
+.expressive-code .frame.has-title:not(.is-terminal) .header .title,
+.expressive-code .frame.has-title:not(.is-terminal) figcaption .title {
+  font-family: var(--sl-font);
+  font-weight: 600;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cdxa-text-muted);
+  background: transparent;
+  border: 0;
+  padding: 0.9rem 1.5rem 0.3rem;
+}
+
+.expressive-code .frame.has-title:not(.is-terminal) .header::before,
+.expressive-code .frame.has-title:not(.is-terminal) figcaption::before {
+  display: none !important;
+}
+
+.expressive-code .frame.has-title:not(.is-terminal) .header,
+.expressive-code .frame.has-title:not(.is-terminal) figcaption {
+  background: transparent;
+  border-bottom: 0;
+  box-shadow: none;
+}
+
+/*
+ * Terminal frames. Shell blocks (```sh, ```bash, ```shell) render as the
+ * Download widget's terminal card: title bar is muted, the prompt dollar
+ * sign picks up the teal accent.
+ */
+.expressive-code .frame.is-terminal {
+  background: var(--cdxa-bg-card);
+}
+
+.expressive-code .frame.is-terminal .header {
+  background: var(--cdxa-bg-secondary);
+  border-bottom: 1px solid var(--cdxa-border);
+}
+
+.expressive-code .frame.is-terminal .header .title {
+  color: var(--cdxa-text-muted);
+  font-family: var(--sl-font);
+  font-weight: 600;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.expressive-code .copy button {
+  background: var(--cdxa-bg-card-hover);
+  border: 1px solid var(--cdxa-border);
+  color: var(--cdxa-text-secondary);
+}
+
+.expressive-code .copy button:hover {
+  border-color: var(--cdxa-accent);
+  color: var(--cdxa-accent-light);
+}
+
+/*
+ * Light mode: softer card, same rounded shape.
+ */
+:root[data-theme='light'] .expressive-code {
+  --ec-frm-edBg: #ffffff;
+  --ec-frm-edTabBarBg: #f7f7fb;
+  --ec-frm-edTabBarBrdBtmCol: var(--sl-color-hairline);
+  --ec-frm-trmBg: #ffffff;
+  --ec-frm-trmTtbBg: #f7f7fb;
+  --ec-frm-trmTtbBrdBtmCol: var(--sl-color-hairline);
+  --ec-frm-frameBoxShdCssVal: 0 2px 14px rgba(15, 15, 19, 0.05);
+}
+
+:root[data-theme='light'] .expressive-code .frame {
+  background: #ffffff;
+  border-color: var(--sl-color-hairline);
+  box-shadow: 0 2px 14px rgba(15, 15, 19, 0.05);
+}
+
+/*
+ * Starlight <Tabs> component (used for multi-variant code examples such
+ * as Docker Compose / Docker Swarm). Restyled to match the marketing
+ * site's terminal widget: tab row with accent-blue underline on the
+ * active tab, muted text on inactive tabs.
+ */
+starlight-tabs {
+  border: 1px solid var(--cdxa-border);
+  border-radius: 1rem;
+  background: var(--cdxa-bg-card);
+  overflow: hidden;
+  display: block;
+  margin: 1.25rem 0 1.5rem;
+  box-shadow: 0 0 40px rgba(68, 127, 242, 0.08);
+}
+
+starlight-tabs [role='tablist'] {
+  display: flex;
+  background: var(--cdxa-bg-secondary);
+  border-bottom: 1px solid var(--cdxa-border);
+  padding: 0;
+  gap: 0;
+  margin: 0;
+}
+
+starlight-tabs [role='tab'] {
+  flex: 1;
+  padding: 0.75rem 1.25rem;
+  font-family: var(--sl-font);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--cdxa-text-muted);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+starlight-tabs [role='tab']:hover {
+  color: var(--cdxa-text-secondary);
+}
+
+starlight-tabs [role='tab'][aria-selected='true'] {
+  color: var(--cdxa-text-primary);
+  background: var(--cdxa-bg-card-hover);
+  border-bottom-color: var(--cdxa-accent);
+}
+
+starlight-tabs [role='tabpanel'] {
+  padding: 0;
+}
+
+/*
+ * When Tabs wrap Expressive Code blocks, flatten the inner frame so the
+ * outer tabs container provides the rounded border and the inner code
+ * runs flush against the tab bar.
+ */
+starlight-tabs [role='tabpanel'] .expressive-code {
+  margin: 0;
+}
+
+starlight-tabs [role='tabpanel'] .expressive-code .frame {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+:root[data-theme='light'] starlight-tabs {
+  background: #ffffff;
+  border-color: var(--sl-color-hairline);
+  box-shadow: 0 2px 14px rgba(15, 15, 19, 0.05);
+}
+
+:root[data-theme='light'] starlight-tabs [role='tablist'] {
+  background: #f7f7fb;
+  border-bottom-color: var(--sl-color-hairline);
+}
+
+:root[data-theme='light']
+  starlight-tabs
+  [role='tab'][aria-selected='true'] {
+  background: #ffffff;
+  color: #0f0f13;
+}
+
+/*
+ * Pulse animation reused from the marketing site's "An OWASP Foundation
+ * Project" badge, available for use in any custom landing fragments.
+ */
+@keyframes cdxa-pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.5); }
+}
+
+.cdxa-pulse {
+  animation: cdxa-pulse-dot 2s ease-in-out infinite;
+}

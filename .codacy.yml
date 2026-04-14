@@ -3,6 +3,7 @@ exclude_paths:
   - node_modules
   - dist
   - coverage
+  - docs/**
   - backend/package-lock.json
   - frontend/package-lock.json
   - "**/*.test.ts"
@@ -20,6 +21,7 @@ engines:
       - node_modules
       - dist
       - coverage
+      - docs/**
     disable_rules:
       # Framework compatibility: Qwik and React hook rules not applicable
       - Biome_lint_correctness_useQwikValidLexicalScope
@@ -101,6 +103,7 @@ engines:
       - node_modules
       - dist
       - coverage
+      - docs/**
       - "**/*.test.ts"
       - "**/*.test.tsx"
       - "**/*.spec.ts"
