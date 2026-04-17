@@ -133,7 +133,7 @@
     "usernamePlaceholder": "p. ej. admin",
     "emailPlaceholder": "admin{'@'}example.com",
     "displayNamePlaceholder": "p. ej. Jane Smith",
-    "passwordPlaceholder": "Al menos 8 caracteres",
+    "passwordPlaceholder": "Al menos {min} caracteres",
     "confirmPasswordPlaceholder": "Vuelva a ingresar su contraseña",
     "createAccount": "Crear cuenta",
     "importStandards": "Importar estándares de evaluación",
@@ -145,7 +145,8 @@
     "feedError": "No se pudo obtener el feed de estándares. Verifique su conexión a Internet.",
     "importSummary": "{success} de {total} estándares importados exitosamente.",
     "setupComplete": "Configuración completada",
-    "setupCompleteDescription": "Su cuenta de administrador ha sido creada y {count} estándares de evaluación han sido importados. Ahora puede iniciar sesión y comenzar a administrar evaluaciones.",
+    "setupCompleteDescription": "Su cuenta de administrador ha sido creada y {count} estándares de evaluación han sido importados. Ha iniciado sesión y puede comenzar a administrar evaluaciones.",
+    "goToDashboard": "Ir al panel",
     "validation": {
       "usernameRequired": "Se requiere nombre de usuario",
       "usernameLength": "Debe tener entre 3 y 64 caracteres",
@@ -154,7 +155,7 @@
       "emailInvalid": "Ingrese una dirección de correo electrónico válida",
       "displayNameRequired": "Se requiere nombre para mostrar",
       "passwordRequired": "Se requiere contraseña",
-      "passwordLength": "Debe tener al menos 8 caracteres",
+      "passwordLength": "Debe tener al menos {min} caracteres",
       "confirmPasswordRequired": "Por favor confirme su contraseña",
       "passwordMismatch": "Las contraseñas no coinciden"
     }
@@ -503,7 +504,7 @@
     "updatePassword": "Actualizar contraseña",
     "passwordChanged": "Contraseña cambiada exitosamente",
     "passwordMismatch": "La nueva contraseña y la confirmación no coinciden",
-    "passwordTooShort": "La contraseña debe tener al menos 8 caracteres",
+    "passwordTooShort": "La contraseña debe tener al menos {min} caracteres",
     "currentPasswordRequired": "Se requiere contraseña actual",
     "preferences": "Preferencias",
     "theme": "Tema",

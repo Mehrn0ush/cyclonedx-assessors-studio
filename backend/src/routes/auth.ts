@@ -8,27 +8,63 @@ import { getConfig } from '../config/index.js';
 import { logger } from '../utils/logger.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { AuthRequest, requireAuth, getPermissionsForRole } from '../middleware/auth.js';
-import { hashPassword, verifyPassword, generateToken, hashToken } from '../utils/crypto.js';
+import { hashPassword, verifyPassword, hashToken } from '../utils/crypto.js';
+import { validatePasswordPolicy, PASSWORD_MAX_LENGTH } from '../utils/password-policy.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { authLoginTotal } from '../metrics/index.js';
 import { fetchUserById, fetchUserByUsername, formatUserProfile } from '../utils/user-queries.js';
 import { checkResourceExists } from '../utils/resource-checks.js';
 import { logAudit } from '../utils/audit.js';
+import { buildSessionCookieOptions, buildClearCookieOptions } from '../utils/cookies.js';
 
 const router = Router();
 const config = getConfig();
 
+// Login accepts any non-empty password. A stricter minimum here would
+// lock out accounts whose password was set before the current policy
+// took effect. The handler only verifies against the stored hash, so a
+// short string simply fails to match and returns a generic 401.
 const loginSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(1, 'Password is required').max(PASSWORD_MAX_LENGTH),
 });
 
+// Register defers detailed password policy enforcement to
+// validatePasswordPolicy, which has access to the resolved config
+// (min length, HIBP opt in) and context (username, email, display
+// name) the user just provided. The schema enforces only the
+// static upper bound here to fail closed on obvious DoS attempts.
 const registerSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
   email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(1, 'Password is required').max(PASSWORD_MAX_LENGTH),
   displayName: z.string().min(1, 'Display name is required'),
   inviteToken: z.string().optional(),
+});
+
+/**
+ * GET /api/v1/auth/password-policy
+ *
+ * Public endpoint that exposes only the bounds the client needs to
+ * render validation hints and placeholder copy consistent with the
+ * server. Deliberately omits the breach check toggle and deny list
+ * contents: those stay server side because they let an attacker
+ * pre-filter a guessing list. The bounds themselves are already
+ * visible through 400 error messages on register and setup, so
+ * surfacing them here does not create a new disclosure (NIST SP
+ * 800-63B §5.1.1.2 and OWASP ASVS v5 §V6.2 both treat policy
+ * parameters as non-secret).
+ *
+ * Reads config at request time so an operator who tunes
+ * PASSWORD_MIN_LENGTH does not need to restart the frontend build to
+ * see the new value reflected in the UI.
+ */
+router.get('/password-policy', (_req, res) => {
+  const current = getConfig();
+  res.json({
+    minLength: current.PASSWORD_MIN_LENGTH,
+    maxLength: PASSWORD_MAX_LENGTH,
+  });
 });
 
 router.post('/login', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
@@ -129,9 +165,11 @@ router.post('/login', asyncHandler(async (req: AuthRequest, res: Response): Prom
       return;
     }
 
-    const token = generateToken();
+    // Session identity is carried by the signed JWT alone. The server
+    // looks up the session row by id (see middleware/auth.ts), so there
+    // is no need to generate, hash, or persist a separate bearer token
+    // on the session row.
     const sessionId = uuidv4();
-    const tokenHash = hashToken(token);
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     await db
@@ -139,7 +177,6 @@ router.post('/login', asyncHandler(async (req: AuthRequest, res: Response): Prom
       .values({
         id: sessionId,
         user_id: user.id,
-        token_hash: tokenHash,
         ip_address: req.ip || undefined,
         user_agent: req.headers['user-agent'] || undefined,
         expires_at: expiresAt,
@@ -168,13 +205,7 @@ router.post('/login', asyncHandler(async (req: AuthRequest, res: Response): Prom
       } as jwt.SignOptions
     );
 
-    res.cookie('token', jwtToken, {
-      httpOnly: true,
-      secure: config.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 24 * 60 * 60 * 1000,
-    });
+    res.cookie('token', jwtToken, buildSessionCookieOptions(24 * 60 * 60 * 1000));
 
     authLoginTotal.inc({ method: 'local', result: 'success' });
 
@@ -248,6 +279,24 @@ router.post('/register', asyncHandler(async (req: AuthRequest, res: Response): P
       return;
     }
 
+    // Centralized password policy. Run before the existence check so
+    // the generic 202 enumeration guard below always fires with the
+    // same status code for both duplicate and fresh registrations
+    // once the password itself is policy compliant.
+    const policy = await validatePasswordPolicy(data.password, {
+      username: data.username,
+      email: data.email,
+      displayName: data.displayName,
+    });
+    if (!policy.valid) {
+      res.status(400).json({ error: policy.reason });
+      return;
+    }
+
+    // Existence check only — we never return the row to the client, so
+    // restrict the projection to id. Using selectAll here would load
+    // password_hash into the handler for no reason, and any future
+    // sensitive column added to app_user would silently ride along.
     const existingUser = await db
       .selectFrom('app_user')
       .where((eb) =>
@@ -256,7 +305,7 @@ router.post('/register', asyncHandler(async (req: AuthRequest, res: Response): P
           eb('email', '=', data.email),
         ])
       )
-      .selectAll()
+      .select('id')
       .executeTakeFirst();
 
     if (existingUser) {
@@ -344,7 +393,7 @@ router.post(
       }
     }
 
-    res.clearCookie('token');
+    res.clearCookie('token', buildClearCookieOptions());
 
     logger.info('User logged out', {
       userId: req.user.id,
@@ -375,9 +424,16 @@ router.get('/me', requireAuth, asyncHandler(async (req: AuthRequest, res: Respon
   }
 }));
 
+// Schema only screens for presence and an upper bound; the full
+// policy (min length, deny list, HIBP) runs inside the handler
+// through validatePasswordPolicy so the error surface is identical
+// to registration and setup.
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+  newPassword: z
+    .string()
+    .min(1, 'New password is required')
+    .max(PASSWORD_MAX_LENGTH),
 });
 
 router.put(
@@ -403,6 +459,29 @@ router.put(
         return;
       }
 
+      // Enforce the centralized password policy on the new password.
+      // Running this after the current-password check ensures an
+      // unauthenticated attacker who guessed a session cannot probe
+      // the HIBP endpoint with arbitrary strings.
+      const policy = await validatePasswordPolicy(data.newPassword, {
+        username: user.username,
+        email: user.email,
+        displayName: user.display_name,
+      });
+      if (!policy.valid) {
+        res.status(400).json({ error: policy.reason });
+        return;
+      }
+
+      // Disallow reusing the current password. Even if it satisfies
+      // the policy, rotating to the same secret defeats the purpose.
+      if (await verifyPassword(user.password_hash, data.newPassword)) {
+        res.status(400).json({
+          error: 'New password must be different from the current password',
+        });
+        return;
+      }
+
       const newPasswordHash = await hashPassword(data.newPassword);
 
       await db
@@ -419,7 +498,7 @@ router.put(
         .execute();
 
       // Clear the current session cookie so the user must re-authenticate
-      res.clearCookie('token');
+      res.clearCookie('token', buildClearCookieOptions());
 
       logger.info('User changed password and all sessions invalidated', {
         userId: req.user.id,
@@ -513,7 +592,7 @@ router.post(
         .execute();
 
       // Clear the current session cookie
-      res.clearCookie('token');
+      res.clearCookie('token', buildClearCookieOptions());
 
       logger.info('User logged out from all sessions', {
         userId: req.user.id,

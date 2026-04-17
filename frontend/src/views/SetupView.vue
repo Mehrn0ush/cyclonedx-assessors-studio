@@ -68,7 +68,7 @@
             <el-input
               v-model="form.password"
               type="password"
-              :placeholder="t('setup.passwordPlaceholder')"
+              :placeholder="passwordPlaceholder"
               size="large"
               show-password
               :prefix-icon="LockIcon"
@@ -246,8 +246,8 @@
           </p>
         </div>
 
-        <el-button type="primary" size="large" class="setup-action" @click="goToLogin">
-          {{ t('login.signIn') }}
+        <el-button type="primary" size="large" class="setup-action" @click="goToDashboard">
+          {{ t('setup.goToDashboard') }}
         </el-button>
       </div>
     </div>
@@ -255,12 +255,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, nextTick, watch, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, nextTick, watch, onMounted, onUnmounted, computed } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { markSetupDone } from '@/router'
 import { useLogo } from '@/composables/useLogo'
+import { usePasswordPolicyStore } from '@/stores/passwordPolicy'
+import { useAuthStore } from '@/stores/auth'
+import apiClient from '@/api/client'
+import type { User } from '@/types'
 import {
   User as UserIcon,
   Lock as LockIcon,
@@ -270,7 +274,6 @@ import {
   Loading,
   Document,
 } from '@element-plus/icons-vue'
-import axios from 'axios'
 
 interface FeedItem {
   id: string
@@ -285,6 +288,21 @@ interface FeedItem {
 
 const { logoSrc } = useLogo()
 const { t } = useI18n()
+
+// Password policy is fetched from the server so the placeholder
+// copy and the client side length rule reflect the current server
+// policy (see PASSWORD_MIN_LENGTH in the backend config). Falls back
+// to the documented defaults until the fetch resolves.
+const passwordPolicy = usePasswordPolicyStore()
+// Populated after the admin is created so the rest of the app sees
+// the user as signed in once the wizard finishes.
+const authStore = useAuthStore()
+const passwordPlaceholder = computed(() =>
+  t('setup.passwordPlaceholder', passwordPolicy.i18nParams),
+)
+const passwordLengthMessage = computed(() =>
+  t('setup.validation.passwordLength', passwordPolicy.i18nParams),
+)
 
 const router = useRouter()
 const formRef = ref<FormInstance>()
@@ -326,6 +344,11 @@ watch(step, focusStepAction)
 onMounted(() => {
   focusStepAction()
   window.addEventListener('keydown', handleWelcomeKeydown)
+  // Kick off the policy fetch so the placeholder and Element Plus
+  // rule update as soon as possible. Fire and forget: the store
+  // leaves its fallback values in place on failure so the form
+  // still renders.
+  void passwordPolicy.fetchPolicy()
 })
 
 onUnmounted(() => {
@@ -348,7 +371,13 @@ const validatePasswordMatch = (_rule: Record<string, unknown>, value: string, ca
   }
 }
 
-const rules: FormRules = {
+// Rules are a computed so the password length bounds and error
+// message stay in sync with the store once GET /auth/password-policy
+// resolves. Element Plus re evaluates validation against whatever
+// rules the :rules prop holds at the time of the check, so the form
+// always applies the current server policy even if the user opened
+// the setup page before the fetch completed.
+const rules = computed<FormRules>(() => ({
   username: [
     { required: true, message: t('setup.validation.usernameRequired'), trigger: 'blur' },
     { min: 3, max: 64, message: t('setup.validation.usernameLength'), trigger: 'blur' },
@@ -363,13 +392,18 @@ const rules: FormRules = {
   ],
   password: [
     { required: true, message: t('setup.validation.passwordRequired'), trigger: 'blur' },
-    { min: 8, max: 128, message: t('setup.validation.passwordLength'), trigger: 'blur' },
+    {
+      min: passwordPolicy.minLength,
+      max: passwordPolicy.maxLength,
+      message: passwordLengthMessage.value,
+      trigger: 'blur',
+    },
   ],
   confirmPassword: [
     { required: true, message: t('setup.validation.confirmPasswordRequired'), trigger: 'blur' },
     { validator: validatePasswordMatch, trigger: 'blur' },
   ],
-}
+}))
 
 const submitSetup = async () => {
   if (!formRef.value) return
@@ -384,12 +418,24 @@ const submitSetup = async () => {
   error.value = ''
 
   try {
-    await axios.post('/api/v1/setup', {
+    // The setup endpoint creates the admin AND issues a session
+    // cookie in the same response so the wizard's remaining helper
+    // endpoints (standards-feed, import-standard, seed-demo) are
+    // reachable after setup flips to complete. Hydrating the auth
+    // store here avoids a second round trip to /auth/me to learn
+    // what the server already told us.
+    const { data } = await apiClient.post<{
+      user: User
+      permissions?: string[]
+    }>('/setup', {
       username: form.username,
       email: form.email,
       displayName: form.displayName,
       password: form.password,
     })
+    if (data.user) {
+      authStore.setSession(data.user, data.permissions ?? [])
+    }
     markSetupDone()
     step.value = 2
     fetchAndImportStandards()
@@ -415,7 +461,7 @@ const fetchAndImportStandards = async () => {
 
   try {
     // Fetch the standards feed
-    const { data } = await axios.get('/api/v1/setup/standards-feed')
+    const { data } = await apiClient.get('/setup/standards-feed')
     interface FeedItemData {
       id: string
       title: string
@@ -444,7 +490,7 @@ const fetchAndImportStandards = async () => {
       scrollToItem(i)
 
       try {
-        const result = await axios.post('/api/v1/setup/import-standard', {
+        const result = await apiClient.post('/setup/import-standard', {
           url: feedItems.value[i].url,
           title: feedItems.value[i].title,
         })
@@ -487,7 +533,7 @@ const retryImportItem = async (item: FeedItem) => {
   feedItems.value[index].errorMessage = undefined
 
   try {
-    const result = await axios.post('/api/v1/setup/import-standard', {
+    const result = await apiClient.post('/setup/import-standard', {
       url: feedItems.value[index].url,
       title: feedItems.value[index].title,
     })
@@ -514,7 +560,7 @@ const handleDemoChoice = async () => {
   demoError.value = ''
 
   try {
-    await axios.post('/api/v1/setup/seed-demo')
+    await apiClient.post('/setup/seed-demo')
     demoSuccess.value = true
     step.value = 4
   } catch (err: unknown) {
@@ -525,8 +571,11 @@ const handleDemoChoice = async () => {
   }
 }
 
-const goToLogin = () => {
-  router.push('/login')
+// The wizard auto-logs the operator in as part of POST /api/v1/setup,
+// so once they hit "finish" we send them straight into the app instead
+// of bouncing through the login screen.
+const goToDashboard = () => {
+  router.push('/')
 }
 </script>
 

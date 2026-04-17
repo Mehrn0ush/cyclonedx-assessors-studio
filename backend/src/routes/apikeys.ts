@@ -45,10 +45,12 @@ router.post(
 
     // When creating a key for another user, validate they exist and are active
     if (targetUserId !== req.user!.id) {
+      // Only id and is_active are needed for this check; avoid loading
+      // password_hash or any other sensitive column unnecessarily.
       const targetUser = await db
         .selectFrom('app_user')
         .where('id', '=', targetUserId)
-        .selectAll()
+        .select(['id', 'is_active'])
         .executeTakeFirst();
 
       if (!targetUser) {

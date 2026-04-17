@@ -1,5 +1,5 @@
 import { createApp } from './app.js';
-import { getConfig, setJwtSecret } from './config/index.js';
+import { getConfig, setJwtSecret, validateStartupConfig } from './config/index.js';
 import { initializeDatabase, closeDatabase } from './db/connection.js';
 import { runMigrations } from './db/migrate.js';
 import { seedDefaultRolesAndPermissions } from './db/seed.js';
@@ -8,6 +8,7 @@ import { initializeStorage } from './storage/index.js';
 import { initializeEventSystem, shutdownEventSystem } from './events/index.js';
 import { startDomainGaugeRefresh, stopDomainGaugeRefresh } from './metrics/index.js';
 import { startHealthChecks, stopHealthChecks } from './routes/health.js';
+import { startSessionCleanup, stopSessionCleanup } from './services/session-cleanup.js';
 import { initializeEncryption } from './utils/encryption.js';
 import { logger } from './utils/logger.js';
 
@@ -21,6 +22,7 @@ const gracefulShutdown = async (signal: string) => {
   try {
     stopDomainGaugeRefresh();
     stopHealthChecks();
+    stopSessionCleanup();
     await shutdownEventSystem();
     logger.info('Event system shut down');
     await closeDatabase();
@@ -38,6 +40,12 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 // Start server
 async function start() {
   try {
+    // Refuse to boot when the operator has asked for metrics to be
+    // exposed but has not protected the endpoint. Caught early so the
+    // process fails loudly in container orchestrators instead of
+    // silently serving Prometheus counters unauthenticated.
+    validateStartupConfig(config);
+
     logger.info('Initializing database...');
     await initializeDatabase();
     await runMigrations();
@@ -69,6 +77,7 @@ async function start() {
       logger.info('Prometheus domain gauge refresh started');
     }
     startHealthChecks();
+    startSessionCleanup();
 
     const port = config.PORT;
     app.listen(port, () => {

@@ -133,7 +133,7 @@
     "usernamePlaceholder": "例: admin",
     "emailPlaceholder": "admin{'@'}example.com",
     "displayNamePlaceholder": "例: Jane Smith",
-    "passwordPlaceholder": "8文字以上",
+    "passwordPlaceholder": "{min}文字以上",
     "confirmPasswordPlaceholder": "パスワードを再入力してください",
     "createAccount": "アカウントを作成",
     "importStandards": "評価標準をインポート",
@@ -145,7 +145,8 @@
     "feedError": "標準フィードを取得できません。インターネット接続を確認してください。",
     "importSummary": "{total} 個の標準のうち {success} 個が正常にインポートされました。",
     "setupComplete": "セットアップ完了",
-    "setupCompleteDescription": "管理者アカウントが作成され、{count} 個の評価標準がインポートされました。これでサインインして評価の管理を開始できます。",
+    "setupCompleteDescription": "管理者アカウントが作成され、{count} 個の評価標準がインポートされました。サインインされており、評価の管理を開始できます。",
+    "goToDashboard": "ダッシュボードへ移動",
     "validation": {
       "usernameRequired": "ユーザー名は必須です",
       "usernameLength": "3〜64 文字である必要があります",
@@ -154,7 +155,7 @@
       "emailInvalid": "有効なメール アドレスを入力してください",
       "displayNameRequired": "表示名は必須です",
       "passwordRequired": "パスワードは必須です",
-      "passwordLength": "8 文字以上である必要があります",
+      "passwordLength": "{min} 文字以上である必要があります",
       "confirmPasswordRequired": "パスワードを確認してください",
       "passwordMismatch": "パスワードが一致しません"
     }
@@ -503,7 +504,7 @@
     "updatePassword": "パスワードを更新",
     "passwordChanged": "パスワードが正常に変更されました",
     "passwordMismatch": "新しいパスワードと確認が一致しません",
-    "passwordTooShort": "パスワードは最低 8 文字である必要があります",
+    "passwordTooShort": "パスワードは最低 {min} 文字である必要があります",
     "currentPasswordRequired": "現在のパスワードは必須です",
     "preferences": "環境設定",
     "theme": "テーマ",

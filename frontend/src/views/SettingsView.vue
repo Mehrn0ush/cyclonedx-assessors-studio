@@ -337,6 +337,7 @@ import { useRouter, RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
+import { usePasswordPolicyStore } from '@/stores/passwordPolicy'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import axios from 'axios'
@@ -350,6 +351,10 @@ const router = useRouter()
 
 const authStore = useAuthStore()
 const uiStore = useUIStore()
+// Password policy store drives the minimum length check and error
+// copy in the change password flow. Fetched on mount so the UI
+// side gate matches the server side enforcement.
+const passwordPolicy = usePasswordPolicyStore()
 
 const profileForm = ref({
   username: authStore.user?.username || '',
@@ -428,8 +433,8 @@ const handleChangePassword = async () => {
     ElMessage.error(t('settings.currentPasswordRequired'))
     return
   }
-  if (passwordForm.value.newPassword.length < 8) {
-    ElMessage.error(t('settings.passwordTooShort'))
+  if (passwordForm.value.newPassword.length < passwordPolicy.minLength) {
+    ElMessage.error(t('settings.passwordTooShort', passwordPolicy.i18nParams))
     return
   }
   if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
@@ -743,6 +748,10 @@ const handleLogoutAll = async () => {
 
 onMounted(async () => {
   await fetchUserRules()
+  // Kick off the policy fetch without awaiting so rule loading is
+  // not blocked on it. The store keeps its fallback values in
+  // place on failure, and the server is authoritative at submit.
+  void passwordPolicy.fetchPolicy()
 })
 </script>
 

@@ -133,7 +133,7 @@
     "usernamePlaceholder": "например admin",
     "emailPlaceholder": "admin{'@'}example.com",
     "displayNamePlaceholder": "например Jane Smith",
-    "passwordPlaceholder": "Не менее 8 символов",
+    "passwordPlaceholder": "Не менее {min} символов",
     "confirmPasswordPlaceholder": "Повторно введите пароль",
     "createAccount": "Создать учетную запись",
     "importStandards": "Импорт стандартов оценки",
@@ -145,7 +145,8 @@
     "feedError": "Не удалось получить канал стандартов. Проверьте подключение в Интернет.",
     "importSummary": "{success} из {total} стандартов успешно импортированы.",
     "setupComplete": "Настройка завершена",
-    "setupCompleteDescription": "Ваша учетная запись администратора создана и {count} стандартов оценки импортированы. Теперь вы можете войти и начать управление оценками.",
+    "setupCompleteDescription": "Ваша учетная запись администратора создана и {count} стандартов оценки импортированы. Вы вошли в систему и можете начать управление оценками.",
+    "goToDashboard": "Перейти к панели управления",
     "validation": {
       "usernameRequired": "Требуется имя пользователя",
       "usernameLength": "Должно быть от 3 до 64 символов",
@@ -154,7 +155,7 @@
       "emailInvalid": "Введите действительный адрес электронной почты",
       "displayNameRequired": "Требуется отображаемое имя",
       "passwordRequired": "Требуется пароль",
-      "passwordLength": "Должно быть не менее 8 символов",
+      "passwordLength": "Должно быть не менее {min} символов",
       "confirmPasswordRequired": "Пожалуйста, подтвердите пароль",
       "passwordMismatch": "Пароли не совпадают"
     }
@@ -503,7 +504,7 @@
     "updatePassword": "Обновить пароль",
     "passwordChanged": "Пароль успешно изменен",
     "passwordMismatch": "Новый пароль и подтверждение не совпадают",
-    "passwordTooShort": "Пароль должен содержать не менее 8 символов",
+    "passwordTooShort": "Пароль должен содержать не менее {min} символов",
     "currentPasswordRequired": "Требуется текущий пароль",
     "preferences": "Параметры",
     "theme": "Тема",

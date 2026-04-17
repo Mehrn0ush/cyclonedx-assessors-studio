@@ -16,6 +16,7 @@ import { getConfig } from '../../config/index.js';
 import type { NotificationChannel } from '../channel.js';
 import type { EventEnvelope } from '../types.js';
 import { CHANNEL_CHAT_DISABLED, CHANNEL_TEST } from '../catalog.js';
+import { resolveAndAssertPublic } from '../../utils/url-safety.js';
 
 /** Retry delay schedule in milliseconds (attempt index 0-based). */
 const RETRY_DELAYS_MS = [
@@ -186,6 +187,22 @@ export abstract class BaseChatChannel implements NotificationChannel {
     const messageBody = this.formatMessage(testEnvelope, appUrl);
     const timeout = config.CHAT_TIMEOUT;
 
+    // Delivery-time SSRF guard. See the same check in dispatchDelivery
+    // below for the rationale. sendTestMessage is a hand-triggered admin
+    // action but it still reaches out to the configured webhook URL, so
+    // the same DNS-resolution screening applies.
+    const safetyCheck = await resolveAndAssertPublic(integration.webhook_url);
+    if (!safetyCheck.safe) {
+      logger.warn(`Chat test message blocked by delivery-time URL check (${this.platform})`, {
+        integrationId,
+        reason: safetyCheck.reason,
+      });
+      return {
+        success: false,
+        message: `Test delivery blocked: ${safetyCheck.reason ?? 'unsafe URL'}`,
+      };
+    }
+
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -269,6 +286,28 @@ export abstract class BaseChatChannel implements NotificationChannel {
     const timeout = config.CHAT_TIMEOUT;
 
     const messageBody = this.formatMessage(envelope, appUrl);
+
+    // Delivery-time SSRF guard. The URL passed config-time validation
+    // when the integration was saved, but DNS can drift and the URL
+    // could be rewritten in the database out of band. Re-resolve right
+    // before the fetch and refuse targets that resolve into private or
+    // reserved ranges.
+    const safetyCheck = await resolveAndAssertPublic(integration.webhook_url);
+    if (!safetyCheck.safe) {
+      logger.warn(`Chat delivery blocked by delivery-time URL check (${this.platform})`, {
+        integrationId: integration.id,
+        deliveryId,
+        reason: safetyCheck.reason,
+      });
+      await this.handleFailure(
+        deliveryId,
+        integration,
+        attempt,
+        null,
+        `Delivery blocked: ${safetyCheck.reason ?? 'unsafe URL'}`,
+      );
+      return;
+    }
 
     try {
       const controller = new AbortController();

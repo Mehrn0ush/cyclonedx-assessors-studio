@@ -442,17 +442,34 @@ CREATE INDEX idx_api_key_prefix ON api_key(prefix);
 CREATE INDEX idx_api_key_user_id ON api_key(user_id);
 
 -- Sessions
+-- Mirrors the post-migration shape in db/migrate.ts: lookup by id only,
+-- no server-side token_hash column. See the Sprint 3 notes in migrate.ts
+-- for the history.
 CREATE TABLE IF NOT EXISTS session (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
-  token_hash VARCHAR(255) NOT NULL UNIQUE,
   ip_address VARCHAR(45),
   user_agent TEXT,
   expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_session_token_hash ON session(token_hash);
+-- User invites (single use registration tokens)
+CREATE TABLE IF NOT EXISTS user_invite (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  token_hash VARCHAR(255) NOT NULL UNIQUE,
+  email VARCHAR(255),
+  intended_role VARCHAR(50) NOT NULL DEFAULT 'assessee' CHECK(intended_role IN ('admin', 'assessor', 'assessee', 'standards_manager', 'standards_approver')),
+  created_by UUID REFERENCES app_user(id) ON DELETE SET NULL,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  consumed_at TIMESTAMP WITH TIME ZONE,
+  consumed_by UUID REFERENCES app_user(id) ON DELETE SET NULL,
+  revoked_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_user_invite_token_hash ON user_invite(token_hash);
+CREATE INDEX idx_user_invite_email ON user_invite(email);
 
 -- Add foreign key constraint for assessment_requirement.evidence_id after evidence table is created
 ALTER TABLE assessment_requirement DROP CONSTRAINT IF EXISTS fk_assessment_requirement_evidence_id;

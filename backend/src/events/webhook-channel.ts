@@ -16,6 +16,7 @@ import type { NotificationChannel } from './channel.js';
 import type { EventEnvelope } from './types.js';
 import { CHANNEL_WEBHOOK_DISABLED } from './catalog.js';
 import { encryptionService } from '../utils/encryption.js';
+import { resolveAndAssertPublic } from '../utils/url-safety.js';
 
 /** Retry delay schedule in milliseconds (attempt index 0 based). */
 const RETRY_DELAYS_MS = [
@@ -181,6 +182,30 @@ export class WebhookChannel implements NotificationChannel {
   ): Promise<boolean> {
     const db = this.getDb();
     const config = getConfig();
+
+    // Delivery-time SSRF guard. The URL was screened at config time, but
+    // DNS can drift: a public hostname can rotate onto an internal IP
+    // after the row was saved. Re-resolve right before the fetch and
+    // refuse any target that lands in a private or reserved range. This
+    // also catches the case where an operator changed the URL directly
+    // in the database and bypassed the route-level validation.
+    const safetyCheck = await resolveAndAssertPublic(webhook.url);
+    if (!safetyCheck.safe) {
+      logger.warn('Webhook delivery blocked by delivery-time URL check', {
+        webhookId: webhook.id,
+        deliveryId,
+        reason: safetyCheck.reason,
+      });
+      await this.handleFailure(
+        deliveryId,
+        webhook,
+        null,
+        null,
+        `Delivery blocked: ${safetyCheck.reason ?? 'unsafe URL'}`,
+        config,
+      );
+      return false;
+    }
 
     try {
       const controller = new AbortController();

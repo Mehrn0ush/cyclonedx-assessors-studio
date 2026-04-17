@@ -17,6 +17,7 @@ import { getEventBus } from '../events/index.js';
 import { CHANNEL_TEST } from '../events/catalog.js';
 import { validatePagination } from '../utils/pagination.js';
 import { encryptionService } from '../utils/encryption.js';
+import { isPrivateOrReservedUrl } from '../utils/url-safety.js';
 
 const router = Router();
 
@@ -25,66 +26,6 @@ const router = Router();
  */
 function generateSecret(): string {
   return `whsec_${crypto.randomBytes(32).toString('hex')}`;
-}
-
-/**
- * Check if hostname matches reserved internal hostnames.
- */
-function isReservedHostname(hostname: string): boolean {
-  return (
-    hostname === 'localhost' ||
-    hostname === '127.0.0.1' ||
-    hostname === '::1' ||
-    hostname === '0.0.0.0' ||
-    hostname.endsWith('.local') ||
-    hostname.endsWith('.internal')
-  );
-}
-
-/**
- * Check if hostname is a cloud metadata endpoint.
- */
-function isCloudMetadataEndpoint(hostname: string): boolean {
-  return hostname === '169.254.169.254' || hostname === 'metadata.google.internal';
-}
-
-/**
- * Check if an IPv4 address is in a private or reserved range.
- */
-function isPrivateIpv4(a: number, b: number): boolean {
-  if (a === 10) return true;                             // 10.0.0.0/8
-  if (a === 172 && b >= 16 && b <= 31) return true;     // 172.16.0.0/12
-  if (a === 192 && b === 168) return true;               // 192.168.0.0/16
-  if (a === 169 && b === 254) return true;               // 169.254.0.0/16 (link-local)
-  if (a === 127) return true;                            // 127.0.0.0/8 (loopback)
-  return a === 0;                                         // 0.0.0.0/8
-}
-
-/**
- * Validate that a webhook URL does not target private/internal networks (SSRF protection).
- * Blocks localhost, link-local, private RFC 1918, and cloud metadata endpoints.
- */
-function isPrivateOrReservedUrl(urlString: string): boolean {
-  try {
-    const parsed = new URL(urlString);
-    const hostname = parsed.hostname.toLowerCase();
-
-    if (isReservedHostname(hostname) || isCloudMetadataEndpoint(hostname)) {
-      return true;
-    }
-
-    // Block private IPv4 ranges (RFC 1918) and link-local
-    const ipv4Match = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-    if (ipv4Match) {
-      const [, a, b] = ipv4Match.map(Number);
-      if (isPrivateIpv4(a, b)) return true;
-    }
-
-    // Require HTTPS for webhook endpoints
-    return parsed.protocol !== 'https:';
-  } catch {
-    return true; // Invalid URL
-  }
 }
 
 // Custom Zod refinement for safe webhook URLs
@@ -322,10 +263,12 @@ router.put(
       const data = updateWebhookSchema.parse(req.body);
       const db = getDatabase();
 
+      // buildWebhookResponse only needs the fields listed here; avoid
+      // loading the encrypted `secret` column unnecessarily.
       const webhook = await db
         .selectFrom('webhook')
         .where('id', '=', req.params.id)
-        .selectAll()
+        .select(['id', 'name', 'url', 'event_types', 'is_active'])
         .executeTakeFirst();
 
       if (!webhook) {
@@ -399,10 +342,12 @@ router.post(
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const db = getDatabase();
 
+    // Only id and name are referenced when emitting the test event; restrict
+    // the projection so the encrypted secret column is never loaded here.
     const webhook = await db
       .selectFrom('webhook')
       .where('id', '=', req.params.id)
-      .selectAll()
+      .select(['id', 'name'])
       .executeTakeFirst();
 
     if (!webhook) {
@@ -445,10 +390,12 @@ router.post(
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const db = getDatabase();
 
+    // Existence check only — no webhook columns beyond id are used below,
+    // so avoid loading the encrypted secret or other fields.
     const webhook = await db
       .selectFrom('webhook')
       .where('id', '=', req.params.id)
-      .selectAll()
+      .select('id')
       .executeTakeFirst();
 
     if (!webhook) {

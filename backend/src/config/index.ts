@@ -106,6 +106,53 @@ const envSchema = z.object({
   // is still rejected; operators unlock early by clearing locked_until.
   LOGIN_MAX_FAILED_ATTEMPTS: z.coerce.number().int().nonnegative().default(5),
   LOGIN_LOCKOUT_DURATION_MINUTES: z.coerce.number().int().positive().default(15),
+
+  // Session and invite cleanup.
+  // SESSION_CLEANUP_INTERVAL_MINUTES: how often the background job sweeps
+  // expired sessions and stale invites. Set to 0 to disable the job (not
+  // recommended outside tests).
+  // SESSION_RETAIN_EXPIRED_HOURS: how long expired sessions are kept
+  // before they are deleted. A small retention window is useful for
+  // forensic auditing when a token was replayed after expiration.
+  // INVITE_RETAIN_AFTER_TERMINAL_DAYS: how long consumed or revoked
+  // invites stay in the table before they are deleted.
+  SESSION_CLEANUP_INTERVAL_MINUTES: z.coerce.number().int().nonnegative().default(15),
+  SESSION_RETAIN_EXPIRED_HOURS: z.coerce.number().int().nonnegative().default(24),
+  INVITE_RETAIN_AFTER_TERMINAL_DAYS: z.coerce.number().int().nonnegative().default(30),
+
+  // Cookie security hardening.
+  // COOKIE_SECURE:
+  //   - "auto" (default): infer the Secure flag from APP_URL scheme and
+  //     NODE_ENV. Any https:// APP_URL or production NODE_ENV marks
+  //     cookies Secure.
+  //   - "true" / "false": force the flag on or off regardless of other
+  //     signals. Use "true" when the app is deployed behind a TLS
+  //     terminator that does not advertise https to the Node process.
+  COOKIE_SECURE: z.enum(['auto', 'true', 'false']).default('auto'),
+  // TRUST_PROXY_HOPS: number of reverse proxy hops to trust for
+  // X-Forwarded-* header parsing. 0 keeps Express's default (disabled).
+  // Setting this to 1 is appropriate when a single TLS-terminating
+  // ingress (e.g. nginx, ALB, Traefik) sits directly in front of the
+  // Node process.
+  TRUST_PROXY_HOPS: z.coerce.number().int().nonnegative().default(0),
+
+  // Password policy.
+  // PASSWORD_MIN_LENGTH: minimum character length for newly created
+  // passwords (registration, setup, admin create, password change).
+  // Login path intentionally allows shorter passwords so legacy
+  // accounts predating a tightened policy can still authenticate.
+  // Default of 12 aligns with OWASP ASVS 5.0 L1 (requirement 2.1.1).
+  PASSWORD_MIN_LENGTH: z.coerce.number().int().min(8).max(128).default(12),
+  // PASSWORD_HIBP_CHECK_ENABLED: when true, new passwords are checked
+  // against the Have I Been Pwned range API using k-anonymity. Only
+  // the first five hex characters of the SHA-1 hash ever leave the
+  // server. Defaults to false so that standalone or air-gapped
+  // deployments and test suites do not make outbound calls.
+  PASSWORD_HIBP_CHECK_ENABLED: envBoolean(false),
+  // PASSWORD_HIBP_TIMEOUT_MS: hard cap on the HIBP request. The check
+  // fails open on timeout or network error so an unreachable service
+  // cannot lock users out of password rotation.
+  PASSWORD_HIBP_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
 });
 
 type Env = z.infer<typeof envSchema>;
@@ -136,6 +183,35 @@ export function getConfig(): Env {
  */
 export function resetConfig(): void {
   config = null;
+}
+
+/**
+ * Startup-time configuration guards.
+ *
+ * These checks refuse to boot the process when a combination of
+ * settings would leave the service in an unsafe or clearly
+ * misconfigured state. They are intentionally noisy: the operator
+ * should see a specific error and know exactly which environment
+ * variable to change.
+ *
+ * Called from the entrypoint after getConfig() returns. Safe to call
+ * from tests that want to assert the guard logic directly; callers
+ * that only want the cached config should use getConfig().
+ */
+export function validateStartupConfig(cfg: Env = getConfig()): void {
+  // Metrics endpoint is only safe to expose when a bearer token is
+  // configured. Without it the endpoint serves internal counters
+  // unauthenticated and can leak operational signal to anyone that
+  // reaches the container port.
+  if (cfg.METRICS_ENABLED && cfg.NODE_ENV !== 'test') {
+    if (!cfg.METRICS_TOKEN || cfg.METRICS_TOKEN.length < 16) {
+      throw new Error(
+        'METRICS_ENABLED=true but METRICS_TOKEN is unset or shorter than 16 characters. ' +
+          'Set METRICS_TOKEN to a long random string so the /metrics endpoint is not ' +
+          'served unauthenticated, or set METRICS_ENABLED=false to disable the endpoint.',
+      );
+    }
+  }
 }
 
 /**

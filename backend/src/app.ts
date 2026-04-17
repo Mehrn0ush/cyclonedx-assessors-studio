@@ -331,6 +331,17 @@ function configureErrorHandling(app: Express): void {
 export function createApp() {
   const app = express();
 
+  // Trust proxy headers from a known number of upstream hops. Defaults
+  // to 0 (off). Set TRUST_PROXY_HOPS to the number of reverse proxies
+  // that sit in front of Node so Express sees the real client IP and
+  // the correct req.protocol when a TLS terminator forwards the
+  // request as HTTP. Rate limiting, cookie Secure inference, and
+  // audit logging all depend on this value in proxied deployments.
+  const config = getConfig();
+  if (config.TRUST_PROXY_HOPS > 0) {
+    app.set('trust proxy', config.TRUST_PROXY_HOPS);
+  }
+
   // Configure middleware in order
   configureSecurityMiddleware(app);
   configureCORS(app);

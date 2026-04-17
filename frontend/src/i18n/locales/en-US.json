@@ -143,7 +143,7 @@
     "usernamePlaceholder": "e.g. admin",
     "emailPlaceholder": "admin{'@'}example.com",
     "displayNamePlaceholder": "e.g. Jane Smith",
-    "passwordPlaceholder": "At least 8 characters",
+    "passwordPlaceholder": "At least {min} characters",
     "confirmPasswordPlaceholder": "Re-enter your password",
     "createAccount": "Create Account",
     "importStandards": "Import Assessment Standards",
@@ -155,7 +155,8 @@
     "feedError": "Unable to fetch standards feed. Check your internet connection.",
     "importSummary": "{success} of {total} standards imported successfully.",
     "setupComplete": "Setup Complete",
-    "setupCompleteDescription": "Your administrator account has been created and {count} assessment standards have been imported. You can now sign in and start managing assessments.",
+    "setupCompleteDescription": "Your administrator account has been created and {count} assessment standards have been imported. You are signed in and can start managing assessments.",
+    "goToDashboard": "Go to Dashboard",
     "validation": {
       "usernameRequired": "Username is required",
       "usernameLength": "Must be 3 to 64 characters",
@@ -164,7 +165,7 @@
       "emailInvalid": "Enter a valid email address",
       "displayNameRequired": "Display name is required",
       "passwordRequired": "Password is required",
-      "passwordLength": "Must be at least 8 characters",
+      "passwordLength": "Must be at least {min} characters",
       "confirmPasswordRequired": "Please confirm your password",
       "passwordMismatch": "Passwords do not match"
     }
@@ -521,7 +522,7 @@
     "updatePassword": "Update Password",
     "passwordChanged": "Password changed successfully",
     "passwordMismatch": "New password and confirmation do not match",
-    "passwordTooShort": "Password must be at least 8 characters",
+    "passwordTooShort": "Password must be at least {min} characters",
     "currentPasswordRequired": "Current password is required",
     "preferences": "Preferences",
     "theme": "Theme",

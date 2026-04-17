@@ -1,5 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../db/connection.js';
+import { tryAuthenticate, getPermissionsForRole, type AuthRequest } from './auth.js';
+import { logger } from '../utils/logger.js';
 
 let setupComplete: boolean | null = null;
 
@@ -116,4 +118,89 @@ export function requireSetupIncomplete(
         error: 'Unable to determine setup state',
       });
     });
+}
+
+/**
+ * Middleware factory for routes that are part of the setup wizard but
+ * that must also survive past admin creation so the wizard can finish.
+ *
+ * The setup wizard creates the admin in step 1 and then needs to call
+ * helper endpoints (standards feed, import standard, seed demo) in
+ * steps 2 through 4. Those helpers mutate the database without
+ * classical auth, so they must not be reachable by an anonymous
+ * caller once an admin exists. The returned middleware allows the
+ * request if EITHER of the following is true:
+ *
+ *   - setup is still incomplete (no admin yet), OR
+ *   - the caller presents a valid session or API key AND holds at
+ *     least one of the supplied permissions.
+ *
+ * That keeps the wizard usable for the operator who just created the
+ * admin (POST /api/v1/setup auto-logs them in), while locking the
+ * endpoints against anonymous traffic afterwards. Callers without the
+ * required permission are refused too, because these endpoints bulk
+ * load data into shared tables and are only appropriate for users the
+ * operator has explicitly granted those capabilities to.
+ *
+ * Callers pass the permission keys appropriate for the endpoint being
+ * guarded (for example `standards.import` for the standards helpers
+ * and `admin.settings` for seed-demo). Permission keys come from the
+ * role_permission / permission tables so operators can mint custom
+ * roles without changing this code path.
+ */
+export function requireSetupOr(
+  ...requiredPermissions: string[]
+): (req: AuthRequest, res: Response, next: NextFunction) => Promise<void> {
+  if (requiredPermissions.length === 0) {
+    throw new Error(
+      'requireSetupOr requires at least one permission key — refusing to mount an unguarded route',
+    );
+  }
+
+  return async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const complete = await checkSetupComplete();
+      if (!complete) {
+        next();
+        return;
+      }
+
+      const user = await tryAuthenticate(req);
+      if (!user) {
+        res.status(403).json({
+          error: 'Setup already completed',
+          message:
+            'This endpoint requires an authenticated session once initial setup has finished.',
+        });
+        return;
+      }
+
+      const permissions = await getPermissionsForRole(user.role);
+      const allowed = requiredPermissions.some((p) => permissions.includes(p));
+      if (!allowed) {
+        logger.warn('Setup helper access attempt without required permission', {
+          userId: user.id,
+          requiredPermissions,
+          requestId: req.requestId,
+        });
+        res.status(403).json({
+          error: 'Insufficient permissions',
+          message:
+            'This endpoint is restricted once initial setup has finished.',
+        });
+        return;
+      }
+
+      req.user = user;
+      next();
+    } catch {
+      res.status(503).json({
+        error: 'Unable to determine setup state',
+      });
+    }
+  };
 }

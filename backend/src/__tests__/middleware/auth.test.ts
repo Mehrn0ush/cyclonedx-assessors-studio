@@ -179,7 +179,6 @@ describe('Auth Middleware', () => {
       await db.insertInto('session').values({
         id: sessionId,
         user_id: user.id,
-        token_hash: 'dummy-hash',
         expires_at: expiresAt,
       }).execute();
 
@@ -221,7 +220,6 @@ describe('Auth Middleware', () => {
       await db.insertInto('session').values({
         id: sessionId,
         user_id: user.id,
-        token_hash: 'dummy-hash',
         expires_at: new Date(Date.now() - 1000), // Expired
       }).execute();
 
@@ -263,7 +261,6 @@ describe('Auth Middleware', () => {
       await db.insertInto('session').values({
         id: sessionId,
         user_id: user2.id,
-        token_hash: 'dummy-hash',
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
       }).execute();
 
@@ -543,7 +540,6 @@ describe('Auth Middleware', () => {
       await db.insertInto('session').values({
         id: sessionId,
         user_id: testUser.id,
-        token_hash: 'dummy-hash',
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
       }).execute();
 
@@ -593,7 +589,6 @@ describe('Auth Middleware', () => {
       await db.insertInto('session').values({
         id: sessionId,
         user_id: user2.id,
-        token_hash: 'dummy-hash',
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
       }).execute();
 

@@ -359,17 +359,21 @@ CREATE INDEX idx_api_key_prefix ON api_key(prefix);
 CREATE INDEX idx_api_key_user_id ON api_key(user_id);
 
 -- Sessions
+-- Session identity is carried by the signed JWT payload (sessionId claim).
+-- The server looks up sessions by id only, with no server-side token hash
+-- persisted. A prior revision stored the SHA-256 of the raw token in a
+-- token_hash column, but nothing read from it after the sessionId claim
+-- became the canonical lookup key, so the column was dropped. The upgrade
+-- path (ALTER TABLE session DROP COLUMN IF EXISTS) lives near the bottom
+-- of this migration SQL.
 CREATE TABLE IF NOT EXISTS session (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
-  token_hash VARCHAR(255) NOT NULL UNIQUE,
   ip_address VARCHAR(45),
   user_agent TEXT,
   expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-
-CREATE INDEX idx_session_token_hash ON session(token_hash);
 
 -- User invites
 -- Single use tokens issued by an admin so a specific person can register
@@ -844,6 +848,19 @@ CREATE TABLE IF NOT EXISTS app_config (
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS failed_login_count INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP WITH TIME ZONE;
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS last_failed_login_at TIMESTAMP WITH TIME ZONE;
+
+-- =====================================================================
+-- Drop the legacy session.token_hash column (Sprint 3).
+-- =====================================================================
+-- The session table used to carry a SHA-256 of the raw token alongside
+-- the sessionId. Nothing on the read side consumed it once sessionId
+-- became the canonical lookup key (see middleware/auth.ts), so the
+-- column and its index were dead weight and a minor footgun for anyone
+-- writing new queries. IF EXISTS keeps the statement idempotent across
+-- fresh installs (where the column was never created) and upgrades
+-- (where it was).
+DROP INDEX IF EXISTS idx_session_token_hash;
+ALTER TABLE session DROP COLUMN IF EXISTS token_hash;
 
 `;
 

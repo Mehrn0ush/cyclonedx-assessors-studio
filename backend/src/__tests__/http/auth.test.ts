@@ -68,7 +68,32 @@ describe('Auth Routes (HTTP Integration)', () => {
       expect(res.body.error).toBe('Invalid credentials');
     });
 
-    it('should reject login with password shorter than 8 chars', async () => {
+    it('should reject login with an empty password', async () => {
+      // The login schema only enforces presence and an upper bound on
+      // the password. Length validation against the current policy
+      // happens on register, change password, setup, and admin
+      // createUser so that accounts whose password predates a
+      // tightened policy can still authenticate to rotate it.
+      const agent = getAgent();
+
+      const res = await agent
+        .post('/api/v1/auth/login')
+        .send({
+          username: testUsers.admin.username,
+          password: '',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty('error');
+      expect(res.body.error).toBe('Invalid input');
+      expect(res.body).toHaveProperty('details');
+    });
+
+    it('should return generic 401 for a short but nonempty password', async () => {
+      // A below-policy password on login must not distinguish itself
+      // from a correct-but-wrong guess. The user gets the same
+      // generic 401 "Invalid credentials" response the password
+      // verification path would produce.
       const agent = getAgent();
 
       const res = await agent
@@ -78,10 +103,9 @@ describe('Auth Routes (HTTP Integration)', () => {
           password: 'short',
         });
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(401);
       expect(res.body).toHaveProperty('error');
-      expect(res.body.error).toBe('Invalid input');
-      expect(res.body).toHaveProperty('details');
+      expect(res.body.error).toBe('Invalid credentials');
     });
 
     it('should reject login with username shorter than 3 chars', async () => {
@@ -425,7 +449,10 @@ describe('Auth Routes (HTTP Integration)', () => {
       expect(res.body).not.toHaveProperty('error');
     });
 
-    it('should reject registration with password shorter than 8 chars', async () => {
+    it('should reject registration with a below-policy password', async () => {
+      // The full password policy (min length, deny list, optional
+      // HIBP) runs through validatePasswordPolicy rather than Zod so
+      // the error message is a single human readable string.
       const agent = getAgent();
 
       const res = await agent
@@ -439,7 +466,7 @@ describe('Auth Routes (HTTP Integration)', () => {
 
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty('error');
-      expect(res.body.error).toBe('Invalid input');
+      expect(res.body.error).toMatch(/at least/i);
     });
 
     it('should reject registration with username shorter than 3 chars', async () => {
@@ -610,7 +637,10 @@ describe('Auth Routes (HTTP Integration)', () => {
       expect(res.status).toBe(401);
     });
 
-    it('should reject new password shorter than 8 chars', async () => {
+    it('should reject a new password that is below the policy minimum', async () => {
+      // Policy enforcement happens after the current password check
+      // so validatePasswordPolicy returns a single readable error
+      // string rather than a zod issue array.
       const agent = await loginAs('admin');
       const user = testUsers.admin;
 
@@ -623,7 +653,26 @@ describe('Auth Routes (HTTP Integration)', () => {
 
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty('error');
-      expect(res.body.error).toBe('Invalid input');
+      expect(res.body.error).toMatch(/at least/i);
+    });
+
+    it('should reject reusing the current password as the new password', async () => {
+      // OWASP ASVS 5.0 requires that rotation actually changes the
+      // secret. This guard runs after the policy check so a
+      // policy-compliant reused password still fails.
+      const agent = await loginAs('admin');
+      const user = testUsers.admin;
+
+      const res = await agent
+        .put('/api/v1/auth/change-password')
+        .send({
+          currentPassword: user.password,
+          newPassword: user.password,
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty('error');
+      expect(res.body.error).toMatch(/different/i);
     });
 
     it('should reject password change with missing currentPassword', async () => {
@@ -1189,6 +1238,79 @@ describe('Auth Routes (HTTP Integration)', () => {
           });
         expect(useRes.status).toBe(400);
       });
+    });
+  });
+
+  describe('GET /password-policy', () => {
+    // This endpoint is reached before a user can log in (setup and
+    // registration screens consume it), so it intentionally has no
+    // auth guard. The appsec analysis that cleared exposing these
+    // bounds also forbade surfacing the deny list contents and the
+    // HIBP enabled flag, because either would let an attacker
+    // pre-filter their guessing corpus. The tests below encode that
+    // contract so a future well intentioned refactor cannot widen the
+    // response silently.
+
+    it('should return minLength and maxLength without authentication', async () => {
+      const agent = getAgent();
+      const res = await agent.get('/api/v1/auth/password-policy');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('minLength');
+      expect(res.body).toHaveProperty('maxLength');
+      expect(typeof res.body.minLength).toBe('number');
+      expect(typeof res.body.maxLength).toBe('number');
+      expect(res.body.minLength).toBeGreaterThanOrEqual(8);
+      expect(res.body.maxLength).toBeGreaterThan(res.body.minLength);
+    });
+
+    it('should not expose the deny list or breach check configuration', async () => {
+      const agent = getAgent();
+      const res = await agent.get('/api/v1/auth/password-policy');
+
+      expect(res.status).toBe(200);
+
+      // Exact key set. If a future change adds a new field the test
+      // will fail and the reviewer must confirm the new key is safe
+      // to disclose.
+      expect(Object.keys(res.body).sort()).toEqual(['maxLength', 'minLength']);
+
+      // Belt and suspenders: the appsec sensitive fields that must
+      // never appear under any naming variation.
+      const forbidden = [
+        'denyList',
+        'bannedPasswords',
+        'banned',
+        'hibp',
+        'hibpEnabled',
+        'hibpCheckEnabled',
+        'breachCheckEnabled',
+      ];
+      for (const key of forbidden) {
+        expect(res.body).not.toHaveProperty(key);
+      }
+    });
+
+    it('should reflect a runtime change to PASSWORD_MIN_LENGTH', async () => {
+      const originalMin = process.env.PASSWORD_MIN_LENGTH;
+      try {
+        const { resetConfig } = await import('../../config/index.js');
+        process.env.PASSWORD_MIN_LENGTH = '20';
+        resetConfig();
+
+        const agent = getAgent();
+        const res = await agent.get('/api/v1/auth/password-policy');
+        expect(res.status).toBe(200);
+        expect(res.body.minLength).toBe(20);
+      } finally {
+        if (originalMin === undefined) {
+          delete process.env.PASSWORD_MIN_LENGTH;
+        } else {
+          process.env.PASSWORD_MIN_LENGTH = originalMin;
+        }
+        const { resetConfig } = await import('../../config/index.js');
+        resetConfig();
+      }
     });
   });
 });

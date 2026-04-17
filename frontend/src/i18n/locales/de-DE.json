@@ -133,7 +133,7 @@
     "usernamePlaceholder": "z. B. admin",
     "emailPlaceholder": "admin{'@'}example.com",
     "displayNamePlaceholder": "z. B. Jane Smith",
-    "passwordPlaceholder": "Mindestens 8 Zeichen",
+    "passwordPlaceholder": "Mindestens {min} Zeichen",
     "confirmPasswordPlaceholder": "Geben Sie Ihr Passwort erneut ein",
     "createAccount": "Konto erstellen",
     "importStandards": "Bewertungsnormen importieren",
@@ -145,7 +145,8 @@
     "feedError": "Normenfeed konnte nicht abgerufen werden. Überprüfen Sie Ihre Internetverbindung.",
     "importSummary": "{success} von {total} Normen erfolgreich importiert.",
     "setupComplete": "Einrichtung abgeschlossen",
-    "setupCompleteDescription": "Ihr Administratorkonto wurde erstellt und {count} Bewertungsnormen wurden importiert. Sie können sich nun anmelden und mit der Verwaltung von Bewertungen beginnen.",
+    "setupCompleteDescription": "Ihr Administratorkonto wurde erstellt und {count} Bewertungsnormen wurden importiert. Sie sind angemeldet und können mit der Verwaltung von Bewertungen beginnen.",
+    "goToDashboard": "Zum Dashboard",
     "validation": {
       "usernameRequired": "Benutzername erforderlich",
       "usernameLength": "Muss zwischen 3 und 64 Zeichen lang sein",
@@ -154,7 +155,7 @@
       "emailInvalid": "Geben Sie eine gültige E-Mail-Adresse ein",
       "displayNameRequired": "Anzeigename erforderlich",
       "passwordRequired": "Passwort erforderlich",
-      "passwordLength": "Muss mindestens 8 Zeichen lang sein",
+      "passwordLength": "Muss mindestens {min} Zeichen lang sein",
       "confirmPasswordRequired": "Bitte bestätigen Sie Ihr Passwort",
       "passwordMismatch": "Passwörter stimmen nicht überein"
     }

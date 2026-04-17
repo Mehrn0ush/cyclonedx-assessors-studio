@@ -2,16 +2,23 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
+import jwt from 'jsonwebtoken';
 import { URL } from 'node:url';
 import { getDatabase } from '../db/connection.js';
+import { getConfig } from '../config/index.js';
 import { hashPassword } from '../utils/crypto.js';
+import { validatePasswordPolicy, PASSWORD_MAX_LENGTH } from '../utils/password-policy.js';
 import { logger } from '../utils/logger.js';
-import { checkSetupComplete, markSetupComplete, requireSetupIncomplete } from '../middleware/setup.js';
+import { checkSetupComplete, markSetupComplete, requireSetupOr } from '../middleware/setup.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { importStandard } from '../services/standard-import.js';
 import { asyncHandler } from '../utils/route-helpers.js';
+import { buildSessionCookieOptions } from '../utils/cookies.js';
+import { getPermissionsForRole, type AuthRequest } from '../middleware/auth.js';
+import { logAudit } from '../utils/audit.js';
 
 const router = Router();
+const config = getConfig();
 
 // Allowed domains for importing CycloneDX standards
 const ALLOWED_DOMAINS = [
@@ -97,9 +104,14 @@ const setupSchema = z.object({
   displayName: z.string()
     .min(1, 'Display name is required')
     .max(128, 'Display name must be at most 128 characters'),
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters')
-    .max(128, 'Password must be at most 128 characters'),
+  // Schema only checks presence and the upper bound. The full policy
+  // (min length, deny list, optional HIBP) runs inside the handler
+  // through validatePasswordPolicy so initial setup uses the same
+  // enforcement path as the rest of the application.
+  password: z
+    .string()
+    .min(1, 'Password is required')
+    .max(PASSWORD_MAX_LENGTH, `Password must be at most ${PASSWORD_MAX_LENGTH} characters`),
 });
 
 /**
@@ -113,10 +125,19 @@ router.get('/status', async (_req: Request, res: Response): Promise<void> => {
 
 /**
  * POST /api/v1/setup
- * Creates the initial administrator account.
+ * Creates the initial administrator account and signs the operator in
+ * via the same httpOnly session cookie that /auth/login issues.
+ *
+ * The auto-login step is deliberate: the wizard's remaining steps
+ * (standards import, demo seed) mutate shared tables and must not be
+ * reachable anonymously once an admin exists. Issuing a session here
+ * lets the wizard continue without leaving a window where the helper
+ * endpoints are unauthenticated but the admin account already gates
+ * them.
+ *
  * Only works when no users exist in the database.
  */
-router.post('/', async (req: Request, res: Response): Promise<void> => {
+router.post('/', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     // Guard: only allowed when no users exist
     const complete = await checkSetupComplete();
@@ -131,29 +152,91 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const data = setupSchema.parse(req.body);
     const db = getDatabase();
 
+    // Enforce the centralized password policy. The initial admin
+    // account is the most sensitive credential in the system so the
+    // policy must apply here regardless of configuration.
+    const policy = await validatePasswordPolicy(data.password, {
+      username: data.username,
+      email: data.email,
+      displayName: data.displayName,
+    });
+    if (!policy.valid) {
+      res.status(400).json({ error: policy.reason });
+      return;
+    }
+
     const passwordHash = await hashPassword(data.password);
     const userId = uuidv4();
+    const now = new Date();
 
-    await db
-      .insertInto('app_user')
-      .values(toSnakeCase({
-        id: userId,
-        username: data.username,
-        email: data.email,
-        passwordHash: passwordHash,
-        displayName: data.displayName,
-        role: 'admin',
-        isActive: true,
-      }))
-      .execute();
+    // Create the admin account and an initial session in one
+    // transaction. If the session insert fails we must not be left
+    // with an admin row that has never logged in, because the wizard
+    // would report success and then fail the very next call with 403.
+    const sessionId = uuidv4();
+    const sessionExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    await db.transaction().execute(async (trx) => {
+      await trx
+        .insertInto('app_user')
+        .values(toSnakeCase({
+          id: userId,
+          username: data.username,
+          email: data.email,
+          passwordHash: passwordHash,
+          displayName: data.displayName,
+          role: 'admin',
+          isActive: true,
+          lastLoginAt: now,
+        }))
+        .execute();
+
+      await trx
+        .insertInto('session')
+        .values({
+          id: sessionId,
+          user_id: userId,
+          ip_address: req.ip || undefined,
+          user_agent: req.headers['user-agent'] || undefined,
+          expires_at: sessionExpiresAt,
+        })
+        .execute();
+    });
 
     markSetupComplete();
+
+    const jwtToken = jwt.sign(
+      { sessionId },
+      config.JWT_SECRET,
+      {
+        expiresIn: config.JWT_EXPIRY,
+      } as jwt.SignOptions,
+    );
+
+    res.cookie('token', jwtToken, buildSessionCookieOptions(24 * 60 * 60 * 1000));
 
     logger.info('Initial admin account created via setup wizard', {
       userId,
       username: data.username,
       email: data.email,
+      requestId: req.requestId,
     });
+
+    // Audit the setup event separately from a regular login so an
+    // operator reviewing the trail can see exactly which session was
+    // minted by the wizard and which by the login endpoint.
+    await logAudit(db, {
+      entityType: 'app_user',
+      entityId: userId,
+      action: 'create',
+      userId,
+      changes: {
+        event: 'setup_wizard_admin_created',
+        via: 'setup_wizard',
+      },
+    });
+
+    const permissions = await getPermissionsForRole('admin');
 
     res.status(201).json({
       message: 'Administrator account created successfully',
@@ -164,6 +247,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         displayName: data.displayName,
         role: 'admin',
       },
+      permissions,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -187,7 +271,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
  * Fetches the CycloneDX standards feed so the frontend can display what will be imported.
  * Only available during setup (before setup is complete).
  */
-router.get('/standards-feed', requireSetupIncomplete, async (__req: Request, res: Response): Promise<void> => {
+router.get('/standards-feed', requireSetupOr('standards.import'), async (__req: Request, res: Response): Promise<void> => {
   try {
     const feedResponse = await fetch('https://cyclonedx.org/standards/feed.json');
     if (!feedResponse.ok) {
@@ -229,7 +313,7 @@ router.get('/standards-feed', requireSetupIncomplete, async (__req: Request, res
  * Downloads a single CycloneDX standards document from a URL and imports it into the database.
  * Only available during setup. No auth required since no users may exist yet.
  */
-router.post('/import-standard', requireSetupIncomplete, async (req: Request, res: Response): Promise<void> => {
+router.post('/import-standard', requireSetupOr('standards.import'), async (req: Request, res: Response): Promise<void> => {
   try {
     const { url, title } = req.body;
     if (!url || typeof url !== 'string') {
@@ -295,7 +379,7 @@ router.post('/import-standard', requireSetupIncomplete, async (req: Request, res
  * Seeds the database with comprehensive demo data.
  * Only available during/after setup. Requires that admin and standards exist.
  */
-router.post('/seed-demo', requireSetupIncomplete, async (__req: Request, res: Response): Promise<void> => {
+router.post('/seed-demo', requireSetupOr('admin.settings'), async (__req: Request, res: Response): Promise<void> => {
   try {
     const { seedDemoData } = await import('../db/seed-demo.js');
     const seeded = await seedDemoData();

@@ -8,6 +8,14 @@ import type { Database } from '../db/types.js';
 
 /**
  * Standard user select columns for profile responses.
+ *
+ * Intentionally excludes password_hash and any other secret material,
+ * so callers can forward the row straight into a JSON response without
+ * worrying about leaking credentials. Notification identifiers
+ * (slack_user_id, teams_user_id, mattermost_username) and the
+ * email_notifications preference are included because formatUserProfile
+ * surfaces them on /me-shaped responses, and the frontend relies on
+ * them to drive the notification settings pane.
  */
 export const USER_PROFILE_COLUMNS = [
   'id',
@@ -17,6 +25,10 @@ export const USER_PROFILE_COLUMNS = [
   'role',
   'is_active',
   'has_completed_onboarding',
+  'slack_user_id',
+  'teams_user_id',
+  'mattermost_username',
+  'email_notifications',
   'last_login_at',
   'created_at',
 ] as const;
@@ -68,6 +80,13 @@ export async function fetchAssignableUsers(db: Kysely<Database>) {
 
 /**
  * Format user profile response object.
+ *
+ * Returns only the fields that are safe to expose on the wire. Never
+ * include password_hash or any other secret material here. Notification
+ * identifiers and preferences are optional on the input and are passed
+ * through when present; that lets the auth /me endpoints and the
+ * notification-rules routes share a single projection without leaking
+ * server-only columns.
  */
 export function formatUserProfile(user: {
   id: string;
@@ -76,6 +95,10 @@ export function formatUserProfile(user: {
   display_name: string | null;
   role: string;
   has_completed_onboarding?: boolean | null;
+  slack_user_id?: string | null;
+  teams_user_id?: string | null;
+  mattermost_username?: string | null;
+  email_notifications?: boolean | null;
 }) {
   return {
     id: user.id,
@@ -84,5 +107,9 @@ export function formatUserProfile(user: {
     displayName: user.display_name,
     role: user.role,
     hasCompletedOnboarding: user.has_completed_onboarding || false,
+    slackUserId: user.slack_user_id ?? null,
+    teamsUserId: user.teams_user_id ?? null,
+    mattermostUsername: user.mattermost_username ?? null,
+    emailNotifications: user.email_notifications ?? true,
   };
 }

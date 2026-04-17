@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { hashPassword } from '../utils/crypto.js';
+import { validatePasswordPolicy, PASSWORD_MAX_LENGTH } from '../utils/password-policy.js';
 import { logger } from '../utils/logger.js';
 import { type AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
@@ -12,11 +13,16 @@ import { fetchUserById, fetchAssignableUsers, USER_PROFILE_COLUMNS } from '../ut
 
 const router = Router();
 
+// Password is only screened for presence and an upper bound here. The
+// full policy (min length, deny list, optional HIBP) runs through
+// validatePasswordPolicy inside the handler so the error surface and
+// configuration source match the self service register, setup, and
+// change password paths.
 const createUserSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
   email: z.string().email('Invalid email address'),
   displayName: z.string().min(1, 'Display name is required'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(1, 'Password is required').max(PASSWORD_MAX_LENGTH),
   role: z.enum(['admin', 'assessor', 'assessee']).default('assessee'),
 });
 
@@ -86,10 +92,12 @@ router.post(
       const data = createUserSchema.parse(req.body);
       const db = getDatabase();
 
+      // Existence checks only — restrict projection to id so we never
+      // load password_hash or other sensitive columns unnecessarily.
       const existingUser = await db
         .selectFrom('app_user')
         .where('username', '=', data.username)
-        .selectAll()
+        .select('id')
         .executeTakeFirst();
 
       if (existingUser) {
@@ -100,11 +108,25 @@ router.post(
       const existingEmail = await db
         .selectFrom('app_user')
         .where('email', '=', data.email)
-        .selectAll()
+        .select('id')
         .executeTakeFirst();
 
       if (existingEmail) {
         res.status(409).json({ error: 'Email already exists' });
+        return;
+      }
+
+      // Enforce the centralized password policy. This admin
+      // provisioning path is authenticated so running the HIBP check
+      // here is safe. The failure message matches the other password
+      // accepting endpoints.
+      const policy = await validatePasswordPolicy(data.password, {
+        username: data.username,
+        email: data.email,
+        displayName: data.displayName,
+      });
+      if (!policy.valid) {
+        res.status(400).json({ error: policy.reason });
         return;
       }
 
@@ -155,10 +177,14 @@ router.put(
       const data = updateUserSchema.parse(req.body);
       const db = getDatabase();
 
+      // Only id and email are needed for the existence and email-change
+      // checks below; the updated profile is re-fetched via
+      // fetchUserById before the response is built, which enforces the
+      // allow list in USER_PROFILE_COLUMNS.
       const user = await db
         .selectFrom('app_user')
         .where('id', '=', req.params.id)
-        .selectAll()
+        .select(['id', 'email'])
         .executeTakeFirst();
 
       if (!user) {
@@ -170,7 +196,7 @@ router.put(
         const existingEmail = await db
           .selectFrom('app_user')
           .where('email', '=', data.email)
-          .selectAll()
+          .select('id')
           .executeTakeFirst();
 
         if (existingEmail) {
@@ -217,10 +243,12 @@ router.put(
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const db = getDatabase();
 
+    // Existence check only — the updated profile is re-fetched via
+    // fetchUserById below.
     const user = await db
       .selectFrom('app_user')
       .where('id', '=', req.params.id)
-      .selectAll()
+      .select('id')
       .executeTakeFirst();
 
     if (!user) {
@@ -253,10 +281,12 @@ router.put(
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const db = getDatabase();
 
+    // Only id is needed for the self-deactivation guard; the updated
+    // profile is re-fetched via fetchUserById below.
     const user = await db
       .selectFrom('app_user')
       .where('id', '=', req.params.id)
-      .selectAll()
+      .select('id')
       .executeTakeFirst();
 
     if (!user) {

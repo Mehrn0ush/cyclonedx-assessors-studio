@@ -774,10 +774,11 @@ router.post(
         return;
       }
 
+      // Existence check only; we never return this row to the client.
       const reviewer = await db
         .selectFrom('app_user')
         .where('id', '=', data.reviewerId)
-        .selectAll()
+        .select('id')
         .executeTakeFirst();
 
       if (!reviewer) {

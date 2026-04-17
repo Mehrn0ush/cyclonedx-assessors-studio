@@ -407,7 +407,6 @@ export interface ApiKey {
 export interface Session {
   id: Generated<string>;
   user_id: string;
-  token_hash: string;
   ip_address?: string | null;
   user_agent?: string | null;
   expires_at: Date;

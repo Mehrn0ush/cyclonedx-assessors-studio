@@ -49,6 +49,19 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /**
+   * Populate the store with a user and permissions returned by a
+   * server-side flow that has already established a session cookie
+   * (for example POST /api/v1/setup, which auto-logs in the newly
+   * created administrator). Avoids a second round trip to /auth/me
+   * just to re-read what the server already sent us.
+   */
+  function setSession(nextUser: User, nextPermissions: string[]) {
+    user.value = nextUser
+    permissions.value = nextPermissions
+    isInitialized.value = true
+  }
+
   async function fetchCurrentUser() {
     loading.value = true
     try {
@@ -74,6 +87,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     logout,
     fetchCurrentUser,
+    setSession,
     hasPermission,
     hasAnyPermission
   }
