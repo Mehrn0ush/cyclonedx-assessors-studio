@@ -74,6 +74,15 @@ describe('Setup HTTP Routes', () => {
     }
   });
 
+  // Helper so the helper-endpoint test blocks (which run AFTER the
+  // POST /setup block creates an admin) can skip network dependent
+  // assertions once setup has been completed. The routes return 403
+  // at that point by design.
+  async function setupIsComplete(): Promise<boolean> {
+    const res = await agent.get('/api/v1/setup/status');
+    return res.status === 200 && res.body?.setupComplete === true;
+  }
+
   describe('GET /api/v1/setup/status', () => {
     it('should return setupComplete: false initially', async () => {
       const res = await agent.get('/api/v1/setup/status');
@@ -537,12 +546,17 @@ describe('Setup HTTP Routes', () => {
     it('should return standards feed data structure', async () => {
       const res = await agent.get('/api/v1/setup/standards-feed');
 
+      if (await setupIsComplete()) {
+        // Gated after setup completes (requireSetupIncomplete).
+        expect(res.status).toBe(403);
+        return;
+      }
+
       // This test may fail if the feed is unreachable, but we test the structure
       if (res.status === 200) {
         expect(res.body).toHaveProperty('data');
         expect(Array.isArray(res.body.data)).toBe(true);
 
-        // If there are items, they should have the expected structure
         if (res.body.data.length > 0) {
           const item = res.body.data[0];
           expect(item).toHaveProperty('id');
@@ -551,7 +565,6 @@ describe('Setup HTTP Routes', () => {
           expect(item).toHaveProperty('summary');
         }
       } else if (res.status === 502) {
-        // Network error is expected if connectivity issues
         expect(res.body).toHaveProperty('error');
         expect(res.body.error).toContain('fetch standards feed');
       }
@@ -560,7 +573,11 @@ describe('Setup HTTP Routes', () => {
     it('should handle network errors gracefully', async () => {
       const res = await agent.get('/api/v1/setup/standards-feed');
 
-      // Either success or 502 error
+      if (await setupIsComplete()) {
+        expect(res.status).toBe(403);
+        return;
+      }
+
       expect([200, 502]).toContain(res.status);
 
       if (res.status === 502) {
@@ -569,12 +586,20 @@ describe('Setup HTTP Routes', () => {
       }
     });
 
-    it('should not require authentication', async () => {
-      // No auth header provided
+    it('should not require authentication when setup is incomplete', async () => {
       const res = await agent.get('/api/v1/setup/standards-feed');
-
-      // Should not return 401
+      // 401 is never returned. The endpoint is either reachable
+      // (setup incomplete) or gated (setup complete -> 403).
       expect(res.status).not.toBe(401);
+    });
+
+    it('should be gated once setup is complete', async () => {
+      if (!(await setupIsComplete())) {
+        return;
+      }
+      const res = await agent.get('/api/v1/setup/standards-feed');
+      expect(res.status).toBe(403);
+      expect(res.body).toHaveProperty('error');
     });
 
     it('should return camelCase response', async () => {
@@ -582,7 +607,6 @@ describe('Setup HTTP Routes', () => {
 
       if (res.status === 200 && res.body.data.length > 0) {
         const item = res.body.data[0];
-        // Should have camelCase properties
         if (item.datePublished !== undefined) {
           expect(item).toHaveProperty('datePublished');
           expect(item).not.toHaveProperty('date_published');
@@ -603,6 +627,11 @@ describe('Setup HTTP Routes', () => {
           title: 'Test Standard',
         });
 
+      if (await setupIsComplete()) {
+        expect(res.status).toBe(403);
+        return;
+      }
+
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty('error');
       expect(res.body.error).toContain('valid URL');
@@ -616,6 +645,11 @@ describe('Setup HTTP Routes', () => {
           title: 'Test Standard',
         });
 
+      if (await setupIsComplete()) {
+        expect(res.status).toBe(403);
+        return;
+      }
+
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty('error');
       expect(res.body.error).toContain('valid URL');
@@ -628,6 +662,11 @@ describe('Setup HTTP Routes', () => {
           url: 'http://example.com/standard.json',
           title: 'Test Standard',
         });
+
+      if (await setupIsComplete()) {
+        expect(res.status).toBe(403);
+        return;
+      }
 
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty('error');
@@ -643,12 +682,26 @@ describe('Setup HTTP Routes', () => {
           title: 'Test Standard',
         });
 
+      if (await setupIsComplete()) {
+        expect(res.status).toBe(403);
+        return;
+      }
+
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty('error');
       expect(res.body.error).toContain('trusted source');
     });
 
     it('should accept URLs from trusted domains', async () => {
+      if (await setupIsComplete()) {
+        // All requests return 403 once setup is complete.
+        const res = await agent
+          .post('/api/v1/setup/import-standard')
+          .send({ url: 'https://github.com/org/repo/standard.json', title: 'Test' });
+        expect(res.status).toBe(403);
+        return;
+      }
+
       const trustedUrls = [
         'https://github.com/org/repo/standard.json',
         'https://raw.githubusercontent.com/org/repo/standard.json',
@@ -665,7 +718,6 @@ describe('Setup HTTP Routes', () => {
             title: 'Test Standard',
           });
 
-        // Should not return 400 with "trusted source" error
         if (res.status === 400) {
           expect(res.body.error).not.toContain('trusted source');
         }
@@ -680,6 +732,11 @@ describe('Setup HTTP Routes', () => {
           title: 'Test Standard',
         });
 
+      if (await setupIsComplete()) {
+        expect(res.status).toBe(403);
+        return;
+      }
+
       expect(res.status).toBe(400);
     });
 
@@ -691,28 +748,28 @@ describe('Setup HTTP Routes', () => {
           title: 'Nonexistent Standard',
         });
 
+      if (await setupIsComplete()) {
+        expect(res.status).toBe(403);
+        return;
+      }
+
       expect([400, 502]).toContain(res.status);
       expect(res.body).toHaveProperty('error');
     });
 
     it('should timeout on slow requests', async () => {
-      // This test may not be reliable in all environments
-      // A real slow server would be needed for this test
-      expect(true).toBe(true); // Placeholder
+      expect(true).toBe(true);
     });
 
     it('should reject documents larger than 10MB', async () => {
-      // This test would need a server returning a large file
-      // Placeholder for structure
       expect(true).toBe(true);
     });
 
     it('should reject documents without standards', async () => {
-      // Would need a mock CycloneDX document without standards
       expect(true).toBe(true);
     });
 
-    it('should not require authentication', async () => {
+    it('should not require authentication while setup is incomplete', async () => {
       const res = await agent
         .post('/api/v1/setup/import-standard')
         .send({
@@ -720,8 +777,17 @@ describe('Setup HTTP Routes', () => {
           title: 'Test',
         });
 
-      // Should not return 401
+      // 401 is never returned. Either 4xx validation (setup incomplete)
+      // or 403 Setup already completed (setup complete).
       expect(res.status).not.toBe(401);
+    });
+
+    it('should return 403 once setup is complete', async () => {
+      if (!(await setupIsComplete())) return;
+      const res = await agent
+        .post('/api/v1/setup/import-standard')
+        .send({ url: 'https://github.com/org/repo/standard.json' });
+      expect(res.status).toBe(403);
     });
   });
 
@@ -729,21 +795,30 @@ describe('Setup HTTP Routes', () => {
     it('should return 201 or 200 status on success', async () => {
       const res = await agent.post('/api/v1/setup/seed-demo');
 
+      if (await setupIsComplete()) {
+        expect(res.status).toBe(403);
+        expect(res.body).toHaveProperty('error');
+        return;
+      }
+
       expect([200, 201]).toContain(res.status);
       expect(res.body).toHaveProperty('message');
     });
 
     it('should indicate if demo data was seeded or already present', async () => {
       const firstRes = await agent.post('/api/v1/setup/seed-demo');
+      if (await setupIsComplete()) {
+        expect(firstRes.status).toBe(403);
+        return;
+      }
+
       expect([200, 201, 400, 409]).toContain(firstRes.status);
 
       const secondRes = await agent.post('/api/v1/setup/seed-demo');
       expect([200, 201, 400, 409]).toContain(secondRes.status);
 
-      // One should indicate success, the other may indicate already present
       if (firstRes.body.message || secondRes.body.message) {
         const messages = [firstRes.body.message, secondRes.body.message].filter(m => m);
-        const hasLoadedMessage = messages.some((m) => m.toLocaleLowerCase().includes('loaded') || m.toLocaleLowerCase().includes('success'));
         expect(messages.length > 0).toBe(true);
       }
     });
@@ -751,27 +826,37 @@ describe('Setup HTTP Routes', () => {
     it('should return proper error response on failure', async () => {
       const res = await agent.post('/api/v1/setup/seed-demo');
 
+      if (await setupIsComplete()) {
+        expect(res.status).toBe(403);
+        expect(res.body).toHaveProperty('error');
+        return;
+      }
+
       if (res.status >= 500) {
         expect(res.body).toHaveProperty('error');
       }
     });
 
-    it('should not require authentication', async () => {
+    it('should not require authentication while setup is incomplete', async () => {
       const res = await agent.post('/api/v1/setup/seed-demo');
-
-      // Should not return 401
+      // 401 is never returned. Either it runs (setup incomplete) or it
+      // is gated with 403 (setup complete).
       expect(res.status).not.toBe(401);
     });
 
     it('should not expose internal error details', async () => {
-      // Seed demo with a broken state if possible
       const res = await agent.post('/api/v1/setup/seed-demo');
 
       if (res.status >= 500) {
-        // Error should be generic, not expose stack traces or internal details
         expect(res.body.error).not.toContain('stack');
         expect(res.body.error).not.toContain('at ');
       }
+    });
+
+    it('should return 403 once setup is complete', async () => {
+      if (!(await setupIsComplete())) return;
+      const res = await agent.post('/api/v1/setup/seed-demo');
+      expect(res.status).toBe(403);
     });
   });
 

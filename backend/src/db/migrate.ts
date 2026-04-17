@@ -371,6 +371,26 @@ CREATE TABLE IF NOT EXISTS session (
 
 CREATE INDEX idx_session_token_hash ON session(token_hash);
 
+-- User invites
+-- Single use tokens issued by an admin so a specific person can register
+-- when REGISTRATION_MODE=invite_only. The server stores only the SHA-256
+-- hash of the token; the plaintext is shown once at issuance.
+CREATE TABLE IF NOT EXISTS user_invite (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  token_hash VARCHAR(255) NOT NULL UNIQUE,
+  email VARCHAR(255),
+  intended_role VARCHAR(50) NOT NULL DEFAULT 'assessee' CHECK(intended_role IN ('admin', 'assessor', 'assessee', 'standards_manager', 'standards_approver')),
+  created_by UUID REFERENCES app_user(id) ON DELETE SET NULL,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  consumed_at TIMESTAMP WITH TIME ZONE,
+  consumed_by UUID REFERENCES app_user(id) ON DELETE SET NULL,
+  revoked_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_user_invite_token_hash ON user_invite(token_hash);
+CREATE INDEX idx_user_invite_email ON user_invite(email);
+
 -- Add foreign key constraints for standard.authored_by and standard.approved_by after app_user table is created
 ALTER TABLE standard DROP CONSTRAINT IF EXISTS fk_standard_authored_by;
 ALTER TABLE standard ADD CONSTRAINT fk_standard_authored_by

@@ -244,20 +244,26 @@ describe('Auth Routes (HTTP Integration)', () => {
           displayName: 'New User',
         });
 
-      expect(res.status).toBe(201);
+      // Generic 202 response (M4 enumeration mitigation): the server
+      // never discloses whether an account was actually created.
+      expect(res.status).toBe(202);
       expect(res.body).toHaveProperty('message');
-      expect(res.body.message).toBe('User registered successfully');
-      expect(res.body).toHaveProperty('user');
-      expect(res.body.user).toMatchObject({
+      expect(res.body).not.toHaveProperty('user');
+
+      // Verify via login that the account really was created.
+      const loginRes = await getAgent()
+        .post('/api/v1/auth/login')
+        .send({ username: 'newuser123', password: 'NewPassword123!' });
+      expect(loginRes.status).toBe(200);
+      expect(loginRes.body.user).toMatchObject({
         username: 'newuser123',
         email: 'newuser@example.com',
         displayName: 'New User',
         role: 'assessee',
       });
-      expect(res.body.user).toHaveProperty('id');
     });
 
-    it('should reject duplicate username', async () => {
+    it('should not reveal duplicate username via response shape', async () => {
       const agent = getAgent();
 
       const res = await agent
@@ -269,12 +275,14 @@ describe('Auth Routes (HTTP Integration)', () => {
           displayName: 'Different User',
         });
 
-      expect(res.status).toBe(409);
-      expect(res.body).toHaveProperty('error');
-      expect(res.body.error).toContain('Username or email already exists');
+      // Duplicate identifiers return the same generic 202 as a fresh
+      // registration so an attacker cannot enumerate existing accounts.
+      expect(res.status).toBe(202);
+      expect(res.body).toHaveProperty('message');
+      expect(res.body).not.toHaveProperty('error');
     });
 
-    it('should reject duplicate email', async () => {
+    it('should not reveal duplicate email via response shape', async () => {
       const agent = getAgent();
 
       const res = await agent
@@ -286,9 +294,9 @@ describe('Auth Routes (HTTP Integration)', () => {
           displayName: 'Another User',
         });
 
-      expect(res.status).toBe(409);
-      expect(res.body).toHaveProperty('error');
-      expect(res.body.error).toContain('Username or email already exists');
+      expect(res.status).toBe(202);
+      expect(res.body).toHaveProperty('message');
+      expect(res.body).not.toHaveProperty('error');
     });
 
     it('should reject registration with password shorter than 8 chars', async () => {
@@ -369,7 +377,7 @@ describe('Auth Routes (HTTP Integration)', () => {
           password: newPassword,
           displayName: 'Login Test User',
         });
-      expect(res.status).toBe(201);
+      expect(res.status).toBe(202);
 
       // Login with new credentials
       const loginAgent = getAgent();
@@ -401,7 +409,7 @@ describe('Auth Routes (HTTP Integration)', () => {
           password: testPassword,
           displayName: 'Change Password Test User',
         });
-      expect(res.status).toBe(201);
+      expect(res.status).toBe(202);
 
       // Login with the new user (use persistent agent for cookie)
       const loginAgent = supertest.agent(getApp());
@@ -655,7 +663,7 @@ describe('Auth Routes (HTTP Integration)', () => {
           password: testPassword,
           displayName: 'Logout All Test User',
         });
-      expect(res.status).toBe(201);
+      expect(res.status).toBe(202);
 
       // Create two persistent agents (with cookie jar) and login with both
       const agent1 = supertest.agent(getApp());
@@ -719,7 +727,7 @@ describe('Auth Routes (HTTP Integration)', () => {
           password: testPassword,
           displayName: 'Re-Login Test User',
         });
-      expect(res.status).toBe(201);
+      expect(res.status).toBe(202);
 
       // Login with persistent agent
       const loginAgent = supertest.agent(getApp());
@@ -788,6 +796,47 @@ describe('Auth Routes (HTTP Integration)', () => {
     });
   });
 
+  describe('PATCH /me', () => {
+    it('should update profile fields without leaking password_hash', async () => {
+      const agent = await loginAs('admin');
+
+      const res = await agent
+        .patch('/api/v1/auth/me')
+        .send({
+          slackUserId: 'U123ABC456',
+          emailNotifications: false,
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('user');
+      expect(res.body.user).toHaveProperty('id');
+      expect(res.body.user).toHaveProperty('username');
+      // Sensitive fields must never appear in the response, regardless
+      // of casing convention (camelCase or snake_case).
+      expect(res.body.user).not.toHaveProperty('password_hash');
+      expect(res.body.user).not.toHaveProperty('passwordHash');
+    });
+
+    it('should return current profile without password_hash when no updates are requested', async () => {
+      const agent = await loginAs('admin');
+
+      const res = await agent.patch('/api/v1/auth/me').send({});
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('user');
+      expect(res.body.user).not.toHaveProperty('password_hash');
+      expect(res.body.user).not.toHaveProperty('passwordHash');
+    });
+
+    it('should reject PATCH /me without authentication', async () => {
+      const agent = getAgent();
+
+      const res = await agent.patch('/api/v1/auth/me').send({});
+
+      expect(res.status).toBe(401);
+    });
+  });
+
   describe('Cookie security', () => {
     it('should set secure cookie attributes on login', async () => {
       const agent = getAgent();
@@ -822,6 +871,198 @@ describe('Auth Routes (HTTP Integration)', () => {
       );
       // Cookie is cleared by setting Expires to epoch or Max-Age=0
       expect(tokenCookie).toMatch(/Expires=Thu, 01 Jan 1970|Max-Age=0/);
+    });
+  });
+
+  describe('Registration gate', () => {
+    // The surrounding test helper initializes with REGISTRATION_MODE=open.
+    // Each case overrides the cached config and restores it afterwards so
+    // tests cannot leak state into one another.
+    async function withRegistrationMode<T>(
+      mode: 'disabled' | 'invite_only' | 'open',
+      fn: () => Promise<T>,
+    ): Promise<T> {
+      const { getConfig } = await import('../../config/index.js');
+      const cfg = getConfig();
+      const prev = cfg.REGISTRATION_MODE;
+      (cfg as { REGISTRATION_MODE: typeof mode }).REGISTRATION_MODE = mode;
+      try {
+        return await fn();
+      } finally {
+        (cfg as { REGISTRATION_MODE: typeof prev }).REGISTRATION_MODE = prev;
+      }
+    }
+
+    it('should reject registration when mode=disabled', async () => {
+      await withRegistrationMode('disabled', async () => {
+        const res = await getAgent()
+          .post('/api/v1/auth/register')
+          .send({
+            username: 'gatedoff_user',
+            email: 'gatedoff@example.com',
+            password: 'Password123!',
+            displayName: 'Gated Off',
+          });
+        expect(res.status).toBe(403);
+      });
+    });
+
+    it('should reject registration when mode=invite_only and no token is provided', async () => {
+      await withRegistrationMode('invite_only', async () => {
+        const res = await getAgent()
+          .post('/api/v1/auth/register')
+          .send({
+            username: 'nobtoken_user',
+            email: 'nobtoken@example.com',
+            password: 'Password123!',
+            displayName: 'No Token',
+          });
+        expect(res.status).toBe(403);
+      });
+    });
+
+    it('should reject registration with an unknown invite token', async () => {
+      await withRegistrationMode('invite_only', async () => {
+        const res = await getAgent()
+          .post('/api/v1/auth/register')
+          .send({
+            username: 'badtoken_user',
+            email: 'badtoken@example.com',
+            password: 'Password123!',
+            displayName: 'Bad Token',
+            inviteToken: 'does-not-exist',
+          });
+        expect(res.status).toBe(400);
+      });
+    });
+
+    it('should accept registration with a valid invite token in invite_only mode', async () => {
+      await withRegistrationMode('invite_only', async () => {
+        // Mint an invite via the admin API
+        const adminAgent = await loginAs('admin');
+        const inviteRes = await adminAgent
+          .post('/api/v1/admin/invites')
+          .send({
+            email: 'gateduser@example.com',
+            intendedRole: 'assessor',
+            expiresInHours: 1,
+          });
+        expect(inviteRes.status).toBe(201);
+        const token = inviteRes.body.token;
+        expect(typeof token).toBe('string');
+
+        // Consume the invite
+        const res = await getAgent()
+          .post('/api/v1/auth/register')
+          .send({
+            username: 'gateduser_one',
+            email: 'gateduser@example.com',
+            password: 'Password123!',
+            displayName: 'Gated User',
+            inviteToken: token,
+          });
+        expect(res.status).toBe(202);
+
+        // Verify the account was created with the intended role
+        const loginRes = await getAgent()
+          .post('/api/v1/auth/login')
+          .send({ username: 'gateduser_one', password: 'Password123!' });
+        expect(loginRes.status).toBe(200);
+        expect(loginRes.body.user.role).toBe('assessor');
+
+        // Verify the invite has been consumed (cannot be reused)
+        const replayRes = await getAgent()
+          .post('/api/v1/auth/register')
+          .send({
+            username: 'gateduser_two',
+            email: 'someoneelse@example.com',
+            password: 'Password123!',
+            displayName: 'Replay',
+            inviteToken: token,
+          });
+        expect(replayRes.status).toBe(400);
+      });
+    });
+
+    it('should reject invite use when registrant email does not match scoped email', async () => {
+      await withRegistrationMode('invite_only', async () => {
+        const adminAgent = await loginAs('admin');
+        const inviteRes = await adminAgent
+          .post('/api/v1/admin/invites')
+          .send({
+            email: 'scoped@example.com',
+            intendedRole: 'assessee',
+            expiresInHours: 1,
+          });
+        expect(inviteRes.status).toBe(201);
+
+        const res = await getAgent()
+          .post('/api/v1/auth/register')
+          .send({
+            username: 'mismatch_user',
+            email: 'different@example.com',
+            password: 'Password123!',
+            displayName: 'Mismatch',
+            inviteToken: inviteRes.body.token,
+          });
+        expect(res.status).toBe(400);
+      });
+    });
+
+    it('should require admin.users permission to create invites', async () => {
+      const assessorAgent = await loginAs('assessor');
+      const res = await assessorAgent
+        .post('/api/v1/admin/invites')
+        .send({
+          email: 'shouldfail@example.com',
+          intendedRole: 'assessee',
+          expiresInHours: 1,
+        });
+      // requirePermission returns 403 when the caller lacks the key
+      expect(res.status).toBe(403);
+    });
+
+    it('should allow admins to list and revoke invites', async () => {
+      await withRegistrationMode('invite_only', async () => {
+        const adminAgent = await loginAs('admin');
+        const createRes = await adminAgent
+          .post('/api/v1/admin/invites')
+          .send({
+            email: 'torevoke@example.com',
+            intendedRole: 'assessee',
+            expiresInHours: 1,
+          });
+        expect(createRes.status).toBe(201);
+        const inviteId = createRes.body.id;
+        const token = createRes.body.token;
+
+        const listRes = await adminAgent.get('/api/v1/admin/invites');
+        expect(listRes.status).toBe(200);
+        expect(Array.isArray(listRes.body.invites)).toBe(true);
+        const found = listRes.body.invites.find(
+          (row: { id: string }) => row.id === inviteId,
+        );
+        expect(found).toBeDefined();
+        expect(found).not.toHaveProperty('token');
+        expect(found).not.toHaveProperty('tokenHash');
+
+        const revokeRes = await adminAgent.delete(
+          `/api/v1/admin/invites/${inviteId}`,
+        );
+        expect(revokeRes.status).toBe(204);
+
+        // Revoked token cannot be used
+        const useRes = await getAgent()
+          .post('/api/v1/auth/register')
+          .send({
+            username: 'revoked_user',
+            email: 'torevoke@example.com',
+            password: 'Password123!',
+            displayName: 'Revoked User',
+            inviteToken: token,
+          });
+        expect(useRes.status).toBe(400);
+      });
     });
   });
 });

@@ -18,14 +18,21 @@
 # it in the database. Set JWT_SECRET explicitly when running multiple
 # replicas or managing the signing secret externally.
 #
+# Required environment variables:
+#   POSTGRES_PASSWORD   - Database password. The compose file refuses to
+#                         start when this is unset. Generate a strong
+#                         random value, for example:
+#                           openssl rand -base64 32
+#
 # Optional overrides:
 #   APP_IMAGE           - Image to run. Pin to a version for production,
 #                         e.g. cyclonedx/cyclonedx-assessors-studio:1.0.0
 #   APP_PORT            - Host port to publish (default: 3001)
-#   POSTGRES_PASSWORD   - Database password (default: assessors_studio)
 #   CORS_ORIGIN         - Allowed CORS origin (default: same as app URL)
 #   JWT_SECRET          - Override the auto-generated signing secret
-#                         (>= 32 chars, cryptographically random)
+#                         (>= 32 chars, cryptographically random). When
+#                         unset the backend generates and persists one
+#                         on first run.
 #
 # TLS: For production TLS, place a reverse proxy (nginx, traefik, caddy)
 # in front of this stack, or terminate TLS at an ingress load balancer.
@@ -37,7 +44,11 @@ services:
     environment:
       POSTGRES_DB: assessors_studio
       POSTGRES_USER: assessors_studio
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-assessors_studio}
+      # Fail closed: the compose file will not start if the operator
+      # has not set POSTGRES_PASSWORD. Previously a weak literal default
+      # was baked in here, which could silently ship a known password
+      # to production.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set to a strong random value before running this stack}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -63,7 +74,7 @@ services:
       NODE_ENV: production
       PORT: 3001
       DATABASE_PROVIDER: postgres
-      DATABASE_URL: postgresql://assessors_studio:${POSTGRES_PASSWORD:-assessors_studio}@db:5432/assessors_studio
+      DATABASE_URL: postgresql://assessors_studio:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/assessors_studio
       JWT_SECRET: ${JWT_SECRET:-}
       JWT_EXPIRY: ${JWT_EXPIRY:-24h}
       # The browser and the API share an origin, so CORS is effectively

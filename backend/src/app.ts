@@ -40,6 +40,7 @@ import notificationRulesRoutes from './routes/notification-rules.js';
 import adminNotificationRulesRoutes from './routes/admin-notification-rules.js';
 import assessorRoutes from './routes/assessors.js';
 import adminRoutes from './routes/admin.js';
+import adminInviteRoutes from './routes/admin-invites.js';
 import webhookRoutes from './routes/webhooks.js';
 import adminEncryptionRoutes from './routes/admin-encryption.js';
 import chatIntegrationRoutes from './routes/chat-integrations.js';
@@ -193,6 +194,7 @@ function registerAPIRoutes(app: Express): void {
   app.use('/api/v1/export', exportRoutes);
   app.use('/api/v1/assessors', assessorRoutes);
   app.use('/api/v1/admin', adminRoutes);
+  app.use('/api/v1/admin/invites', adminInviteRoutes);
   app.use('/api/v1/webhooks', webhookRoutes);
   app.use('/api/v1/admin/encryption', adminEncryptionRoutes);
   app.use('/api/v1/integrations/chat', chatIntegrationRoutes);

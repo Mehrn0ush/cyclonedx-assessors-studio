@@ -41,6 +41,14 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 
+  // Self service registration gate.
+  //   disabled    — reject every POST /register request (default).
+  //   invite_only — require a valid unused invite token issued by an admin.
+  //   open        — accept any well formed registration (legacy behavior).
+  // Defaults to disabled so a fresh deployment is closed until the operator
+  // makes an explicit choice.
+  REGISTRATION_MODE: z.enum(['disabled', 'invite_only', 'open']).default('disabled'),
+
   // Evidence storage provider
   STORAGE_PROVIDER: z.enum(['database', 's3']).default('database'),
   UPLOAD_MAX_FILE_SIZE: z.coerce.number().int().positive().default(52428800), // 50 MB

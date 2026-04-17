@@ -46,11 +46,18 @@ RUN addgroup -g 1001 -S appgroup && \
 USER appuser
 
 # Environment defaults (override at runtime)
+#
+# CORS_ORIGIN is intentionally NOT set in the image. The backend
+# falls back to http://localhost:5173 when unset, and the packaged
+# deployment serves the SPA and the API on the same origin, so CORS
+# is a no op in that case. Operators exposing the API to a different
+# origin must set CORS_ORIGIN to the concrete allowed origin. A
+# wildcard default here would expose every deployment to cross origin
+# attacks from any site a user happens to visit.
 ENV NODE_ENV=production
 ENV PORT=3001
 ENV DATABASE_PROVIDER=pglite
 ENV PGLITE_DATA_DIR=/app/data/pglite
-ENV CORS_ORIGIN=*
 
 EXPOSE 3001
 

@@ -359,7 +359,8 @@ export function getOpenAPISpec(): OpenAPISpec {
           tags: ['Auth'],
           summary: 'User registration',
           operationId: 'register',
-          description: 'Creates a new user account with assessee role',
+          description:
+            'Submits a registration request. The response is intentionally generic to prevent user and email enumeration; the client cannot distinguish between a newly created account and a duplicate. Behavior depends on the server REGISTRATION_MODE setting: disabled (default) rejects all requests, invite_only requires a valid invite token, and open accepts any well formed request.',
           requestBody: {
             required: true,
             content: {
@@ -371,6 +372,11 @@ export function getOpenAPISpec(): OpenAPISpec {
                     email: { type: 'string', format: 'email' },
                     displayName: { type: 'string', minLength: 1 },
                     password: { type: 'string', minLength: 8 },
+                    inviteToken: {
+                      type: 'string',
+                      description:
+                        'Single use invite token issued by an admin. Required when REGISTRATION_MODE=invite_only.',
+                    },
                   },
                   required: ['username', 'email', 'displayName', 'password'],
                 },
@@ -378,34 +384,26 @@ export function getOpenAPISpec(): OpenAPISpec {
             },
           },
           responses: {
-            '201': {
-              description: 'User registered successfully',
+            '202': {
+              description:
+                'Registration request accepted. The response does not indicate whether the account was actually created.',
               content: {
                 'application/json': {
                   schema: {
                     type: 'object',
                     properties: {
                       message: { type: 'string' },
-                      user: {
-                        type: 'object',
-                        properties: {
-                          id: { type: 'string', format: 'uuid' },
-                          username: { type: 'string' },
-                          email: { type: 'string' },
-                          displayName: { type: 'string' },
-                          role: { type: 'string', enum: ['assessee'] },
-                        },
-                      },
                     },
                   },
                 },
               },
             },
             '400': {
-              description: 'Invalid registration request',
+              description: 'Invalid registration request or invalid invite token',
             },
-            '409': {
-              description: 'Username or email already exists',
+            '403': {
+              description:
+                'Registration is disabled or requires an invite token on this instance',
             },
           },
         },

@@ -6,7 +6,7 @@ import { URL } from 'node:url';
 import { getDatabase } from '../db/connection.js';
 import { hashPassword } from '../utils/crypto.js';
 import { logger } from '../utils/logger.js';
-import { checkSetupComplete, markSetupComplete } from '../middleware/setup.js';
+import { checkSetupComplete, markSetupComplete, requireSetupIncomplete } from '../middleware/setup.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { importStandard } from '../services/standard-import.js';
 import { asyncHandler } from '../utils/route-helpers.js';
@@ -187,7 +187,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
  * Fetches the CycloneDX standards feed so the frontend can display what will be imported.
  * Only available during setup (before setup is complete).
  */
-router.get('/standards-feed', async (__req: Request, res: Response): Promise<void> => {
+router.get('/standards-feed', requireSetupIncomplete, async (__req: Request, res: Response): Promise<void> => {
   try {
     const feedResponse = await fetch('https://cyclonedx.org/standards/feed.json');
     if (!feedResponse.ok) {
@@ -229,7 +229,7 @@ router.get('/standards-feed', async (__req: Request, res: Response): Promise<voi
  * Downloads a single CycloneDX standards document from a URL and imports it into the database.
  * Only available during setup. No auth required since no users may exist yet.
  */
-router.post('/import-standard', async (req: Request, res: Response): Promise<void> => {
+router.post('/import-standard', requireSetupIncomplete, async (req: Request, res: Response): Promise<void> => {
   try {
     const { url, title } = req.body;
     if (!url || typeof url !== 'string') {
@@ -295,7 +295,7 @@ router.post('/import-standard', async (req: Request, res: Response): Promise<voi
  * Seeds the database with comprehensive demo data.
  * Only available during/after setup. Requires that admin and standards exist.
  */
-router.post('/seed-demo', async (__req: Request, res: Response): Promise<void> => {
+router.post('/seed-demo', requireSetupIncomplete, async (__req: Request, res: Response): Promise<void> => {
   try {
     const { seedDemoData } = await import('../db/seed-demo.js');
     const seeded = await seedDemoData();

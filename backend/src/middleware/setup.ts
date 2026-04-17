@@ -77,3 +77,43 @@ export function requireSetup(req: Request, res: Response, next: NextFunction): v
     });
   });
 }
+
+/**
+ * Middleware that rejects a request once initial setup is complete.
+ *
+ * Used on the unauthenticated helper endpoints mounted under
+ * /api/v1/setup (import-standard, seed-demo, standards-feed). Those
+ * routes exist so the setup wizard can pre-populate the database
+ * before the first admin has a session cookie, and must not be
+ * reachable once a real user could have used them to perform
+ * arbitrary operations without authentication.
+ *
+ * Returns 403 after setup has completed. This is intentionally
+ * different from the gate in `requireSetup` (which returns 503 when
+ * setup has NOT completed) so that logs and monitors can distinguish
+ * "too early" from "too late" access attempts.
+ */
+export function requireSetupIncomplete(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  checkSetupComplete()
+    .then((complete) => {
+      if (complete) {
+        res.status(403).json({
+          error: 'Setup already completed',
+          message:
+            'This endpoint is only available before the initial administrator account is created.',
+        });
+        return;
+      }
+      next();
+    })
+    .catch(() => {
+      // If we cannot determine setup status, fail closed.
+      res.status(503).json({
+        error: 'Unable to determine setup state',
+      });
+    });
+}

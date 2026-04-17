@@ -72,6 +72,10 @@ export function setupHttpTests() {
     process.env.LOG_LEVEL = 'error';
     process.env.CORS_ORIGIN = '*';
     process.env.METRICS_ENABLED = 'true';
+    // Default to open registration for legacy tests that exercise the
+    // register + login flow. Tests that specifically verify gate
+    // behavior override this per case via the config reset helpers.
+    process.env.REGISTRATION_MODE = 'open';
 
     // Invalidate the cached config so the env-var overrides above are
     // picked up.  The config module may already have been loaded (and

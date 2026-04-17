@@ -408,6 +408,19 @@ export interface Session {
   created_at: Generated<Date>;
 }
 
+export interface UserInvite {
+  id: Generated<string>;
+  token_hash: string;
+  email?: string | null;
+  intended_role: 'admin' | 'assessor' | 'assessee' | 'standards_manager' | 'standards_approver';
+  created_by?: string | null;
+  expires_at: Date;
+  consumed_at?: Date | null;
+  consumed_by?: string | null;
+  revoked_at?: Date | null;
+  created_at: Generated<Date>;
+}
+
 export interface Entity {
   id: Generated<string>;
   name: string;
@@ -706,6 +719,10 @@ export interface Database {
   session: Selectable<Session>;
   session_insert: Insertable<Session>;
   session_update: Updateable<Session>;
+
+  user_invite: Selectable<UserInvite>;
+  user_invite_insert: Insertable<UserInvite>;
+  user_invite_update: Updateable<UserInvite>;
 
   entity: Selectable<Entity>;
   entity_insert: Insertable<Entity>;

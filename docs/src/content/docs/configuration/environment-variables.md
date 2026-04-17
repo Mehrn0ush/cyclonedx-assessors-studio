@@ -26,6 +26,16 @@ Variables can be set in any of the usual places: a `.env` file next to the backe
 
 No environment variables are used to seed the initial administrator. The first account is created through the in browser setup wizard the first time the application is opened. When no users exist, the API responds to any request with a pointer to `/setup`. The SPA is always served and routes to the setup wizard automatically. Credentials are never written to configuration files, container images, or deployment manifests.
 
+## Registration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REGISTRATION_MODE` | `disabled` | Controls self service account creation. `disabled` rejects every request to `POST /api/v1/auth/register`. `invite_only` requires a valid unused invite token issued by an admin. `open` accepts any well formed registration and assigns the `assessee` role. |
+
+Admins can always create users through the admin APIs, irrespective of mode. When running in `invite_only` mode, call `POST /api/v1/admin/invites` with an optional `email`, an `intendedRole`, and an optional `expiresInHours` (default 168). The plaintext token is returned once; the server stores only the SHA-256 hash. `GET /api/v1/admin/invites` lists invites and `DELETE /api/v1/admin/invites/:id` revokes one.
+
+The register endpoint returns a generic `202 Accepted` response for both successful and duplicate submissions so an attacker cannot enumerate accounts by probing it.
+
 ## Evidence storage
 
 | Variable | Default | Description |

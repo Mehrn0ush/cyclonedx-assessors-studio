@@ -27,6 +27,7 @@ const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   displayName: z.string().min(1, 'Display name is required'),
+  inviteToken: z.string().optional(),
 });
 
 router.post('/login', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
@@ -126,6 +127,51 @@ router.post('/register', asyncHandler(async (req: AuthRequest, res: Response): P
   try {
     const data = registerSchema.parse(req.body);
     const db = getDatabase();
+    const mode = config.REGISTRATION_MODE;
+
+    // Registration gate (C2 mitigation). Default is disabled so a fresh
+    // deployment is closed until an operator opts in explicitly.
+    if (mode === 'disabled') {
+      logger.warn('Registration attempt while REGISTRATION_MODE=disabled', {
+        requestId: req.requestId,
+      });
+      res.status(403).json({ error: 'Registration is not available on this instance' });
+      return;
+    }
+
+    // Invite token handling. Required when mode=invite_only, optional and
+    // used for the intended role in mode=open (so admins can pre-issue
+    // tokens for elevated accounts even when open signup is on).
+    let invite: { id: string; intended_role: string; email: string | null } | undefined;
+    if (data.inviteToken) {
+      const tokenHash = hashToken(data.inviteToken);
+      const now = new Date();
+      const row = await db
+        .selectFrom('user_invite')
+        .where('token_hash', '=', tokenHash)
+        .select(['id', 'intended_role', 'email', 'expires_at', 'consumed_at', 'revoked_at'])
+        .executeTakeFirst();
+
+      if (!row || row.consumed_at || row.revoked_at || row.expires_at < now) {
+        res.status(400).json({ error: 'Invitation is invalid or has expired' });
+        return;
+      }
+
+      // If the invite was scoped to an email, the registrant must match it.
+      if (row.email && row.email.toLowerCase() !== data.email.toLowerCase()) {
+        res.status(400).json({ error: 'Invitation email does not match' });
+        return;
+      }
+
+      invite = {
+        id: row.id,
+        intended_role: row.intended_role,
+        email: row.email ?? null,
+      };
+    } else if (mode === 'invite_only') {
+      res.status(403).json({ error: 'An invitation is required to register' });
+      return;
+    }
 
     const existingUser = await db
       .selectFrom('app_user')
@@ -139,44 +185,60 @@ router.post('/register', asyncHandler(async (req: AuthRequest, res: Response): P
       .executeTakeFirst();
 
     if (existingUser) {
-      res.status(409).json({
-        error: 'Username or email already exists',
+      // Return a generic 202 acknowledgment to prevent user and email
+      // enumeration (M4 mitigation). The client cannot distinguish a
+      // duplicate from a newly created account from the response body.
+      // Audit the real outcome server side.
+      logger.info('Registration attempt for existing identifier', {
+        username: data.username,
+        email: data.email,
+        requestId: req.requestId,
+      });
+      res.status(202).json({
+        message: 'If this account does not already exist, it will be created.',
       });
       return;
     }
 
     const passwordHash = await hashPassword(data.password);
     const userId = uuidv4();
+    const role = invite?.intended_role ?? 'assessee';
 
-    await db
-      .insertInto('app_user')
-      .values(toSnakeCase({
-        id: userId,
-        username: data.username,
-        email: data.email,
-        passwordHash: passwordHash,
-        displayName: data.displayName,
-        role: 'assessee',
-        isActive: true,
-      }))
-      .execute();
+    await db.transaction().execute(async (trx) => {
+      await trx
+        .insertInto('app_user')
+        .values(toSnakeCase({
+          id: userId,
+          username: data.username,
+          email: data.email,
+          passwordHash: passwordHash,
+          displayName: data.displayName,
+          role,
+          isActive: true,
+        }))
+        .execute();
+
+      if (invite) {
+        await trx
+          .updateTable('user_invite')
+          .set({ consumed_at: new Date(), consumed_by: userId })
+          .where('id', '=', invite.id)
+          .where('consumed_at', 'is', null)
+          .execute();
+      }
+    });
 
     logger.info('User registered', {
       userId,
       username: data.username,
       email: data.email,
+      role,
+      viaInvite: Boolean(invite),
       requestId: req.requestId,
     });
 
-    res.status(201).json({
-      message: 'User registered successfully',
-      user: {
-        id: userId,
-        username: data.username,
-        email: data.email,
-        displayName: data.displayName,
-        role: 'assessee',
-      },
+    res.status(202).json({
+      message: 'If this account does not already exist, it will be created.',
     });
   } catch (error) {
     if (handleValidationError(res, error)) return;
@@ -458,14 +520,10 @@ router.patch('/me', requireAuth, asyncHandler(async (req: AuthRequest, res: Resp
     }
 
     if (Object.keys(updates).length === 0) {
-      // No updates requested
-      const user = await db
-        .selectFrom('app_user')
-        .where('id', '=', req.user.id)
-        .selectAll()
-        .executeTakeFirst();
-
-      res.json({ user });
+      // No updates requested. Return the current profile stripped of
+      // sensitive fields (never leak password_hash back to the client).
+      const user = await fetchUserById(db, req.user.id);
+      res.json({ user: user ? formatUserProfile(user) : null });
       return;
     }
 
@@ -477,17 +535,14 @@ router.patch('/me', requireAuth, asyncHandler(async (req: AuthRequest, res: Resp
       .where('id', '=', req.user.id)
       .execute();
 
-    const updatedUser = await db
-      .selectFrom('app_user')
-      .where('id', '=', req.user.id)
-      .selectAll()
-      .executeTakeFirst();
+    // Return the updated profile stripped of sensitive fields.
+    const updatedUser = await fetchUserById(db, req.user.id);
 
     logger.info('Updated user profile', {
       userId: req.user.id,
     });
 
-    res.json({ user: updatedUser });
+    res.json({ user: updatedUser ? formatUserProfile(updatedUser) : null });
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: 'Validation failed', details: error.issues });
