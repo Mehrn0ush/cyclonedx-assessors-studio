@@ -131,9 +131,18 @@ function configureRateLimiters(app: Express): void {
     message: 'Too many requests from this IP, please try again later.',
   });
 
+  // Auth limiter: the per-account lockout in routes/auth.ts throttles
+  // an attacker who knows a valid username, but it does nothing for an
+  // attacker sweeping a username list. This per-IP limiter is that
+  // second layer. 10 per 15 minutes is well above a human typo budget
+  // and well below a credential-stuffing rate. Counts are per IP, so
+  // legitimate users sharing a NAT are effectively bounded but a single
+  // misconfigured client cannot use the whole window by itself.
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
     message: 'Too many authentication attempts, please try again later.',
   });
 

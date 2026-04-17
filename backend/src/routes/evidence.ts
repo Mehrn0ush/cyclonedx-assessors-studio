@@ -23,6 +23,7 @@ import {
 } from '../storage/index.js';
 import type { StorageProviderName } from '../storage/types.js';
 import type { Database } from '../db/types.js';
+import { verifyAttachmentMimeType } from '../utils/attachment-mime.js';
 
 const router = Router();
 
@@ -1012,33 +1013,6 @@ router.post(
   })
 );
 
-/**
- * Detect CycloneDX media type from filename and (optionally) raw content.
- * Returns the proper CycloneDX media type when the file is recognized,
- * or the original fallback type when it is not.
- */
-function detectCycloneDXMediaType(filename: string, fallback: string, content?: Buffer | string): string {
-  const lower = filename.toLowerCase();
-
-  // Filename-based detection (*.cdx.json / *.cdx.xml)
-  if (lower.endsWith('.cdx.json')) return 'application/vnd.cyclonedx+json';
-  if (lower.endsWith('.cdx.xml')) return 'application/vnd.cyclonedx+xml';
-
-  // Content-based detection for generic .json / .xml uploads
-  if (content) {
-    const head = (typeof content === 'string' ? content : content.toString('utf-8', 0, Math.min(content.length, 512))).trimStart();
-    if (lower.endsWith('.json') && head.includes('"bomFormat"') && head.includes('"CycloneDX"')) {
-      return 'application/vnd.cyclonedx+json';
-    }
-    // eslint-disable-next-line xss/no-mixed-html
-    if (lower.endsWith('.xml') && head.includes('<bom') && head.includes('cyclonedx')) {
-      return 'application/vnd.cyclonedx+xml';
-    }
-  }
-
-  return fallback;
-}
-
 const createAttachmentSchema = z.object({
   filename: z.string().min(1, 'Filename is required'),
   contentType: z.string().min(1, 'Content type is required'),
@@ -1093,9 +1067,27 @@ router.post(
           return;
         }
 
+        const mimeDecision = verifyAttachmentMimeType(buffer, data.filename, data.contentType);
+        if (!mimeDecision.allowed) {
+          logger.warn('Attachment rejected by MIME allowlist', {
+            evidenceId: req.params.id as string,
+            filename: data.filename,
+            claimedType: data.contentType,
+            detectedType: mimeDecision.resolvedType,
+            reason: mimeDecision.reason,
+            userId: req.user?.id,
+            requestId: req.requestId,
+          });
+          res.status(415).json({
+            error: mimeDecision.reason ?? 'Unsupported media type',
+            detectedType: mimeDecision.resolvedType,
+          });
+          return;
+        }
+
         const contentHash = computeContentHash(buffer);
         const sizeBytes = buffer.length;
-        const resolvedContentType = detectCycloneDXMediaType(data.filename, data.contentType, buffer);
+        const resolvedContentType = mimeDecision.resolvedType;
         const storageKey = `evidence/${req.params.id}/${attachmentId}-${data.filename}`;
 
         // Build the row based on provider
@@ -1161,6 +1153,7 @@ router.post(
 
       const attachments: Record<string, unknown>[] = [];
       let fileSizeLimitHit = false;
+      let mimeRejection: { filename: string; reason: string; detected: string } | null = null;
 
       bb.on('file', (_fieldname, file, info) => {
         try {
@@ -1186,12 +1179,33 @@ router.post(
 
           file.on('end', async () => {
             if (fileSizeLimitHit) return;
+            if (mimeRejection) return;
 
             try {
               const buffer = Buffer.concat(chunks);
               const sizeBytes = buffer.length;
+
+              const mimeDecision = verifyAttachmentMimeType(buffer, filename, contentTypeFromFile);
+              if (!mimeDecision.allowed) {
+                mimeRejection = {
+                  filename,
+                  reason: mimeDecision.reason ?? 'Unsupported media type',
+                  detected: mimeDecision.resolvedType,
+                };
+                logger.warn('Attachment rejected by MIME allowlist', {
+                  evidenceId: req.params.id as string,
+                  filename,
+                  claimedType: contentTypeFromFile,
+                  detectedType: mimeDecision.resolvedType,
+                  reason: mimeDecision.reason,
+                  userId: req.user?.id,
+                  requestId: req.requestId,
+                });
+                return;
+              }
+
               const contentHash = computeContentHash(buffer);
-              const resolvedContentType = detectCycloneDXMediaType(filename, contentTypeFromFile, buffer);
+              const resolvedContentType = mimeDecision.resolvedType;
 
               // Build the row based on active storage provider
               const row: Record<string, unknown> = {
@@ -1256,6 +1270,14 @@ router.post(
           res.status(413).json({ error: `File exceeds maximum size of ${maxFileSize} bytes` });
           return;
         }
+        if (mimeRejection) {
+          res.status(415).json({
+            error: mimeRejection.reason,
+            filename: mimeRejection.filename,
+            detectedType: mimeRejection.detected,
+          });
+          return;
+        }
         res.status(201).json({
           message: 'Attachments uploaded successfully',
           attachments,
@@ -1290,6 +1312,20 @@ router.get(
     }
 
     res.setHeader('Content-Type', attachment.content_type);
+    // X-Content-Type-Options: nosniff prevents browsers from
+    // MIME-sniffing a user-uploaded file as something more dangerous
+    // than its stored Content-Type (for example, rendering a
+    // "text/plain" upload as HTML). Paired with the allowlist and
+    // magic-number check at upload time this closes the common
+    // same-origin stored XSS path for uploaded attachments.
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    // Defense in depth: belt-and-braces guard against legacy clients
+    // that ignore the SPA-wide CSP. sandbox on the response CSP
+    // tells browsers to treat the body as an opaque origin so any
+    // scripted content (HTML, SVG, and so on) runs without cookies
+    // or same-origin privileges even when served with a rich MIME
+    // type.
+    res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'; frame-ancestors 'none'");
     // Sanitize filename to prevent header injection (CWE-113) and path traversal
     const sanitizedFilename = attachment.filename
       .replace(/[\r\n]/g, '')           // Strip newlines (header injection)

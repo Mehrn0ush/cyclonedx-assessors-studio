@@ -126,6 +126,132 @@ describe('Auth Routes (HTTP Integration)', () => {
     });
   });
 
+  describe('Account lockout on repeated failed logins', () => {
+    /**
+     * Register a dedicated user per test so the counter/lockout state on
+     * shared fixtures (admin/assessor/assessee) cannot leak between
+     * cases and cause false positives.
+     */
+    async function registerLockoutUser(username: string, password: string) {
+      const res = await getAgent()
+        .post('/api/v1/auth/register')
+        .send({
+          username,
+          email: `${username}@test.local`,
+          password,
+          displayName: 'Lockout Test User',
+        });
+      expect(res.status).toBe(202);
+    }
+
+    it('locks the account after five consecutive failed attempts', async () => {
+      const username = 'lockout_threshold_user';
+      const password = 'CorrectPassword123!';
+      await registerLockoutUser(username, password);
+
+      // Burn five bad attempts. Each returns 401 with the generic message.
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const res = await getAgent()
+          .post('/api/v1/auth/login')
+          .send({ username, password: 'WrongPassword999!' });
+        expect(res.status).toBe(401);
+        expect(res.body.error).toBe('Invalid credentials');
+      }
+
+      // Now even the correct password is rejected with the same generic
+      // response while the lockout window is active.
+      const blockedRes = await getAgent()
+        .post('/api/v1/auth/login')
+        .send({ username, password });
+      expect(blockedRes.status).toBe(401);
+      expect(blockedRes.body.error).toBe('Invalid credentials');
+    });
+
+    it('does not lock the account before the threshold is reached', async () => {
+      const username = 'lockout_under_threshold_user';
+      const password = 'CorrectPassword123!';
+      await registerLockoutUser(username, password);
+
+      // Four failures are allowed; the fifth correct login must still
+      // succeed and reset the counter.
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const res = await getAgent()
+          .post('/api/v1/auth/login')
+          .send({ username, password: 'WrongPassword999!' });
+        expect(res.status).toBe(401);
+      }
+
+      const goodRes = await getAgent()
+        .post('/api/v1/auth/login')
+        .send({ username, password });
+      expect(goodRes.status).toBe(200);
+      expect(goodRes.body.user.username).toBe(username);
+    });
+
+    it('resets the failed attempt counter after a successful login', async () => {
+      const username = 'lockout_reset_user';
+      const password = 'CorrectPassword123!';
+      await registerLockoutUser(username, password);
+
+      // Two failures, then a good login should reset the counter to zero.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const res = await getAgent()
+          .post('/api/v1/auth/login')
+          .send({ username, password: 'WrongPassword999!' });
+        expect(res.status).toBe(401);
+      }
+
+      const goodRes = await getAgent()
+        .post('/api/v1/auth/login')
+        .send({ username, password });
+      expect(goodRes.status).toBe(200);
+
+      // We can now fail four more times without triggering the lockout,
+      // because the reset cleared the earlier two failures.
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const res = await getAgent()
+          .post('/api/v1/auth/login')
+          .send({ username, password: 'WrongPassword999!' });
+        expect(res.status).toBe(401);
+      }
+
+      // Fifth correct login still works.
+      const secondGoodRes = await getAgent()
+        .post('/api/v1/auth/login')
+        .send({ username, password });
+      expect(secondGoodRes.status).toBe(200);
+    });
+
+    it('treats locked accounts exactly like bad credentials (no enumeration)', async () => {
+      const username = 'lockout_silent_user';
+      const password = 'CorrectPassword123!';
+      await registerLockoutUser(username, password);
+
+      // Trip the lockout.
+      for (let attempt = 0; attempt < 5; attempt++) {
+        await getAgent()
+          .post('/api/v1/auth/login')
+          .send({ username, password: 'WrongPassword999!' });
+      }
+
+      // Compare the shape of a locked-account response to the shape
+      // produced by a non-existent user. Both must be indistinguishable.
+      const lockedRes = await getAgent()
+        .post('/api/v1/auth/login')
+        .send({ username, password });
+
+      const absentRes = await getAgent()
+        .post('/api/v1/auth/login')
+        .send({
+          username: 'definitely_not_a_real_user_xyz',
+          password: 'Anything123!',
+        });
+
+      expect(lockedRes.status).toBe(absentRes.status);
+      expect(lockedRes.body).toEqual(absentRes.body);
+    });
+  });
+
   describe('GET /me', () => {
     it('should return current user when authenticated', async () => {
       const agent = await loginAs('admin');

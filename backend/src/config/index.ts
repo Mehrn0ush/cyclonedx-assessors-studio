@@ -96,6 +96,16 @@ const envSchema = z.object({
   METRICS_TOKEN: z.string().default(''),
   METRICS_PREFIX: z.string().default('cdxa_'),
   METRICS_DOMAIN_REFRESH_INTERVAL: z.coerce.number().int().positive().default(60),
+
+  // Authentication throttling and account lockout.
+  // LOGIN_MAX_FAILED_ATTEMPTS: number of consecutive failed password
+  // verifications that trigger a temporary account lock. Set to 0 to
+  // disable lockout (counter is still tracked for auditing).
+  // LOGIN_LOCKOUT_DURATION_MINUTES: backoff window applied after the
+  // threshold is reached. A successful login before the window expires
+  // is still rejected; operators unlock early by clearing locked_until.
+  LOGIN_MAX_FAILED_ATTEMPTS: z.coerce.number().int().nonnegative().default(5),
+  LOGIN_LOCKOUT_DURATION_MINUTES: z.coerce.number().int().positive().default(15),
 });
 
 type Env = z.infer<typeof envSchema>;

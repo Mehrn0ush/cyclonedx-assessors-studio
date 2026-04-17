@@ -13,6 +13,7 @@ import { toSnakeCase } from '../middleware/camelCase.js';
 import { authLoginTotal } from '../metrics/index.js';
 import { fetchUserById, fetchUserByUsername, formatUserProfile } from '../utils/user-queries.js';
 import { checkResourceExists } from '../utils/resource-checks.js';
+import { logAudit } from '../utils/audit.js';
 
 const router = Router();
 const config = getConfig();
@@ -43,10 +44,76 @@ router.post('/login', asyncHandler(async (req: AuthRequest, res: Response): Prom
       return;
     }
 
+    // Account lockout gate (mitigates credential stuffing and online
+    // password guessing). We check before the password verification step
+    // so a locked account cannot be probed for its password. The response
+    // is intentionally the same generic 401 that bad credentials produce,
+    // preventing an attacker from learning that the username exists by
+    // observing a different status code or message.
+    const now = new Date();
+    if (user.locked_until && new Date(user.locked_until) > now) {
+      authLoginTotal.inc({ method: 'local', result: 'failure' });
+      logger.warn('Login attempt against locked account', {
+        userId: user.id,
+        lockedUntil: user.locked_until,
+        requestId: req.requestId,
+      });
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
+    }
+
     const passwordValid = await verifyPassword(user.password_hash, password);
 
     if (!passwordValid) {
       authLoginTotal.inc({ method: 'local', result: 'failure' });
+
+      const previousFailures = user.failed_login_count ?? 0;
+      const nextCount = previousFailures + 1;
+      const threshold = config.LOGIN_MAX_FAILED_ATTEMPTS;
+      const lockoutEnabled = threshold > 0;
+      const shouldLock = lockoutEnabled && nextCount >= threshold;
+
+      const updates: {
+        failed_login_count: number;
+        last_failed_login_at: Date;
+        locked_until?: Date;
+      } = {
+        failed_login_count: nextCount,
+        last_failed_login_at: now,
+      };
+      if (shouldLock) {
+        updates.locked_until = new Date(
+          now.getTime() + config.LOGIN_LOCKOUT_DURATION_MINUTES * 60 * 1000,
+        );
+      }
+
+      await db
+        .updateTable('app_user')
+        .set(updates)
+        .where('id', '=', user.id)
+        .execute();
+
+      if (shouldLock) {
+        logger.warn('Account locked after repeated failed logins', {
+          userId: user.id,
+          failedLoginCount: nextCount,
+          lockedUntil: updates.locked_until,
+          requestId: req.requestId,
+        });
+        await logAudit(db, {
+          entityType: 'app_user',
+          entityId: user.id,
+          action: 'state_change',
+          userId: user.id,
+          changes: {
+            event: 'account_locked',
+            failedLoginCount: nextCount,
+            lockoutDurationMinutes: config.LOGIN_LOCKOUT_DURATION_MINUTES,
+            lockedUntil: updates.locked_until?.toISOString(),
+          },
+        });
+      }
+
       res.status(401).json({ error: 'Invalid credentials' });
       return;
     }
@@ -79,9 +146,17 @@ router.post('/login', asyncHandler(async (req: AuthRequest, res: Response): Prom
       })
       .execute();
 
+    // Successful login resets the failed-attempt counter and clears any
+    // prior lock. Doing this in the same round trip as last_login_at keeps
+    // the rows consistent even if a later step fails.
     await db
       .updateTable('app_user')
-      .set({ last_login_at: new Date() })
+      .set({
+        last_login_at: new Date(),
+        failed_login_count: 0,
+        locked_until: null,
+        last_failed_login_at: null,
+      })
       .where('id', '=', user.id)
       .execute();
 

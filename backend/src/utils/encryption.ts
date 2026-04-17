@@ -485,6 +485,16 @@ export const encryptionService: EncryptionService = new EncryptionServiceImpl();
  * Initialize the encryption service. Must be called after database
  * migrations have run. If REQUIRE_ENCRYPTION is true, throws if the
  * master key is missing.
+ *
+ * Passthrough mode (no MASTER_ENCRYPTION_KEY set, REQUIRE_ENCRYPTION
+ * unset or false) preserves operational flexibility during local
+ * evaluation but writes every value the encryption service is asked
+ * to encrypt as plaintext. The startup warning below makes that
+ * tradeoff explicit so an operator cannot discover it only by
+ * reading the database later. Production deployments should set
+ * both MASTER_ENCRYPTION_KEY (a 64 character hex string) and
+ * REQUIRE_ENCRYPTION=true so a misconfigured key fails fast
+ * instead of silently downgrading protection.
  */
 export async function initializeEncryption(db: Kysely<Database>): Promise<void> {
   const requireEncryption = process.env.REQUIRE_ENCRYPTION === 'true';
@@ -493,7 +503,8 @@ export async function initializeEncryption(db: Kysely<Database>): Promise<void> 
   if (requireEncryption && !mk) {
     throw new Error(
       'REQUIRE_ENCRYPTION is true but MASTER_ENCRYPTION_KEY is not set or is too short. '
-      + 'A 256-bit key (64 hex characters) is required.',
+      + 'Generate a 256 bit key with "openssl rand -hex 32" and set it as '
+      + 'MASTER_ENCRYPTION_KEY (64 hex characters) before restarting.',
     );
   }
 
@@ -503,9 +514,37 @@ export async function initializeEncryption(db: Kysely<Database>): Promise<void> 
       activeKeyVersion,
       totalKeyVersions: keyVersions.size,
     });
-  } else {
-    logger.warn('Encryption at rest is in passthrough mode (no master key configured)');
+    return;
   }
+
+  // Passthrough mode: make the security impact loud so it cannot be
+  // missed in a running-server log. Log level escalates in
+  // production since that is where leaving encryption off is most
+  // likely to surprise a defender. Keep a single line summary at
+  // warn level as well so operators who filter for WARN still see
+  // something actionable.
+  const isProduction = process.env.NODE_ENV === 'production';
+  const bannerLog = isProduction ? logger.error.bind(logger) : logger.warn.bind(logger);
+  bannerLog(
+    'Encryption at rest is disabled: running in passthrough mode',
+    {
+      impact: [
+        'webhook signing secrets are stored as plaintext',
+        'integration bearer tokens and SMTP credentials are stored as plaintext',
+        'any future field routed through the encryption service will pass through unchanged',
+      ],
+      howToFix: [
+        'generate a key: openssl rand -hex 32',
+        'set MASTER_ENCRYPTION_KEY to that value',
+        'set REQUIRE_ENCRYPTION=true so a missing key fails fast',
+        'restart the backend',
+      ],
+    },
+  );
+  logger.warn(
+    'MASTER_ENCRYPTION_KEY is not set; encrypted fields will be stored as plaintext. '
+    + 'Set MASTER_ENCRYPTION_KEY and REQUIRE_ENCRYPTION=true before using this instance in production.',
+  );
 }
 
 // ---------------------------------------------------------------------------

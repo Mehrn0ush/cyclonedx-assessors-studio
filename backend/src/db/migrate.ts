@@ -374,7 +374,7 @@ CREATE INDEX idx_session_token_hash ON session(token_hash);
 -- User invites
 -- Single use tokens issued by an admin so a specific person can register
 -- when REGISTRATION_MODE=invite_only. The server stores only the SHA-256
--- hash of the token; the plaintext is shown once at issuance.
+-- hash of the token, and the plaintext is shown once at issuance.
 CREATE TABLE IF NOT EXISTS user_invite (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   token_hash VARCHAR(255) NOT NULL UNIQUE,
@@ -830,6 +830,20 @@ CREATE TABLE IF NOT EXISTS app_config (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- =====================================================================
+-- Account lockout (Sprint 2, brute-force mitigation)
+-- =====================================================================
+-- failed_login_count: monotonic counter of consecutive failed login
+--   attempts. Reset to zero on successful login.
+-- locked_until: when non-null and in the future, the account cannot
+--   authenticate regardless of a valid password. Reset on successful
+--   login and on lockout expiry checked at login time.
+-- last_failed_login_at: timestamp of the most recent failed attempt,
+--   used for audit correlation and eventual background cleanup jobs.
+ALTER TABLE app_user ADD COLUMN IF NOT EXISTS failed_login_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE app_user ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP WITH TIME ZONE;
+ALTER TABLE app_user ADD COLUMN IF NOT EXISTS last_failed_login_at TIMESTAMP WITH TIME ZONE;
 
 `;
 

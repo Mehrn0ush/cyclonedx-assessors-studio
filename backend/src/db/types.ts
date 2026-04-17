@@ -138,6 +138,12 @@ export interface AppUser {
   mattermost_username?: string | null;
   email_notifications?: boolean;
   last_login_at?: Date | null;
+  // Account lockout: counter increments on every failed password verification
+  // and resets to zero on any successful login. A non-null locked_until that
+  // is in the future indicates an active lockout window.
+  failed_login_count?: number;
+  locked_until?: Date | null;
+  last_failed_login_at?: Date | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
