@@ -50,17 +50,49 @@ import { getEventBus } from './events/index.js';
 import { metricsMiddleware } from './middleware/metrics.js';
 
 // Helper: Configure security middleware
+//
+// Content Security Policy notes:
+//   scriptSrc / scriptSrcAttr
+//     Vite emits every JavaScript bundle as an external, hashed
+//     module. The production index.html contains no inline <script>
+//     elements and no inline event handlers, so 'unsafe-inline' is
+//     not required and is therefore not granted. scriptSrcAttr is
+//     pinned to 'none' so injected onclick, onload, and similar
+//     attribute XSS payloads are blocked even in modern browsers
+//     that respect the granular directive.
+//   styleSrc / styleSrcElem / styleSrcAttr
+//     Vue 3 reactive :style bindings and Element Plus popper
+//     positioning write to the style attribute on individual
+//     elements at runtime. Browsers gate those writes with
+//     style-src-attr, so 'unsafe-inline' is granted only there.
+//     style-src-elem stays pinned to 'self' so runtime <style>
+//     injection (a common XSS payload shape) is blocked. The
+//     broader styleSrc line remains for browsers that have not
+//     yet implemented the granular directives; in modern browsers
+//     the two *-elem / *-attr directives take precedence.
+//   objectSrc, baseUri, formAction, frameAncestors
+//     Added as defense in depth against Flash style plugin
+//     injection, <base> hijacking, form hijacking, and
+//     clickjacking. frameAncestors 'none' mirrors the X-Frame
+//     -Options: DENY header set by frameguard below.
 function configureSecurityMiddleware(app: Express): void {
   const config = getConfig();
   app.use(helmet({
     contentSecurityPolicy: config.NODE_ENV === 'production' ? {
       directives: {
         defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        scriptSrcAttr: ["'none'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrcElem: ["'self'"],
+        styleSrcAttr: ["'unsafe-inline'"],
         fontSrc: ["'self'", 'data:'],
         imgSrc: ["'self'", 'data:', 'https:'],
         connectSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
       },
     } : false,
     hsts: {
