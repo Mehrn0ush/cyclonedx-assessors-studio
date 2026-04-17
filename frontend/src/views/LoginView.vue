@@ -110,9 +110,15 @@ const handleLogin = async () => {
   try {
     await authStore.login(form.value.username, form.value.password)
     await router.push('/dashboard')
-  } catch (err: unknown) {
-    const e = err as { response?: { data?: { error?: string } }; message?: string }
-    error.value = e.response?.data?.error || e.message || t('login.loginFailed')
+  } catch {
+    // Surface a single, localized failure string for every credential
+    // error. Echoing the server error text risks leaking account-state
+    // distinctions (for example "account locked" vs "bad password") and
+    // leaves a path for attacker-controlled strings rendered via an
+    // upstream proxy or error middleware to reach the DOM. The server
+    // remains the source of truth for lockout and rate-limit behavior;
+    // the UI treats every failure uniformly.
+    error.value = t('login.loginFailed')
   } finally {
     loading.value = false
   }

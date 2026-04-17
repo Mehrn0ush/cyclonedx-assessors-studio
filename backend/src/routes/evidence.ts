@@ -28,10 +28,24 @@ import { verifyAttachmentMimeType } from '../utils/attachment-mime.js';
 const router = Router();
 
 /**
- * Check if a user is a participant (assessor or assessee) in an assessment, or is an admin.
+ * Check if a user is a participant (assessor or assessee) in an assessment,
+ * or bears a permission that grants assessment-wide visibility.
+ *
+ * Access is granted when any of the following holds:
+ *   1. The caller holds `evidence.view_all` or `assessments.view_all`.
+ *   2. The caller is listed on assessment_assessor for the assessment.
+ *   3. The caller is listed on assessment_assessee for the assessment.
+ *
+ * Prior revisions short-circuited on a literal role-name check for
+ * `admin`. That matched the intent only because the admin role seeds with
+ * every permission, but it created a role-name dependency that drifts
+ * from the RBAC tables and violates the project rule of permission-only
+ * access control. The check below consults the DB-driven permission set
+ * for the caller's role instead.
  */
 async function isAssessmentParticipant(db: Kysely<Database>, userId: string, userRole: string, assessmentId: string): Promise<boolean> {
-  if (userRole === 'admin') return true;
+  const perms = await getPermissionsForRole(userRole);
+  if (perms.includes('evidence.view_all') || perms.includes('assessments.view_all')) return true;
 
   const assessor = await db
     .selectFrom('assessment_assessor')
@@ -59,6 +73,175 @@ async function fetchEvidence(db: Kysely<Database>, evidenceId: string): Promise<
     .where('id', '=', evidenceId)
     .selectAll()
     .executeTakeFirst();
+}
+
+/**
+ * Check whether a user may read or act on a specific evidence record.
+ *
+ * Access is granted when any of the following holds:
+ *   1. The caller holds `evidence.view_all` or `assessments.view_all`.
+ *   2. The caller authored the evidence (authors always retain access
+ *      to their own uploads, including orphan evidence not yet linked
+ *      to an assessment).
+ *   3. The caller is listed as the reviewer of the evidence.
+ *   4. The evidence is linked (via assessment_requirement_evidence)
+ *      to at least one assessment where the caller is an assessor or
+ *      assessee.
+ *
+ * Returns the evidence row on success for caller reuse, or null when
+ * the evidence does not exist or the caller is not authorized.
+ */
+async function getEvidenceIfAccessible(
+  db: Kysely<Database>,
+  userId: string,
+  userRole: string,
+  evidenceId: string,
+): Promise<Record<string, unknown> | null> {
+  const evidence = await fetchEvidence(db, evidenceId);
+  if (!evidence) return null;
+
+  const perms = await getPermissionsForRole(userRole);
+  if (perms.includes('evidence.view_all') || perms.includes('assessments.view_all')) {
+    return evidence;
+  }
+
+  if (evidence.author_id === userId) return evidence;
+  if (evidence.reviewer_id === userId) return evidence;
+
+  const participantRow = await db
+    .selectFrom('assessment_requirement_evidence as are')
+    .innerJoin('assessment_requirement as ar', 'ar.id', 'are.assessment_requirement_id')
+    .leftJoin('assessment_assessor as assessor', (join) =>
+      join
+        .onRef('assessor.assessment_id', '=', 'ar.assessment_id')
+        .on('assessor.user_id', '=', userId),
+    )
+    .leftJoin('assessment_assessee as assessee', (join) =>
+      join
+        .onRef('assessee.assessment_id', '=', 'ar.assessment_id')
+        .on('assessee.user_id', '=', userId),
+    )
+    .where('are.evidence_id', '=', evidenceId)
+    .where((eb) =>
+      eb.or([
+        eb('assessor.user_id', 'is not', null),
+        eb('assessee.user_id', 'is not', null),
+      ]),
+    )
+    .select('ar.assessment_id')
+    .limit(1)
+    .executeTakeFirst();
+
+  return participantRow ? evidence : null;
+}
+
+/**
+ * Retention/immutability check for an evidence record.
+ *
+ * Evidence is considered "used" and therefore retention-locked once any
+ * of the following is true. Used evidence is both write-protected and
+ * delete-protected across its attachments, notes, and link rows. This
+ * binds every caller equally; there is no admin override and no
+ * permission that bypasses the lock. The rule is a record-integrity
+ * policy, not an authorization policy, so callers must not consult
+ * `req.user.role` or permissions here.
+ *
+ *   1. `evidence.state === 'claimed'`. This mirrors the legacy rule
+ *      already enforced on PUT /:id and predates the retention policy.
+ *   2. The evidence is cited in any claim via `claim_evidence`,
+ *      `claim_counter_evidence`, or `claim_mitigation_strategy`.
+ *   3. The evidence is linked (via assessment_requirement_evidence) to
+ *      an assessment in a terminal state: `complete`, `archived`, or
+ *      `cancelled`. Cancelled assessments still left a business record
+ *      and therefore count as terminal for retention purposes.
+ *
+ * Expiration (`evidence.state === 'expired'`) does not, on its own,
+ * unlock retention. Expired evidence that has never been used may still
+ * be freely edited or unlinked; expired evidence that has been used
+ * stays locked.
+ *
+ * Callers should return 409 Conflict with the `reason` so the client
+ * can distinguish retention from 403 (no permission) and 404 (not
+ * found / not authorized).
+ */
+async function isEvidenceImmutable(
+  db: Kysely<Database>,
+  evidenceId: string,
+): Promise<{ immutable: true; reason: 'claimed' | 'linked_to_claim' | 'assessment_terminal' } | { immutable: false }> {
+  const evidence = await db
+    .selectFrom('evidence')
+    .where('id', '=', evidenceId)
+    .select(['state'])
+    .executeTakeFirst();
+
+  if (!evidence) return { immutable: false };
+
+  if (evidence.state === 'claimed') {
+    return { immutable: true, reason: 'claimed' };
+  }
+
+  const inClaimEvidence = await db
+    .selectFrom('claim_evidence')
+    .where('evidence_id', '=', evidenceId)
+    .select('claim_id')
+    .limit(1)
+    .executeTakeFirst();
+  if (inClaimEvidence) return { immutable: true, reason: 'linked_to_claim' };
+
+  const inCounter = await db
+    .selectFrom('claim_counter_evidence')
+    .where('evidence_id', '=', evidenceId)
+    .select('claim_id')
+    .limit(1)
+    .executeTakeFirst();
+  if (inCounter) return { immutable: true, reason: 'linked_to_claim' };
+
+  const inMitigation = await db
+    .selectFrom('claim_mitigation_strategy')
+    .where('evidence_id', '=', evidenceId)
+    .select('claim_id')
+    .limit(1)
+    .executeTakeFirst();
+  if (inMitigation) return { immutable: true, reason: 'linked_to_claim' };
+
+  const terminalLink = await db
+    .selectFrom('assessment_requirement_evidence as are')
+    .innerJoin('assessment_requirement as ar', 'ar.id', 'are.assessment_requirement_id')
+    .innerJoin('assessment as a', 'a.id', 'ar.assessment_id')
+    .where('are.evidence_id', '=', evidenceId)
+    .where('a.state', 'in', ['complete', 'archived', 'cancelled'])
+    .select('a.id')
+    .limit(1)
+    .executeTakeFirst();
+  if (terminalLink) return { immutable: true, reason: 'assessment_terminal' };
+
+  return { immutable: false };
+}
+
+/**
+ * Convenience helper: if evidence is retention-locked, write a 409
+ * Conflict response and return true so the caller can early-return.
+ * Otherwise returns false and writes nothing.
+ */
+async function rejectIfImmutable(
+  db: Kysely<Database>,
+  evidenceId: string,
+  res: Response,
+): Promise<boolean> {
+  const result = await isEvidenceImmutable(db, evidenceId);
+  if (!result.immutable) return false;
+
+  const messages: Record<typeof result.reason, string> = {
+    claimed: 'Evidence is immutable once claimed',
+    linked_to_claim: 'Evidence is immutable once cited in a claim',
+    assessment_terminal: 'Evidence is immutable once used in a completed, archived, or cancelled assessment',
+  };
+
+  res.status(409).json({
+    error: messages[result.reason],
+    reason: result.reason,
+  });
+  return true;
 }
 
 /**
@@ -229,8 +412,23 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
 }));
 
 router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
   const db = getDatabase();
   const includeContent = req.query.include_content === 'true';
+
+  // Authorization gate: only return evidence the caller can see. We
+  // reuse the accessibility helper to decide visibility, then fetch
+  // the display projection once authorization is confirmed. A 404 is
+  // returned for both not-found and not-authorized to avoid leaking
+  // existence to callers with no right to know.
+  const accessible = await getEvidenceIfAccessible(db, req.user.id, req.user.role, req.params.id as string);
+  if (!accessible) {
+    res.status(404).json({ error: 'Evidence not found' });
+    return;
+  }
 
   const evidence = await db
     .selectFrom('evidence')
@@ -315,8 +513,21 @@ interface ClaimRecord {
 
 // Get claims referencing a specific evidence item
 router.get('/:id/claims', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
   const db = getDatabase();
-  const evidenceId = req.params.id;
+  const evidenceId = req.params.id as string;
+
+  // Authorization gate: evidence claim links can disclose which assessments
+  // and products an organization is assessing, so they must be readable
+  // only by evidence participants or holders of the view-all permissions.
+  const accessible = await getEvidenceIfAccessible(db, req.user.id, req.user.role, evidenceId);
+  if (!accessible) {
+    res.status(404).json({ error: 'Evidence not found' });
+    return;
+  }
 
   // Find claims where this evidence is supporting, counter, or mitigation
   const supportingClaims = (await db
@@ -473,10 +684,12 @@ router.put('/:id', requireAuth, requirePermission('evidence.edit'), asyncHandler
       return;
     }
 
-    if (evidence.state === 'claimed') {
-      res.status(403).json({ error: 'Evidence is immutable once claimed' });
-      return;
-    }
+    // Retention/immutability check. Covers the legacy `state === 'claimed'`
+    // rule plus the newer conditions: cited in a claim, or linked to an
+    // assessment whose state is complete/archived/cancelled. Admins are
+    // bound equally; this is a record-integrity policy, not an authz
+    // policy, so 409 is returned instead of 403.
+    if (await rejectIfImmutable(db, req.params.id as string, res)) return;
 
     const updateData: Record<string, unknown> = {};
     if (data.name !== undefined) updateData.name = data.name;
@@ -556,6 +769,10 @@ router.post(
         res.status(404).json({ error: 'Evidence not found' });
         return;
       }
+
+      // Notes are part of the evidence record for retention purposes, so
+      // they cannot be added to a used/locked evidence row.
+      if (await rejectIfImmutable(db, req.params.id as string, res)) return;
 
       const noteId = uuidv4();
 
@@ -701,6 +918,12 @@ router.delete(
         return;
       }
 
+      // Links are part of the evidence record for retention purposes. If
+      // the evidence is used (claimed, cited in a claim, or linked to a
+      // terminal assessment) then no link row may be removed, even the
+      // one currently being asked for.
+      if (await rejectIfImmutable(db, req.params.id as string, res)) return;
+
       const result = await db
         .deleteFrom('assessment_requirement_evidence')
         .where('evidence_id', '=', req.params.id as string)
@@ -773,6 +996,14 @@ router.post(
         res.status(statusCode).json({ error: validation.error });
         return;
       }
+
+      // State transitions mutate the evidence record and must respect
+      // retention. The validation above covers `state === 'claimed'`
+      // indirectly (by requiring `in_progress`), but the retention
+      // helper also blocks evidence already cited in a claim or linked
+      // to a terminal assessment, which can in theory coexist with
+      // other non-terminal states.
+      if (await rejectIfImmutable(db, req.params.id as string, res)) return;
 
       // Existence check only; we never return this row to the client.
       const reviewer = await db
@@ -858,6 +1089,13 @@ router.post(
       res.status(statusCode).json({ error: validation.error });
       return;
     }
+
+    // Approval is a state transition that both the retention rule and
+    // the business invariants care about. If the evidence is already
+    // retention-locked (for example because it is linked to a terminal
+    // assessment) the caller should not be able to move it to claimed
+    // through this path.
+    if (await rejectIfImmutable(db, req.params.id as string, res)) return;
 
     const result = await db
       .updateTable('evidence')
@@ -946,6 +1184,10 @@ router.post(
         res.status(403).json({ error: 'Evidence authors cannot reject their own evidence' });
         return;
       }
+
+      // Reject is a state transition and a note-insert. Both are
+      // blocked once the evidence is retention-locked.
+      if (await rejectIfImmutable(db, req.params.id as string, res)) return;
 
       const result = await db
         .updateTable('evidence')
@@ -1037,16 +1279,21 @@ router.post(
 
     const db = getDatabase();
 
-    const evidence = await db
-      .selectFrom('evidence')
-      .where('id', '=', req.params.id as string)
-      .selectAll()
-      .executeTakeFirst();
-
+    // Authorization gate: the caller must be a participant in an
+    // assessment this evidence is linked to (or hold a view-all
+    // permission). `requirePermission('evidence.edit')` only asserts
+    // that the caller could edit *some* evidence; it does not scope
+    // the edit to this particular record. A 404 is used for the
+    // negative case to avoid leaking evidence existence.
+    const evidence = await getEvidenceIfAccessible(db, req.user.id, req.user.role, req.params.id as string);
     if (!evidence) {
       res.status(404).json({ error: 'Evidence not found' });
       return;
     }
+
+    // Attachments are part of the evidence record for retention
+    // purposes and cannot be added to a used/locked evidence row.
+    if (await rejectIfImmutable(db, req.params.id as string, res)) return;
 
     const maxFileSize = getMaxFileSize();
     const storageProviderName = getStorageProviderName();
@@ -1298,7 +1545,21 @@ router.get(
   '/:id/attachments/:attachmentId/download',
   requireAuth,
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
     const db = getDatabase();
+
+    // Authorization gate: binary content can contain proprietary or
+    // regulated material, so the download must be restricted to evidence
+    // participants or holders of the view-all permissions. The check
+    // runs before the attachment lookup to avoid leaking its existence.
+    const accessible = await getEvidenceIfAccessible(db, req.user.id, req.user.role, req.params.id as string);
+    if (!accessible) {
+      res.status(404).json({ error: 'Attachment not found' });
+      return;
+    }
 
     const attachment = await db
       .selectFrom('evidence_attachment')
@@ -1387,7 +1648,22 @@ router.delete(
   requireAuth,
   requirePermission('evidence.delete'),
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
     const db = getDatabase();
+
+    // Authorization gate: the caller must be a participant in an
+    // assessment this evidence is linked to (or hold a view-all
+    // permission). Same rationale as the POST route above: a global
+    // `evidence.delete` permission does not imply record-level
+    // authority over every evidence item.
+    const accessible = await getEvidenceIfAccessible(db, req.user.id, req.user.role, req.params.id as string);
+    if (!accessible) {
+      res.status(404).json({ error: 'Attachment not found' });
+      return;
+    }
 
     const attachment = await db
       .selectFrom('evidence_attachment')
@@ -1400,6 +1676,13 @@ router.delete(
       res.status(404).json({ error: 'Attachment not found' });
       return;
     }
+
+    // Attachments on used/locked evidence cannot be deleted. This is
+    // the primary retention vector: once the evidence has been cited
+    // or closed out, its binary payload must survive any caller's
+    // decision, including admins. Return 409 so the client can
+    // distinguish retention from authorization.
+    if (await rejectIfImmutable(db, req.params.id as string, res)) return;
 
     // Delete from external storage if applicable (S3)
     const recordProvider = (attachment.storage_provider || 'database') as StorageProviderName;

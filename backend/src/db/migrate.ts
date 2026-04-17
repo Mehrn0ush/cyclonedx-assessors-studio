@@ -850,6 +850,30 @@ ALTER TABLE app_user ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP WITH TIME Z
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS last_failed_login_at TIMESTAMP WITH TIME ZONE;
 
 -- =====================================================================
+-- Sprint 4: Introduce *.view_all permission family
+-- =====================================================================
+-- evidence.view_all and assessments.view_all allow bearers to bypass the
+-- assessment participant check in evidence routes. Admin is the only role
+-- that receives both by default. The seed runs only on fresh installs,
+-- so for existing installs we upsert the two permissions here (idempotent
+-- via ON CONFLICT on the unique key column) and grant them to the admin
+-- role when that role already exists. Non-admin roles are not granted
+-- these permissions by default. Site admins can assign them through the
+-- role management UI.
+INSERT INTO permission (key, name, description, category) VALUES
+  ('evidence.view_all', 'View All Evidence', 'View all evidence items regardless of assessment participation', 'evidence'),
+  ('assessments.view_all', 'View All Assessments', 'View all assessments regardless of participation', 'assessments')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO role_permission (role_id, permission_id)
+  SELECT r.id, p.id
+  FROM role r
+  CROSS JOIN permission p
+  WHERE r.key = 'admin'
+    AND p.key IN ('evidence.view_all', 'assessments.view_all')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- =====================================================================
 -- Drop the legacy session.token_hash column (Sprint 3).
 -- =====================================================================
 -- The session table used to carry a SHA-256 of the raw token alongside

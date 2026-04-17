@@ -494,12 +494,16 @@ describe('Evidence HTTP Routes', () => {
     });
 
     it('should return 404 for non-existent evidence', async () => {
+      // Sprint 4.3 hardened this route to return 404 for any evidence
+      // the caller is not authorized to see (including non-existent
+      // ids), so that the response does not leak evidence existence to
+      // unauthorized callers. Admins still get the original 200 path
+      // when the row does exist, since they hold evidence.view_all.
       const agent = await loginAs('admin');
 
       const res = await agent.get('/api/v1/evidence/00000000-0000-0000-0000-000000000000/claims');
 
-      expect(res.status).toBe(200); // Empty array is OK
-      expect(res.body.data).toBeDefined();
+      expect(res.status).toBe(404);
     });
 
     it('should require authentication', async () => {
@@ -609,6 +613,11 @@ describe('Evidence HTTP Routes', () => {
     });
 
     it('should prevent updating claimed evidence', async () => {
+      // Sprint 4.9 reframed claimed-evidence immutability as a
+      // retention/record-integrity policy rather than an authorization
+      // error. The response is now 409 Conflict with a `reason`
+      // discriminator so the client can distinguish retention from 403
+      // (no permission) and 404 (not found / not authorized).
       const agent = await loginAs('admin');
 
       const createRes = await agent.post('/api/v1/evidence').send({
@@ -621,7 +630,8 @@ describe('Evidence HTTP Routes', () => {
         .put(`/api/v1/evidence/${evidenceId}`)
         .send({ name: 'Cannot Update' });
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(409);
+      expect(res.body.reason).toBe('claimed');
       expect(res.body.error).toContain('immutable once claimed');
     });
 

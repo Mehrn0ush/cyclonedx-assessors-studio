@@ -20,12 +20,14 @@ const DEFAULT_PERMISSIONS = [
   { key: 'requirements.edit', name: 'Edit Requirements', description: 'Edit standard requirement definitions', category: 'requirements' },
   // Assessments
   { key: 'assessments.view', name: 'View Assessments', description: 'View assessment list and details', category: 'assessments' },
+  { key: 'assessments.view_all', name: 'View All Assessments', description: 'View all assessments regardless of participation', category: 'assessments' },
   { key: 'assessments.create', name: 'Create Assessments', description: 'Create new assessments', category: 'assessments' },
   { key: 'assessments.edit', name: 'Edit Assessments', description: 'Edit assessments', category: 'assessments' },
   { key: 'assessments.manage', name: 'Manage Assessments', description: 'Start, complete, and manage assessment lifecycle', category: 'assessments' },
   { key: 'assessments.notes', name: 'Work Notes', description: 'Add work notes to assessment requirements', category: 'assessments' },
   // Evidence
   { key: 'evidence.view', name: 'View Evidence', description: 'View evidence items', category: 'evidence' },
+  { key: 'evidence.view_all', name: 'View All Evidence', description: 'View all evidence items regardless of assessment participation', category: 'evidence' },
   { key: 'evidence.create', name: 'Create Evidence', description: 'Create new evidence', category: 'evidence' },
   { key: 'evidence.edit', name: 'Edit Evidence', description: 'Edit evidence items', category: 'evidence' },
   { key: 'evidence.review', name: 'Review Evidence', description: 'Review and approve evidence', category: 'evidence' },
@@ -115,20 +117,30 @@ const DEFAULT_ROLES = [
 export async function seedDefaultRolesAndPermissions(): Promise<void> {
   const db = getDatabase();
 
-  // Check if permissions already exist
-  const existingPerms = await db
-    .selectFrom('permission')
+  // Idempotency check: skip only if roles have been seeded. We used to
+  // check for the presence of any permission, but the Sprint 4 migration
+  // block in migrate.ts upserts two permissions before this runs, which
+  // caused the seed to bail out on fresh installs and leave the DB
+  // without any roles. Roles are only ever inserted by this seeder, so
+  // their presence is a reliable "already done" signal.
+  const existingRoles = await db
+    .selectFrom('role')
     .select(db.fn.count<number>('id').as('count'))
     .executeTakeFirstOrThrow();
 
-  if (Number(existingPerms.count) > 0) {
-    logger.info('Permissions already seeded, skipping');
+  if (Number(existingRoles.count) > 0) {
+    logger.info('Default roles already seeded, skipping');
     return;
   }
 
   logger.info('Seeding default permissions and roles...');
 
-  // Insert permissions
+  // Insert permissions. The Sprint 4 migration block pre-inserts two
+  // permissions (evidence.view_all, assessments.view_all) so those may
+  // already exist when we reach this point on a fresh install. Use an
+  // idempotent upsert and reload the canonical ids for all permissions
+  // after the write so the role_permission joins below work regardless
+  // of who inserted the row first.
   const permissionMap = new Map<string, string>();
   for (const perm of DEFAULT_PERMISSIONS) {
     const id = uuidv4();
@@ -141,8 +153,16 @@ export async function seedDefaultRolesAndPermissions(): Promise<void> {
         description: perm.description,
         category: perm.category,
       })
+      .onConflict((oc) => oc.column('key').doNothing())
       .execute();
-    permissionMap.set(perm.key, id);
+  }
+
+  const persistedPermissions = await db
+    .selectFrom('permission')
+    .select(['id', 'key'])
+    .execute();
+  for (const row of persistedPermissions) {
+    permissionMap.set(row.key, row.id);
   }
 
   // Insert roles and role_permission associations
