@@ -98,7 +98,11 @@ export async function loadLocaleMessages(locale: string): Promise<void> {
   try {
     const loader = LOCALE_LOADERS[code];
     const messages = await loader();
-    i18n.global.setLocaleMessage(code, messages.default);
+    // Translations are intentionally allowed to be partial; vue-i18n
+    // falls back to en-US for missing keys. Cast through typeof enUS
+    // so setLocaleMessage accepts the payload without requiring every
+    // locale JSON to match the canonical shape one-for-one.
+    i18n.global.setLocaleMessage(code, messages.default as typeof enUS);
     const localeRef = i18n.global.locale as unknown;
     if (typeof localeRef === 'object' && localeRef !== null && 'value' in localeRef) {
       (localeRef as Record<string, unknown>).value = code;
