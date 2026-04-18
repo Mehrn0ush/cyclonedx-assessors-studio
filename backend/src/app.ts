@@ -139,12 +139,24 @@ function configureRateLimiters(app: Express): void {
   // and well below a credential-stuffing rate. Counts are per IP, so
   // legitimate users sharing a NAT are effectively bounded but a single
   // misconfigured client cannot use the whole window by itself.
+  // The limiter exists to throttle credential-stuffing against
+  // POST /auth/login, POST /auth/register, and the password-change
+  // endpoints. GET /auth/me and GET /auth/password-policy are
+  // idempotent reads that the SPA fires on every navigation (F05
+  // re-fetches /me on every route change into an authenticated
+  // page, and LoginView fetches the policy on mount), so counting
+  // them against the 10 per 15 minute budget kicked authenticated
+  // users back to the login screen after ~10 clicks. Skipping GET
+  // preserves the credential-stuffing defense that this limiter
+  // was built for while leaving the read surface to the general
+  // limiter.
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
     message: 'Too many authentication attempts, please try again later.',
+    skip: (req) => req.method === 'GET',
   });
 
   const heavyOpLimiter = rateLimit({

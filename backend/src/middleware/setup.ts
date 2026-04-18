@@ -47,9 +47,21 @@ export function requireSetup(req: Request, res: Response, next: NextFunction): v
   }
 
   // Always allow health check and the setup endpoint.
+  //
+  // GET /api/v1/auth/password-policy is also always allowed. It is a
+  // public, read-only endpoint that returns only the bounds the UI
+  // needs for placeholder copy and client-side length validation
+  // (see routes/auth.ts and api/auth.ts). LoginView calls it on
+  // mount, so blocking it behind the setup gate would leave the
+  // login page permanently broken on a fresh install: the user
+  // would see a 503 every time they visited /login, and would
+  // never be able to progress to actually creating the first
+  // admin. The endpoint leaks no secrets, so exposing it before
+  // setup is safe.
   if (
     req.path === '/api/health' ||
-    req.path.startsWith('/api/v1/setup')
+    req.path.startsWith('/api/v1/setup') ||
+    (req.method === 'GET' && req.path === '/api/v1/auth/password-policy')
   ) {
     next();
     return;

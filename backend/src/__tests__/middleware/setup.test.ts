@@ -22,8 +22,12 @@ vi.mock('../../utils/logger.js', () => ({
   },
 }));
 
-const mockReq = (path: string = '/api/v1/projects'): Partial<Request> => ({
+const mockReq = (
+  path: string = '/api/v1/projects',
+  method: string = 'GET',
+): Partial<Request> => ({
   path,
+  method,
 });
 
 const mockRes = (): Partial<Response> & { status: any; json: any } => {
@@ -214,6 +218,39 @@ describe('Setup Middleware', () => {
       requireSetup(req as Request, res as Response, next);
 
       expect(next).toHaveBeenCalled();
+    });
+
+    // Regression: LoginView calls GET /api/v1/auth/password-policy on
+    // mount to render placeholder copy and length hints. On a fresh
+    // install that request fires before the first admin has been
+    // created, so the setup gate must let it through. Without this
+    // exemption, the login page is permanently wedged on a 503 and
+    // the operator cannot progress to the setup wizard's login step.
+    it('should allow GET /api/v1/auth/password-policy before setup', () => {
+      const req = mockReq('/api/v1/auth/password-policy', 'GET');
+      const res = mockRes();
+      const next = vi.fn();
+
+      requireSetup(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalled();
+      expect(res.status).not.toHaveBeenCalled();
+    });
+
+    // The exemption is intentionally narrow. A POST, PATCH, or PUT
+    // under /api/v1/auth/* must still be blocked before setup so an
+    // unauthenticated caller cannot probe login or other auth
+    // endpoints while the system is in a half-initialized state.
+    it('should still block POST /api/v1/auth/login before setup', async () => {
+      const req = mockReq('/api/v1/auth/login', 'POST');
+      const res = mockRes();
+      const next = vi.fn();
+
+      requireSetup(req as Request, res as Response, next);
+
+      await new Promise((r) => setTimeout(r, 100));
+
+      expect(res.status).toHaveBeenCalledWith(503);
     });
 
     it('should allow non-API requests even when setup is incomplete', () => {

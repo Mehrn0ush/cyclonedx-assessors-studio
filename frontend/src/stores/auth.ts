@@ -68,9 +68,24 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await authAPI.getCurrentUser()
       user.value = response
       permissions.value = response.permissions || []
-    } catch {
-      user.value = null
-      permissions.value = []
+    } catch (err: unknown) {
+      // Only treat a 401 as "session is gone". Any other failure
+      // (429 rate limited, 503 during a deploy or setup check,
+      // network blips) is transient and must not log the user out.
+      //
+      // F05 re-fetches /auth/me on every navigation into an
+      // authenticated route. If we naively null the user on every
+      // error, a single transient failure bounces the user back to
+      // the login screen mid session, which is exactly the kick
+      // out behavior Steve reported after Sprint 6.
+      const status = (err as { response?: { status?: number } })?.response?.status
+      if (status === 401) {
+        user.value = null
+        permissions.value = []
+      }
+      // For anything else: keep the existing user and permissions
+      // in place. The next navigation (or an explicit retry) will
+      // call fetchCurrentUser again.
     } finally {
       loading.value = false
       isInitialized.value = true

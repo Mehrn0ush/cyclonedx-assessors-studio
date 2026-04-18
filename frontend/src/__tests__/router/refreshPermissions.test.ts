@@ -115,7 +115,15 @@ describe('refreshPermissionsFromServer', () => {
   })
 
   it('clears the session when the server reports the user is gone', async () => {
-    vi.mocked(authAPI.getCurrentUser).mockRejectedValue(new Error('401'))
+    // Axios surfaces the HTTP status on err.response.status. The
+    // store only treats a true 401 as "session is gone"; other
+    // transient failures (429, 503, network) must NOT log the user
+    // out mid session. See the fetchCurrentUser tests for the
+    // preservation invariants.
+    const unauthorizedError = Object.assign(new Error('Unauthorized'), {
+      response: { status: 401 },
+    })
+    vi.mocked(authAPI.getCurrentUser).mockRejectedValue(unauthorizedError)
 
     const store = useAuthStore()
     // Seed a stale session so we can see it get cleared.
@@ -127,5 +135,27 @@ describe('refreshPermissionsFromServer', () => {
     expect(store.user).toBeNull()
     expect(store.permissions).toEqual([])
     expect(store.isAuthenticated).toBe(false)
+  })
+
+  // F05 kick-out regression. A 429 from the brute-force limiter
+  // must not bounce an already-authenticated user to /login. The
+  // limiter only guards against credential stuffing on login POSTs;
+  // the re-fetch on navigation is a read-only check that should
+  // degrade gracefully when throttled.
+  it('preserves the session when /auth/me returns 429', async () => {
+    const rateLimitedError = Object.assign(new Error('Too Many Requests'), {
+      response: { status: 429 },
+    })
+    vi.mocked(authAPI.getCurrentUser).mockRejectedValue(rateLimitedError)
+
+    const store = useAuthStore()
+    store.user = { ...mockUser }
+    store.permissions = ['p.live']
+
+    await refreshPermissionsFromServer(true)
+
+    expect(store.user).toEqual(mockUser)
+    expect(store.permissions).toEqual(['p.live'])
+    expect(store.isAuthenticated).toBe(true)
   })
 })

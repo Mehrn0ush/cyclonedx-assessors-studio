@@ -17,7 +17,13 @@ export async function logout(): Promise<void> {
 
 export async function getCurrentUser(): Promise<User & { permissions?: string[] }> {
   const { data } = await client.get('/auth/me')
-  return data.user
+  // The /auth/me endpoint returns { user, permissions } as sibling
+  // fields. The auth store reads permissions from the returned value,
+  // so fold the sibling permissions array into the user-shaped object
+  // the caller expects. Dropping this merge silently strips every
+  // permission on every /auth/me round trip and causes the sidebar
+  // and route guards to treat the user as if they held no role.
+  return { ...data.user, permissions: data.permissions }
 }
 
 export interface PasswordPolicy {
