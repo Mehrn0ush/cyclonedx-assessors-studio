@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename);
 
 import { getConfig } from './config/index.js';
 import { logger } from './utils/logger.js';
-import { requestIdMiddleware } from './middleware/security.js';
+import { requestIdMiddleware, noStoreCache } from './middleware/security.js';
 import type { AuthRequest } from './middleware/auth.js';
 import { requireSetup } from './middleware/setup.js';
 import healthRoutes from './routes/health.js';
@@ -193,6 +193,12 @@ function configureRequestMiddleware(app: Express): void {
     next();
   });
 
+  // Sprint 6 F12: stamp Cache-Control: no-store on every /api/v1
+  // response so shared caches and back button replays cannot leak
+  // session scoped JSON across users. Applied before route handlers
+  // so specific endpoints can override if they ever need a different
+  // policy.
+  app.use('/api/v1', noStoreCache);
   app.use('/api/v1', camelCaseResponse);
 
   if (config.NODE_ENV !== 'test') {

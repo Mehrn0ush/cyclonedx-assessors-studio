@@ -110,7 +110,7 @@ Check 1. Evidence in database storage. If you are running with `STORAGE_PROVIDER
 
 Check 2. Webhook delivery log retention. `WEBHOOK_DELIVERY_RETENTION_DAYS` controls how long delivery logs are kept. Reduce the value if your volume is high and the retention is not required for audit.
 
-Check 3. Audit log retention. `AUDIT_LOG_RETENTION_DAYS` controls audit log size. Reduce cautiously; the audit log is part of your compliance evidence.
+Check 3. Audit log. The `audit_log` table is never auto purged. If it dominates the database size, schedule a SQL delete for rows older than your compliance horizon (`DELETE FROM audit_log WHERE created_at < now() - interval '<N> days'`). Reduce the horizon cautiously; the audit log is part of your compliance evidence.
 
 Check 4. Vacuum. Run `VACUUM ANALYZE;` if the database has not been vacuumed recently. PostgreSQL's autovacuum handles most of this, but long running transactions can prevent reclamation.
 

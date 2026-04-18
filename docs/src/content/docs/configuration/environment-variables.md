@@ -21,6 +21,8 @@ Variables can be set in any of the usual places: a `.env` file next to the backe
 | `CORS_ORIGIN` | `http://localhost:5173` | Allowed CORS origin. The packaged container serves the SPA and the API on the same origin, so CORS is effectively a no op in that deployment. Set this when the API is called from a different origin, such as a Vite dev server during local work or a cross origin integration. |
 | `APP_URL` | `http://localhost:5173` | Public base URL of the application (for example `https://studio.example.com`). Required for notification channels that include links back to the app. |
 | `NODE_ENV` | `development` | Runtime environment: `development`, `production`, or `test`. |
+| `COOKIE_SECURE` | `auto` | Whether to mark session cookies with the `Secure` attribute. `auto` (default) infers from the request scheme and `NODE_ENV`, setting `Secure` whenever the app is served over HTTPS or `NODE_ENV=production`. `true` forces `Secure` on every response. `false` disables it (only appropriate for plain HTTP local development). |
+| `TRUST_PROXY_HOPS` | `0` | Number of reverse proxy hops Express should trust for `X-Forwarded-*` header parsing. Leave at `0` for direct deployments. Set to `1` when a single TLS terminating ingress (nginx, ALB, Traefik) sits directly in front of the Node process. Required for correct client IP handling, rate limiting, `Secure` cookie inference, and audit logging in proxied deployments. |
 
 ## Initial administrator account
 
@@ -31,10 +33,38 @@ No environment variables are used to seed the initial administrator. The first a
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `REGISTRATION_MODE` | `disabled` | Controls self service account creation. `disabled` rejects every request to `POST /api/v1/auth/register`. `invite_only` requires a valid unused invite token issued by an admin. `open` accepts any well formed registration and assigns the `assessee` role. |
+| `ACCEPT_OPEN_REGISTRATION_RISK` | `false` | Operator acknowledgement required to run `REGISTRATION_MODE=open` in production. When `NODE_ENV=production` and `REGISTRATION_MODE=open`, the backend refuses to start unless this is set to `true` (or `1`). The flag is ignored outside production so local and CI setups remain friction free. Open mode accepts any well formed registration with no invite token; only enable it when you have other controls in place such as network gating, captcha, or email verification. |
+| `INVITE_RETAIN_AFTER_TERMINAL_DAYS` | `30` | Days to retain invites in `consumed`, `revoked`, or `expired` state before the periodic cleanup job purges them. |
 
 Admins can always create users through the admin APIs, irrespective of mode. When running in `invite_only` mode, call `POST /api/v1/admin/invites` with an optional `email`, an `intendedRole`, and an optional `expiresInHours` (default 168). The plaintext token is returned once; the server stores only the SHA-256 hash. `GET /api/v1/admin/invites` lists invites and `DELETE /api/v1/admin/invites/:id` revokes one.
 
 The register endpoint returns a generic `202 Accepted` response for both successful and duplicate submissions so an attacker cannot enumerate accounts by probing it.
+
+Mode changes leave a tamper evidence trail. The backend persists the active `REGISTRATION_MODE` to the `app_config` table on startup and emits an audit row whenever the runtime value differs from the last persisted value, so a silent toggle from `disabled` or `invite_only` to `open` is always recoverable from the audit log.
+
+## Authentication and lockout
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LOGIN_MAX_FAILED_ATTEMPTS` | `5` | Number of consecutive failed password attempts before the account is locked. Set to `0` to disable per account lockout (rate limiting still applies). |
+| `LOGIN_LOCKOUT_DURATION_MINUTES` | `15` | Minutes an account remains locked after exceeding `LOGIN_MAX_FAILED_ATTEMPTS`. The lock auto clears when the duration elapses. |
+
+Per IP rate limiting on `/api/v1/auth` (10 attempts per 15 minutes) is always on outside `NODE_ENV=test` and is not configurable. The two layers compose: per account lockout protects a known username from a focused attacker, and per IP rate limiting protects against credential stuffing across a username list.
+
+## Sessions
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SESSION_CLEANUP_INTERVAL_MINUTES` | `15` | Minutes between runs of the scheduled session cleanup job. Set to `0` to disable scheduled cleanup. |
+| `SESSION_RETAIN_EXPIRED_HOURS` | `24` | Hours to retain expired session rows after they are no longer valid. The cleanup job deletes anything older than this window. |
+
+## Password policy
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PASSWORD_MIN_LENGTH` | `12` | Minimum password length. Hard floor of 8 and ceiling of 128 enforced by configuration validation. |
+| `PASSWORD_HIBP_CHECK_ENABLED` | `false` | When `true`, the backend performs a Have I Been Pwned k anonymity range check on every new password during registration, password change, and password reset. The full password is never sent over the wire, only the first five characters of its SHA-1 hash. |
+| `PASSWORD_HIBP_TIMEOUT_MS` | `3000` | Network timeout for the HIBP range API in milliseconds. On timeout the check fails open so a momentary network blip does not lock users out of password changes. |
 
 ## Evidence storage
 
@@ -119,32 +149,6 @@ See [Encryption at Rest](/administration/encryption-at-rest/) for the key hierar
 ## Identity providers
 
 OpenID Connect is on the roadmap. When it ships, the `OIDC_*` environment variables will be documented here. Until then, the platform authenticates with local username and password only.
-
-## Retention
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AUDIT_LOG_RETENTION_DAYS` | `365` | Days to retain the audit log before automatic purge. Set higher if your compliance horizon requires it; set to `0` to retain indefinitely. |
-| `SESSION_RETENTION_DAYS` | `90` | Days to retain expired sessions in the database before purge. |
-
-## Feature flags
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `FEATURE_IMPORT_CDXA` | `true` | Enable import of CDXA standards. |
-| `FEATURE_EXPORT_CDXA` | `true` | Enable export of CDXA attestations. |
-| `FEATURE_BULK_OPERATIONS` | `true` | Enable bulk operations on claims and evidence (multi select rating, bulk evidence attachment). |
-
-Feature flags default to on and are intended to let an administrator disable a capability that is not approved for their installation.
-
-## Development only
-
-These variables exist for development and test scenarios. Do not set them in production.
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DEV_SEED_DATA` | `false` | Seed the database with sample users, standards, and assessments on first run. Intended for local evaluation; never enable in production. |
-| `DEV_DISABLE_AUTH` | `false` | Disable authentication middleware. Every request is treated as an administrator. Never enable in production. Exists only to simplify local UI work. |
 
 ## Putting it together
 

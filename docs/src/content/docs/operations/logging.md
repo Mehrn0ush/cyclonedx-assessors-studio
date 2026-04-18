@@ -108,7 +108,7 @@ Request IDs are also included in error responses (in the JSON body under `reques
 
 Assessors Studio does not retain logs itself; it emits them and leaves retention to the log aggregation platform. Pick a retention window that covers your audit horizon: 90 days for routine operations, 1 year for compliance investigations, 7 years for regulatory archives. Organizations with multiple retention needs typically ship to two destinations: a short retention operational store (hot, indexed, searchable) and a long retention cold store (S3 + parquet, or the log platform's archive tier).
 
-Audit events additionally write to the `audit_log` table in the database, which is retained according to `AUDIT_LOG_RETENTION_DAYS`. The audit log is the authoritative record for attestation signing, permission changes, and key rotations. Do not rely on stdout logs alone for compliance evidence.
+Audit events additionally write to the `audit_log` table in the database, which is never auto purged by the application. Operators who need a shorter compliance horizon should purge with a scheduled SQL statement (`DELETE FROM audit_log WHERE created_at < now() - interval '<N> days'`) rather than relying on an environment variable. The audit log is the authoritative record for attestation signing, permission changes, and key rotations. Do not rely on stdout logs alone for compliance evidence.
 
 ## Common pitfalls
 

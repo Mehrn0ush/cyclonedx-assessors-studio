@@ -27,7 +27,7 @@ A signed, tamper evident record that captures the outcome of an assessment. An a
 
 ## Audit log
 
-The append only record of every permission sensitive action in the application: user creation, role change, standard publication, attestation signing, encryption key rotation, and more. The audit log is stored in the database and retained per `AUDIT_LOG_RETENTION_DAYS`.
+The append only record of every permission sensitive action in the application: user creation, role change, standard publication, attestation signing, encryption key rotation, and more. The audit log is stored in the database and is never auto purged; operators who need a compliance horizon shorter than forever should purge via SQL on a schedule they control.
 
 ## Catalog
 

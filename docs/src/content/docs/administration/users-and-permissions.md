@@ -85,7 +85,7 @@ The authentication configuration is driven by environment variables and is cover
 
 ## Audit log
 
-Every permission sensitive action writes to an audit log: account creation, role change, permission change, password change, sign in, sign out, and every create or update on an administrative resource. The log is visible to administrators under Administration and is retained according to the organization's configured retention policy. It can also be exported for external review.
+Every permission sensitive action writes to an audit log: account creation, role change, permission change, password change, sign in, sign out, and every create or update on an administrative resource. The log is visible to administrators under Administration. It is never auto purged by the application; operators who need a compliance horizon shorter than forever should schedule a SQL delete for rows older than the retention window. It can also be exported for external review.
 
 ## Common workflows
 

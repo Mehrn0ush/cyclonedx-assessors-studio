@@ -1,5 +1,29 @@
+# =============================================================================
+# Base image selection (Sprint 6 F07)
+# =============================================================================
+# The three build stages pin the Node.js base image by content digest
+# rather than by floating tag so the image we actually ship is
+# reproducible and cannot be swapped out from under us by a registry
+# update to the node:24-alpine tag. The digest below corresponds to
+# the linux/amd64 node:24-alpine manifest. To refresh the pin, run
+# `docker pull node:24-alpine` followed by
+# `docker inspect --format='{{index .RepoDigests 0}}' node:24-alpine`
+# and paste the new sha256 back into every FROM line in this file
+# (keep the human tag as a comment for readability). Operators who
+# want additional assurance should verify the image with cosign
+# before tagging a release:
+#
+#   cosign verify \
+#     --certificate-identity-regexp 'https://github.com/docker-library/official-images' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+#     node@sha256:8e2c930fda481a6ec141fe5a88e8c249c69f8102fe98af505f38c081649ea749
+#
+# See docs/ for the full supply chain guidance.
+# =============================================================================
+ARG NODE_IMAGE=node@sha256:8e2c930fda481a6ec141fe5a88e8c249c69f8102fe98af505f38c081649ea749
+
 # Stage 1: Build frontend
-FROM node:24-alpine AS frontend-build
+FROM ${NODE_IMAGE} AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci
@@ -7,7 +31,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Build backend
-FROM node:24-alpine AS backend-build
+FROM ${NODE_IMAGE} AS backend-build
 RUN apk add --no-cache python3 make g++
 WORKDIR /app/backend
 COPY backend/package*.json ./
@@ -17,7 +41,7 @@ RUN npm run build
 
 # Stage 3: Production image (backend serves the API on /api and the
 # compiled Vue 3 single-page application on /).
-FROM node:24-alpine AS production
+FROM ${NODE_IMAGE} AS production
 WORKDIR /app
 
 # Install production dependencies only (build tools needed for argon2 native compilation)
