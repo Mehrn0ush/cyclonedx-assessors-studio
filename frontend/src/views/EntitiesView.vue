@@ -3,7 +3,7 @@
     <PageHeader title="Entities">
       <template #actions>
         <el-button v-if="authStore.hasPermission('entities.create')" type="primary" @click="showCreateDialog">
-          <el-icon style="margin-right: 4px;"><Plus /></el-icon>
+          <el-icon class="mr-2"><Plus /></el-icon>
           New Entity
         </el-button>
       </template>
@@ -21,7 +21,7 @@
           <el-select
             v-model="filterEntityType"
             :placeholder="'All Types'"
-            style="width: 180px"
+            class="w-180"
             clearable
             aria-label="Filter by entity type"
           >
@@ -37,7 +37,7 @@
           <el-select
             v-model="filterPerspective"
             :placeholder="'All Relationships'"
-            style="width: 180px"
+            class="w-180"
             clearable
             aria-label="Filter by relationship perspective"
           >
@@ -49,7 +49,7 @@
           <el-select
             v-model="filterState"
             :placeholder="'All States'"
-            style="width: 150px"
+            class="w-150"
             clearable
             aria-label="Filter by state"
           >
@@ -62,7 +62,7 @@
           <el-input
             v-model="searchText"
             placeholder="Search entities..."
-            style="width: 250px"
+            class="w-250"
             clearable
             aria-label="Search entities"
           />
@@ -124,7 +124,7 @@
                 :show-after="100"
               >
                 <template #content>
-                  <div v-for="std in row.standards" :key="std.id" style="white-space: nowrap;">
+                  <div v-for="std in row.standards" :key="std.id" class="whitespace-nowrap">
                     {{ std.name }}{{ std.version ? ` v${std.version}` : '' }}
                   </div>
                 </template>
@@ -213,7 +213,7 @@
         </el-form-item>
 
         <el-form-item label="Entity Type" prop="entityType">
-          <el-select v-model="dialogForm.entityType" placeholder="Choose a type" style="width: 100%;">
+          <el-select v-model="dialogForm.entityType" placeholder="Choose a type" class="w-full">
             <el-option
               v-for="type in allEntityTypes"
               :key="type"

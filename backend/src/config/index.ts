@@ -1,7 +1,54 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
+import fs from 'node:fs';
 
 dotenv.config();
+
+/**
+ * Environment variables that support a `<NAME>_FILE` companion pointing
+ * at a file whose contents are used as the value. This is the standard
+ * Docker Compose secrets pattern (`/run/secrets/<name>`), and it lets
+ * operators keep credentials out of the environment block and process
+ * listings.
+ *
+ * The companion variable wins when both are set so that a stale env
+ * value cannot mask the secret file, and so that troubleshooting a
+ * misconfiguration (e.g. wrong file path) is an obvious failure rather
+ * than a silent fallback to the environment value.
+ */
+const FILE_BACKED_ENV_VARS = [
+  'S3_ACCESS_KEY_ID',
+  'S3_SECRET_ACCESS_KEY',
+] as const;
+
+/**
+ * For each file-backed env var, if the `<NAME>_FILE` variable is set,
+ * read that file and use its contents as the value of `<NAME>`. The
+ * trailing newline (a common artifact of `echo "secret" > file`) is
+ * stripped to reduce operator surprise. Errors while reading are
+ * surfaced immediately; silently falling through to the env value
+ * would hide a broken secret mount from the operator.
+ *
+ * Exported so tests that mutate process.env between cases can
+ * re-resolve explicitly after changing the `_FILE` variable. In
+ * production the first getConfig() call is the single trigger.
+ */
+export function resolveFileBackedEnvVars(): void {
+  for (const name of FILE_BACKED_ENV_VARS) {
+    const filePath = process.env[`${name}_FILE`];
+    if (!filePath) continue;
+    try {
+      const contents = fs.readFileSync(filePath, 'utf8');
+      process.env[name] = contents.replace(/\r?\n$/, '');
+    } catch (error) {
+      throw new Error(
+        `${name}_FILE is set to ${filePath} but the file could not be read: ` +
+          `${(error as Error).message}. Check the Docker secret name, the volume ` +
+          `mount, and the container user's read permissions.`,
+      );
+    }
+  }
+}
 
 /**
  * Boolean coercion that works correctly for environment variables.
@@ -48,6 +95,16 @@ const envSchema = z.object({
   // Defaults to disabled so a fresh deployment is closed until the operator
   // makes an explicit choice.
   REGISTRATION_MODE: z.enum(['disabled', 'invite_only', 'open']).default('disabled'),
+  // ACCEPT_OPEN_REGISTRATION_RISK: operator acknowledgement required to
+  // run REGISTRATION_MODE=open in production. Open mode accepts any well
+  // formed registration with no invite token, which is a known path for
+  // spam account creation, brute force setup of elevated roles, and
+  // trivial reconnaissance of the tenancy. The production boot guard
+  // refuses to start unless this flag is explicitly set to 1 (or true),
+  // which forces the operator to make a deliberate choice. Non-production
+  // environments ignore the flag so local and CI setups remain
+  // friction-free.
+  ACCEPT_OPEN_REGISTRATION_RISK: envBoolean(false),
 
   // Evidence storage provider
   STORAGE_PROVIDER: z.enum(['database', 's3']).default('database'),
@@ -161,6 +218,12 @@ let config: Env | null = null;
 
 export function getConfig(): Env {
   if (!config) {
+    // Resolve any `<NAME>_FILE` companion variables into the plain
+    // env variables the schema reads. Done on every cold start (and
+    // after resetConfig) so test helpers that mutate process.env
+    // between cases do not need to manually re-invoke the resolver.
+    resolveFileBackedEnvVars();
+
     const result = envSchema.safeParse(process.env);
 
     if (!result.success) {
@@ -209,6 +272,53 @@ export function validateStartupConfig(cfg: Env = getConfig()): void {
         'METRICS_ENABLED=true but METRICS_TOKEN is unset or shorter than 16 characters. ' +
           'Set METRICS_TOKEN to a long random string so the /metrics endpoint is not ' +
           'served unauthenticated, or set METRICS_ENABLED=false to disable the endpoint.',
+      );
+    }
+  }
+
+  // Refuse to boot REGISTRATION_MODE=open in production unless the
+  // operator has explicitly acknowledged the risk. Open mode accepts any
+  // registration without an invite, which is rarely what a production
+  // tenant wants; the acknowledgement flag turns an accidental
+  // misconfiguration into a loud failure rather than a silent
+  // anyone-can-register window. Non-production environments skip this
+  // check so local and CI workflows that want open mode do not need the
+  // flag.
+  if (
+    cfg.REGISTRATION_MODE === 'open' &&
+    cfg.NODE_ENV === 'production' &&
+    !cfg.ACCEPT_OPEN_REGISTRATION_RISK
+  ) {
+    throw new Error(
+      'REGISTRATION_MODE=open is not permitted in production without ' +
+        'ACCEPT_OPEN_REGISTRATION_RISK=1. Open registration accepts any well ' +
+        'formed request and should only be enabled when you have other ' +
+        'controls (network gating, captcha, email verification) in place. ' +
+        'Set ACCEPT_OPEN_REGISTRATION_RISK=1 to acknowledge and continue, ' +
+        'or switch to REGISTRATION_MODE=invite_only.',
+    );
+  }
+
+  // S3 storage requires credentials to be reachable before any route is
+  // mounted. Previously the check lived inside initializeStorage(),
+  // which runs later in the boot sequence and hides the failure behind
+  // event system and encryption init. Validating here surfaces a
+  // missing Docker secret mount or a typo in a `_FILE` path as an
+  // immediate startup error. The bucket name is not secret, so it
+  // continues to be sourced from the environment; only the credentials
+  // are expected to come from the secret file path. Skip the check in
+  // the test env because the storage factory tests exercise the
+  // missing-credential path directly.
+  if (cfg.STORAGE_PROVIDER === 's3' && cfg.NODE_ENV !== 'test') {
+    const missing: string[] = [];
+    if (!cfg.S3_BUCKET) missing.push('S3_BUCKET');
+    if (!cfg.S3_ACCESS_KEY_ID) missing.push('S3_ACCESS_KEY_ID (or S3_ACCESS_KEY_ID_FILE)');
+    if (!cfg.S3_SECRET_ACCESS_KEY) missing.push('S3_SECRET_ACCESS_KEY (or S3_SECRET_ACCESS_KEY_FILE)');
+    if (missing.length > 0) {
+      throw new Error(
+        `STORAGE_PROVIDER=s3 but the following settings are missing: ${missing.join(', ')}. ` +
+          'Either provide the values directly, or mount Docker secrets and point ' +
+          '<NAME>_FILE at the mount path (typically /run/secrets/<name>).',
       );
     }
   }

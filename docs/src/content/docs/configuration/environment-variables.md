@@ -45,8 +45,10 @@ The register endpoint returns a generic `202 Accepted` response for both success
 | `S3_BUCKET` | | Bucket name. Required when `STORAGE_PROVIDER=s3`. |
 | `S3_REGION` | `us-east-1` | AWS region or S3 compatible region. |
 | `S3_ENDPOINT` | | Custom endpoint URL for MinIO, DigitalOcean Spaces, Backblaze B2, Cloudflare R2, and other S3 compatible providers. Leave unset for AWS S3. |
-| `S3_ACCESS_KEY_ID` | | Access key. Required when `STORAGE_PROVIDER=s3` unless the process runs with ambient AWS credentials (IRSA, instance role). |
-| `S3_SECRET_ACCESS_KEY` | | Secret key. Required alongside `S3_ACCESS_KEY_ID`. |
+| `S3_ACCESS_KEY_ID` | | Access key. Required when `STORAGE_PROVIDER=s3` unless the process runs with ambient AWS credentials (IRSA, instance role). Prefer `S3_ACCESS_KEY_ID_FILE` in production. |
+| `S3_SECRET_ACCESS_KEY` | | Secret key. Required alongside `S3_ACCESS_KEY_ID`. Prefer `S3_SECRET_ACCESS_KEY_FILE` in production. |
+| `S3_ACCESS_KEY_ID_FILE` | | Path to a file whose contents are used as `S3_ACCESS_KEY_ID`. Intended for Docker Compose secrets mounted at `/run/secrets/<name>`. Overrides `S3_ACCESS_KEY_ID` when both are set. The backend refuses to start if the path is set but unreadable. |
+| `S3_SECRET_ACCESS_KEY_FILE` | | Same as above for the secret access key. |
 | `S3_FORCE_PATH_STYLE` | `false` | Set to `true` for MinIO and other providers that require path style addressing. AWS S3 uses virtual host style by default. |
 
 See [Evidence Storage](/administration/storage/) for guidance on choosing between database and object storage, and for migration scripts.

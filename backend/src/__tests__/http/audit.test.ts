@@ -201,7 +201,20 @@ describe('Audit HTTP Routes', () => {
       const res = await adminAgent.get('/api/v1/audit');
 
       expect(res.status).toBe(200);
-      const validActions = ['CREATE', 'UPDATE', 'DELETE', 'READ'];
+      // Mirrors the union in utils/audit.ts AuditEvent.action. Stays in
+      // sync with the action values the writeAuditLog helper accepts;
+      // includes authz_denied added in Sprint 5.2 F13.
+      const validActions = [
+        'create',
+        'create_for_other',
+        'update',
+        'delete',
+        'state_change',
+        'link',
+        'unlink',
+        'authz_denied',
+        'config_change',
+      ];
       for (const log of res.body.data) {
         expect(validActions).toContain(log.action);
       }

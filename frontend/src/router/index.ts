@@ -10,6 +10,15 @@ let setupComplete = true
 // Track whether the initial auth check has completed
 let authInitialized = false
 
+// F05: throttle window for /auth/me re-fetch on navigation. Guards
+// against a rapid-fire click from spamming the server while still
+// surfacing a revoked role or permission within a couple of seconds.
+// A test hook overrides this via setPermissionRefreshIntervalForTests.
+const DEFAULT_PERMISSION_REFRESH_INTERVAL_MS = 2_000
+let permissionRefreshIntervalMs = DEFAULT_PERMISSION_REFRESH_INTERVAL_MS
+let lastPermissionRefreshAt = 0
+let inFlightPermissionRefresh: Promise<void> | null = null
+
 async function checkSetupStatus(): Promise<boolean> {
   if (setupChecked) return setupComplete
   try {
@@ -32,6 +41,58 @@ export function markSetupDone(): void {
 // Called after the initial auth check completes
 export function markAuthInitialized(): void {
   authInitialized = true
+}
+
+/**
+ * F05: re-fetch the current user and permissions on navigation so a
+ * permission or role revocation takes effect on the next route change
+ * rather than persisting until the session cookie expires. Rapid
+ * navigations coalesce behind a single in-flight request, and repeat
+ * calls inside the throttle window are skipped.
+ *
+ * Exported for tests and for flows that want to force a refresh after
+ * a known state change (for example, after the admin UI edits the
+ * current user's role).
+ */
+export async function refreshPermissionsFromServer(force = false): Promise<void> {
+  const authStore = useAuthStore()
+
+  if (inFlightPermissionRefresh) {
+    await inFlightPermissionRefresh
+    return
+  }
+
+  const now = Date.now()
+  if (!force && now - lastPermissionRefreshAt < permissionRefreshIntervalMs) {
+    return
+  }
+
+  inFlightPermissionRefresh = (async () => {
+    try {
+      await authStore.fetchCurrentUser()
+    } finally {
+      lastPermissionRefreshAt = Date.now()
+      inFlightPermissionRefresh = null
+    }
+  })()
+
+  await inFlightPermissionRefresh
+}
+
+/**
+ * Test helper. Production code should not use these.
+ */
+export function _resetPermissionRefreshStateForTests(): void {
+  lastPermissionRefreshAt = 0
+  inFlightPermissionRefresh = null
+  permissionRefreshIntervalMs = DEFAULT_PERMISSION_REFRESH_INTERVAL_MS
+  authInitialized = false
+  setupChecked = false
+  setupComplete = true
+}
+
+export function setPermissionRefreshIntervalForTests(ms: number): void {
+  permissionRefreshIntervalMs = ms
 }
 
 const routes: Array<RouteRecordRaw> = [
@@ -179,10 +240,17 @@ const router = createRouter({
 router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormalized, next: NavigationGuardNext) => {
   const authStore = useAuthStore()
 
-  // Perform initial auth check on first navigation if not already done
+  // Perform initial auth check on first navigation if not already done.
+  // Force the refresh so the throttle does not short circuit the very
+  // first hydration of the store.
   if (!authInitialized) {
-    await authStore.fetchCurrentUser()
+    await refreshPermissionsFromServer(true)
     authInitialized = true
+  } else if (to.meta.requiresAuth || to.meta.requiresPermission) {
+    // F05: re-fetch /auth/me on every navigation into an authenticated
+    // route so permission and role revocations take effect on the next
+    // route change. The throttle coalesces rapid navigations.
+    await refreshPermissionsFromServer()
   }
 
   // Check if initial setup is needed

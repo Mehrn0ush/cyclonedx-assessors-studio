@@ -136,7 +136,7 @@
                 ref="fileInputRef"
                 type="file"
                 multiple
-                style="display: none"
+                class="d-none"
                 @change="handleFileUpload"
               />
             </div>

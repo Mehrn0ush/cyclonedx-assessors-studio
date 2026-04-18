@@ -874,6 +874,33 @@ INSERT INTO role_permission (role_id, permission_id)
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- =====================================================================
+-- Sprint 5: Expand audit_log.action with security-event values.
+-- =====================================================================
+-- The legacy CHECK constraint on audit_log.action only permitted entity
+-- lifecycle actions (create/update/delete/etc). Sprint 5 introduces two
+-- security-event actions:
+--   authz_denied  - emitted by requirePermission on the deny branch so
+--                   every 403 has a durable trail for SIEM ingestion.
+--   config_change - emitted when a security-sensitive runtime config
+--                   differs from its last-known persisted value
+--                   (e.g. REGISTRATION_MODE, F15).
+-- The drop-then-add pattern is the project standard for widening CHECK
+-- constraints (see entity_relationship above). IF EXISTS keeps it
+-- idempotent across fresh installs and upgrades.
+ALTER TABLE audit_log DROP CONSTRAINT IF EXISTS audit_log_action_check;
+ALTER TABLE audit_log ADD CONSTRAINT audit_log_action_check
+  CHECK(action IN ('create', 'create_for_other', 'update', 'delete', 'state_change', 'link', 'unlink', 'authz_denied', 'config_change'));
+
+-- Allow audit_log.user_id to be NULL so system-originated events (like
+-- the startup REGISTRATION_MODE drift detector in F15) can be recorded
+-- without inventing a synthetic service account. Every application
+-- emitted audit row is still required to carry the acting user's id;
+-- only internal bootstrap paths opt into the nullable case. No default
+-- is set so any accidental omission in user-context code will surface
+-- as a NOT NULL violation once we decide to re-tighten.
+ALTER TABLE audit_log ALTER COLUMN user_id DROP NOT NULL;
+
+-- =====================================================================
 -- Drop the legacy session.token_hash column (Sprint 3).
 -- =====================================================================
 -- The session table used to carry a SHA-256 of the raw token alongside
@@ -885,6 +912,33 @@ ON CONFLICT (role_id, permission_id) DO NOTHING;
 -- (where it was).
 DROP INDEX IF EXISTS idx_session_token_hash;
 ALTER TABLE session DROP COLUMN IF EXISTS token_hash;
+
+-- =====================================================================
+-- Sprint 5.7: symmetric claim and attestation retention lock.
+-- =====================================================================
+-- Evidence is already retention-locked by the isEvidenceImmutable helper
+-- once it has been used (claimed, cited in a claim, or attached to a
+-- terminal assessment). Sprint 5.7 extends the same record-integrity
+-- stance up to the declaration records that cite that evidence:
+--
+--   1. A claim becomes immutable once it is cited by a signed
+--      attestation or lives under an assessment in a terminal state.
+--   2. An attestation becomes immutable once it is signed.
+--
+-- Signing an attestation is now a stamp on an audit-bearing column, not
+-- just a pointer to a signatory row. The signed_at timestamp is the
+-- single source of truth for the signed-attestation retention lock.
+-- A NULL value means the attestation is still editable. A non-NULL
+-- value means every mutation on the attestation, its requirements, or
+-- any claim it cites returns 409 Conflict. IF NOT EXISTS keeps the
+-- statement idempotent across fresh installs and upgrades.
+--
+-- Note: keep all comment text semicolon-free. The migration runner
+-- splits the SQL template on the semicolon character, so a semicolon
+-- inside a comment slices the comment in half and leaves bare text
+-- as its own statement. This is a known quirk of the tiny splitter
+-- we use. Real SQL parsers would ignore commented-out semicolons.
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS signed_at TIMESTAMP WITH TIME ZONE;
 
 `;
 
@@ -917,7 +971,11 @@ export async function runMigrations(): Promise<void> {
         if (msg.includes('cannot cast') || msg.includes('function decode(bytea')) {
           continue;
         }
-        throw error;
+        // Diagnostic: wrap the error with the offending statement so tests
+        // report *which* statement blew up rather than just "syntax error
+        // near 'a'".
+        const stmtPreview = statement.trim().slice(0, 400);
+        throw new Error(`Migration failed on statement: ${stmtPreview}\n\nOriginal error: ${msg}`);
       }
     }
   }

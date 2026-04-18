@@ -281,6 +281,9 @@ export interface Attestation {
   assessment_id: string;
   signatory_id?: string | null;
   assessor_id?: string | null;
+  // Sprint 5.7: once signed_at is non-null the attestation and any claim
+  // it cites become retention-locked. See utils/retention.ts.
+  signed_at?: Date | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -375,8 +378,11 @@ export interface AuditLog {
   id: Generated<string>;
   entity_type: string;
   entity_id: string;
-  action: 'create' | 'update' | 'delete' | 'state_change' | 'link' | 'unlink';
-  user_id: string;
+  action: 'create' | 'create_for_other' | 'update' | 'delete' | 'state_change' | 'link' | 'unlink' | 'authz_denied' | 'config_change';
+  // Nullable so system-originated events (e.g. F15 startup config drift)
+  // can be recorded without a user context. Application code with an
+  // authenticated principal should always populate this.
+  user_id: string | null;
   // biome-ignore lint/suspicious/noExplicitAny: JSONB column stores dynamic change records
   changes?: Record<string, unknown>;
   created_at: Generated<Date>;

@@ -61,15 +61,16 @@ import { metricsMiddleware } from './middleware/metrics.js';
 //     attribute XSS payloads are blocked even in modern browsers
 //     that respect the granular directive.
 //   styleSrc / styleSrcElem / styleSrcAttr
-//     Vue 3 reactive :style bindings and Element Plus popper
-//     positioning write to the style attribute on individual
-//     elements at runtime. Browsers gate those writes with
-//     style-src-attr, so 'unsafe-inline' is granted only there.
-//     style-src-elem stays pinned to 'self' so runtime <style>
-//     injection (a common XSS payload shape) is blocked. The
-//     broader styleSrc line remains for browsers that have not
-//     yet implemented the granular directives; in modern browsers
-//     the two *-elem / *-attr directives take precedence.
+//     The F09 hardening pass migrated every static `style="..."`
+//     attribute in the SPA to atomic utility classes under
+//     _utilities.scss, so no XSS payload can rely on CSP granting
+//     inline style execution. Vue 3's reactive `:style` bindings
+//     and Element Plus popper positioning still write to
+//     `element.style.*` at runtime, but that path goes through
+//     CSSOM property assignment rather than the HTML `style`
+//     content attribute, which is not gated by `style-src-attr`
+//     in current browsers. Both directives therefore pin to
+//     `'self'` only.
 //   objectSrc, baseUri, formAction, frameAncestors
 //     Added as defense in depth against Flash style plugin
 //     injection, <base> hijacking, form hijacking, and
@@ -83,9 +84,9 @@ function configureSecurityMiddleware(app: Express): void {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         scriptSrcAttr: ["'none'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'"],
         styleSrcElem: ["'self'"],
-        styleSrcAttr: ["'unsafe-inline'"],
+        styleSrcAttr: ["'self'"],
         fontSrc: ["'self'", 'data:'],
         imgSrc: ["'self'", 'data:', 'https:'],
         connectSrc: ["'self'"],

@@ -43,9 +43,9 @@
             <template #default="{ row }">
               <span v-if="row.assessorEntityName">
                 {{ row.assessorEntityName }}
-                <el-tag v-if="row.assessorThirdParty" type="info" size="small" style="margin-left: 4px;">3rd Party</el-tag>
+                <el-tag v-if="row.assessorThirdParty" type="info" size="small" class="ml-2">3rd Party</el-tag>
               </span>
-              <span v-else style="color: var(--cat-text-tertiary);">&#8212;</span>
+              <span v-else class="text-tertiary">&#8212;</span>
             </template>
           </el-table-column>
           <el-table-column prop="signatoryId" :label="t('attestations.signatory')" min-width="150" sortable>

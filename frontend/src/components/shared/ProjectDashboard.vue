@@ -43,9 +43,9 @@
                 <el-tag v-else size="small" effect="dark">{{ t('common.notProvided') }}</el-tag>
               </div>
               <div class="stat-body">
-                <div class="stat-detail" style="width: 100%">
+                <div class="stat-detail w-full">
                   <div v-if="stats.timeline.overdue > 0" class="timeline-alert">
-                    <el-icon style="color: var(--cat-danger);"><WarningFilled /></el-icon>
+                    <el-icon class="text-danger"><WarningFilled /></el-icon>
                     <span>{{ stats.timeline.overdue }} {{ t('projectDashboard.overdue') }}</span>
                   </div>
                   <div v-if="stats.timeline.projectDueDate" class="timeline-next">
@@ -68,7 +68,7 @@
                 <span class="stat-title">Evidence Coverage</span>
               </div>
               <div class="stat-body">
-                <div class="stat-detail" style="width: 100%">
+                <div class="stat-detail w-full">
                   <div class="progress-row">
                     <div class="stat-value">{{ stats.evidenceCoverage.percent !== null ? stats.evidenceCoverage.percent + '%' : 'N/A' }}</div>
                     <span class="stat-sub">{{ stats.evidenceCoverage.requirementsWithEvidence }}/{{ stats.evidenceCoverage.totalRequirements }} requirements</span>
@@ -79,9 +79,9 @@
                     :stroke-width="6"
                     :show-text="false"
                     :status="evidenceCoverageStatus"
-                    style="margin-top: 8px"
+                    class="mt-3"
                   />
-                  <div class="stat-sub" style="margin-top: 4px">{{ stats.evidenceCoverage.totalEvidenceItems }} evidence items</div>
+                  <div class="stat-sub mt-2">{{ stats.evidenceCoverage.totalEvidenceItems }} evidence items</div>
                 </div>
               </div>
             </div>
@@ -178,7 +178,7 @@
             </div>
 
             <!-- Assessment bars -->
-            <div v-for="item in ganttItems" :key="item.id" class="gantt-row" @click="$emit('navigate-assessment', item.id)" style="cursor: pointer;">
+            <div v-for="item in ganttItems" :key="item.id" class="gantt-row cursor-pointer" @click="$emit('navigate-assessment', item.id)">
               <div class="gantt-label-col">
                 <span class="gantt-item-label" :title="item.title">{{ item.title }}</span>
               </div>

@@ -41,8 +41,28 @@ export async function initializeDatabase(): Promise<Kysely<Database>> {
         url: config.DATABASE_URL.replace(/\/\/.*@/, '//***@'),
       });
 
+      // Pool sizing and timeout defaults.
+      //
+      // The library defaults are permissive: no statement timeout, no
+      // idle-in-transaction timeout, and a long connect timeout. Under
+      // load (or in the face of a slow downstream like an external
+      // SBOM import or a large export) that lets a single stuck query
+      // hold its connection forever, which walks the pool toward
+      // exhaustion. Explicit timeouts turn those failure modes into
+      // loud errors the caller can recover from instead of silent
+      // connection starvation. Values are deliberately conservative:
+      //  - connectionTimeoutMillis: 5s to acquire a pool slot
+      //  - statement_timeout: 30s to finish any single query
+      //  - idle_in_transaction_session_timeout: 60s before the server
+      //    aborts an idle transaction and releases its locks
+      //  - application_name: surfaces the app in pg_stat_activity so
+      //    operators can identify hung queries back to this service.
       const pool = new Pool({
         connectionString: config.DATABASE_URL,
+        connectionTimeoutMillis: 5_000,
+        statement_timeout: 30_000,
+        idle_in_transaction_session_timeout: 60_000,
+        application_name: 'cdxa-assessors-studio',
       });
 
       db = new Kysely<Database>({

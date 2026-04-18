@@ -37,14 +37,14 @@
                   v-for="(eventType, index) in (row.eventTypes || row.event_types || []).slice(0, 3)"
                   :key="eventType"
                   size="small"
-                  style="margin-right: 4px; margin-bottom: 4px"
+                  class="mr-2 mb-2"
                 >
                   {{ eventType }}
                 </el-tag>
                 <el-tag
                   v-if="(row.eventTypes || row.event_types || []).length > 3"
                   size="small"
-                  style="margin-right: 4px; margin-bottom: 4px"
+                  class="mr-2 mb-2"
                 >
                   +{{ (row.eventTypes || row.event_types || []).length - 3 }}
                 </el-tag>

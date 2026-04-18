@@ -4,6 +4,7 @@ import { initializeDatabase, closeDatabase } from './db/connection.js';
 import { runMigrations } from './db/migrate.js';
 import { seedDefaultRolesAndPermissions } from './db/seed.js';
 import { bootstrapJwtSecret } from './db/jwt-secret.js';
+import { bootstrapRegistrationModeTracking } from './db/registration-mode.js';
 import { initializeStorage } from './storage/index.js';
 import { initializeEventSystem, shutdownEventSystem } from './events/index.js';
 import { startDomainGaugeRefresh, stopDomainGaugeRefresh } from './metrics/index.js';
@@ -57,6 +58,12 @@ async function start() {
     // loads or generates a value stored in the app_config table.
     const jwtSecret = await bootstrapJwtSecret();
     setJwtSecret(jwtSecret);
+
+    // Reconcile REGISTRATION_MODE against the last-known value in
+    // app_config and emit a config_change audit row on drift (F15).
+    // Runs after migrations so the audit_log CHECK constraint includes
+    // the config_change action value.
+    await bootstrapRegistrationModeTracking();
 
     logger.info('Initializing encryption...');
     const { getDatabase } = await import('./db/connection.js');

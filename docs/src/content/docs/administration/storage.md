@@ -40,7 +40,7 @@ Object storage is enabled by setting `STORAGE_PROVIDER=s3` and supplying the `S3
 
 Path style addressing. Some providers (notably MinIO when not behind a virtual host style proxy) require path style addressing. Set `S3_FORCE_PATH_STYLE=true` in those cases. AWS S3 uses virtual host style by default and does not need this setting.
 
-Credentials. The application reads `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` directly. If you prefer to use instance profile credentials on AWS (IRSA on EKS, instance role on EC2), leave the access key variables unset; the AWS SDK picks up credentials from the ambient environment.
+Credentials. The application reads `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` directly. For production deployments, keep these out of the environment block by writing each value to a file and pointing `S3_ACCESS_KEY_ID_FILE` and `S3_SECRET_ACCESS_KEY_FILE` at the path. `deploy/docker/docker-compose.production.yml` wires the two values through Docker Compose secrets mounted at `/run/secrets/s3_access_key_id` and `/run/secrets/s3_secret_access_key`, so the credentials never appear in `docker inspect` output or in the process environment. If you prefer to use instance profile credentials on AWS (IRSA on EKS, instance role on EC2), leave all four variables unset; the AWS SDK picks up credentials from the ambient environment.
 
 Bucket policy. The application needs permission to `PutObject`, `GetObject`, `DeleteObject`, and `HeadObject` on the bucket. A dedicated IAM policy scoped to the bucket is the recommended configuration.
 

@@ -68,7 +68,7 @@
             type="info"
             :closable="false"
             show-icon
-            style="margin-bottom: var(--cat-spacing-4)"
+            class="mb-token-4"
           />
           <el-alert
             v-else-if="assessment.state === 'complete'"
@@ -76,7 +76,7 @@
             type="info"
             :closable="false"
             show-icon
-            style="margin-bottom: var(--cat-spacing-4)"
+            class="mb-token-4"
           />
 
           <el-divider />
@@ -148,7 +148,7 @@
               show-icon
               closable
               @close="startBanner.show = false"
-              style="margin-bottom: 16px"
+              class="mb-5"
             >
               <template #title>
                 Assessment started. {{ startBanner.count }} requirement(s) have been loaded from your linked standards. Begin evaluating each requirement below.
@@ -198,7 +198,7 @@
               </el-table-column>
               <el-table-column :label="t('assessments.result')" min-width="130">
                 <template #default="{ row }">
-                  <el-select v-model="row.result" size="small" placeholder="Select" style="width: 100%" :disabled="isReadOnly" @change="handleResultChange(row)">
+                  <el-select v-model="row.result" size="small" placeholder="Select" class="w-full" :disabled="isReadOnly" @change="handleResultChange(row)">
                     <el-option :label="t('common.yes')" value="yes"></el-option>
                     <el-option :label="t('common.no')" value="no"></el-option>
                     <el-option label="Partial" value="partial"></el-option>
@@ -251,7 +251,7 @@
 
           <el-tab-pane :label="t('assessments.evidence')" name="evidence">
             <div class="evidence-section">
-              <el-button v-if="!isReadOnly" type="primary" style="margin-bottom: var(--cat-spacing-4)" @click="showCreateEvidenceDialog = true">
+              <el-button v-if="!isReadOnly" type="primary" class="mb-token-4" @click="showCreateEvidenceDialog = true">
                 {{ t('assessments.addEvidence') }}
               </el-button>
               <div v-if="isLoadingEvidence" class="loading-state">
@@ -305,7 +305,7 @@
 
           <el-tab-pane label="Claims" name="claims">
             <div class="claims-section">
-              <el-button v-if="!isReadOnly" type="primary" style="margin-bottom: var(--cat-spacing-4)" @click="showCreateClaimDialog = true">
+              <el-button v-if="!isReadOnly" type="primary" class="mb-token-4" @click="showCreateClaimDialog = true">
                 Add Claim
               </el-button>
               <div v-if="isLoadingClaims" class="loading-state">
@@ -313,7 +313,7 @@
               </div>
               <div v-else-if="assessmentClaims.length === 0" class="empty-state">
                 <p>No claims associated with this assessment yet.</p>
-                <el-button v-if="!isReadOnly" type="primary" size="small" style="margin-top: 12px" @click="showCreateClaimDialog = true">
+                <el-button v-if="!isReadOnly" type="primary" size="small" class="mt-4" @click="showCreateClaimDialog = true">
                   Add Claim
                 </el-button>
               </div>
@@ -329,7 +329,7 @@
                       {{ row.targetEntityName || row.target }}
                     </router-link>
                     <span v-else>{{ row.target }}</span>
-                    <div v-if="row.targetEntityType" style="font-size: var(--cat-font-size-xs); color: var(--cat-text-tertiary); margin-top: 2px;">
+                    <div v-if="row.targetEntityType" class="text-xs text-tertiary mt-1">
                       {{ row.targetEntityType.replace('_', ' ') }}
                     </div>
                   </template>
@@ -346,7 +346,7 @@
                       <span v-if="row.evidenceCount > 0" class="count-supporting">{{ row.evidenceCount }}</span>
                       <span v-if="row.counterEvidenceCount > 0" class="count-counter">{{ row.counterEvidenceCount }}</span>
                       <span v-if="row.mitigationCount > 0" class="count-mitigation">{{ row.mitigationCount }}</span>
-                      <span v-if="row.evidenceCount === 0 && row.counterEvidenceCount === 0 && row.mitigationCount === 0" style="color: var(--cat-text-tertiary);">0</span>
+                      <span v-if="row.evidenceCount === 0 && row.counterEvidenceCount === 0 && row.mitigationCount === 0" class="text-tertiary">0</span>
                     </span>
                   </template>
                 </el-table-column>
@@ -363,7 +363,7 @@
                         {{ ref.type }}
                       </a>
                     </div>
-                    <span v-else style="color: var(--cat-text-tertiary);">&#8212;</span>
+                    <span v-else class="text-tertiary">&#8212;</span>
                   </template>
                 </el-table-column>
               </el-table>
@@ -414,7 +414,7 @@
                     </el-table-column>
                   </el-table>
                 </div>
-                <div class="attestation-actions" style="margin-top: var(--cat-spacing-4)">
+                <div class="attestation-actions mt-token-4">
                   <el-button v-if="!isReadOnly" @click="openEditScoresDialog">{{ t('assessments.editScores') }}</el-button>
                   <el-button v-if="!isReadOnly" type="primary" @click="handleSignAttestation">{{ t('assessments.signAttestation') }}</el-button>
                   <el-button :loading="exportingCycloneDX" @click="handleExportCycloneDX">{{ t('assessments.exportCycloneDX') }}</el-button>
@@ -423,7 +423,7 @@
               </div>
               <div v-else-if="assessment.state === 'complete' && !isArchived" class="empty-state">
                 <p>{{ t('assessments.noAttestation') }}</p>
-                <el-button type="primary" @click="handleCreateAttestation" style="margin-top: var(--cat-spacing-4)">
+                <el-button type="primary" class="mt-token-4" @click="handleCreateAttestation">
                   {{ t('assessments.createAttestation') }}
                 </el-button>
               </div>
@@ -438,7 +438,7 @@
 
           <el-tab-pane :label="t('assessments.workNotes')" name="workNotes">
             <div class="work-notes-section">
-              <div v-if="!isReadOnly" style="margin-bottom: var(--cat-spacing-4)">
+              <div v-if="!isReadOnly" class="mb-token-4">
                 <el-button type="primary" @click="openAddNoteDialog">
                   {{ t('assessments.addWorkNote') }}
                 </el-button>
@@ -474,10 +474,10 @@
           <el-input v-model="editForm.description" type="textarea" :rows="3" />
         </el-form-item>
         <el-form-item :label="t('assessments.dueDate')">
-          <el-date-picker v-model="editForm.dueDate" type="date" style="width: 100%" />
+          <el-date-picker v-model="editForm.dueDate" type="date" class="w-full" />
         </el-form-item>
         <el-form-item :label="t('assessments.state')">
-          <el-select v-model="editForm.state" style="width: 100%">
+          <el-select v-model="editForm.state" class="w-full">
             <el-option :label="t('states.new')" value="new"></el-option>
             <el-option :label="t('states.pending')" value="pending"></el-option>
             <el-option :label="t('states.in_progress')" value="in_progress"></el-option>
@@ -487,7 +487,7 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="t('assessments.assessors')">
-          <el-select v-model="editForm.assessorIds" multiple filterable style="width: 100%" :placeholder="t('assessments.selectAssessors')">
+          <el-select v-model="editForm.assessorIds" multiple filterable class="w-full" :placeholder="t('assessments.selectAssessors')">
             <el-option
               v-for="user in assignableUsers"
               :key="user.id"
@@ -500,7 +500,7 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="t('assessments.assessees')">
-          <el-select v-model="editForm.assesseeIds" multiple filterable style="width: 100%" :placeholder="t('assessments.selectAssessees')">
+          <el-select v-model="editForm.assesseeIds" multiple filterable class="w-full" :placeholder="t('assessments.selectAssessees')">
             <el-option
               v-for="user in assignableUsers"
               :key="user.id"
@@ -525,12 +525,12 @@
         <el-table-column prop="identifier" :label="t('common.id')" min-width="100" sortable></el-table-column>
         <el-table-column :label="t('assessments.conformanceScore')" min-width="150">
           <template #default="{ row }">
-            <el-input-number v-model="row.conformance_score_display" :min="0" :max="100" :step="1" style="width: 100%" />
+            <el-input-number v-model="row.conformance_score_display" :min="0" :max="100" :step="1" class="w-full" />
           </template>
         </el-table-column>
         <el-table-column :label="t('assessments.confidenceScore')" min-width="150">
           <template #default="{ row }">
-            <el-input-number v-model="row.confidence_score_display" :min="0" :max="100" :step="1" style="width: 100%" />
+            <el-input-number v-model="row.confidence_score_display" :min="0" :max="100" :step="1" class="w-full" />
           </template>
         </el-table-column>
       </el-table>
@@ -571,8 +571,7 @@
       <el-input
         v-model="evidenceSearchQuery"
         :placeholder="t('common.search')"
-        class="evidence-search-input"
-        style="margin-bottom: var(--cat-spacing-4)"
+        class="evidence-search-input mb-token-4"
       />
 
       <div v-if="isLoadingAvailableEvidence" class="loading-state">
@@ -629,7 +628,7 @@
           <el-input v-model="createEvidenceForm.classification" />
         </el-form-item>
         <el-form-item :label="t('evidence.expires')">
-          <el-date-picker v-model="createEvidenceForm.expiresOn" type="date" style="width: 100%" />
+          <el-date-picker v-model="createEvidenceForm.expiresOn" type="date" class="w-full" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -698,17 +697,17 @@
             <el-checkbox v-model="editClaimForm.isCounterClaim">This is a counter claim</el-checkbox>
           </el-form-item>
           <el-form-item label="Supporting Evidence">
-            <el-select v-model="editClaimForm.evidenceIds" multiple filterable placeholder="Select evidence items" clearable style="width: 100%">
+            <el-select v-model="editClaimForm.evidenceIds" multiple filterable placeholder="Select evidence items" clearable class="w-full">
               <el-option v-for="ev in evidence" :key="ev.id" :label="ev.name" :value="ev.id" />
             </el-select>
           </el-form-item>
           <el-form-item label="Counter Evidence">
-            <el-select v-model="editClaimForm.counterEvidenceIds" multiple filterable placeholder="Select evidence items" clearable style="width: 100%">
+            <el-select v-model="editClaimForm.counterEvidenceIds" multiple filterable placeholder="Select evidence items" clearable class="w-full">
               <el-option v-for="ev in evidence" :key="ev.id" :label="ev.name" :value="ev.id" />
             </el-select>
           </el-form-item>
         </el-form>
-        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: var(--cat-spacing-4);">
+        <div class="flex justify-end gap-3 mt-token-4">
           <el-button @click="isEditingClaim = false">{{ t('common.cancel') }}</el-button>
           <el-button type="primary" :loading="isSavingClaim" @click="handleSaveClaim">{{ t('common.save') }}</el-button>
         </div>
@@ -716,7 +715,7 @@
 
       <!-- View Mode -->
       <div v-else-if="claimDetail" class="claim-detail-content">
-        <div v-if="!isReadOnly" style="display: flex; gap: 8px; justify-content: flex-end; margin-bottom: var(--cat-spacing-4);">
+        <div v-if="!isReadOnly" class="flex justify-end gap-3 mb-token-4">
           <el-button @click="startEditClaim">Edit</el-button>
           <el-button type="danger" plain @click="handleDeleteClaim">Delete</el-button>
         </div>
@@ -751,20 +750,20 @@
           <ul v-if="claimDetailEvidence.length > 0" class="claim-evidence-list">
             <li v-for="ev in claimDetailEvidence" :key="ev.id">
               <router-link :to="`/evidence/${ev.id}`" class="evidence-link" @click="showClaimDetailDrawer = false">{{ ev.name }}</router-link>
-              <el-tag v-if="ev.state" size="small" style="margin-left: 6px">{{ ev.state }}</el-tag>
+              <el-tag v-if="ev.state" size="small" class="claim-evidence-state-tag">{{ ev.state }}</el-tag>
             </li>
           </ul>
-          <p v-else style="color: var(--cat-text-tertiary)">No supporting evidence</p>
+          <p v-else class="text-tertiary">No supporting evidence</p>
         </div>
         <div class="info-field">
           <h4>Counter Evidence</h4>
           <ul v-if="claimDetailCounterEvidence.length > 0" class="claim-evidence-list">
             <li v-for="ev in claimDetailCounterEvidence" :key="ev.id">
               <router-link :to="`/evidence/${ev.id}`" class="evidence-link" @click="showClaimDetailDrawer = false">{{ ev.name }}</router-link>
-              <el-tag v-if="ev.state" size="small" style="margin-left: 6px">{{ ev.state }}</el-tag>
+              <el-tag v-if="ev.state" size="small" class="claim-evidence-state-tag">{{ ev.state }}</el-tag>
             </li>
           </ul>
-          <p v-else style="color: var(--cat-text-tertiary)">No counter evidence</p>
+          <p v-else class="text-tertiary">No counter evidence</p>
         </div>
       </div>
     </el-drawer>
@@ -2883,5 +2882,9 @@ onMounted(() => {
   color: var(--cat-text-tertiary);
   text-align: center;
   margin-top: 1px;
+}
+
+.claim-evidence-state-tag {
+  margin-left: 6px;
 }
 </style>

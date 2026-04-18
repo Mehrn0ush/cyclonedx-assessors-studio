@@ -54,6 +54,16 @@ services:
       # configured here.
 
       # Evidence storage
+      #
+      # The quick-start stack defaults to STORAGE_PROVIDER=database,
+      # which stores attachments in PGlite and needs no S3 credentials.
+      # When evaluating S3 storage locally you may set the access key
+      # and secret key directly in the environment. For production,
+      # use docker-compose.production.yml, which wires the credentials
+      # through Docker Compose secrets so they never land in the
+      # environment block or `docker inspect` output. The backend also
+      # supports S3_ACCESS_KEY_ID_FILE and S3_SECRET_ACCESS_KEY_FILE if
+      # you want the secrets pattern in a local evaluation.
       STORAGE_PROVIDER: ${STORAGE_PROVIDER:-database}
       UPLOAD_MAX_FILE_SIZE: ${UPLOAD_MAX_FILE_SIZE:-52428800}
       S3_BUCKET: ${S3_BUCKET:-}

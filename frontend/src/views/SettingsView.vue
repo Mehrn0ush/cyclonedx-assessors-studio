@@ -69,7 +69,7 @@
           </el-form-item>
 
           <el-form-item :label="t('settings.language')">
-            <el-select v-model="preferences.language" style="width: 200px">
+            <el-select v-model="preferences.language" class="w-200">
               <el-option v-for="locale in AVAILABLE_LOCALES" :key="locale.code" :label="locale.nativeName" :value="locale.code"></el-option>
             </el-select>
           </el-form-item>
@@ -94,7 +94,7 @@
                 :placeholder="t('settings.chatIdentities.slackMemberIdPlaceholder')"
               />
               <el-popover trigger="hover" :width="280" :content="t('settings.chatIdentities.slackMemberIdHelp')" />
-              <el-button link type="info" style="margin-left: var(--cat-spacing-2)">?</el-button>
+              <el-button link type="info" class="help-button-spacing">?</el-button>
             </div>
           </el-form-item>
 
@@ -104,7 +104,7 @@
                 v-model="chatIdentities.teamsUserId"
                 :placeholder="t('settings.chatIdentities.teamUserIdPlaceholder')"
               />
-              <el-button link type="info" style="margin-left: var(--cat-spacing-2)">?</el-button>
+              <el-button link type="info" class="help-button-spacing">?</el-button>
             </div>
           </el-form-item>
 
@@ -114,7 +114,7 @@
                 v-model="chatIdentities.mattermostUsername"
                 :placeholder="t('settings.chatIdentities.mattermostUsernamePlaceholder')"
               />
-              <el-button link type="info" style="margin-left: var(--cat-spacing-2)">?</el-button>
+              <el-button link type="info" class="help-button-spacing">?</el-button>
             </div>
           </el-form-item>
 
@@ -141,7 +141,7 @@
             :title="t('notificationRules.slackWarning')"
             type="warning"
             :closable="false"
-            style="margin-bottom: var(--cat-spacing-4)"
+            class="mb-token-4"
           >
             <RouterLink to="/settings">{{ t('notificationRules.configureChatIdentities') }}</RouterLink>
           </el-alert>
@@ -159,7 +159,7 @@
             <p>{{ t('notificationRules.noRules') }}</p>
           </div>
 
-          <el-table v-else :data="userRules" stripe border style="margin-top: var(--cat-spacing-3)">
+          <el-table v-else :data="userRules" stripe border class="mt-token-3">
             <el-table-column prop="name" :label="t('common.name')" min-width="140" />
             <el-table-column :label="t('notificationRules.channel')" min-width="100">
               <template #default="{ row }">
@@ -173,7 +173,7 @@
                     v-for="eventType in (row.eventTypes || row.event_types || []).slice(0, 2)"
                     :key="eventType"
                     size="small"
-                    style="margin-right: 4px"
+                    class="mr-2"
                   >
                     {{ eventType }}
                   </el-tag>
@@ -225,7 +225,7 @@
           </el-descriptions>
         </div>
 
-        <el-button type="danger" style="margin-top: var(--cat-spacing-4)" @click="handleLogoutAll">{{ t('settings.logoutAllSessions') }}</el-button>
+        <el-button type="danger" class="mt-token-4" @click="handleLogoutAll">{{ t('settings.logoutAllSessions') }}</el-button>
       </el-card>
     </div>
 
@@ -876,5 +876,9 @@ onMounted(async () => {
   display: flex;
   justify-content: flex-end;
   gap: var(--cat-spacing-2);
+}
+
+.help-button-spacing {
+  margin-left: var(--cat-spacing-2);
 }
 </style>

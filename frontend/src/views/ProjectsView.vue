@@ -3,7 +3,7 @@
     <PageHeader :title="t('projects.title')">
       <template #actions>
         <el-button v-if="authStore.hasPermission('admin.import')" @click="showImportAttestationDialog = true">
-          <el-icon style="margin-right: 4px;"><Upload /></el-icon>
+          <el-icon class="mr-2"><Upload /></el-icon>
           {{ t('common.importAttestation') }}
         </el-button>
         <el-button v-if="authStore.hasPermission('projects.create')" type="primary" @click="showCreateDialog">
@@ -19,7 +19,7 @@
       </el-alert>
 
       <div class="filter-bar" role="search">
-        <el-select v-model="filterState" :placeholder="t('projects.filterByState')" style="width: 150px" clearable aria-label="Filter by state">
+        <el-select v-model="filterState" :placeholder="t('projects.filterByState')" class="w-150" clearable aria-label="Filter by state">
           <el-option :label="t('projects.allStates')" value=""></el-option>
           <el-option :label="t('states.new')" value="new"></el-option>
           <el-option :label="t('states.in_progress')" value="in_progress"></el-option>
@@ -29,9 +29,9 @@
           <el-option :label="t('states.retired')" value="retired"></el-option>
         </el-select>
 
-        <el-input v-model="filterTag" placeholder="Filter by tag" style="width: 160px" clearable aria-label="Filter by tag" />
+        <el-input v-model="filterTag" placeholder="Filter by tag" class="w-160" clearable aria-label="Filter by tag" />
 
-        <el-input v-model="searchText" :placeholder="t('projects.searchPlaceholder')" style="width: 250px" clearable aria-label="Search projects" />
+        <el-input v-model="searchText" :placeholder="t('projects.searchPlaceholder')" class="w-250" clearable aria-label="Search projects" />
       </div>
 
       <!-- Loading State -->
@@ -59,7 +59,7 @@
               :show-after="300"
             >
               <template #content>
-                <div v-for="std in row.standards" :key="std.id" style="white-space: nowrap;">
+                <div v-for="std in row.standards" :key="std.id" class="whitespace-nowrap">
                   {{ std.name }}{{ std.version ? ` v${std.version}` : '' }}
                 </div>
               </template>
@@ -119,7 +119,7 @@
         </el-form-item>
 
         <el-form-item :label="t('projects.standards')" prop="standardIds">
-          <el-select v-model="dialogForm.standardIds" multiple placeholder="Select standards" style="width: 100%;">
+          <el-select v-model="dialogForm.standardIds" multiple placeholder="Select standards" class="w-full">
             <el-option v-for="std in availableStandards" :key="std.id" :label="std.version ? `${std.name} v${std.version}` : std.name" :value="std.id"></el-option>
           </el-select>
         </el-form-item>
@@ -150,8 +150,8 @@
         :on-change="handleImportFileChange"
         drag
       >
-        <el-icon :size="48" style="color: var(--cat-text-tertiary);"><Upload /></el-icon>
-        <div style="margin-top: 8px;">Drop a CycloneDX JSON file here or click to select</div>
+        <el-icon :size="48" class="text-tertiary"><Upload /></el-icon>
+        <div class="mt-3">Drop a CycloneDX JSON file here or click to select</div>
       </el-upload>
 
       <div v-if="importPreview" class="import-preview">

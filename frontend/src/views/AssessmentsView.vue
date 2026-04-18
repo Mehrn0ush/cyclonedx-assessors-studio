@@ -8,7 +8,7 @@
 
     <div class="assessments-content">
       <div class="filter-bar" role="search">
-        <el-select v-model="filterState" :placeholder="t('assessments.filterByState')" style="width: 150px" aria-label="Filter by state">
+        <el-select v-model="filterState" :placeholder="t('assessments.filterByState')" class="w-150" aria-label="Filter by state">
           <el-option :label="t('assessments.allStates')" value=""></el-option>
           <el-option :label="t('states.new')" value="new"></el-option>
           <el-option :label="t('states.pending')" value="pending"></el-option>
@@ -18,14 +18,14 @@
           <el-option :label="t('states.cancelled')" value="cancelled"></el-option>
         </el-select>
 
-        <el-select v-model="filterProject" :placeholder="t('assessments.filterByProject')" style="width: 150px" clearable aria-label="Filter by project">
+        <el-select v-model="filterProject" :placeholder="t('assessments.filterByProject')" class="w-150" clearable aria-label="Filter by project">
           <el-option :label="t('assessments.allProjects')" value=""></el-option>
           <el-option v-for="project in projects" :key="project.id" :label="project.name" :value="project.id"></el-option>
         </el-select>
 
         <el-checkbox v-model="myAssessmentsOnly" aria-label="Show only my assessments">{{ t('assessments.myAssessmentsOnly') }}</el-checkbox>
 
-        <el-input v-model="searchText" :placeholder="t('assessments.searchPlaceholder')" style="width: 250px" clearable aria-label="Search assessments" />
+        <el-input v-model="searchText" :placeholder="t('assessments.searchPlaceholder')" class="w-250" clearable aria-label="Search assessments" />
       </div>
 
       <div v-if="loading" class="loading-container">
@@ -95,9 +95,9 @@
         <el-form-item :label="t('common.description')">
           <el-input v-model="createForm.description" type="textarea" />
         </el-form-item>
-        <div style="margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--cat-border-default);">
-          <span style="font-size: 13px; font-weight: 600; color: var(--cat-text-secondary);">Assessment Scope</span>
-          <p style="font-size: 12px; color: var(--cat-text-tertiary); margin-top: 4px;">Select what you are assessing and which standard to use.</p>
+        <div class="mb-4 pb-3 border-b-default">
+          <span class="text-size-13 font-semibold text-secondary">Assessment Scope</span>
+          <p class="text-xs text-tertiary mt-2">Select what you are assessing and which standard to use.</p>
         </div>
         <el-form-item label="Assessment Target">
           <el-select v-model="createForm.entityId" :placeholder="t('assessments.filterByProject')" clearable>
@@ -106,7 +106,7 @@
           <div class="form-hint">The organization, team, or product being assessed</div>
         </el-form-item>
         <el-form-item v-if="createForm.entityId" label="Standard" required>
-          <el-select v-model="createForm.standardId" :placeholder="t('assessments.selectStandards')" style="width: 100%">
+          <el-select v-model="createForm.standardId" :placeholder="t('assessments.selectStandards')" class="w-full">
             <el-option v-for="std in standards" :key="std.id" :label="`${std.name} ${std.version ? 'v' + std.version : ''}`" :value="std.id"></el-option>
           </el-select>
           <div class="form-hint">The standard to assess against</div>
@@ -119,14 +119,14 @@
         </el-form-item>
         <el-form-item v-if="createForm.projectId && selectedProjectStandards.length > 0" :label="t('assessments.linkedStandards') || 'Linked Standards'">
           <div class="linked-standards-list">
-            <el-tag v-for="std in selectedProjectStandards" :key="std.id" type="info" effect="plain" style="margin-right: 6px; margin-bottom: 4px;">
+            <el-tag v-for="std in selectedProjectStandards" :key="std.id" type="info" effect="plain" class="standards-tag">
               {{ std.name }}{{ std.version ? ' v' + std.version : '' }}
             </el-tag>
           </div>
           <div class="form-hint">Requirements will be populated from these standards when you start the assessment.</div>
         </el-form-item>
         <el-form-item v-if="!createForm.entityId && !createForm.projectId" :label="t('assessments.standardsForAdHoc')">
-          <el-select v-model="createForm.standardIds" multiple :placeholder="t('assessments.selectStandards')" style="width: 100%">
+          <el-select v-model="createForm.standardIds" multiple :placeholder="t('assessments.selectStandards')" class="w-full">
             <el-option v-for="std in standards" :key="std.id" :label="`${std.name} ${std.version ? 'v' + std.version : ''}`" :value="std.id"></el-option>
           </el-select>
           <div class="form-hint">{{ t('assessments.standardsHint') }}</div>
@@ -135,7 +135,7 @@
           <el-date-picker v-model="createForm.dueDate" type="date" />
         </el-form-item>
         <el-form-item :label="t('assessments.assessors')">
-          <el-select v-model="createForm.assessorIds" multiple :placeholder="t('assessments.selectAssessors')" style="width: 100%" filterable>
+          <el-select v-model="createForm.assessorIds" multiple :placeholder="t('assessments.selectAssessors')" class="w-full" filterable>
             <el-option
               v-for="user in assignableUsers"
               :key="user.id"
@@ -149,7 +149,7 @@
           <div class="form-hint">Users who will conduct the assessment.</div>
         </el-form-item>
         <el-form-item :label="t('assessments.assessees')">
-          <el-select v-model="createForm.assesseeIds" multiple :placeholder="t('assessments.selectAssessees')" style="width: 100%" filterable>
+          <el-select v-model="createForm.assesseeIds" multiple :placeholder="t('assessments.selectAssessees')" class="w-full" filterable>
             <el-option
               v-for="user in assignableUsers"
               :key="user.id"
@@ -506,5 +506,10 @@ const navigateToAssessment = (row: Record<string, unknown>) => {
   font-size: var(--cat-font-size-xs);
   color: var(--cat-text-tertiary);
   text-transform: capitalize;
+}
+
+.standards-tag {
+  margin-right: 6px;
+  margin-bottom: 4px;
 }
 </style>

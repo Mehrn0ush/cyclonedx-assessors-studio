@@ -12,7 +12,7 @@
       <span>{{ t('common.loading') }}</span>
     </div>
 
-    <el-alert v-else-if="error" type="error" show-icon :closable="false" style="margin: 24px;">
+    <el-alert v-else-if="error" type="error" show-icon :closable="false" class="m-24">
       {{ error }}
     </el-alert>
 
@@ -30,14 +30,14 @@
             </div>
             <div class="action-buttons">
               <el-button v-if="isAdmin" size="small" @click="openEditDialog">
-                <el-icon style="margin-right: 4px;"><EditIcon /></el-icon>
+                <el-icon class="mr-2"><EditIcon /></el-icon>
                 {{ t('common.edit') }}
               </el-button>
               <el-dropdown v-if="isAdmin" trigger="click">
                 <el-button size="small">{{ t('common.moreActions') }} <el-icon><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item @click="handleArchiveEntity" style="color: var(--el-color-danger)">
+                    <el-dropdown-item class="text-el-danger" @click="handleArchiveEntity">
                       {{ t('common.archive') }}
                     </el-dropdown-item>
                   </el-dropdown-menu>
@@ -144,7 +144,7 @@
           <el-tab-pane :label="t('nav.assessments')" name="assessments">
             <div class="tab-content">
               <div class="tab-toolbar">
-                <el-select v-model="assessmentStateFilter" placeholder="Filter by state" clearable style="width: 200px;">
+                <el-select v-model="assessmentStateFilter" placeholder="Filter by state" clearable class="w-200">
                   <el-option label="All" value="" />
                   <el-option :label="t('states.new')" value="new" />
                   <el-option :label="t('states.pending')" value="pending" />
@@ -214,7 +214,7 @@
                 <el-table-column prop="description" :label="t('common.description')" min-width="250" sortable></el-table-column>
                 <el-table-column v-if="isAdmin" min-width="90" align="center">
                   <template #default="{ row }">
-                    <div style="display: flex; gap: 4px; justify-content: center;">
+                    <div class="flex gap-1 justify-center">
                       <IconButton :icon="EditIcon" :tooltip="t('common.edit')" @click="openEditPolicyDialog(row)" />
                       <IconButton :icon="Delete" variant="danger" :tooltip="t('common.delete')" @click="removePolicyAction(row.id)" />
                     </div>
@@ -348,7 +348,7 @@
           <el-input v-model="assessmentForm.description" type="textarea" :rows="3" />
         </el-form-item>
         <el-form-item :label="t('assessments.dueDate')">
-          <el-date-picker v-model="assessmentForm.dueDate" type="date" style="width: 100%;" />
+          <el-date-picker v-model="assessmentForm.dueDate" type="date" class="w-full" />
         </el-form-item>
       </el-form>
       <template #footer>

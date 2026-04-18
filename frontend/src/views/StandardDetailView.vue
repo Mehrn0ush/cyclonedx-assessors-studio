@@ -12,7 +12,7 @@
       <span>{{ t('common.loading') }}</span>
     </div>
 
-    <el-alert v-else-if="error" type="error" show-icon :closable="false" style="margin: 24px;">
+    <el-alert v-else-if="error" type="error" show-icon :closable="false" class="m-24">
       {{ error }}
     </el-alert>
 
@@ -366,14 +366,14 @@
       :title="`Assign Requirements to ${editingLevel?.identifier || 'Level'}`"
       width="700px"
     >
-      <p style="margin-bottom: 12px; color: var(--cat-text-secondary); font-size: var(--cat-font-size-sm);">
+      <p class="mb-4 text-secondary text-sm">
         Select which requirements belong to this level. Use the search box to filter.
       </p>
       <el-input
         v-model="levelReqSearch"
         placeholder="Search requirements..."
         clearable
-        style="margin-bottom: 12px;"
+        class="mb-4"
       />
       <div class="level-reqs-checklist">
         <el-checkbox-group v-model="selectedLevelReqIds">
@@ -386,8 +386,8 @@
         </el-checkbox-group>
       </div>
       <template #footer>
-        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-          <span style="color: var(--cat-text-secondary); font-size: var(--cat-font-size-sm);">{{ selectedLevelReqIds.length }} selected</span>
+        <div class="flex items-center justify-between w-full">
+          <span class="text-secondary text-sm">{{ selectedLevelReqIds.length }} selected</span>
           <div>
             <el-button @click="levelReqsDialogVisible = false">Cancel</el-button>
             <el-button type="primary" @click="handleSaveLevelRequirements">Save</el-button>

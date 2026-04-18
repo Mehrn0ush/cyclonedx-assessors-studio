@@ -8,7 +8,7 @@
 
     <div class="evidence-content">
       <div class="filter-bar" role="search">
-        <el-select v-model="filterState" :placeholder="t('evidence.filterByState')" style="width: 150px" aria-label="Filter by state">
+        <el-select v-model="filterState" :placeholder="t('evidence.filterByState')" class="w-150" aria-label="Filter by state">
           <el-option :label="t('evidence.allStates')" value=""></el-option>
           <el-option :label="t('states.in_review')" value="in_review"></el-option>
           <el-option :label="t('states.in_progress')" value="in_progress"></el-option>
@@ -16,7 +16,7 @@
           <el-option :label="t('states.expired')" value="expired"></el-option>
         </el-select>
 
-        <el-input v-model="searchText" :placeholder="t('evidence.searchPlaceholder')" style="width: 250px" clearable aria-label="Search evidence" />
+        <el-input v-model="searchText" :placeholder="t('evidence.searchPlaceholder')" class="w-250" clearable aria-label="Search evidence" />
       </div>
 
       <div v-if="loading" class="loading-container">
@@ -69,7 +69,7 @@
           <el-table-column :label="'Linked Assessments'" min-width="140">
             <template #default="{ row }">
               <el-badge v-if="row.assessmentCount > 0" :value="row.assessmentCount" type="primary" />
-              <span v-else style="color: var(--cat-text-tertiary);">0</span>
+              <span v-else class="text-tertiary">0</span>
             </template>
           </el-table-column>
         </el-table>

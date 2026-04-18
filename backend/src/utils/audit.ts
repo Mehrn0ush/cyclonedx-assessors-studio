@@ -7,8 +7,12 @@ export async function logAudit(
   params: {
     entityType: string;
     entityId: string;
-    action: 'create' | 'create_for_other' | 'update' | 'delete' | 'state_change' | 'link' | 'unlink';
-    userId: string;
+    action: 'create' | 'create_for_other' | 'update' | 'delete' | 'state_change' | 'link' | 'unlink' | 'authz_denied' | 'config_change';
+    // Nullable so system-originated events (startup config drift,
+    // background job actions) can be recorded without inventing a
+    // synthetic service account. Application code running inside a
+    // request handler should always pass the authenticated user's id.
+    userId: string | null;
     changes?: Record<string, unknown>;
   }
 ): Promise<void> {

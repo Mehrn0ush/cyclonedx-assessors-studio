@@ -84,7 +84,7 @@
     <!-- Import Standard Dialog -->
     <el-dialog v-model="showImportDialog" :title="t('standards.importStandard')" width="550px" @close="resetImportForm">
       <div v-if="!importPreview">
-        <p style="margin-bottom: 16px; color: var(--el-text-color-secondary);">
+        <p class="mb-5 text-el-secondary">
           Select a CycloneDX JSON file containing a standards definition. The standard name, version, and requirements will be extracted automatically.
         </p>
         <el-upload
@@ -96,13 +96,13 @@
           :on-remove="handleFileRemove"
           drag
         >
-          <el-icon style="font-size: 48px; color: var(--el-text-color-secondary); margin-bottom: 8px;"><Upload /></el-icon>
+          <el-icon class="text-size-48 text-el-secondary mb-3"><Upload /></el-icon>
           <div>{{ t('standards.dropCycloneDXFile') }}</div>
           <template #tip>
             <div class="el-upload__tip">{{ t('standards.acceptsJsonFiles') }}</div>
           </template>
         </el-upload>
-        <el-alert v-if="importParseError" type="error" :closable="false" style="margin-top: 12px;">
+        <el-alert v-if="importParseError" type="error" :closable="false" class="mt-4">
           {{ importParseError }}
         </el-alert>
       </div>

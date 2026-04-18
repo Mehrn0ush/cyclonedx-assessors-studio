@@ -298,7 +298,7 @@ describe('Claims HTTP Routes', () => {
       expect(res.body.error).toBe('Claim not found');
     });
 
-    it('should return 403 if parent assessment is complete', async () => {
+    it('should return 409 if parent assessment is complete (Sprint 5.7 retention lock)', async () => {
       const agent = await loginAs('admin');
       const { assessmentId, attestationId } = await createTestData(agent);
 
@@ -322,8 +322,12 @@ describe('Claims HTTP Routes', () => {
         .put(`/api/v1/claims/${claimId}`)
         .send({ name: 'Updated Name' });
 
-      expect(updateRes.status).toBe(403);
-      expect(updateRes.body.error).toContain('completed assessment');
+      // Sprint 5.7 replaced the legacy 403 response with 409 Conflict
+      // plus a machine-readable `reason`. Record-integrity retention is
+      // not an authorization concern and must be distinguishable from
+      // a permission denial.
+      expect(updateRes.status).toBe(409);
+      expect(updateRes.body.reason).toBe('assessment_terminal');
     });
 
     it('should require authentication', async () => {
@@ -370,7 +374,7 @@ describe('Claims HTTP Routes', () => {
       expect(res.body.error).toBe('Claim not found');
     });
 
-    it('should return 403 if parent assessment is complete', async () => {
+    it('should return 409 if parent assessment is complete (Sprint 5.7 retention lock)', async () => {
       const agent = await loginAs('admin');
       const { assessmentId, attestationId } = await createTestData(agent);
 
@@ -392,8 +396,11 @@ describe('Claims HTTP Routes', () => {
 
       const deleteRes = await agent.delete(`/api/v1/claims/${claimId}`);
 
-      expect(deleteRes.status).toBe(403);
-      expect(deleteRes.body.error).toContain('completed assessment');
+      // Sprint 5.7 lifted the terminal-assessment denial from 403 to
+      // 409 Conflict with a retention `reason` so record integrity is
+      // distinguishable from authorization.
+      expect(deleteRes.status).toBe(409);
+      expect(deleteRes.body.reason).toBe('assessment_terminal');
     });
 
     it('should require admin or assessor role', async () => {

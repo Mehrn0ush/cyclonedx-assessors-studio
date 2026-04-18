@@ -8,6 +8,7 @@ import { logger } from '../utils/logger.js';
 import { type AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
+import { rejectIfClaimImmutable } from '../utils/retention.js';
 
 const router = Router();
 
@@ -389,6 +390,11 @@ router.put(
         return;
       }
 
+      // Sprint 5.7: retention lock. A claim cited in a signed
+      // attestation (directly, or via the requirement map junctions) is
+      // frozen for every caller including admins.
+      if (await rejectIfClaimImmutable(db, req.params.id as string, res)) return;
+
       // Guard: reject if parent assessment is complete/archived
       const readOnlyError = await checkClaimAssessmentReadOnly(db, (claim as any).attestation_id);
       if (readOnlyError) {
@@ -461,6 +467,11 @@ router.delete(
       res.status(404).json({ error: 'Claim not found' });
       return;
     }
+
+    // Sprint 5.7: retention lock. Deleting a claim cited in a signed
+    // attestation is a mutation on the signed record via cascade. We
+    // reject for every caller, including admins.
+    if (await rejectIfClaimImmutable(db, req.params.id as string, res)) return;
 
     // Guard: reject if parent assessment is complete/archived
     // biome-ignore lint/suspicious/noExplicitAny: claim shape is dynamic from query result

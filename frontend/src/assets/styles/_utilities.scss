@@ -1,0 +1,154 @@
+// Atomic utility classes introduced to replace inline `style="..."` attributes
+// so the production Content Security Policy can pin `style-src-attr 'self'`
+// without relying on `'unsafe-inline'`. Cover only what the current templates
+// actually used before migration; add further utilities as needs arise.
+
+// Width
+.w-full { width: 100%; }
+.w-auto { width: auto; }
+.w-150 { width: 150px; }
+.w-160 { width: 160px; }
+.w-180 { width: 180px; }
+.w-200 { width: 200px; }
+.w-220 { width: 220px; }
+.w-250 { width: 250px; }
+.w-280 { width: 280px; }
+.w-320 { width: 320px; }
+.w-360 { width: 360px; }
+
+// Max width
+.max-w-full { max-width: 100%; }
+.max-w-600 { max-width: 600px; }
+
+// Min width
+.min-w-0 { min-width: 0; }
+.min-w-120 { min-width: 120px; }
+
+// Margin top
+.mt-1 { margin-top: 2px; }
+.mt-2 { margin-top: 4px; }
+.mt-3 { margin-top: 8px; }
+.mt-4 { margin-top: 12px; }
+.mt-5 { margin-top: 16px; }
+.mt-6 { margin-top: 20px; }
+.mt-7 { margin-top: 24px; }
+.mt-token-4 { margin-top: var(--cat-spacing-4); }
+.mt-token-3 { margin-top: var(--cat-spacing-3); }
+.mt-token-2 { margin-top: var(--cat-spacing-2); }
+
+// Margin bottom
+.mb-1 { margin-bottom: 2px; }
+.mb-2 { margin-bottom: 4px; }
+.mb-3 { margin-bottom: 8px; }
+.mb-4 { margin-bottom: 12px; }
+.mb-5 { margin-bottom: 16px; }
+.mb-6 { margin-bottom: 20px; }
+.mb-7 { margin-bottom: 24px; }
+.mb-token-4 { margin-bottom: var(--cat-spacing-4); }
+.mb-token-3 { margin-bottom: var(--cat-spacing-3); }
+.mb-token-2 { margin-bottom: var(--cat-spacing-2); }
+
+// Margin right
+.mr-1 { margin-right: 2px; }
+.mr-2 { margin-right: 4px; }
+.mr-3 { margin-right: 8px; }
+.mr-4 { margin-right: 12px; }
+.mr-5 { margin-right: 16px; }
+
+// Margin left
+.ml-1 { margin-left: 2px; }
+.ml-2 { margin-left: 4px; }
+.ml-3 { margin-left: 8px; }
+.ml-4 { margin-left: 12px; }
+.ml-5 { margin-left: 16px; }
+
+// Margin all / x / y
+.m-auto { margin: auto; }
+.m-24 { margin: 24px; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+.my-3 { margin-top: 8px; margin-bottom: 8px; }
+.my-4 { margin-top: 12px; margin-bottom: 12px; }
+
+// Padding all
+.p-0 { padding: 0; }
+.p-2 { padding: 4px; }
+.p-3 { padding: 8px; }
+.p-4 { padding: 12px; }
+
+// Padding top / bottom / left / right
+.pt-3 { padding-top: 8px; }
+.pt-4 { padding-top: 12px; }
+.pb-3 { padding-bottom: 8px; }
+.pb-4 { padding-bottom: 12px; }
+
+// Cursor
+.cursor-pointer { cursor: pointer; }
+.cursor-default { cursor: default; }
+.cursor-not-allowed { cursor: not-allowed; }
+
+// Text color using the platform tokens
+.text-tertiary { color: var(--cat-text-tertiary); }
+.text-secondary { color: var(--cat-text-secondary); }
+.text-primary { color: var(--cat-text-primary); }
+.text-danger { color: var(--cat-danger); }
+.text-el-danger { color: var(--el-color-danger); }
+.text-success { color: var(--cat-success); }
+.text-warning { color: var(--cat-warning); }
+.text-brand { color: var(--cat-brand-primary); }
+
+// Text sizing using tokens
+.text-xs { font-size: var(--cat-font-size-xs); }
+.text-sm { font-size: var(--cat-font-size-sm); }
+.text-base { font-size: var(--cat-font-size-base); }
+
+// Whitespace
+.whitespace-nowrap { white-space: nowrap; }
+
+// Display
+.d-block { display: block; }
+.d-inline { display: inline; }
+.d-inline-block { display: inline-block; }
+.d-none { display: none; }
+
+// Text align
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+
+// Flexbox layout helpers (extending the handful already defined in
+// _globals.scss so inline styles can migrate to classes).
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+.items-baseline { align-items: baseline; }
+.justify-center { justify-content: center; }
+.justify-start { justify-content: flex-start; }
+.justify-end { justify-content: flex-end; }
+.flex-col { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-1 { flex: 1 1 auto; }
+
+// Gaps
+.gap-1 { gap: 4px; }
+.gap-token-2 { gap: var(--cat-spacing-2); }
+.gap-token-3 { gap: var(--cat-spacing-3); }
+.gap-token-4 { gap: var(--cat-spacing-4); }
+
+// Font weight
+.font-normal { font-weight: var(--cat-font-weight-regular); }
+.font-medium { font-weight: var(--cat-font-weight-medium); }
+.font-semibold { font-weight: var(--cat-font-weight-semibold); }
+.font-bold { font-weight: var(--cat-font-weight-bold); }
+
+// Color tokens from Element Plus variables so templates do not have
+// to thread a raw CSS variable through a `style=""` attribute.
+.text-el-secondary { color: var(--el-text-color-secondary); }
+
+// Larger display font sizes used by empty-state icons.
+.text-size-48 { font-size: 48px; }
+.text-size-32 { font-size: 32px; }
+.text-size-24 { font-size: 24px; }
+.text-size-13 { font-size: 13px; }
+
+// Borders reused by a handful of dialogs and cards.
+.border-b-default { border-bottom: 1px solid var(--cat-border-default); }
+

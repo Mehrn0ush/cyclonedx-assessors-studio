@@ -16,6 +16,7 @@ import {
   fetchSignatory,
   checkRequirementExists,
 } from '../utils/attestation-queries.js';
+import { rejectIfAttestationImmutable } from '../utils/retention.js';
 
 const router = Router();
 
@@ -199,6 +200,12 @@ router.put(
         return;
       }
 
+      // Sprint 5.7: retention lock. A signed attestation is frozen for
+      // every caller including admins. This is a record-integrity rule,
+      // not an authorization rule, so it runs before the (softer)
+      // read-only assessment check below.
+      if (await rejectIfAttestationImmutable(db, req.params.id as string, res)) return;
+
       // Guard: reject if parent assessment is complete/archived
       const readOnlyError = await checkAttestationAssessmentReadOnly(db, attestation.assessment_id);
       if (readOnlyError) {
@@ -254,6 +261,10 @@ router.post(
         res.status(404).json({ error: 'Attestation not found' });
         return;
       }
+
+      // Sprint 5.7: retention lock. Adding or updating a requirement on
+      // a signed attestation would mutate the signed record.
+      if (await rejectIfAttestationImmutable(db, req.params.id as string, res)) return;
 
       // Guard: reject if parent assessment is complete/archived
       const readOnlyError = await checkAttestationAssessmentReadOnly(db, attestation.assessment_id);
@@ -337,6 +348,10 @@ router.put(
         return;
       }
 
+      // Sprint 5.7: retention lock. Updating a requirement is mutating
+      // the parent attestation, so we reject the same way.
+      if (await rejectIfAttestationImmutable(db, req.params.id as string, res)) return;
+
       // Guard: look up parent attestation to check assessment state
       const parentAttestation = await db
         .selectFrom('attestation')
@@ -412,6 +427,17 @@ router.post(
         return;
       }
 
+      // Sprint 5.7: re-signing is a mutation on a retention-locked
+      // record. Reject with 409 so the client is forced to treat a
+      // signed attestation as frozen.
+      if (attestation.signed_at) {
+        res.status(409).json({
+          error: 'Attestation is immutable once signed',
+          reason: 'signed',
+        });
+        return;
+      }
+
       const signatory = await db
         .selectFrom('signatory')
         .where('id', '=', signatoryId)
@@ -423,9 +449,12 @@ router.post(
         return;
       }
 
+      // Sprint 5.7: stamp signed_at alongside the signatory link. The
+      // timestamp is the load-bearing field for the retention lock on
+      // this attestation and any claim it cites.
       await db
         .updateTable('attestation')
-        .set(toSnakeCase({ signatoryId: signatoryId }))
+        .set(toSnakeCase({ signatoryId: signatoryId, signedAt: new Date() }))
         .where('id', '=', req.params.id)
         .execute();
 

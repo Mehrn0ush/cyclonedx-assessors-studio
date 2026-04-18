@@ -328,7 +328,7 @@ describe('Attestations HTTP Routes', () => {
       expect(res.body.error).toBe('Attestation not found');
     });
 
-    it('should return 403 if assessment is complete', async () => {
+    it('should return 409 if assessment is complete (Sprint 5.7 retention lock)', async () => {
       const agent = await loginAs('admin');
       const { assessmentId } = await createTestData(agent);
 
@@ -350,8 +350,11 @@ describe('Attestations HTTP Routes', () => {
         .put(`/api/v1/attestations/${attestationId}`)
         .send({ summary: 'Updated' });
 
-      expect(updateRes.status).toBe(403);
-      expect(updateRes.body.error).toContain('completed assessment');
+      // Sprint 5.7 flipped the terminal-assessment response from 403
+      // (authorization) to 409 Conflict with a machine-readable reason
+      // so clients can distinguish retention from a permission denial.
+      expect(updateRes.status).toBe(409);
+      expect(updateRes.body.reason).toBe('assessment_terminal');
     });
 
     it('should require assessor or admin role', async () => {
@@ -504,7 +507,7 @@ describe('Attestations HTTP Routes', () => {
       expect(res.body.error).toBe('Invalid input');
     });
 
-    it('should return 403 if assessment is complete', async () => {
+    it('should return 409 if assessment is complete (Sprint 5.7 retention lock)', async () => {
       const agent = await loginAs('admin');
       const { assessmentId, requirementIds } = await createTestData(agent);
 
@@ -527,8 +530,11 @@ describe('Attestations HTTP Routes', () => {
           conformanceRationale: 'Should Fail',
         });
 
-      expect(res.status).toBe(403);
-      expect(res.body.error).toContain('completed assessment');
+      // Sprint 5.7 promoted this from a 403 authorization denial to a
+      // 409 Conflict with a machine-readable retention reason so clients
+      // can react to record-integrity locks specifically.
+      expect(res.status).toBe(409);
+      expect(res.body.reason).toBe('assessment_terminal');
     });
 
     it('should require assessor or admin role', async () => {
@@ -609,7 +615,7 @@ describe('Attestations HTTP Routes', () => {
       expect(res.body.error).toBe('Attestation requirement not found');
     });
 
-    it('should return 403 if assessment is complete', async () => {
+    it('should return 409 if assessment is complete (Sprint 5.7 retention lock)', async () => {
       const agent = await loginAs('admin');
       const { assessmentId, requirementIds } = await createTestData(agent);
 
@@ -640,8 +646,11 @@ describe('Attestations HTTP Routes', () => {
           conformanceRationale: 'Should Fail',
         });
 
-      expect(updateRes.status).toBe(403);
-      expect(updateRes.body.error).toContain('completed assessment');
+      // Sprint 5.7 flipped this to 409 Conflict with a
+      // machine-readable `reason` so clients can distinguish
+      // record-integrity retention from authorization denial.
+      expect(updateRes.status).toBe(409);
+      expect(updateRes.body.reason).toBe('assessment_terminal');
     });
 
     it('should require assessor or admin role', async () => {

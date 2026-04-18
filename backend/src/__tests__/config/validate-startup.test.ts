@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { validateStartupConfig, resetConfig } from '../../config/index.js';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { validateStartupConfig, resetConfig, getConfig } from '../../config/index.js';
 
 /**
  * These tests exercise the startup config guard directly. They do not
@@ -70,5 +73,111 @@ describe('validateStartupConfig', () => {
     process.env.METRICS_ENABLED = 'true';
     process.env.METRICS_TOKEN = '';
     expect(() => validateStartupConfig()).toThrow(/METRICS_TOKEN/);
+  });
+
+  // F15 — REGISTRATION_MODE=open production gate.
+  it('throws when REGISTRATION_MODE=open in production without risk acceptance', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.REGISTRATION_MODE = 'open';
+    delete process.env.ACCEPT_OPEN_REGISTRATION_RISK;
+    process.env.JWT_SECRET = 'x'.repeat(32);
+    expect(() => validateStartupConfig()).toThrow(
+      /REGISTRATION_MODE=open.*ACCEPT_OPEN_REGISTRATION_RISK/s,
+    );
+  });
+
+  it('passes when REGISTRATION_MODE=open in production with risk acceptance', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.REGISTRATION_MODE = 'open';
+    process.env.ACCEPT_OPEN_REGISTRATION_RISK = '1';
+    process.env.JWT_SECRET = 'x'.repeat(32);
+    expect(() => validateStartupConfig()).not.toThrow();
+  });
+
+  it('passes when REGISTRATION_MODE=open outside production', () => {
+    process.env.NODE_ENV = 'development';
+    process.env.REGISTRATION_MODE = 'open';
+    delete process.env.ACCEPT_OPEN_REGISTRATION_RISK;
+    process.env.JWT_SECRET = 'x'.repeat(32);
+    expect(() => validateStartupConfig()).not.toThrow();
+  });
+
+  it('passes when REGISTRATION_MODE=invite_only in production without the flag', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.REGISTRATION_MODE = 'invite_only';
+    delete process.env.ACCEPT_OPEN_REGISTRATION_RISK;
+    process.env.JWT_SECRET = 'x'.repeat(32);
+    expect(() => validateStartupConfig()).not.toThrow();
+  });
+
+  // F06 — S3 credential gate and _FILE resolution.
+  describe('S3 storage provider', () => {
+    it('throws when STORAGE_PROVIDER=s3 in production without credentials', () => {
+      process.env.NODE_ENV = 'production';
+      process.env.STORAGE_PROVIDER = 's3';
+      process.env.S3_BUCKET = 'evidence';
+      delete process.env.S3_ACCESS_KEY_ID;
+      delete process.env.S3_SECRET_ACCESS_KEY;
+      process.env.JWT_SECRET = 'x'.repeat(32);
+      expect(() => validateStartupConfig()).toThrow(/S3_ACCESS_KEY_ID.*S3_SECRET_ACCESS_KEY/s);
+    });
+
+    it('throws when STORAGE_PROVIDER=s3 without a bucket', () => {
+      process.env.NODE_ENV = 'production';
+      process.env.STORAGE_PROVIDER = 's3';
+      delete process.env.S3_BUCKET;
+      process.env.S3_ACCESS_KEY_ID = 'AKIA...';
+      process.env.S3_SECRET_ACCESS_KEY = 'secret';
+      process.env.JWT_SECRET = 'x'.repeat(32);
+      expect(() => validateStartupConfig()).toThrow(/S3_BUCKET/);
+    });
+
+    it('passes when STORAGE_PROVIDER=s3 with all three values set', () => {
+      process.env.NODE_ENV = 'production';
+      process.env.STORAGE_PROVIDER = 's3';
+      process.env.S3_BUCKET = 'evidence';
+      process.env.S3_ACCESS_KEY_ID = 'AKIA...';
+      process.env.S3_SECRET_ACCESS_KEY = 'secret';
+      process.env.JWT_SECRET = 'x'.repeat(32);
+      expect(() => validateStartupConfig()).not.toThrow();
+    });
+
+    it('reads S3 credentials from a file when S3_*_FILE is set', () => {
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cdxa-s3-'));
+      const keyPath = path.join(tmp, 's3_access_key_id');
+      const secretPath = path.join(tmp, 's3_secret_access_key');
+      fs.writeFileSync(keyPath, 'file-access-key\n');
+      fs.writeFileSync(secretPath, 'file-secret-key\n');
+
+      try {
+        process.env.NODE_ENV = 'production';
+        process.env.STORAGE_PROVIDER = 's3';
+        process.env.S3_BUCKET = 'evidence';
+        delete process.env.S3_ACCESS_KEY_ID;
+        delete process.env.S3_SECRET_ACCESS_KEY;
+        process.env.S3_ACCESS_KEY_ID_FILE = keyPath;
+        process.env.S3_SECRET_ACCESS_KEY_FILE = secretPath;
+        process.env.JWT_SECRET = 'x'.repeat(32);
+
+        expect(() => validateStartupConfig()).not.toThrow();
+        const cfg = getConfig();
+        // Trailing newline from echo should be stripped so the signed
+        // request uses the exact bytes the operator stored.
+        expect(cfg.S3_ACCESS_KEY_ID).toBe('file-access-key');
+        expect(cfg.S3_SECRET_ACCESS_KEY).toBe('file-secret-key');
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it('throws when S3_*_FILE points at an unreadable path', () => {
+      // getConfig() re-runs the file resolver on every cold start,
+      // so pointing at a nonexistent path and clearing the cache is
+      // enough to trigger the failure path.
+      process.env.S3_ACCESS_KEY_ID_FILE = '/var/empty/this/path/does/not/exist';
+      delete process.env.S3_ACCESS_KEY_ID;
+      resetConfig();
+      expect(() => getConfig()).toThrow(/S3_ACCESS_KEY_ID_FILE/);
+    });
   });
 });

@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { getConfig } from '../config/index.js';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
+import { logAudit } from '../utils/audit.js';
 import type { EventBus } from '../events/event-bus.js';
 
 export interface AuthRequest extends Request {
@@ -225,6 +226,28 @@ export function requirePermission(...requiredPermissions: string[]) {
           userPermissions: permissionKeys,
           requestId: req.requestId,
         });
+
+        // Persist the denial to the audit log. Previously individual
+        // call sites logged denials inconsistently; this central hook
+        // guarantees every 403 out of this middleware leaves a trail
+        // suitable for SIEM ingestion and incident response. Fire and
+        // forget: the log call already swallows its own errors, and
+        // failing to write an audit row must not upgrade the 403 into
+        // a 500.
+        void logAudit(db, {
+          entityType: 'auth',
+          entityId: req.user.id,
+          action: 'authz_denied',
+          userId: req.user.id,
+          changes: {
+            requiredPermissions,
+            userPermissions: permissionKeys,
+            method: req.method,
+            path: req.originalUrl,
+            requestId: req.requestId,
+          },
+        });
+
         res.status(403).json({ error: 'Insufficient permissions' });
         return;
       }

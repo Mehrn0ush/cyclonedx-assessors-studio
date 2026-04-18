@@ -191,7 +191,7 @@
           <el-input v-model="form.name" :placeholder="t('chatIntegrations.namePlaceholder')" />
         </el-form-item>
         <el-form-item v-if="!editingId" :label="t('chatIntegrations.platform')" required>
-          <el-select v-model="form.platform" style="width: 100%">
+          <el-select v-model="form.platform" class="w-full">
             <el-option v-for="p in platforms" :key="p.key" :label="p.label" :value="p.key" />
           </el-select>
         </el-form-item>
