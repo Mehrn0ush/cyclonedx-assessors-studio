@@ -5,12 +5,14 @@
         v-for="tag in modelValue"
         :key="tag"
         class="tag-pill"
+        :style="pillStyle(tag)"
       >
         <span class="tag-pill__label">{{ tag }}</span>
         <button
           class="tag-pill__close"
           type="button"
           :aria-label="`Remove tag ${tag}`"
+          :style="closeStyle(tag)"
           @click.stop="removeTag(tag)"
         >&times;</button>
       </span>
@@ -46,6 +48,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import axios from 'axios'
+import { tagPillStyle, hexToRgba, isValidHexColor } from '@/utils/tagColor'
 
 interface Props {
   modelValue: string[]
@@ -67,6 +70,17 @@ const inputRef = ref<HTMLInputElement>()
 const suggestions = ref<string[]>([])
 const showSuggestions = ref(false)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+// When a caller supplies tagColors, paint each pill (and its close
+// button glyph) with that colour. Without colours the helper falls
+// back to the canonical CycloneDX green.
+const pillStyle = (tag: string) => tagPillStyle(props.tagColors[tag])
+
+const closeStyle = (tag: string) => {
+  const color = props.tagColors[tag]
+  if (!isValidHexColor(color)) return {}
+  return { color: hexToRgba(color, 0.6) }
+}
 
 const focusInput = () => {
   inputRef.value?.focus()

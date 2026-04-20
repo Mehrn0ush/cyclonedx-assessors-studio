@@ -228,6 +228,7 @@
     "title": "Proyectos",
     "newProject": "Nuevo proyecto",
     "filterByState": "Filtrar por estado",
+    "filterByTag": "Filtrar por etiqueta",
     "allStates": "Todos los estados",
     "searchPlaceholder": "Buscar proyectos...",
     "name": "Nombre",

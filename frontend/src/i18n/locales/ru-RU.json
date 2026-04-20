@@ -228,6 +228,7 @@
     "title": "Проекты",
     "newProject": "Новый проект",
     "filterByState": "Фильтр по состоянию",
+    "filterByTag": "Фильтр по тегу",
     "allStates": "Все состояния",
     "searchPlaceholder": "Поиск проектов...",
     "name": "Имя",

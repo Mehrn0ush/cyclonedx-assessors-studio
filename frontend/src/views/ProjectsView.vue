@@ -29,7 +29,23 @@
           <el-option :label="t('states.retired')" value="retired"></el-option>
         </el-select>
 
-        <el-input v-model="filterTag" placeholder="Filter by tag" class="w-160" clearable aria-label="Filter by tag" />
+        <el-autocomplete
+          v-model="filterTag"
+          :fetch-suggestions="fetchTagSuggestions"
+          :placeholder="t('projects.filterByTag')"
+          class="w-160 tag-filter-autocomplete"
+          popper-class="tag-filter-popper"
+          clearable
+          value-key="name"
+          :trigger-on-focus="true"
+          aria-label="Filter by tag"
+        >
+          <template #default="scope">
+            <span v-if="scope?.item" class="tag-display-pill" :style="tagPillStyle(scope.item.color)">
+              {{ scope.item.name }}
+            </span>
+          </template>
+        </el-autocomplete>
 
         <el-input v-model="searchText" :placeholder="t('projects.searchPlaceholder')" class="w-250" clearable aria-label="Search projects" />
       </div>
@@ -79,6 +95,7 @@
               v-for="tag in (row.tags || [])"
               :key="tag.name"
               class="tag-display-pill"
+              :style="tagPillStyle(tag.color)"
             >{{ tag.name }}</span>
           </template>
         </el-table-column>
@@ -202,6 +219,8 @@ import PageHeader from '@/components/shared/PageHeader.vue'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import RowActions from '@/components/shared/RowActions.vue'
 import TagInput from '@/components/shared/TagInput.vue'
+import { tagPillStyle } from '@/utils/tagColor'
+import { listTags } from '@/api/tags'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -212,6 +231,10 @@ const loading = ref(true)
 const error = ref('')
 const projects = ref<(Project & { standards?: Standard[]; tags?: Tag[] })[]>([])
 const availableStandards = ref<Standard[]>([])
+// Catalog of tags used to power the filter typeahead. Loaded once on
+// mount; admin changes to the tag library after that show up on
+// navigation/refresh, which is acceptable since tag edits are rare.
+const availableTags = ref<Tag[]>([])
 const showDialog = ref(false)
 const saving = ref(false)
 const isEditMode = ref(false)
@@ -441,7 +464,30 @@ const resetImport = () => {
   importResult.value = null
 }
 
-onMounted(fetchProjects)
+async function fetchAvailableTags() {
+  try {
+    availableTags.value = await listTags()
+  } catch {
+    // A missing tag catalog should not block the projects list; the
+    // filter typeahead just falls back to showing nothing.
+    availableTags.value = []
+  }
+}
+
+// Typeahead callback. We match case-insensitively against the name
+// and surface full Tag objects so the suggestion template can style
+// each pill with its configured colour.
+function fetchTagSuggestions(queryString: string, cb: (results: Tag[]) => void) {
+  const q = (queryString || '').trim().toLowerCase()
+  const all = availableTags.value
+  const matches = q ? all.filter((tag) => tag.name.toLowerCase().includes(q)) : all
+  cb(matches)
+}
+
+onMounted(() => {
+  fetchProjects()
+  fetchAvailableTags()
+})
 </script>
 
 <style scoped lang="scss">
@@ -496,21 +542,6 @@ onMounted(fetchProjects)
     color: var(--cat-text-tertiary);
     border-bottom: none;
   }
-}
-
-.tag-display-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  margin-right: 4px;
-  margin-bottom: 2px;
-  border-radius: 4px;
-  background-color: rgba(63, 185, 80, 0.1);
-  border: 1px solid rgba(63, 185, 80, 0.4);
-  color: #3fb950;
-  font-size: var(--cat-font-size-xs, 0.75rem);
-  line-height: 1.4;
-  white-space: nowrap;
 }
 
 .loading-container {

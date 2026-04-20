@@ -107,7 +107,13 @@ a {
 }
 
 // Lists
-ul:not(.el-pager),
+//
+// These defaults are intended for prose content. Element Plus and other UI
+// component lists (autocomplete suggestions, dropdown menus, selects, the
+// pager, etc.) render their own internal layout and should not inherit
+// content list padding or the li margin rhythm, which otherwise pushes
+// options off to the right and leaves visible gaps between rows.
+ul:not(.el-pager, .el-autocomplete-suggestion__list, .el-select-dropdown__list, .el-dropdown-menu, .el-cascader-menu__list, .el-menu),
 ol {
   margin-bottom: var(--cat-spacing-4);
   padding-left: var(--cat-spacing-6);

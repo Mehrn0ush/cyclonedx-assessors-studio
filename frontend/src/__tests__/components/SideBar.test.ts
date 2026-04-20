@@ -53,8 +53,14 @@ const i18n = createI18n({
         attestations: 'Attestations',
         users: 'Users',
         roles: 'Roles',
+        userManagement: 'User Management',
         integrations: 'Integrations',
-        notificationRules: 'Notification Rules'
+        notificationRules: 'Notification Rules',
+        audit: 'Audit Log',
+        invitations: 'Invitations',
+        encryption: 'Encryption',
+        assessors: 'Assessors',
+        tagsAdmin: 'Tags'
       }
     }
   }
@@ -94,9 +100,14 @@ function mountSideBar(opts?: { beforeMount?: () => void }) {
         Document: { template: '<span />' },
         DocumentChecked: { template: '<span />' },
         Collection: { template: '<span />' },
+        CollectionTag: { template: '<span />' },
+        List: { template: '<span />' },
+        Lock: { template: '<span />' },
+        Message: { template: '<span />' },
         Stamp: { template: '<span />' },
         Bell: { template: '<span />' },
         User: { template: '<span />' },
+        UserFilled: { template: '<span />' },
         Setting: { template: '<span />' },
         DArrowLeft: { template: '<span />' },
         DArrowRight: { template: '<span />' }
@@ -309,6 +320,9 @@ describe('SideBar.vue', () => {
     })
 
     it('should render admin links when user has permissions', async () => {
+      // Users, Invitations, Roles, and Assessors were consolidated into
+      // a single User Management tab container, so the sidebar shows one
+      // combined link instead of four separate entries.
       const wrapper = mountSideBar({
         beforeMount() {
           const authStore = useAuthStore()
@@ -317,8 +331,98 @@ describe('SideBar.vue', () => {
       })
       await nextTick()
 
-      expect(wrapper.text()).toContain('Users')
-      expect(wrapper.text()).toContain('Roles')
+      expect(wrapper.text()).toContain('User Management')
+    })
+
+    it('should render audit link when the user holds admin.audit', async () => {
+      const wrapper = mountSideBar({
+        beforeMount() {
+          const authStore = useAuthStore()
+          authStore.permissions = ['admin.audit']
+        }
+      })
+      await nextTick()
+      expect(wrapper.text()).toContain('Audit Log')
+    })
+
+    it('should render encryption link when the user holds admin.encryption', async () => {
+      const wrapper = mountSideBar({
+        beforeMount() {
+          const authStore = useAuthStore()
+          authStore.permissions = ['admin.encryption']
+        }
+      })
+      await nextTick()
+      expect(wrapper.text()).toContain('Encryption')
+    })
+
+    it('should render the User Management link when the user holds assessments.manage', async () => {
+      // assessments.manage is one of the three permissions that open the
+      // consolidated User Management view. It must be sufficient on its
+      // own to surface the link in the sidebar (even though it only
+      // reveals the Assessors tab inside the container).
+      const wrapper = mountSideBar({
+        beforeMount() {
+          const authStore = useAuthStore()
+          authStore.permissions = ['assessments.manage']
+        }
+      })
+      await nextTick()
+      expect(wrapper.text()).toContain('User Management')
+    })
+
+    it('should render tags admin link when the user holds admin.tags', async () => {
+      const wrapper = mountSideBar({
+        beforeMount() {
+          const authStore = useAuthStore()
+          authStore.permissions = ['admin.tags']
+        }
+      })
+      await nextTick()
+      expect(wrapper.text()).toContain('Tags')
+    })
+
+    it('should render the User Management link when the user holds admin.users', async () => {
+      // admin.users is the primary permission for the Users and
+      // Invitations tabs inside the consolidated container, so the
+      // sidebar entry must appear for any user that holds it.
+      const wrapper = mountSideBar({
+        beforeMount() {
+          const authStore = useAuthStore()
+          authStore.permissions = ['admin.users']
+        }
+      })
+      await nextTick()
+      expect(wrapper.text()).toContain('User Management')
+    })
+
+    it('should render the User Management link when the user holds admin.roles', async () => {
+      // admin.roles alone is enough to see the Roles tab inside the
+      // consolidated container, so the sidebar entry should appear.
+      const wrapper = mountSideBar({
+        beforeMount() {
+          const authStore = useAuthStore()
+          authStore.permissions = ['admin.roles']
+        }
+      })
+      await nextTick()
+      expect(wrapper.text()).toContain('User Management')
+    })
+
+    it('should NOT show any admin entries when the user has no admin permissions', async () => {
+      const wrapper = mountSideBar({
+        beforeMount() {
+          const authStore = useAuthStore()
+          authStore.permissions = []
+        }
+      })
+      await nextTick()
+      // The Admin group is gated by the aggregated permission check, so
+      // none of the per-permission links (audit, encryption, tags, or
+      // the consolidated User Management entry) should render.
+      expect(wrapper.text()).not.toContain('Audit Log')
+      expect(wrapper.text()).not.toContain('Encryption')
+      expect(wrapper.text()).not.toContain('User Management')
     })
   })
 

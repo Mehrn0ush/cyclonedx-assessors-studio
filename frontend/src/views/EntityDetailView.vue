@@ -58,7 +58,7 @@
             <div v-if="entityTags.length > 0" class="info-field">
               <label id="entity-tags-label">{{ t('common.tags') }}</label>
               <div class="info-pill-list" aria-labelledby="entity-tags-label">
-                <span v-for="tag in entityTags" :key="tag.id" class="tag-display-pill" :style="{ borderColor: tag.color, color: tag.color }">
+                <span v-for="tag in entityTags" :key="tag.id" class="tag-display-pill" :style="tagPillStyle(tag.color)">
                   {{ tag.name }}
                 </span>
               </div>
@@ -419,6 +419,7 @@ import RelationshipGraph from '@/components/shared/RelationshipGraph.vue'
 import * as entitiesAPI from '@/api/entities'
 import type { Entity, EntityRelationship, CompliancePolicy, AssessmentProgress, Tag } from '@/types'
 import type { GraphEdge } from '@/components/shared/RelationshipGraph.vue'
+import { tagPillStyle } from '@/utils/tagColor'
 
 const route = useRoute()
 const router = useRouter()
@@ -1104,21 +1105,6 @@ const updatePolicyAction = async () => {
 
 .description-text {
   line-height: var(--cat-line-height-lg);
-}
-
-.tag-display-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  margin-right: 4px;
-  margin-bottom: 4px;
-  border-radius: 4px;
-  background-color: rgba(63, 185, 80, 0.1);
-  border: 1px solid rgba(63, 185, 80, 0.4);
-  color: #3fb950;
-  font-size: var(--cat-font-size-xs);
-  line-height: 1.4;
-  white-space: nowrap;
 }
 
 .relationships-view-toggle {

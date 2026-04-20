@@ -65,37 +65,40 @@
       </div>
 
       <!-- Admin -->
-      <div v-if="authStore.hasAnyPermission('admin.users', 'admin.roles', 'admin.settings', 'admin.webhooks', 'admin.integrations', 'admin.notification_rules')" class="nav-group">
+      <div v-if="authStore.hasAnyPermission('admin.users', 'admin.roles', 'admin.settings', 'admin.webhooks', 'admin.integrations', 'admin.notification_rules', 'admin.audit', 'admin.encryption', 'admin.tags', 'assessments.manage')" class="nav-group">
         <div v-if="!uiStore.sidebarCollapsed" class="nav-group-label">{{ t('nav.admin') }}</div>
-        <div class="nav-item-wrapper">
+        <div
+          v-if="authStore.hasAnyPermission('admin.users', 'admin.roles', 'assessments.manage')"
+          class="nav-item-wrapper"
+        >
           <RouterLink
-            to="/admin/users"
+            to="/admin/user-management"
             class="nav-item"
-            :class="{ active: isActive('/admin/users') }"
-            :title="uiStore.sidebarCollapsed ? t('nav.users') : ''"
-            :aria-label="t('nav.users')"
+            :class="{ active: isActive('/admin/user-management') }"
+            :title="uiStore.sidebarCollapsed ? t('nav.userManagement') : ''"
+            :aria-label="t('nav.userManagement')"
             @click="closeMobileMenu"
           >
-            <el-icon class="nav-icon"><User /></el-icon>
-            <span class="nav-label">{{ t('nav.users') }}</span>
+            <el-icon class="nav-icon"><UserFilled /></el-icon>
+            <span class="nav-label">{{ t('nav.userManagement') }}</span>
           </RouterLink>
         </div>
 
-        <div class="nav-item-wrapper">
+        <div v-if="authStore.hasPermission('admin.tags')" class="nav-item-wrapper">
           <RouterLink
-            to="/admin/roles"
+            to="/admin/tags"
             class="nav-item"
-            :class="{ active: isActive('/admin/roles') }"
-            :title="uiStore.sidebarCollapsed ? t('nav.roles') : ''"
-            :aria-label="t('nav.roles')"
+            :class="{ active: isActive('/admin/tags') }"
+            :title="uiStore.sidebarCollapsed ? t('nav.tagsAdmin') : ''"
+            :aria-label="t('nav.tagsAdmin')"
             @click="closeMobileMenu"
           >
-            <el-icon class="nav-icon"><User /></el-icon>
-            <span class="nav-label">{{ t('nav.roles') }}</span>
+            <el-icon class="nav-icon"><CollectionTag /></el-icon>
+            <span class="nav-label">{{ t('nav.tagsAdmin') }}</span>
           </RouterLink>
         </div>
 
-        <div class="nav-item-wrapper">
+        <div v-if="authStore.hasPermission('admin.integrations')" class="nav-item-wrapper">
           <RouterLink
             to="/admin/integrations"
             class="nav-item"
@@ -109,7 +112,7 @@
           </RouterLink>
         </div>
 
-        <div class="nav-item-wrapper">
+        <div v-if="authStore.hasPermission('admin.notification_rules')" class="nav-item-wrapper">
           <RouterLink
             to="/admin/notification-rules"
             class="nav-item"
@@ -120,6 +123,34 @@
           >
             <el-icon class="nav-icon"><Bell /></el-icon>
             <span class="nav-label">{{ t('nav.notificationRules') }}</span>
+          </RouterLink>
+        </div>
+
+        <div v-if="authStore.hasPermission('admin.encryption')" class="nav-item-wrapper">
+          <RouterLink
+            to="/admin/encryption"
+            class="nav-item"
+            :class="{ active: isActive('/admin/encryption') }"
+            :title="uiStore.sidebarCollapsed ? t('nav.encryption') : ''"
+            :aria-label="t('nav.encryption')"
+            @click="closeMobileMenu"
+          >
+            <el-icon class="nav-icon"><Lock /></el-icon>
+            <span class="nav-label">{{ t('nav.encryption') }}</span>
+          </RouterLink>
+        </div>
+
+        <div v-if="authStore.hasPermission('admin.audit')" class="nav-item-wrapper">
+          <RouterLink
+            to="/admin/audit"
+            class="nav-item"
+            :class="{ active: isActive('/admin/audit') }"
+            :title="uiStore.sidebarCollapsed ? t('nav.audit') : ''"
+            :aria-label="t('nav.audit')"
+            @click="closeMobileMenu"
+          >
+            <el-icon class="nav-icon"><List /></el-icon>
+            <span class="nav-label">{{ t('nav.audit') }}</span>
           </RouterLink>
         </div>
       </div>
@@ -145,9 +176,12 @@ import {
   Document,
   DocumentChecked,
   Collection,
+  CollectionTag,
+  List,
+  Lock,
   Stamp,
   Bell,
-  User,
+  UserFilled,
   Setting,
   DArrowLeft,
   DArrowRight

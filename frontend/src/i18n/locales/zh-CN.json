@@ -228,6 +228,7 @@
     "title": "项目",
     "newProject": "新建项目",
     "filterByState": "按状态筛选",
+    "filterByTag": "按标签筛选",
     "allStates": "所有状态",
     "searchPlaceholder": "搜索项目...",
     "name": "名称",

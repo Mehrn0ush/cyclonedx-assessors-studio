@@ -228,6 +228,7 @@
     "title": "Projekte",
     "newProject": "Neues Projekt",
     "filterByState": "Nach Status filtern",
+    "filterByTag": "Nach Tag filtern",
     "allStates": "Alle Status",
     "searchPlaceholder": "Projekte durchsuchen...",
     "name": "Name",

@@ -189,16 +189,26 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAuth: true }
   },
   {
+    // The single consolidated admin surface for user, invitation,
+    // role, and assessor management. Each tab is permission gated
+    // inside the view, so we gate the route on the union permission
+    // to avoid a 403 redirect when the user only has one of the
+    // sub-permissions (for example, an Assessments Manager without
+    // admin.users should still be able to reach the Assessors tab).
+    path: '/admin/user-management',
+    name: 'AdminUserManagement',
+    component: () => import('@/views/AdminUserManagementView.vue'),
+    meta: { requiresAuth: true, requiresAnyPermission: ['admin.users', 'admin.roles', 'assessments.manage'] }
+  },
+  // Legacy paths redirect into the correct tab so existing bookmarks,
+  // email links, and deep links continue to work.
+  {
     path: '/admin/users',
-    name: 'AdminUsers',
-    component: () => import('@/views/AdminUsersView.vue'),
-    meta: { requiresAuth: true, requiresPermission: 'admin.users' }
+    redirect: { path: '/admin/user-management', query: { tab: 'users' } }
   },
   {
     path: '/admin/roles',
-    name: 'AdminRoles',
-    component: () => import('@/views/AdminRolesView.vue'),
-    meta: { requiresAuth: true, requiresPermission: 'admin.roles' }
+    redirect: { path: '/admin/user-management', query: { tab: 'roles' } }
   },
   {
     path: '/admin/webhooks',
@@ -225,6 +235,32 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAuth: true, requiresPermission: 'admin.notification_rules' }
   },
   {
+    path: '/admin/audit',
+    name: 'AdminAudit',
+    component: () => import('@/views/AdminAuditView.vue'),
+    meta: { requiresAuth: true, requiresPermission: 'admin.audit' }
+  },
+  {
+    path: '/admin/invitations',
+    redirect: { path: '/admin/user-management', query: { tab: 'invitations' } }
+  },
+  {
+    path: '/admin/encryption',
+    name: 'AdminEncryption',
+    component: () => import('@/views/AdminEncryptionView.vue'),
+    meta: { requiresAuth: true, requiresPermission: 'admin.encryption' }
+  },
+  {
+    path: '/admin/assessors',
+    redirect: { path: '/admin/user-management', query: { tab: 'assessors' } }
+  },
+  {
+    path: '/admin/tags',
+    name: 'AdminTags',
+    component: () => import('@/views/AdminTagsView.vue'),
+    meta: { requiresAuth: true, requiresPermission: 'admin.tags' }
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: () => import('@/views/SettingsView.vue'),
@@ -246,7 +282,7 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
   if (!authInitialized) {
     await refreshPermissionsFromServer(true)
     authInitialized = true
-  } else if (to.meta.requiresAuth || to.meta.requiresPermission) {
+  } else if (to.meta.requiresAuth || to.meta.requiresPermission || to.meta.requiresAnyPermission) {
     // F05: re-fetch /auth/me on every navigation into an authenticated
     // route so permission and role revocations take effect on the next
     // route change. The throttle coalesces rapid navigations.
@@ -272,6 +308,16 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/login')
   } else if (to.meta.requiresPermission && !authStore.hasPermission(to.meta.requiresPermission as string)) {
+    next('/dashboard')
+  } else if (
+    to.meta.requiresAnyPermission &&
+    !authStore.hasAnyPermission(...(to.meta.requiresAnyPermission as string[]))
+  ) {
+    // requiresAnyPermission allows a route where any one of the listed
+    // permissions is sufficient. The consolidated User Management page
+    // uses this so that an Assessments Manager (who has
+    // assessments.manage but not admin.users) can still reach the
+    // Assessors tab.
     next('/dashboard')
   } else if (to.meta.public || authStore.isAuthenticated) {
     next()

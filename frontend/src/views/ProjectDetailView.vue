@@ -115,6 +115,7 @@
                   v-for="tag in projectTags"
                   :key="tag.name as string"
                   class="tag-display-pill"
+                  :style="tagPillStyle(tag.color)"
                 >{{ tag.name }}</span>
               </div>
             </div>
@@ -249,6 +250,7 @@ import type { Project, Standard, Assessment, Tag } from '@/types'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import TagInput from '@/components/shared/TagInput.vue'
 import ProjectDashboard from '@/components/shared/ProjectDashboard.vue'
+import { tagPillStyle } from '@/utils/tagColor'
 
 const route = useRoute()
 const router = useRouter()
@@ -595,21 +597,6 @@ const handleExportProjectPDF = async () => {
   gap: 8px;
   padding: 24px 0;
   color: var(--cat-text-secondary);
-}
-
-.tag-display-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  margin-right: 4px;
-  margin-bottom: 4px;
-  border-radius: 4px;
-  background-color: rgba(63, 185, 80, 0.1);
-  border: 1px solid rgba(63, 185, 80, 0.4);
-  color: #3fb950;
-  font-size: var(--cat-font-size-xs, 0.75rem);
-  line-height: 1.4;
-  white-space: nowrap;
 }
 
 .no-data {

@@ -1,10 +1,14 @@
 <template>
-  <div class="admin-roles-container">
-    <PageHeader :title="t('admin.roleManagement')">
+  <div class="admin-roles-container" :class="{ 'admin-roles-container--embedded': embedded }">
+    <PageHeader v-if="!embedded" :title="t('admin.roleManagement')">
       <template #actions>
         <el-button type="primary" @click="openNewRoleDialog">{{ t('admin.createRole') }}</el-button>
       </template>
     </PageHeader>
+
+    <div v-if="embedded" class="admin-roles-toolbar">
+      <el-button type="primary" @click="openNewRoleDialog">{{ t('admin.createRole') }}</el-button>
+    </div>
 
     <div class="admin-roles-content">
       <div v-if="loading" class="loading-container">
@@ -120,6 +124,11 @@ interface Permission {
 }
 
 const { t } = useI18n()
+
+// When rendered inside User Management tabs, the parent owns the page
+// heading so this view hides its own PageHeader and exposes the create
+// action via a compact toolbar instead.
+withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 
 const roles = ref<Role[]>([])
 const permissions = ref<Permission[]>([])
@@ -313,6 +322,18 @@ onMounted(() => {
 <style scoped lang="scss">
 .admin-roles-container {
   padding: 0;
+}
+
+.admin-roles-container--embedded {
+  .admin-roles-content {
+    padding: 0;
+  }
+}
+
+.admin-roles-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--cat-spacing-3);
 }
 
 .admin-roles-content {

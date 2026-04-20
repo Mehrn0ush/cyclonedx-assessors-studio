@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
+import { getConfig } from '../config/index.js';
 import { getDatabase } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
@@ -41,6 +42,32 @@ const createInviteSchema = z.object({
   // cannot linger indefinitely in the database.
   expiresInHours: z.coerce.number().int().positive().max(24 * 30).default(24 * 7),
 });
+
+/**
+ * GET /api/v1/admin/invites/email-configured
+ *
+ * Reports whether an outbound SMTP channel is configured so the UI can
+ * warn the admin up front that the invite will not be emailed. We keep
+ * this endpoint separate from /admin/integrations/smtp (which exposes
+ * the host, port, and other details and is gated on admin.settings)
+ * because user managers who hold admin.users but not admin.settings
+ * still need to know whether they must hand deliver the token.
+ *
+ * The response intentionally carries only a boolean — no host, port,
+ * user, or from-address leaks to a role that cannot otherwise see SMTP
+ * configuration. "Configured" means SMTP_ENABLED is true AND a host is
+ * set; either missing piece makes email delivery impossible.
+ */
+router.get(
+  '/email-configured',
+  requireAuth,
+  requirePermission('admin.users'),
+  asyncHandler(async (_req: AuthRequest, res: Response): Promise<void> => {
+    const config = getConfig();
+    const emailConfigured = config.SMTP_ENABLED && config.SMTP_HOST.trim().length > 0;
+    res.json({ emailConfigured });
+  })
+);
 
 /**
  * POST /api/v1/admin/invites

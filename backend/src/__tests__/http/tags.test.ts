@@ -516,6 +516,108 @@ describe('Tags HTTP Routes', () => {
     });
   });
 
+  describe('Tag name normalization', () => {
+    it('should lowercase mixed case names on create', async () => {
+      const agent = await loginAs('admin');
+      const res = await agent
+        .post('/api/v1/tags')
+        .send({ name: 'ComplFFFFiance', color: '#123456' });
+
+      expect(res.status).toBe(201);
+      expect(res.body.name).toBe('complffffiance');
+    });
+
+    it('should lowercase upper case names on create', async () => {
+      const agent = await loginAs('admin');
+      const res = await agent
+        .post('/api/v1/tags')
+        .send({ name: 'LOWERCASEONCREATE', color: '#123456' });
+
+      expect(res.status).toBe(201);
+      expect(res.body.name).toBe('lowercaseoncreate');
+    });
+
+    it('should trim and lowercase names on create', async () => {
+      const agent = await loginAs('admin');
+      const res = await agent
+        .post('/api/v1/tags')
+        .send({ name: '  TrimAndLowerOnCreate  ', color: '#123456' });
+
+      expect(res.status).toBe(201);
+      expect(res.body.name).toBe('trimandloweroncreate');
+    });
+
+    it('should reject create when name is whitespace only', async () => {
+      const agent = await loginAs('admin');
+      const res = await agent
+        .post('/api/v1/tags')
+        .send({ name: '   ', color: '#123456' });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should lowercase names on update', async () => {
+      const adminAgent = await loginAs('admin');
+      const createRes = await adminAgent
+        .post('/api/v1/tags')
+        .send({ name: 'original', color: '#000000' });
+      const tagId = createRes.body.id;
+
+      const updateRes = await adminAgent
+        .put(`/api/v1/tags/${tagId}`)
+        .send({ name: 'MixedCaseUpdate' });
+
+      expect(updateRes.status).toBe(200);
+      expect(updateRes.body.name).toBe('mixedcaseupdate');
+    });
+
+    it('should trim and lowercase names on update', async () => {
+      const adminAgent = await loginAs('admin');
+      const createRes = await adminAgent
+        .post('/api/v1/tags')
+        .send({ name: 'trimtest', color: '#000000' });
+      const tagId = createRes.body.id;
+
+      const updateRes = await adminAgent
+        .put(`/api/v1/tags/${tagId}`)
+        .send({ name: '  SPACED  ' });
+
+      expect(updateRes.status).toBe(200);
+      expect(updateRes.body.name).toBe('spaced');
+    });
+
+    it('should return 409 when creating a duplicate name (case-insensitive)', async () => {
+      const agent = await loginAs('admin');
+      const first = await agent
+        .post('/api/v1/tags')
+        .send({ name: 'uniqueone', color: '#111111' });
+      expect(first.status).toBe(201);
+
+      const second = await agent
+        .post('/api/v1/tags')
+        .send({ name: 'UNIQUEONE', color: '#222222' });
+
+      expect(second.status).toBe(409);
+      expect(second.body).toHaveProperty('error');
+    });
+
+    it('should return 409 when updating to a duplicate name (case-insensitive)', async () => {
+      const adminAgent = await loginAs('admin');
+      await adminAgent.post('/api/v1/tags').send({ name: 'taken', color: '#111111' });
+      const otherRes = await adminAgent
+        .post('/api/v1/tags')
+        .send({ name: 'other', color: '#222222' });
+      const otherId = otherRes.body.id;
+
+      const updateRes = await adminAgent
+        .put(`/api/v1/tags/${otherId}`)
+        .send({ name: 'TAKEN' });
+
+      expect(updateRes.status).toBe(409);
+      expect(updateRes.body).toHaveProperty('error');
+    });
+  });
+
   describe('Color validation', () => {
     it('should accept valid hex colors', async () => {
       const agent = await loginAs('admin');

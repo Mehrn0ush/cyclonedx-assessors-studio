@@ -1,0 +1,26 @@
+// Global pill style for tag chips.
+//
+// Applied globally (not scoped) so that the same rules reach pills rendered
+// inside teleported containers like Element Plus poppers (el-autocomplete
+// suggestions, el-dropdown menus) and modal dialogs. Scoped component styles
+// cannot reach those teleported nodes because the data-v-* scope attribute
+// is not inherited across the teleport boundary.
+//
+// Color (background tint, border, and text) is applied inline per pill via
+// the tagPillStyle() helper in @/utils/tagColor.ts. These rules only cover
+// layout and provide a neutral CycloneDX green fallback for pills that ship
+// without a color.
+.tag-display-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  margin-right: 4px;
+  margin-bottom: 4px;
+  border-radius: 4px;
+  background-color: rgba(63, 185, 80, 0.1);
+  border: 1px solid rgba(63, 185, 80, 0.4);
+  color: #3fb950;
+  font-size: var(--cat-font-size-xs, 0.75rem);
+  line-height: 1.4;
+  white-space: nowrap;
+}

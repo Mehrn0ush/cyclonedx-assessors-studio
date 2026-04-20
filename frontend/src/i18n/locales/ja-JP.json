@@ -228,6 +228,7 @@
     "title": "プロジェクト",
     "newProject": "新しいプロジェクト",
     "filterByState": "状態でフィルター",
+    "filterByTag": "タグでフィルター",
     "allStates": "すべての状態",
     "searchPlaceholder": "プロジェクトを検索...",
     "name": "名前",

@@ -759,14 +759,34 @@ async function seedFinalEntities(db: Kysely<Database>, data: DemoData, resolveId
     if (!resolved) {
       throw new Error(`Failed to resolve user_id: ${logData.user_id}`);
     }
-    await db.insertInto('audit_log').values({
+    // Honor optional `created_at` from the JSON so demo data can spread
+    // audit events across a realistic time window rather than clustering
+    // every entry at seed time. When omitted, Postgres applies the
+    // CURRENT_TIMESTAMP default on the column.
+    const row: {
+      id: string;
+      entity_type: string;
+      entity_id: string;
+      action: string;
+      user_id: string;
+      changes: string;
+      created_at?: Date;
+    } = {
       id: uuidv4(),
       entity_type: logData.entity_type as string,
       entity_id: logData.entity_id as string,
       action: logData.action as string,
       user_id: resolved,
       changes: JSON.stringify(logData.changes),
-    }).execute();
+    };
+    if (typeof logData.created_at === 'string') {
+      const parsed = new Date(logData.created_at);
+      if (!Number.isNaN(parsed.getTime())) {
+        row.created_at = parsed;
+      }
+    }
+    // biome-ignore lint/suspicious/noExplicitAny: Kysely Insertable for audit_log has created_at as optional
+    await db.insertInto('audit_log').values(row as any).execute();
   }
   logger.info(`Seeded ${data.audit_logs.length} audit log entries`);
 

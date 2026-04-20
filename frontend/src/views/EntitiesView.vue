@@ -59,6 +59,24 @@
             <el-option label="Archived" value="archived"></el-option>
           </el-select>
 
+          <el-autocomplete
+            v-model="filterTag"
+            :fetch-suggestions="fetchTagSuggestions"
+            placeholder="Filter by tag"
+            class="w-160 tag-filter-autocomplete"
+            popper-class="tag-filter-popper"
+            clearable
+            value-key="name"
+            :trigger-on-focus="true"
+            aria-label="Filter by tag"
+          >
+            <template #default="scope">
+              <span v-if="scope?.item" class="tag-display-pill" :style="tagPillStyle(scope.item.color)">
+                {{ scope.item.name }}
+              </span>
+            </template>
+          </el-autocomplete>
+
           <el-input
             v-model="searchText"
             placeholder="Search entities..."
@@ -251,6 +269,8 @@ import RowActions from '@/components/shared/RowActions.vue'
 import TagInput from '@/components/shared/TagInput.vue'
 import RelationshipGraph from '@/components/shared/RelationshipGraph.vue'
 import { getEntities, createEntity, updateEntity, deleteEntity as deleteEntityAPI } from '@/api/entities'
+import { listTags } from '@/api/tags'
+import { tagPillStyle } from '@/utils/tagColor'
 import type { Entity, EntityType, Tag } from '@/types'
 import type { GraphEdge } from '@/components/shared/RelationshipGraph.vue'
 
@@ -280,7 +300,12 @@ const viewMode = ref<'table' | 'graph'>('table')
 const filterPerspective = ref('')
 const filterEntityType = ref('')
 const filterState = ref('')
+const filterTag = ref('')
 const searchText = ref('')
+// Catalog of tags used to power the filter typeahead. Loaded once on
+// mount; admin changes to the tag library after that show up on
+// navigation/refresh, which is acceptable since tag edits are rare.
+const availableTags = ref<Tag[]>([])
 const formRef = ref()
 const currentPage = ref(1)
 const pageSize = 20
@@ -324,7 +349,14 @@ const filteredEntities = computed(() => {
     // Filter by perspective (relationship-based)
     const matchesPerspective = !filterPerspective.value || perspectiveEntityIds.value.has(entity.id)
 
-    return matchesType && matchesState && matchesSearch && matchesPerspective
+    // Filter by tag (substring, case-insensitive)
+    const matchesTag =
+      !filterTag.value ||
+      (entity.tags || []).some((t) =>
+        t.name.toLowerCase().includes(filterTag.value.toLowerCase())
+      )
+
+    return matchesType && matchesState && matchesSearch && matchesPerspective && matchesTag
   })
   // Reset to first page when filters change
   currentPage.value = 1
@@ -364,7 +396,13 @@ const formatEntityType = (type: EntityType): string => {
 }
 
 const getEmptyStateMessage = (): string => {
-  if (searchText.value || filterEntityType.value || filterState.value || filterPerspective.value) {
+  if (
+    searchText.value ||
+    filterEntityType.value ||
+    filterState.value ||
+    filterPerspective.value ||
+    filterTag.value
+  ) {
     return 'No entities match these filters. Try broadening your search.'
   }
   return 'Create your first entity to start organizing what you assess.'
@@ -534,7 +572,30 @@ const navigateToEntityById = (entityId: string) => {
   router.push(`/entities/${entityId}`)
 }
 
-onMounted(fetchEntities)
+async function fetchAvailableTags() {
+  try {
+    availableTags.value = await listTags()
+  } catch {
+    // A missing tag catalog should not block the entities list; the
+    // filter typeahead just falls back to showing nothing.
+    availableTags.value = []
+  }
+}
+
+// Typeahead callback. We match case-insensitively against the name
+// and surface full Tag objects so the suggestion template can style
+// each pill with its configured colour.
+function fetchTagSuggestions(queryString: string, cb: (results: Tag[]) => void) {
+  const q = (queryString || '').trim().toLowerCase()
+  const all = availableTags.value
+  const matches = q ? all.filter((tag) => tag.name.toLowerCase().includes(q)) : all
+  cb(matches)
+}
+
+onMounted(() => {
+  fetchEntities()
+  fetchAvailableTags()
+})
 </script>
 
 <style scoped lang="scss">

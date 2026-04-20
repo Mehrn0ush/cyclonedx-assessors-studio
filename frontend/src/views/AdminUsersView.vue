@@ -1,10 +1,14 @@
 <template>
-  <div class="admin-users-container">
-    <PageHeader :title="t('admin.userManagement')">
+  <div class="admin-users-container" :class="{ 'admin-users-container--embedded': embedded }">
+    <PageHeader v-if="!embedded" :title="t('admin.userManagement')">
       <template #actions>
         <el-button type="primary" @click="openNewUserDialog">{{ t('admin.createUser') }}</el-button>
       </template>
     </PageHeader>
+
+    <div v-if="embedded" class="admin-users-toolbar">
+      <el-button type="primary" @click="openNewUserDialog">{{ t('admin.createUser') }}</el-button>
+    </div>
 
     <div class="admin-users-content">
       <div v-if="selectedUsers.length > 0" class="bulk-actions-bar">
@@ -133,6 +137,13 @@ import PageHeader from '@/components/shared/PageHeader.vue'
 import IconButton from '@/components/shared/IconButton.vue'
 
 const { t } = useI18n()
+
+// Embedded mode is set by the User Management parent when this view
+// is rendered inside a tab; in that case we hide the PageHeader and
+// expose the primary action in a lightweight toolbar instead, so the
+// parent page owns the heading area and the tabs remain the only
+// navigation affordance.
+withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 
 const users = ref<Record<string, unknown>[]>([])
 const loading = ref(false)
@@ -365,6 +376,18 @@ onMounted(() => {
 <style scoped lang="scss">
 .admin-users-container {
   padding: 0;
+}
+
+.admin-users-container--embedded {
+  .admin-users-content {
+    padding: 0;
+  }
+}
+
+.admin-users-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--cat-spacing-3);
 }
 
 .admin-users-content {

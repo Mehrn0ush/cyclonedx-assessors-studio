@@ -209,6 +209,9 @@
         </div>
       </el-card>
 
+      <!-- API Keys -->
+      <ApiKeysCard />
+
       <!-- Session Management -->
       <el-card class="settings-card">
         <template #header>
@@ -345,6 +348,7 @@ import { AVAILABLE_LOCALES, loadLocaleMessages } from '@/i18n'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import SearchSelect from '@/components/shared/SearchSelect.vue'
 import type { SelectOption } from '@/components/shared/SearchSelect.vue'
+import ApiKeysCard from '@/components/shared/ApiKeysCard.vue'
 
 const { t } = useI18n()
 const router = useRouter()

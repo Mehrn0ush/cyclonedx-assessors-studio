@@ -3844,6 +3844,7 @@ export function getOpenAPISpec(): OpenAPISpec {
         post: {
           tags: ['Tags'],
           summary: 'Create tag',
+          description: 'Tag names are normalized to lowercase and trimmed before persistence.',
           operationId: 'createTag',
           security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
           requestBody: {
@@ -3872,6 +3873,14 @@ export function getOpenAPISpec(): OpenAPISpec {
             },
             '403': {
               description: 'Insufficient permissions',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+            '409': {
+              description: 'A tag with this name already exists',
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/Error' },
@@ -3914,6 +3923,7 @@ export function getOpenAPISpec(): OpenAPISpec {
         put: {
           tags: ['Tags'],
           summary: 'Update tag',
+          description: 'Tag names are normalized to lowercase and trimmed before persistence.',
           operationId: 'updateTag',
           security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
           parameters: [
@@ -3957,6 +3967,14 @@ export function getOpenAPISpec(): OpenAPISpec {
             },
             '404': {
               description: 'Tag not found',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Error' },
+                },
+              },
+            },
+            '409': {
+              description: 'A tag with this name already exists',
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/Error' },

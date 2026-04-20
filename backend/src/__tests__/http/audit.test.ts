@@ -248,6 +248,64 @@ describe('Audit HTTP Routes', () => {
     });
   });
 
+  describe('GET /api/v1/audit/options', () => {
+    it('should require authentication', async () => {
+      const agent = getAgent();
+      const res = await agent.get('/api/v1/audit/options');
+      expect(res.status).toBe(401);
+    });
+
+    it('should reject non-admin users', async () => {
+      const assessorAgent = await loginAs('assessor');
+      const res = await assessorAgent.get('/api/v1/audit/options');
+      expect(res.status).toBe(403);
+    });
+
+    it('should return actions and entity types for admin', async () => {
+      const adminAgent = await loginAs('admin');
+      const res = await adminAgent.get('/api/v1/audit/options');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('entityTypes');
+      expect(res.body).toHaveProperty('actions');
+      expect(Array.isArray(res.body.entityTypes)).toBe(true);
+      expect(Array.isArray(res.body.actions)).toBe(true);
+      // The action union is closed, so every known value must appear
+      // even when no row has used it yet.
+      const expectedActions = [
+        'create',
+        'create_for_other',
+        'update',
+        'delete',
+        'state_change',
+        'link',
+        'unlink',
+        'authz_denied',
+        'config_change',
+      ];
+      for (const a of expectedActions) {
+        expect(res.body.actions).toContain(a);
+      }
+    });
+  });
+
+  describe('audit listing name enrichment', () => {
+    it('includes resolved userDisplayName and entityName when available', async () => {
+      const adminAgent = await loginAs('admin');
+      const res = await adminAgent.get('/api/v1/audit');
+
+      expect(res.status).toBe(200);
+      if (res.body.data.length > 0) {
+        const log = res.body.data[0];
+        // Both fields are always present in the envelope so the
+        // frontend can toggle without probing; either may be null
+        // when the entity type is unknown or the user was deleted.
+        expect(log).toHaveProperty('userDisplayName');
+        expect(log).toHaveProperty('entityName');
+      }
+    });
+  });
+
   describe('RBAC for audit access', () => {
     it('admin can access all audit logs', async () => {
       const adminAgent = await loginAs('admin');
