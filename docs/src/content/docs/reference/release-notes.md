@@ -49,6 +49,17 @@ Snapshot notes are mirrored here for convenience. The authoritative source remai
 
 Draft notes for the next snapshot are kept in `CHANGELOG.md` in the repository until the snapshot is tagged.
 
+Highlights since the April 18 snapshot:
+
+- **Audit log UI.** New admin `/admin/audit` view with typeahead filters for action and entity type, userId and entityId lookups, date range, color coded action badges, a name and ID toggle, pagination, and CSV export. An "Activity" tab now appears on detail views for users with the `admin.audit` permission, surfacing the per record `/audit/entity/:entityType/:entityId` endpoint. The `/api/v1/audit/options` endpoint was added to source the typeahead values and the closed action vocabulary.
+- **Admin invites UI.** New `/admin/invites` view lists pending, consumed, revoked, and expired invites. Creating an invite returns the plaintext token once in a copy dialog. Per row revoke is 409 aware for already consumed invites.
+- **Encryption admin UI.** New `/admin/encryption` view shows key version, encrypted field counts, and last rotation timestamp. Rotate Key is gated by the `admin.encryption` permission with a confirmation dialog explaining that webhook secrets and other envelope encrypted material will be rewrapped. Rotation no longer requires shell access to the host.
+- **API key UI.** Per user API Keys section in `Settings` and an admin variant on `Admin → Users` for minting on behalf. The one time secret is shown in a copy once dialog. Revoke is available per row.
+- **Assessors admin UI.** New `/admin/assessors` view manages assessor records as first class CDXA entities distinct from `app_user`. Create, edit, soft delete, and view attestations signed.
+- **Tag administration UI.** New `/admin/tags` view provides governance over the tag namespace with search, usage count, rename and recolor with merge warning, and idempotent delete.
+
+No breaking changes. No database migrations required for these closures. See `claude/Gap-Analysis-and-E2E-Test-Plan.md` sections 1.1 through 1.6 for the full mapping from endpoints to views.
+
 ## Roadmap to 1.0
 
 The 1.0 release will declare the data model, the JSON API, and the container image interface stable. The headline capabilities targeted for 1.0 are:
