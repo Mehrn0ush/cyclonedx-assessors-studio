@@ -1,7 +1,7 @@
 import { initializeDatabase, closeDatabase, getDatabase } from './connection.js';
 import { logger } from '../utils/logger.js';
 
-const SQL = `
+export const SQL = `
 -- Permissions
 CREATE TABLE IF NOT EXISTS permission (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -894,7 +894,7 @@ ALTER TABLE audit_log ADD CONSTRAINT audit_log_action_check
 -- Allow audit_log.user_id to be NULL so system-originated events (like
 -- the startup REGISTRATION_MODE drift detector in F15) can be recorded
 -- without inventing a synthetic service account. Every application
--- emitted audit row is still required to carry the acting user's id;
+-- emitted audit row is still required to carry the acting user's id,
 -- only internal bootstrap paths opt into the nullable case. No default
 -- is set so any accidental omission in user-context code will surface
 -- as a NOT NULL violation once we decide to re-tighten.

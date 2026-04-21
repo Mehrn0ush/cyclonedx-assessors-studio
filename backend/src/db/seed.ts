@@ -1,5 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
+import type { Kysely } from 'kysely';
 import { getDatabase } from './connection.js';
+import type { Database } from './types.js';
 import { logger } from '../utils/logger.js';
 
 const DEFAULT_PERMISSIONS = [
@@ -128,8 +130,13 @@ const DEFAULT_ROLES = [
   },
 ];
 
-export async function seedDefaultRolesAndPermissions(): Promise<void> {
-  const db = getDatabase();
+export async function seedDefaultRolesAndPermissions(
+  dbOverride?: Kysely<Database>,
+): Promise<void> {
+  // Tests bring their own PGlite instance and want to seed it without
+  // going through the connection.ts singleton. Production callers rely
+  // on the default of pulling from getDatabase().
+  const db = dbOverride ?? getDatabase();
 
   // Idempotency check: skip only if roles have been seeded. We used to
   // check for the presence of any permission, but the Sprint 4 migration
