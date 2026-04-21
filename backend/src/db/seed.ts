@@ -46,6 +46,14 @@ const DEFAULT_PERMISSIONS = [
   // Signatures
   { key: 'signatures.manage', name: 'Manage Own Signatures', description: 'Manage signatures on your own user profile', category: 'signatures' },
   { key: 'signatures.sign', name: 'Sign Attestations', description: 'Sign attestations using your personal signature inventory', category: 'signatures' },
+  // Affirmations. The cascade sign ceremony is gated behind its own
+  // permission because sealing an affirmation is a high trust action
+  // that spans the declarations and document envelopes.
+  { key: 'affirmations.manage', name: 'Manage Affirmations', description: 'Create, edit, seal, and rescind affirmations for an assessment', category: 'affirmations' },
+  // Platform signing keys. Rotating the server held keypair used to
+  // seal affirmations is even more sensitive than managing the
+  // affirmations themselves, so it is grantable separately.
+  { key: 'platform_keys.rotate', name: 'Rotate Platform Signing Key', description: 'Generate a new platform signing key and retire the old one', category: 'platform' },
   // Export
   { key: 'export.pdf', name: 'Export PDF', description: 'Export assessment reports as PDF', category: 'export' },
   { key: 'export.cyclonedx', name: 'Export CycloneDX', description: 'Export CycloneDX BOM documents', category: 'export' },

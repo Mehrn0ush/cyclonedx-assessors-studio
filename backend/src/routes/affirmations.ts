@@ -42,6 +42,7 @@ import { toSnakeCase } from '../middleware/camelCase.js';
 import { encryptionService } from '../utils/encryption.js';
 import { getStorageProvider } from '../storage/index.js';
 import { getSignatureProviders } from '../signatures/index.js';
+import { exportPublicJwk } from '@cyclonedx/jsf';
 import { getActiveKey, getKeyByFingerprint } from '../services/platform-keys.js';
 import { logger } from '../utils/logger.js';
 import {
@@ -490,16 +491,26 @@ function toAffirmationResponse(affirmation: AffirmationRow, slots: SlotRow[]): R
     rescindReason: affirmation.rescind_reason,
     createdAt: affirmation.created_at,
     updatedAt: affirmation.updated_at,
-    signatories: slots.map((s) => ({
-      id: s.id,
-      requiredTitle: s.required_title,
-      requiredUserId: s.required_user_id,
-      signatoryId: s.signatory_id,
-      signedAt: s.signed_at,
-      signedBy: s.signed_by,
-      canonicalHash: s.canonical_hash,
-      signature: s.signature_json,
-    })),
+    signatories: slots.map((s) => toSlotResponse(s)),
+  };
+}
+
+/**
+ * Map a raw affirmation_signatory row to the slot response shape used
+ * by the slot CRUD and sign endpoints. The DB column signature_json
+ * is renamed to `signature` so consumers see the JSF envelope in the
+ * natural place, rather than under a snake-shaped field name.
+ */
+function toSlotResponse(s: SlotRow): Record<string, unknown> {
+  return {
+    id: s.id,
+    requiredTitle: s.required_title,
+    requiredUserId: s.required_user_id,
+    signatoryId: s.signatory_id,
+    signedAt: s.signed_at,
+    signedBy: s.signed_by,
+    canonicalHash: s.canonical_hash,
+    signature: s.signature_json,
   };
 }
 
@@ -763,7 +774,7 @@ router.post(
       }
 
       const slot = await fetchSlot(db, slotId);
-      res.status(201).json({ data: slot });
+      res.status(201).json({ data: slot ? toSlotResponse(slot) : null });
     } catch (error) {
       if (handleValidationError(res, error)) return;
       throw error;
@@ -818,7 +829,7 @@ router.put(
         .execute();
 
       const updated = await fetchSlot(db, slot.id);
-      res.json({ data: updated });
+      res.json({ data: updated ? toSlotResponse(updated) : null });
     } catch (error) {
       if (handleValidationError(res, error)) return;
       throw error;
@@ -1011,12 +1022,17 @@ router.post(
           return;
         }
         const digitalSignatoryId = await materializeSignatoryFromStored(db, digital, null);
+        // Embed the public key as a JWK so the stored envelope is a
+        // valid JSF envelope. The JSF verifier only understands JWK
+        // shapes for the embedded publicKey; a `{ pem: ... }` wrapper
+        // throws "Unsupported public key input" during verify.
+        const embeddedPublicJwk = exportPublicJwk(digital.publicKeyPem);
         signatureEnvelope = {
           ...canonicalPayload,
           signature: {
             type: 'digital',
             algorithm: digital.signatureAlgorithm,
-            publicKey: { pem: digital.publicKeyPem },
+            publicKey: embeddedPublicJwk,
             value: data.signatureValue,
             canonicalPayloadHash: data.canonicalPayloadHash ?? canonicalHash,
             signedAt: new Date().toISOString(),
@@ -1081,7 +1097,7 @@ router.post(
       }
 
       const refreshed = await fetchSlot(db, slot.id);
-      res.json({ data: refreshed });
+      res.json({ data: refreshed ? toSlotResponse(refreshed) : null });
     } catch (error) {
       if (handleValidationError(res, error)) return;
       throw error;
@@ -1261,8 +1277,11 @@ router.post(
       declarationsSubtree as unknown as Parameters<typeof provider.sign>[0],
       {
         algorithm: platformKey.algorithm,
-        privateKey: { pem: platformKey.privateKeyPem },
-        publicKey: { pem: platformKey.publicKeyPem },
+        // The JSF provider accepts the PEM string directly. Wrapping
+        // it in { pem: ... } is not a recognised key input shape and
+        // throws JsfKeyError: Unsupported private key input.
+        privateKey: platformKey.privateKeyPem,
+        publicKey: platformKey.publicKeyPem,
         // signatureProperty default is "signature"; exclude it so
         // the canonicalisation never folds the signature field into
         // its own input.
@@ -1282,8 +1301,8 @@ router.post(
       documentPayload as unknown as Parameters<typeof provider.sign>[0],
       {
         algorithm: platformKey.algorithm,
-        privateKey: { pem: platformKey.privateKeyPem },
-        publicKey: { pem: platformKey.publicKeyPem },
+        privateKey: platformKey.privateKeyPem,
+        publicKey: platformKey.publicKeyPem,
       },
     );
 
@@ -1377,14 +1396,23 @@ router.post(
         slot,
         identity,
       });
-      const { sha256Hex } = provider.canonicalize(
-        canonicalPayload as unknown as Parameters<typeof provider.canonicalize>[0],
-        { algorithm: 'ES256' },
-      );
-      const drifted = sha256Hex !== (slot.canonical_hash ?? '');
       const envelope = slot.signature_json as Record<string, unknown>;
       const signatureBlock = envelope.signature as Record<string, unknown> | undefined;
       const sigType = signatureBlock?.type;
+      // Drift detection must re-canonicalize with the same algorithm
+      // that was used when the slot was signed. Digital slots carry
+      // the algorithm inside the envelope (the caller chose it when
+      // computing signatureValue). Electronic slots have no signing
+      // algorithm, so we fall back to the platform's stable stamp.
+      const hashAlgorithm =
+        sigType === 'digital' && typeof signatureBlock?.algorithm === 'string'
+          ? (signatureBlock.algorithm as string)
+          : 'ES256';
+      const { sha256Hex } = provider.canonicalize(
+        canonicalPayload as unknown as Parameters<typeof provider.canonicalize>[0],
+        { algorithm: hashAlgorithm },
+      );
+      const drifted = sha256Hex !== (slot.canonical_hash ?? '');
 
       if (drifted) {
         issues.push(`Slot ${slot.id} canonical payload has drifted since signing`);
@@ -1429,7 +1457,7 @@ router.post(
     } else if (affirmation.declarations_signature_json) {
       const envelope = affirmation.declarations_signature_json as Record<string, unknown>;
       const result = provider.verify(envelope as unknown as Parameters<typeof provider.verify>[0], {
-        publicKey: { pem: platformKey.publicKeyPem },
+        publicKey: platformKey.publicKeyPem,
       });
       declarationsValid = result.valid;
       if (!result.valid) {
@@ -1444,7 +1472,7 @@ router.post(
     if (platformKey && affirmation.document_signature_json) {
       const envelope = affirmation.document_signature_json as Record<string, unknown>;
       const result = provider.verify(envelope as unknown as Parameters<typeof provider.verify>[0], {
-        publicKey: { pem: platformKey.publicKeyPem },
+        publicKey: platformKey.publicKeyPem,
       });
       documentValid = result.valid;
       if (!result.valid) {

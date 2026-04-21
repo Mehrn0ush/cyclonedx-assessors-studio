@@ -171,6 +171,12 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/assessments/:id/declarations',
+    name: 'Declarations',
+    component: () => import('@/views/DeclarationsView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/evidence',
     name: 'Evidence',
     component: () => import('@/views/EvidenceView.vue'),
@@ -249,6 +255,12 @@ const routes: Array<RouteRecordRaw> = [
     name: 'AdminEncryption',
     component: () => import('@/views/AdminEncryptionView.vue'),
     meta: { requiresAuth: true, requiresPermission: 'admin.encryption' }
+  },
+  {
+    path: '/admin/platform-keys',
+    name: 'AdminPlatformKeys',
+    component: () => import('@/views/AdminPlatformKeysView.vue'),
+    meta: { requiresAuth: true, requiresPermission: 'platform_keys.rotate' }
   },
   {
     path: '/admin/assessors',

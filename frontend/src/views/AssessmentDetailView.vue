@@ -420,9 +420,10 @@
                     PR3.6: The per-attestation Sign button was removed.
                     Signing now lives on the assessment affirmation,
                     which cascades its signed envelope into every
-                    attestation on the assessment. Use the Affirmation
-                    panel to seal the declarations tree.
+                    attestation on the assessment. Use the Declarations
+                    page to manage the affirmation cascade.
                   -->
+                  <el-button @click="goToDeclarations">{{ t('declarations.title') }}</el-button>
                   <el-button :loading="exportingCycloneDX" @click="handleExportCycloneDX">{{ t('assessments.exportCycloneDX') }}</el-button>
                   <el-button :loading="exportingPDF" @click="handleExportPDF">{{ t('assessments.exportPDF') }}</el-button>
                 </div>
@@ -1922,6 +1923,13 @@ const handleDeleteClaim = async () => {
 // --- Evidence Row Click ---
 const handleEvidenceRowClick = (row: Record<string, unknown>) => {
   router.push(`/evidence/${row.id as string}`)
+}
+
+// --- Navigate to Declarations ---
+const goToDeclarations = () => {
+  if (assessment.value?.id) {
+    router.push(`/assessments/${assessment.value.id}/declarations`)
+  }
 }
 
 // --- Requirement Popup ---

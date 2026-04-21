@@ -65,7 +65,7 @@
       </div>
 
       <!-- Admin -->
-      <div v-if="authStore.hasAnyPermission('admin.users', 'admin.roles', 'admin.settings', 'admin.webhooks', 'admin.integrations', 'admin.notification_rules', 'admin.audit', 'admin.encryption', 'admin.tags', 'assessments.manage')" class="nav-group">
+      <div v-if="authStore.hasAnyPermission('admin.users', 'admin.roles', 'admin.settings', 'admin.webhooks', 'admin.integrations', 'admin.notification_rules', 'admin.audit', 'admin.encryption', 'admin.tags', 'assessments.manage', 'platform_keys.rotate')" class="nav-group">
         <div v-if="!uiStore.sidebarCollapsed" class="nav-group-label">{{ t('nav.admin') }}</div>
         <div
           v-if="authStore.hasAnyPermission('admin.users', 'admin.roles', 'assessments.manage')"
@@ -140,6 +140,20 @@
           </RouterLink>
         </div>
 
+        <div v-if="authStore.hasPermission('platform_keys.rotate')" class="nav-item-wrapper">
+          <RouterLink
+            to="/admin/platform-keys"
+            class="nav-item"
+            :class="{ active: isActive('/admin/platform-keys') }"
+            :title="uiStore.sidebarCollapsed ? t('nav.platformKeys') : ''"
+            :aria-label="t('nav.platformKeys')"
+            @click="closeMobileMenu"
+          >
+            <el-icon class="nav-icon"><Key /></el-icon>
+            <span class="nav-label">{{ t('nav.platformKeys') }}</span>
+          </RouterLink>
+        </div>
+
         <div v-if="authStore.hasPermission('admin.audit')" class="nav-item-wrapper">
           <RouterLink
             to="/admin/audit"
@@ -179,6 +193,7 @@ import {
   CollectionTag,
   List,
   Lock,
+  Key,
   Stamp,
   Bell,
   UserFilled,
