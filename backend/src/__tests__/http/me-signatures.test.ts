@@ -57,6 +57,28 @@ function electronicPayload(overrides: Record<string, unknown> = {}) {
   };
 }
 
+// Digital payloads now carry the same CycloneDX signatory identity
+// (name, role, organization) that electronic payloads do, so a digital
+// stored signature materializes a spec conformant signatory at sign
+// time. Tests that exercise the digital branch must include those
+// fields or the zod schema will reject the body.
+function digitalPayload(
+  publicKeyPem: string,
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    signatureFormat: 'jsf',
+    signatureAlgorithm: 'RS256',
+    publicKeyPem,
+    name: 'Test Signer',
+    role: 'CISO',
+    organization: {
+      name: 'Acme Inc.',
+    },
+    ...overrides,
+  };
+}
+
 describe('My Signatures HTTP Routes', () => {
   setupHttpTests();
 
@@ -158,11 +180,7 @@ describe('My Signatures HTTP Routes', () => {
       const res = await agent.post('/api/v1/me/signatures').send({
         signatureType: 'digital',
         label: uniqueLabel('Primary Digital'),
-        payload: {
-          signatureFormat: 'jsf',
-          signatureAlgorithm: 'RS256',
-          publicKeyPem,
-        },
+        payload: digitalPayload(publicKeyPem),
       });
 
       expect(res.status).toBe(201);
@@ -173,6 +191,10 @@ describe('My Signatures HTTP Routes', () => {
       // Public key should be returned to the caller as-is. The stored
       // copy on the server is encrypted.
       expect(res.body.payload.publicKeyPem).toContain('BEGIN PUBLIC KEY');
+      // CycloneDX signatory identity round-trips on the digital path.
+      expect(res.body.payload.name).toBe('Test Signer');
+      expect(res.body.payload.role).toBe('CISO');
+      expect(res.body.payload.organization.name).toBe('Acme Inc.');
     });
 
     it('should reject private key material', async () => {
@@ -182,11 +204,7 @@ describe('My Signatures HTTP Routes', () => {
       const res = await agent.post('/api/v1/me/signatures').send({
         signatureType: 'digital',
         label: uniqueLabel('Private Key Attempt'),
-        payload: {
-          signatureFormat: 'jsf',
-          signatureAlgorithm: 'RS256',
-          publicKeyPem: privateKeyPem,
-        },
+        payload: digitalPayload(privateKeyPem),
       });
 
       expect(res.status).toBe(400);
@@ -198,11 +216,9 @@ describe('My Signatures HTTP Routes', () => {
       const res = await agent.post('/api/v1/me/signatures').send({
         signatureType: 'digital',
         label: uniqueLabel('Malformed PEM'),
-        payload: {
-          signatureFormat: 'jsf',
-          signatureAlgorithm: 'RS256',
-          publicKeyPem: '-----BEGIN PUBLIC KEY-----\nnot-a-real-key\n-----END PUBLIC KEY-----',
-        },
+        payload: digitalPayload(
+          '-----BEGIN PUBLIC KEY-----\nnot-a-real-key\n-----END PUBLIC KEY-----',
+        ),
       });
 
       expect(res.status).toBe(400);
@@ -216,11 +232,39 @@ describe('My Signatures HTTP Routes', () => {
       const res = await agent.post('/api/v1/me/signatures').send({
         signatureType: 'digital',
         label: uniqueLabel('Bad Format'),
-        payload: {
-          signatureFormat: 'bogus',
-          signatureAlgorithm: 'RS256',
-          publicKeyPem,
-        },
+        payload: digitalPayload(publicKeyPem, { signatureFormat: 'bogus' }),
+      });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should reject digital payload missing name', async () => {
+      const agent = await loginAs('assessor');
+      const { publicKeyPem } = makeRsaKeyPair();
+
+      const payload = digitalPayload(publicKeyPem) as Record<string, unknown>;
+      delete payload.name;
+
+      const res = await agent.post('/api/v1/me/signatures').send({
+        signatureType: 'digital',
+        label: uniqueLabel('Missing Name'),
+        payload,
+      });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should reject digital payload missing organization', async () => {
+      const agent = await loginAs('assessor');
+      const { publicKeyPem } = makeRsaKeyPair();
+
+      const payload = digitalPayload(publicKeyPem) as Record<string, unknown>;
+      delete payload.organization;
+
+      const res = await agent.post('/api/v1/me/signatures').send({
+        signatureType: 'digital',
+        label: uniqueLabel('Missing Org'),
+        payload,
       });
 
       expect(res.status).toBe(400);
@@ -344,7 +388,7 @@ describe('My Signatures HTTP Routes', () => {
       const created = await agent.post('/api/v1/me/signatures').send({
         signatureType: 'digital',
         label: uniqueLabel('Digital For Update'),
-        payload: { signatureFormat: 'jsf', signatureAlgorithm: 'RS256', publicKeyPem },
+        payload: digitalPayload(publicKeyPem),
       });
 
       // Include signatureFormat + signatureAlgorithm so the update
@@ -491,7 +535,7 @@ describe('My Signatures HTTP Routes', () => {
       const created = await agent.post('/api/v1/me/signatures').send({
         signatureType: 'digital',
         label: uniqueLabel('No Image Here'),
-        payload: { signatureFormat: 'jsf', signatureAlgorithm: 'RS256', publicKeyPem },
+        payload: digitalPayload(publicKeyPem),
       });
 
       const res = await agent.post(`/api/v1/me/signatures/${created.body.id}/image`).send({

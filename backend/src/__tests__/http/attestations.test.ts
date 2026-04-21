@@ -925,6 +925,9 @@ describe('Attestations HTTP Routes', () => {
           signatureFormat: 'jsf',
           signatureAlgorithm: 'RS256',
           publicKeyPem: publicKey as string,
+          name: 'Test Signer',
+          role: 'CISO',
+          organization: { name: 'Acme Inc.' },
         },
       });
 
@@ -975,6 +978,12 @@ describe('Attestations HTTP Routes', () => {
           // bytes are identical.
           signatureAlgorithm: 'RS256',
           publicKeyPem: publicKey as string,
+          // CycloneDX signatory identity is required on digital payloads
+          // so the stored signature can materialize a signatory row at
+          // sign time.
+          name: 'Digital Signer',
+          role: 'Engineer',
+          organization: { name: 'Acme Inc.' },
         },
       });
 
@@ -1009,6 +1018,12 @@ describe('Attestations HTTP Routes', () => {
       expect(signRes.status).toBe(200);
       expect(signRes.body.signatureType).toBe('digital');
       expect(signRes.body.canonicalPayloadHash).toBe(canonicalPayloadHash);
+      // Digital stored signatures now materialize a signatory row so
+      // the exporter can attach a spec conformant signatory entry with
+      // the signature subtree.
+      expect(signRes.body.signatoryId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
 
       // Verify endpoint should accept the signature.
       const verifyRes = await agent.post(`/api/v1/attestations/${attestationId}/verify`);

@@ -172,6 +172,18 @@
 
         <!-- Digital fields -->
         <template v-else>
+          <el-form-item :label="t('signatures.name')" required>
+            <el-input v-model="editorForm.digital.name" :disabled="saving" />
+          </el-form-item>
+
+          <el-form-item :label="t('signatures.role')">
+            <el-input v-model="editorForm.digital.role" :disabled="saving" />
+          </el-form-item>
+
+          <el-form-item :label="t('signatures.orgName')" required>
+            <el-input v-model="editorForm.digital.organizationName" :disabled="saving" />
+          </el-form-item>
+
           <el-form-item :label="t('signatures.signatureFormat')" required>
             <el-radio-group v-model="editorForm.digital.signatureFormat" :disabled="!!editingId || saving">
               <el-radio value="jsf">JSF (CycloneDX 1.x)</el-radio>
@@ -348,6 +360,9 @@ interface EditorForm {
     signatureAlgorithm: JsfAsymmetricAlgorithm
     publicKeyPem: string
     certificateChain: string
+    name: string
+    role: string
+    organizationName: string
   }
 }
 
@@ -399,6 +414,9 @@ function blankEditor(): EditorForm {
       signatureAlgorithm: 'ES256',
       publicKeyPem: '',
       certificateChain: '',
+      name: '',
+      role: '',
+      organizationName: '',
     },
   }
 }
@@ -471,6 +489,9 @@ function openEditDialog(row: StoredSignature) {
     base.digital.signatureAlgorithm = coerceLegacyAlgorithm(p.signatureAlgorithm)
     base.digital.publicKeyPem = p.publicKeyPem ?? ''
     base.digital.certificateChain = p.certificateChain ?? ''
+    base.digital.name = p.name ?? ''
+    base.digital.role = p.role ?? ''
+    base.digital.organizationName = p.organization?.name ?? ''
   }
 
   editorForm.value = base
@@ -512,7 +533,12 @@ function buildDigitalPayload(): DigitalSignaturePayload {
     signatureFormat: d.signatureFormat,
     signatureAlgorithm: d.signatureAlgorithm.trim(),
     publicKeyPem: d.publicKeyPem.trim(),
+    name: d.name.trim(),
+    organization: {
+      name: d.organizationName.trim(),
+    },
   }
+  if (d.role.trim()) payload.role = d.role.trim()
   if (d.certificateChain.trim()) payload.certificateChain = d.certificateChain.trim()
   return payload
 }
@@ -548,6 +574,16 @@ async function handleSave() {
       }
     } else {
       const d = editorForm.value.digital
+      if (!d.name.trim()) {
+        ElMessage.error(t('signatures.nameRequired'))
+        saving.value = false
+        return
+      }
+      if (!d.organizationName.trim()) {
+        ElMessage.error(t('signatures.orgNameRequired'))
+        saving.value = false
+        return
+      }
       if (!d.publicKeyPem.trim()) {
         ElMessage.error(t('signatures.publicKeyRequired'))
         saving.value = false

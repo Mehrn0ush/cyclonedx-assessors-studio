@@ -117,11 +117,22 @@ const electronicPayloadSchema = z.object({
 // downstream exports serialize. The signatureAlgorithm enum is the
 // JSF asymmetric set; HMAC algorithms are rejected because symmetric
 // keys cannot attribute a signature to a specific signatory.
+//
+// name, role, and organization mirror the CycloneDX signatory identity
+// fields that electronic payloads already carry. They are populated on
+// the digital payload so a digital stored signature can materialize a
+// spec conformant signatory row at sign time without relying on a
+// parallel electronic record. organization.name is required because
+// CycloneDX's oneOf on signatory demands organization under both the
+// externalReference (electronic) and signature (digital) branches.
 const digitalPayloadSchema = z.object({
   signatureFormat: z.enum(['jsf', 'x509']),
   signatureAlgorithm: z.enum(JSF_ASYMMETRIC_ALGORITHMS),
   publicKeyPem: z.string().min(1, 'publicKeyPem is required'),
   certificateChain: z.string().optional(),
+  name: z.string().min(1, 'name is required'),
+  role: z.string().optional(),
+  organization: organizationalEntitySchema,
 });
 
 const createSchema = z.discriminatedUnion('signatureType', [

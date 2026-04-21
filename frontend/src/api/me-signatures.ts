@@ -45,13 +45,18 @@ export interface ElectronicSignaturePayload {
 /**
  * Digital (document integrity) payload. JSF for CycloneDX 1.x,
  * X.509 for 2.x. publicKeyPem is required; privateKeyPem is never
- * accepted by the server.
+ * accepted by the server. name and organization mirror the CycloneDX
+ * signatory identity fields so a digital stored signature can produce
+ * a spec conformant signatory at sign time. role is optional.
  */
 export interface DigitalSignaturePayload {
   signatureFormat: 'jsf' | 'x509'
   signatureAlgorithm: string
   publicKeyPem: string
   certificateChain?: string
+  name: string
+  role?: string
+  organization: OrganizationalEntity
 }
 
 export interface StoredSignatureImage {

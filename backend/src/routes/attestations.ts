@@ -593,7 +593,11 @@ interface StoredSignatureRow {
   signature_image_storage_provider: string | null;
 }
 
-interface StoredElectronicPayload {
+// Shape shared by both stored payload branches. Electronic and digital
+// records both carry CycloneDX signatory identity (name, role,
+// organization) so a signatory row can be materialized regardless of
+// which branch was chosen at sign time.
+interface StoredSignatoryIdentity {
   name: string;
   role?: string;
   organization: {
@@ -608,12 +612,15 @@ interface StoredElectronicPayload {
     };
     url?: string[];
   };
+}
+
+interface StoredElectronicPayload extends StoredSignatoryIdentity {
   signedName?: string;
   jurisdiction?: string;
   legalIntent?: string;
 }
 
-interface StoredDigitalPayload {
+interface StoredDigitalPayload extends StoredSignatoryIdentity {
   signatureFormat: 'jsf' | 'x509';
   signatureAlgorithm: string;
   publicKeyPem: string;
@@ -649,7 +656,7 @@ async function fetchOwnedStoredSignature(
  */
 async function findOrCreateOrganizationByName(
   db: ReturnType<typeof getDatabase>,
-  organization: StoredElectronicPayload['organization']
+  organization: StoredSignatoryIdentity['organization']
 ): Promise<string> {
   const existing = await db
     .selectFrom('organization')
@@ -686,28 +693,30 @@ async function findOrCreateOrganizationByName(
 }
 
 /**
- * Insert a new signatory row copying identity from the stored
- * electronic payload. The signatory table stays append-only from this
- * path — prior signatories stay untouched even if the caller updates
- * their stored signature afterwards. externalReference fields are
- * populated only when a signature image exists; the export layer can
- * then emit a CycloneDX externalReference of type
+ * Insert a new signatory row copying identity from a stored signature
+ * payload. Works for both electronic and digital payloads since both
+ * carry the same CycloneDX signatory identity shape (name, role,
+ * organization). The signatory table stays append-only from this path
+ * — prior signatories stay untouched even if the caller updates their
+ * stored signature afterwards. externalReference fields are populated
+ * only when a signature image exists (electronic path); the export
+ * layer can then emit a CycloneDX externalReference of type
  * "electronic-signature" without an extra lookup.
  */
 async function materializeSignatoryFromStored(
   db: ReturnType<typeof getDatabase>,
-  payload: StoredElectronicPayload,
+  identity: StoredSignatoryIdentity,
   imageDataUri: string | null
 ): Promise<string> {
-  const organizationId = await findOrCreateOrganizationByName(db, payload.organization);
+  const organizationId = await findOrCreateOrganizationByName(db, identity.organization);
   const signatoryId = uuidv4();
 
   await db
     .insertInto('signatory')
     .values({
       id: signatoryId,
-      name: payload.name,
-      role: payload.role ?? null,
+      name: identity.name,
+      role: identity.role ?? null,
       organization_id: organizationId,
       external_reference_type: imageDataUri ? 'electronic-signature' : null,
       external_reference_url: imageDataUri,
@@ -857,6 +866,18 @@ router.post(
             });
             return;
           }
+
+          // Materialize a signatory row for the digital path so the
+          // exporter can emit a spec conformant signatory with the
+          // signature subtree attached. No image is attached to digital
+          // signatories (CycloneDX oneOf routes them through the
+          // `signature` branch, not externalReference).
+          const digitalSignatoryId = await materializeSignatoryFromStored(
+            db,
+            digital,
+            null
+          );
+          updateValues.signatoryId = digitalSignatoryId;
           updateValues.signatureAlgorithm = digital.signatureAlgorithm;
           updateValues.signatureValue = stored.signatureValue;
           updateValues.publicKeyPem = digital.publicKeyPem;
