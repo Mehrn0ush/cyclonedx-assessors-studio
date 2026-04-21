@@ -36,8 +36,10 @@ export {
 export {
   getAlgorithmSpec,
   isRegisteredAlgorithm,
+  isAsymmetricAlgorithm,
   signBytes,
   verifyBytes,
+  JSF_ASYMMETRIC_ALGORITHMS,
 } from './algorithms.js';
 
 export {
@@ -70,6 +72,7 @@ export type {
   EcdsaSpec,
   EddsaSpec,
   HmacSpec,
+  JsfAsymmetricAlgorithm,
 } from './algorithms.js';
 
 export type {

@@ -965,10 +965,15 @@ describe('Attestations HTTP Routes', () => {
         label: sigLabel('Digital For Prepare/Sign'),
         payload: {
           signatureFormat: 'jsf',
-          // Use a Node-native algorithm name so crypto.createVerify accepts
-          // it server-side. The server stores whatever string was registered
-          // and passes it straight through to createVerify.
-          signatureAlgorithm: 'RSA-SHA256',
+          // RS256 is the JSF identifier for RSASSA-PKCS1-v1_5 with SHA-256.
+          // The server verifies detached signatures via @cyclonedx/jsf, so
+          // the stored algorithm must be one of the JSF asymmetric values;
+          // legacy JCA spellings (RSA-SHA256 and friends) are rejected by
+          // the tightened zod schema on /me/signatures. The client below
+          // still signs with crypto.createSign('RSA-SHA256') because that
+          // is Node's native spelling for the same primitive — the wire
+          // bytes are identical.
+          signatureAlgorithm: 'RS256',
           publicKeyPem: publicKey as string,
         },
       });

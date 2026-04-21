@@ -662,7 +662,7 @@
     "legalIntentPlaceholder": "I intend to be legally bound by this signature.",
     "signatureFormat": "Signature Format",
     "signatureAlgorithm": "Algorithm",
-    "algorithmHint": "Name must match the identifier recognized by Node crypto, for example RSA-SHA256 or sha256 for ECDSA.",
+    "algorithmHint": "Choose a JSF asymmetric algorithm (for example RS256 for RSA or ES256 for ECDSA). HMAC algorithms are not offered because symmetric keys cannot attribute a signature to a specific signatory.",
     "algorithmRequired": "Algorithm is required",
     "publicKeyPem": "Public Key (PEM)",
     "publicKeyHint": "Paste the PEM encoded public key. Private keys are never accepted.",

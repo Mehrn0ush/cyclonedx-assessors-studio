@@ -99,6 +99,33 @@ export function isRegisteredAlgorithm(algorithm: string): algorithm is JsfAlgori
 }
 
 /**
+ * The JSF asymmetric algorithms suitable for signatory use in
+ * CycloneDX declarations.affirmation.signatories[].signature and for
+ * the enveloping declarations.signature and top level document
+ * signature. HMAC algorithms (HS256/384/512) are deliberately excluded
+ * because symmetric keys are not appropriate for signatory attribution
+ * or for tamper evident envelopes where the verifier is distinct from
+ * the signer.
+ */
+export const JSF_ASYMMETRIC_ALGORITHMS = [
+  'RS256', 'RS384', 'RS512',
+  'PS256', 'PS384', 'PS512',
+  'ES256', 'ES384', 'ES512',
+  'Ed25519', 'Ed448',
+] as const satisfies readonly JsfAlgorithm[];
+
+export type JsfAsymmetricAlgorithm = typeof JSF_ASYMMETRIC_ALGORITHMS[number];
+
+/**
+ * True if the given string is a JSF asymmetric algorithm identifier
+ * (excludes HMAC). Use this to validate user supplied algorithm
+ * selections in signatory and envelope flows.
+ */
+export function isAsymmetricAlgorithm(algorithm: string): algorithm is JsfAsymmetricAlgorithm {
+  return (JSF_ASYMMETRIC_ALGORITHMS as readonly string[]).includes(algorithm);
+}
+
+/**
  * Sign the canonical bytes with the given algorithm and key.
  *
  * Returns the signature as raw bytes — the JSF orchestrator is

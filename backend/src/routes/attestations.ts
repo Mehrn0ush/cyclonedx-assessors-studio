@@ -23,6 +23,7 @@ import {
   getSignatureProviders,
   verifyDetachedSignature,
 } from '../signatures/index.js';
+import { JSF_ASYMMETRIC_ALGORITHMS } from '@cyclonedx/jsf';
 
 const router = Router();
 
@@ -465,10 +466,16 @@ const electronicSignSchema = z.object({
   legalIntent: z.string().optional(),
 });
 
+// Signature algorithms are constrained to the JSF asymmetric set. HMAC
+// algorithms are excluded because symmetric keys cannot attribute a
+// signature to a specific signatory. The enum is sourced from the JSF
+// package so the wire contract and the crypto primitives stay in lock
+// step; adding an algorithm to the JSF package automatically widens
+// this contract.
 const digitalSignSchema = z.object({
   signatureType: z.literal('digital'),
   signatoryId: z.string().uuid().optional(),
-  signatureAlgorithm: z.string().min(1),
+  signatureAlgorithm: z.enum(JSF_ASYMMETRIC_ALGORITHMS),
   signatureValue: z.string().min(1),
   publicKeyPem: z.string().min(1),
   certificateChain: z.string().optional(),

@@ -65,7 +65,7 @@
               {{ formatDate(row.createdAt) }}
             </template>
           </el-table-column>
-          <el-table-column :label="t('common.actions')" width="220" fixed="right">
+          <el-table-column :label="t('common.actions')" min-width="220">
             <template #default="{ row }">
               <div class="row-actions">
                 <el-button
@@ -177,11 +177,13 @@
 
         <template v-else>
           <el-form-item :label="t('attestations.algorithm')" required>
-            <el-select v-model="signForm.signatureAlgorithm" placeholder="Select algorithm">
-              <el-option label="RSA-SHA256" value="RSA-SHA256" />
-              <el-option label="RSA-SHA384" value="RSA-SHA384" />
-              <el-option label="RSA-SHA512" value="RSA-SHA512" />
-              <el-option label="SHA256" value="SHA256" />
+            <el-select v-model="signForm.signatureAlgorithm" placeholder="Select algorithm" filterable>
+              <el-option
+                v-for="alg in JSF_ASYMMETRIC_ALGORITHMS"
+                :key="alg"
+                :label="JSF_ALGORITHM_LABELS[alg]"
+                :value="alg"
+              />
             </el-select>
           </el-form-item>
           <el-form-item :label="t('attestations.signatureValue')" required>
@@ -300,6 +302,7 @@ import HelpTip from '@/components/shared/HelpTip.vue'
 import { formatDate } from '@/utils/dateFormat'
 import { useAuthStore } from '@/stores/auth'
 import type { Assessment } from '@/types'
+import { JSF_ASYMMETRIC_ALGORITHMS, JSF_ALGORITHM_LABELS } from '@/constants/jsfAlgorithms'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -340,12 +343,16 @@ const form = ref({
 const showSignDialog = ref(false)
 const signing = ref(false)
 const signTargetId = ref('')
+// ES256 is the default digital algorithm because ECDSA on P 256 gives a
+// strong security level with small keys and signatures, which keeps the
+// signed payload compact. RS256 is the most common interoperable choice
+// and stays one click away in the dropdown.
 const signForm = ref({
   signatureType: 'electronic' as 'electronic' | 'digital',
   signedName: '',
   jurisdiction: '',
   legalIntent: '',
-  signatureAlgorithm: 'RSA-SHA256',
+  signatureAlgorithm: 'ES256' as (typeof JSF_ASYMMETRIC_ALGORITHMS)[number],
   signatureValue: '',
   publicKeyPem: '',
   certificateChain: '',
@@ -430,7 +437,7 @@ const resetSignForm = () => {
     signedName: '',
     jurisdiction: '',
     legalIntent: '',
-    signatureAlgorithm: 'RSA-SHA256',
+    signatureAlgorithm: 'ES256',
     signatureValue: '',
     publicKeyPem: '',
     certificateChain: '',

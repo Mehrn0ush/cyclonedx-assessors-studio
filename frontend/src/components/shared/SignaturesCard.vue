@@ -180,13 +180,13 @@
           </el-form-item>
 
           <el-form-item :label="t('signatures.signatureAlgorithm')" required>
-            <el-select v-model="editorForm.digital.signatureAlgorithm" filterable allow-create :disabled="saving" class="w-240">
-              <el-option label="RSA SHA256" value="RSA-SHA256" />
-              <el-option label="RSA SHA384" value="RSA-SHA384" />
-              <el-option label="RSA SHA512" value="RSA-SHA512" />
-              <el-option label="ECDSA SHA256" value="sha256" />
-              <el-option label="ECDSA SHA384" value="sha384" />
-              <el-option label="ECDSA SHA512" value="sha512" />
+            <el-select v-model="editorForm.digital.signatureAlgorithm" filterable :disabled="saving" class="w-240">
+              <el-option
+                v-for="alg in JSF_ASYMMETRIC_ALGORITHMS"
+                :key="alg"
+                :label="JSF_ALGORITHM_LABELS[alg]"
+                :value="alg"
+              />
             </el-select>
             <div class="form-hint">{{ t('signatures.algorithmHint') }}</div>
           </el-form-item>
@@ -309,6 +309,11 @@ import {
   type ElectronicSignaturePayload,
   type DigitalSignaturePayload,
 } from '@/api/me-signatures'
+import {
+  JSF_ASYMMETRIC_ALGORITHMS,
+  JSF_ALGORITHM_LABELS,
+  type JsfAsymmetricAlgorithm,
+} from '@/constants/jsfAlgorithms'
 
 const { t } = useI18n()
 
@@ -340,10 +345,35 @@ interface EditorForm {
   }
   digital: {
     signatureFormat: 'jsf' | 'x509'
-    signatureAlgorithm: string
+    signatureAlgorithm: JsfAsymmetricAlgorithm
     publicKeyPem: string
     certificateChain: string
   }
+}
+
+// Map pre JSF algorithm identifiers onto the nearest current value so
+// stored records from older builds keep rendering cleanly in the
+// dropdown. The set is intentionally narrow — only the exact strings
+// the legacy UI could produce are mapped; anything else falls back to
+// the default.
+const LEGACY_ALGORITHM_MAP: Record<string, JsfAsymmetricAlgorithm> = {
+  'RSA-SHA256': 'RS256',
+  'RSA-SHA384': 'RS384',
+  'RSA-SHA512': 'RS512',
+  sha256: 'ES256',
+  sha384: 'ES384',
+  sha512: 'ES512',
+  SHA256: 'ES256',
+  SHA384: 'ES384',
+  SHA512: 'ES512',
+}
+
+function coerceLegacyAlgorithm(value: string | null | undefined): JsfAsymmetricAlgorithm {
+  if (!value) return 'ES256'
+  if ((JSF_ASYMMETRIC_ALGORITHMS as readonly string[]).includes(value)) {
+    return value as JsfAsymmetricAlgorithm
+  }
+  return LEGACY_ALGORITHM_MAP[value] ?? 'ES256'
 }
 
 function blankEditor(): EditorForm {
@@ -366,7 +396,7 @@ function blankEditor(): EditorForm {
     },
     digital: {
       signatureFormat: 'jsf',
-      signatureAlgorithm: 'RSA-SHA256',
+      signatureAlgorithm: 'ES256',
       publicKeyPem: '',
       certificateChain: '',
     },
@@ -433,7 +463,12 @@ function openEditDialog(row: StoredSignature) {
   } else if (row.signatureType === 'digital' && row.payload) {
     const p = row.payload as DigitalSignaturePayload
     base.digital.signatureFormat = p.signatureFormat ?? 'jsf'
-    base.digital.signatureAlgorithm = p.signatureAlgorithm ?? 'RSA-SHA256'
+    // Coerce legacy Node/OpenSSL identifiers (RSA-SHA256, sha256, and
+    // friends) onto the closest JSF asymmetric algorithm so existing
+    // records round trip through the editor without crashing the
+    // dropdown. Unknown values fall back to ES256 and the user can
+    // confirm the algorithm at save time.
+    base.digital.signatureAlgorithm = coerceLegacyAlgorithm(p.signatureAlgorithm)
     base.digital.publicKeyPem = p.publicKeyPem ?? ''
     base.digital.certificateChain = p.certificateChain ?? ''
   }

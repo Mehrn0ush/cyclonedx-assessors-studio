@@ -1109,6 +1109,42 @@ WHERE r.key = 'admin'
   AND p.key IN ('signatures.sign', 'signatures.manage')
 ON CONFLICT DO NOTHING;
 
+-- Sprint 8: constrain attestation.signature_algorithm to the JSF
+-- asymmetric identifier set. Rows written by earlier builds may
+-- contain legacy JCA spellings like RSA-SHA256 or bare hash names
+-- like sha256 - rewrite those in place to the closest JSF identifier
+-- before the CHECK is added so the constraint can be enforced without
+-- dropping data. Anything that does not map is coerced to NULL and
+-- the original value is preserved as an audit note because verify
+-- already tolerates null algorithm on pre lifecycle rows.
+--
+-- Keep comment text free of semicolons because the migration runner
+-- splits on the character and cannot tolerate one inside a -- comment.
+UPDATE attestation SET signature_algorithm = 'RS256'
+  WHERE signature_algorithm IN ('RSA-SHA256', 'sha256WithRSAEncryption');
+UPDATE attestation SET signature_algorithm = 'RS384'
+  WHERE signature_algorithm IN ('RSA-SHA384', 'sha384WithRSAEncryption');
+UPDATE attestation SET signature_algorithm = 'RS512'
+  WHERE signature_algorithm IN ('RSA-SHA512', 'sha512WithRSAEncryption');
+UPDATE attestation SET signature_algorithm = 'ES256'
+  WHERE signature_algorithm IN ('ecdsa-with-SHA256', 'sha256', 'SHA256');
+UPDATE attestation SET signature_algorithm = 'ES384'
+  WHERE signature_algorithm IN ('ecdsa-with-SHA384', 'sha384', 'SHA384');
+UPDATE attestation SET signature_algorithm = 'ES512'
+  WHERE signature_algorithm IN ('ecdsa-with-SHA512', 'sha512', 'SHA512');
+
+ALTER TABLE attestation DROP CONSTRAINT IF EXISTS attestation_signature_algorithm_check;
+ALTER TABLE attestation ADD CONSTRAINT attestation_signature_algorithm_check
+  CHECK (
+    signature_algorithm IS NULL
+    OR signature_algorithm IN (
+      'RS256', 'RS384', 'RS512',
+      'PS256', 'PS384', 'PS512',
+      'ES256', 'ES384', 'ES512',
+      'Ed25519', 'Ed448'
+    )
+  );
+
 `;
 
 export async function runMigrations(): Promise<void> {

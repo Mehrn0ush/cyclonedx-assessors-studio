@@ -56,6 +56,7 @@ import {
 } from '../storage/index.js';
 import type { StorageProviderName } from '../storage/types.js';
 import { verifyAttachmentMimeType } from '../utils/attachment-mime.js';
+import { JSF_ASYMMETRIC_ALGORITHMS } from '@cyclonedx/jsf';
 
 const router = Router();
 
@@ -113,10 +114,12 @@ const electronicPayloadSchema = z.object({
 // Digital (document integrity) payload. CycloneDX 1.x uses JSF; 2.x
 // uses X.509. publicKeyPem is required — we do not accept bare keys
 // because PEM is what crypto.createPublicKey can parse and what
-// downstream exports serialize.
+// downstream exports serialize. The signatureAlgorithm enum is the
+// JSF asymmetric set; HMAC algorithms are rejected because symmetric
+// keys cannot attribute a signature to a specific signatory.
 const digitalPayloadSchema = z.object({
   signatureFormat: z.enum(['jsf', 'x509']),
-  signatureAlgorithm: z.string().min(1, 'signatureAlgorithm is required (e.g. RS256, ES256)'),
+  signatureAlgorithm: z.enum(JSF_ASYMMETRIC_ALGORITHMS),
   publicKeyPem: z.string().min(1, 'publicKeyPem is required'),
   certificateChain: z.string().optional(),
 });
