@@ -848,6 +848,12 @@
       </template>
     </el-dialog>
 
+    <SignAttestationDialog
+      v-model="showSignDialog"
+      :attestation-id="attestation?.id || null"
+      @signed="handleSignedSuccess"
+    />
+
   </div>
 </template>
 
@@ -863,6 +869,7 @@ import StateBadge from '@/components/shared/StateBadge.vue'
 import HelpTip from '@/components/shared/HelpTip.vue'
 import SearchSelect from '@/components/shared/SearchSelect.vue'
 import MentionTextarea from '@/components/shared/MentionTextarea.vue'
+import SignAttestationDialog from '@/components/shared/SignAttestationDialog.vue'
 import { formatDate } from '@/utils/dateFormat'
 
 interface Participant {
@@ -1325,20 +1332,18 @@ const handleSaveScores = async () => {
   }
 }
 
-const handleSignAttestation = async () => {
-  try {
-    if (!attestation.value?.id) {
-      throw new Error('Attestation not loaded')
-    }
-    const assessmentId = route.params.id as string
-    await axios.post(`/api/v1/attestations/${attestation.value.id}/sign`)
-    ElMessage.success(t('assessments.attestationSigned'))
-    await fetchAttestation()
-  } catch (error: unknown) {
-    const err = error as { response?: { data?: { error?: string } } }
-    ElMessage.error(err.response?.data?.error || t('common.errorOccurred'))
-    console.error('Failed to sign attestation:', error)
+const showSignDialog = ref(false)
+
+const handleSignAttestation = () => {
+  if (!attestation.value?.id) {
+    ElMessage.error(t('common.errorOccurred'))
+    return
   }
+  showSignDialog.value = true
+}
+
+const handleSignedSuccess = async () => {
+  await fetchAttestation()
 }
 
 const handleExportCycloneDX = () => {

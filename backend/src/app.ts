@@ -28,6 +28,7 @@ import evidenceRoutes from './routes/evidence.js';
 import apikeyRoutes from './routes/apikeys.js';
 import claimRoutes from './routes/claims.js';
 import attestationRoutes from './routes/attestations.js';
+import meSignatureRoutes from './routes/me-signatures.js';
 import userRoutes from './routes/users.js';
 import dashboardRoutes from './routes/dashboard.js';
 import roleRoutes from './routes/roles.js';
@@ -242,6 +243,7 @@ function registerAPIRoutes(app: Express): void {
   app.use('/api/v1/apikeys', apikeyRoutes);
   app.use('/api/v1/claims', claimRoutes);
   app.use('/api/v1/attestations', attestationRoutes);
+  app.use('/api/v1/me/signatures', meSignatureRoutes);
   app.use('/api/v1/users', userRoutes);
   app.use('/api/v1/dashboard', dashboardRoutes);
   app.use('/api/v1/roles', roleRoutes);

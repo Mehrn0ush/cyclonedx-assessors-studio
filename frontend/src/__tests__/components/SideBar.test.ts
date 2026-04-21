@@ -7,31 +7,10 @@ import { nextTick } from 'vue'
 import { useUIStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
 
-// Mock vue-router (must include createRouter / createWebHistory because
-// @/api/client -> @/router imports them at module level).
-vi.mock('vue-router', () => ({
-  useRoute: vi.fn(() => ({
-    path: '/dashboard',
-    params: {}
-  })),
-  useRouter: vi.fn(() => ({
-    push: vi.fn(),
-    replace: vi.fn(),
-    back: vi.fn()
-  })),
-  createRouter: vi.fn(() => ({
-    beforeEach: vi.fn(),
-    install: vi.fn(),
-    push: vi.fn(),
-    currentRoute: { value: { path: '/' } }
-  })),
-  createWebHistory: vi.fn(),
-  RouterLink: {
-    name: 'RouterLink',
-    template: '<a><slot></slot></a>',
-    props: ['to']
-  }
-}))
+vi.mock('vue-router', async () => {
+  const { createVueRouterMock } = await import('@/__tests__/helpers/vueRouterMock')
+  return createVueRouterMock({ route: { path: '/dashboard' } })
+})
 
 // Create i18n instance
 const i18n = createI18n({

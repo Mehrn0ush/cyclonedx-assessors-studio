@@ -40,7 +40,14 @@ const DEFAULT_PERMISSIONS = [
   // Attestations
   { key: 'attestations.view', name: 'View Attestations', description: 'View attestations', category: 'attestations' },
   { key: 'attestations.create', name: 'Create Attestations', description: 'Create attestations', category: 'attestations' },
+  { key: 'attestations.edit', name: 'Edit Attestations', description: 'Edit attestations that are not yet signed', category: 'attestations' },
   { key: 'attestations.sign', name: 'Sign Attestations', description: 'Sign attestations as signatory', category: 'attestations' },
+  { key: 'attestations.verify', name: 'Verify Attestations', description: 'Verify attestation signatures', category: 'attestations' },
+  { key: 'attestations.rescind', name: 'Rescind Attestations', description: 'Rescind a signed attestation', category: 'attestations' },
+  { key: 'attestations.export', name: 'Export Attestations', description: 'Export attestations as CycloneDX or PDF', category: 'attestations' },
+  // Signatures
+  { key: 'signatures.manage', name: 'Manage Own Signatures', description: 'Manage signatures on your own user profile', category: 'signatures' },
+  { key: 'signatures.sign', name: 'Sign Attestations', description: 'Sign attestations using your personal signature inventory', category: 'signatures' },
   // Export
   { key: 'export.pdf', name: 'Export PDF', description: 'Export assessment reports as PDF', category: 'export' },
   { key: 'export.cyclonedx', name: 'Export CycloneDX', description: 'Export CycloneDX BOM documents', category: 'export' },
@@ -78,7 +85,8 @@ const DEFAULT_ROLES = [
       'assessments.view', 'assessments.create', 'assessments.edit', 'assessments.manage', 'assessments.notes',
       'evidence.view', 'evidence.create', 'evidence.edit', 'evidence.review',
       'claims.view', 'claims.create', 'claims.edit',
-      'attestations.view', 'attestations.create', 'attestations.sign',
+      'attestations.view', 'attestations.create', 'attestations.edit', 'attestations.sign', 'attestations.verify', 'attestations.export',
+      'signatures.manage', 'signatures.sign',
       'export.pdf', 'export.cyclonedx',
     ],
   },

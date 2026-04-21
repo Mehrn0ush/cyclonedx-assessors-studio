@@ -3,27 +3,13 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
 
-// Mock vue-router
-vi.mock('vue-router', () => ({
-  useRoute: vi.fn(() => ({ path: '/dashboard', params: {}, query: {} })),
-  useRouter: vi.fn(() => ({
-    push: vi.fn(),
-    replace: vi.fn(),
-    currentRoute: { value: { path: '/dashboard' } }
-  })),
-  createRouter: vi.fn(() => ({
-    beforeEach: vi.fn(),
-    install: vi.fn(),
-    push: vi.fn(),
-    currentRoute: { value: { path: '/' } }
-  })),
-  createWebHistory: vi.fn(),
-  RouterLink: {
-    name: 'RouterLink',
-    template: '<a><slot></slot></a>',
-    props: ['to']
-  }
-}))
+vi.mock('vue-router', async () => {
+  const { createVueRouterMock } = await import('@/__tests__/helpers/vueRouterMock')
+  return createVueRouterMock({
+    route: { path: '/dashboard' },
+    router: { push: vi.fn(), replace: vi.fn(), currentRoute: { value: { path: '/dashboard' } } },
+  })
+})
 
 // Mock i18n
 vi.mock('vue-i18n', () => ({

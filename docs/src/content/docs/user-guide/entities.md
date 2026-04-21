@@ -31,6 +31,18 @@ Entities can be nested. A parent entity (a product line, a platform, a subsidiar
 
 Nesting does not imply inheritance. A claim made against a parent entity does not automatically apply to its children. The platform keeps those decisions explicit, because in practice the child often deviates from its parent in ways that matter.
 
+### Children tab
+
+The entity detail page includes a Children tab that lists the entities that directly descend from the current entity in the contains relationship. Each row shows the child's name, type, lifecycle state, and the specific relationship that links it to the parent. The rows are clickable and navigate to the child's detail page, which makes top down traversal a single click per hop.
+
+The Children tab is a convenience view over the same graph the Relationships section uses. Any child added through the Relationships section appears here automatically, and any change made here is reflected in the graph view. Use the Children tab when you want a fast flat listing; use the Relationships graph when you want to see siblings, cousins, and upstream dependencies at the same time.
+
+## Activity tab
+
+The Activity tab on the entity detail page shows a chronological audit trail of everything that has happened to the entity. Creation, metadata edits, relationship changes, attribute updates, assessment links, policy attachments, and ownership changes all land on the same timeline with the actor's identity, the timestamp, and a short description of what changed.
+
+The activity stream reads from the same immutable audit log the administrative views use, so nothing that mutates an entity can avoid being recorded. The tab is the first place to look when a stakeholder asks when a change was made, who made it, or why an entity now points somewhere unexpected.
+
 ## Searching and filtering
 
 The entity directory supports full-text search on name, description, and attributes, plus facet filters on type, owner, and tag. Searches can be saved and pinned to the sidebar. A saved search like "vendors with no assessment in the last year" is a common building block for a program that cares about coverage.

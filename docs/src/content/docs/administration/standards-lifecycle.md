@@ -35,6 +35,22 @@ Every requirement is identified by a stable ID. The ID is assigned by the system
 
 External references are first class. A requirement can link to a section of a published framework (NIST, ISO, PCI DSS, CIS) or to an internal policy document. References are displayed to the assessor during the claim workbench and are carried forward into the published attestation so downstream consumers can follow the provenance of each claim.
 
+### Reparenting requirements
+
+Requirements can be moved between parents without losing their stable identifier or any attestations that already cite them. Drag a requirement onto a different group header in the authoring workbench, or use the requirement context menu to pick a new parent from the tree. The workbench persists the new parent immediately and the requirement keeps its original ID, so downstream claims and attestations continue to resolve correctly. Attempts to create a cycle (moving a requirement underneath one of its own descendants) are rejected with a descriptive error.
+
+### Levels
+
+Levels provide a second axis of organization that cuts across the hierarchy. A level is a named grouping such as "Core", "Maturity Level 2", or "SOC 2 Type II" that can be assigned to any subset of requirements in the standard. Levels are used to scope an assessment to a subset of the standard without forcing the author to maintain a parallel hierarchy.
+
+The Levels panel on the standard detail page lists every level on the standard. Each level has an identifier, a display name, a description, and an ordinal for sort order. Levels are editable inline: click a cell to edit the identifier, name, description, or ordinal directly. Standards Managers add new levels with the New Level button and remove unused levels from the action menu on each row.
+
+### Level binding
+
+After a level is created, use its Manage Requirements action to open the level requirements picker. The picker shows a flat, indented list of every requirement in the standard with a checkbox beside each entry. Tick the requirements that belong to the level and save. The picker preserves requirement depth so authors can see the hierarchical context while picking, and a search box filters by identifier or name for large standards. Requirements can belong to any number of levels, and deleting a level removes the level bindings but leaves the requirements themselves intact.
+
+The level bindings are carried forward when a new version of the standard is published. Assessments that pick a specific level see only the requirements bound to that level; assessments that pick the whole standard see every requirement regardless of level membership.
+
 ## Submitting for review
 
 When a standards manager considers a draft complete, they submit it for review. Submission is a one click action from the standard detail page; it locks significant edits, marks the standard as In Review, and notifies every Standards Approver.

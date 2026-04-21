@@ -18,6 +18,7 @@
       :editing-field="editingField"
       :editing-value="editingValue"
       :drag-node-id="dragNodeId"
+      :drop-target-id="dropTargetId"
       @start-edit="startEdit"
       @save-edit="saveEdit"
       @cancel-edit="cancelEdit"
@@ -26,7 +27,8 @@
       @edit="$emit('edit', $event)"
       @reparent="handleReparent"
       @drag-start="dragNodeId = $event"
-      @drag-end="dragNodeId = null"
+      @drag-end="handleDragEnd"
+      @drag-hover="dropTargetId = $event"
     />
 
     <div v-if="modelValue.length === 0" class="req-tree-empty">
@@ -68,6 +70,7 @@ const emit = defineEmits<{
 const editingField = ref<{ id: string; field: string } | null>(null)
 const editingValue = ref('')
 const dragNodeId = ref<string | null>(null)
+const dropTargetId = ref<string | null>(null)
 
 const startEdit = (row: RequirementNode, field: string) => {
   if (!props.editable) return
@@ -89,6 +92,11 @@ const cancelEdit = () => {
 
 const handleReparent = (requirementId: string, newParentId: string | null) => {
   emit('reparent', requirementId, newParentId)
+}
+
+const handleDragEnd = () => {
+  dragNodeId.value = null
+  dropTargetId.value = null
 }
 </script>
 

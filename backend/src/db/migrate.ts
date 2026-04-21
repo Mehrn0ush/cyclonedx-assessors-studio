@@ -940,6 +940,175 @@ ALTER TABLE session DROP COLUMN IF EXISTS token_hash;
 -- we use. Real SQL parsers would ignore commented-out semicolons.
 ALTER TABLE attestation ADD COLUMN IF NOT EXISTS signed_at TIMESTAMP WITH TIME ZONE;
 
+-- =====================================================================
+-- Sprint 6: attestation lifecycle gaps (1.13).
+-- =====================================================================
+-- An attestation in CycloneDX carries a signature block. Until this
+-- sprint, signing was an opaque timestamp plus a foreign key to the
+-- signatory row. For the UI to export a CDXA document that another
+-- tool can actually verify, the signature material itself must live
+-- on the record. We support two signature shapes:
+--
+--   1. Electronic: a typed name plus optional image of a written
+--      signature, plus jurisdiction and legal intent captured at sign
+--      time. This is the ESIGN-style path and has no cryptographic
+--      guarantee.
+--   2. Digital: a detached signature over a canonical payload hash,
+--      with the algorithm identifier, the signature value, the signer's
+--      public key in PEM form, and an optional certificate chain.
+--
+-- signature_type discriminates between the two paths. rescinded_* mark
+-- the record as withdrawn without deleting it, which the retention
+-- lock still enforces. canonical_payload_hash is the hash of the
+-- payload that was signed, stored so verify can tell when the record
+-- has drifted from what the signer actually endorsed.
+--
+-- Keep comment text free of semicolons because the migration runner
+-- splits on that character and cannot tolerate one inside a -- comment.
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS signature_type VARCHAR(20);
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS signed_by UUID REFERENCES app_user(id) ON DELETE SET NULL;
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS signed_name VARCHAR(512);
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS signature_image_data TEXT;
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS signature_ip VARCHAR(64);
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS signature_user_agent TEXT;
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS signature_jurisdiction VARCHAR(255);
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS signature_legal_intent TEXT;
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS signature_algorithm VARCHAR(100);
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS signature_value TEXT;
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS public_key_pem TEXT;
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS certificate_chain TEXT;
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS canonical_payload_hash VARCHAR(128);
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS rescinded_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS rescinded_by UUID REFERENCES app_user(id) ON DELETE SET NULL;
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS rescind_reason TEXT;
+
+-- Sprint 6: split attestations.create into create-vs-edit and add
+-- lifecycle permissions. Upsert so fresh installs and upgrades end up
+-- in the same terminal state. The seed still backfills role links on
+-- first run. For upgrades we also patch the assessor and admin role
+-- assignments so users who already had attestations.create keep the
+-- ability to edit, verify, rescind, and export.
+INSERT INTO permission (key, name, description, category)
+VALUES ('attestations.edit', 'Edit Attestations', 'Edit attestations that are not yet signed', 'attestations')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO permission (key, name, description, category)
+VALUES ('attestations.verify', 'Verify Attestations', 'Verify attestation signatures', 'attestations')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO permission (key, name, description, category)
+VALUES ('attestations.rescind', 'Rescind Attestations', 'Rescind a signed attestation', 'attestations')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO permission (key, name, description, category)
+VALUES ('attestations.export', 'Export Attestations', 'Export attestations as CycloneDX or PDF', 'attestations')
+ON CONFLICT (key) DO NOTHING;
+
+-- Backfill role links. Every role that already had attestations.create
+-- gets attestations.edit automatically: the original create permission
+-- implicitly covered both actions, and the split is behavioural not
+-- authorization. Admin gets the full set including verify, rescind,
+-- and export. Assessor picks up edit, verify, and export but not
+-- rescind (rescind is an admin action in the shipped model).
+INSERT INTO role_permission (role_id, permission_id)
+SELECT rp.role_id, new_perm.id
+FROM role_permission rp
+  JOIN permission create_perm ON create_perm.id = rp.permission_id
+  CROSS JOIN permission new_perm
+WHERE create_perm.key = 'attestations.create'
+  AND new_perm.key = 'attestations.edit'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+FROM role r
+  CROSS JOIN permission p
+WHERE r.key = 'admin'
+  AND p.key IN ('attestations.verify', 'attestations.rescind', 'attestations.export')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+FROM role r
+  CROSS JOIN permission p
+WHERE r.key = 'assessor'
+  AND p.key IN ('attestations.verify', 'attestations.export')
+ON CONFLICT DO NOTHING;
+
+-- Sprint 7: personal signature inventory. Each user who has signing
+-- authority in the organization can register one or more labeled
+-- signatures under their own profile. Signatures never cross user
+-- boundaries and the payload is always stored encrypted. See
+-- signatures.ts for the detailed payload shapes per signature_type.
+CREATE TABLE IF NOT EXISTS user_signature (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+  label VARCHAR(255) NOT NULL,
+  signature_type VARCHAR(20) NOT NULL CHECK(signature_type IN ('electronic', 'digital')),
+  signature_format VARCHAR(20) CHECK(signature_format IS NULL OR signature_format IN ('jsf', 'x509')),
+  backend_type VARCHAR(32) NOT NULL DEFAULT 'local' CHECK(backend_type IN ('local', 'hsm', 'signing_server')),
+  payload_encrypted TEXT NOT NULL,
+  key_fingerprint VARCHAR(128),
+  signature_image_filename VARCHAR(512),
+  signature_image_content_type VARCHAR(128),
+  signature_image_size_bytes BIGINT,
+  signature_image_storage_path TEXT,
+  signature_image_binary_content BYTEA,
+  signature_image_content_hash VARCHAR(128),
+  signature_image_storage_provider VARCHAR(32),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id, label)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_signature_user ON user_signature(user_id);
+
+-- Upgrade path: existing installs created before the image columns were
+-- introduced get them added here. ALTER TABLE ADD COLUMN IF NOT EXISTS
+-- is a Postgres 9.6+ feature and is the cheapest way to stay idempotent
+-- without a separate migration registry.
+ALTER TABLE user_signature ADD COLUMN IF NOT EXISTS signature_image_filename VARCHAR(512);
+ALTER TABLE user_signature ADD COLUMN IF NOT EXISTS signature_image_content_type VARCHAR(128);
+ALTER TABLE user_signature ADD COLUMN IF NOT EXISTS signature_image_size_bytes BIGINT;
+ALTER TABLE user_signature ADD COLUMN IF NOT EXISTS signature_image_storage_path TEXT;
+ALTER TABLE user_signature ADD COLUMN IF NOT EXISTS signature_image_binary_content BYTEA;
+ALTER TABLE user_signature ADD COLUMN IF NOT EXISTS signature_image_content_hash VARCHAR(128);
+ALTER TABLE user_signature ADD COLUMN IF NOT EXISTS signature_image_storage_provider VARCHAR(32);
+
+-- Sprint 7: split signing authority out of the attestations bucket. A
+-- user needs signatures.manage to curate their personal inventory in
+-- My Signatures, and signatures.sign to actually sign an attestation.
+-- The existing attestations.sign permission is preserved as an alias
+-- so API consumers that grant it keep working, but the sign endpoint
+-- now checks signatures.sign going forward.
+INSERT INTO permission (key, name, description, category)
+VALUES ('signatures.manage', 'Manage Own Signatures', 'Manage signatures on your own user profile', 'signatures')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO permission (key, name, description, category)
+VALUES ('signatures.sign', 'Sign Attestations', 'Sign attestations using your personal signature inventory', 'signatures')
+ON CONFLICT (key) DO NOTHING;
+
+-- Backfill: every role that had attestations.sign gets signatures.sign
+-- and signatures.manage so existing signing users do not lose access
+-- on upgrade. Admin gets both unconditionally.
+INSERT INTO role_permission (role_id, permission_id)
+SELECT rp.role_id, new_perm.id
+FROM role_permission rp
+  JOIN permission old_perm ON old_perm.id = rp.permission_id
+  CROSS JOIN permission new_perm
+WHERE old_perm.key = 'attestations.sign'
+  AND new_perm.key IN ('signatures.sign', 'signatures.manage')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+FROM role r
+  CROSS JOIN permission p
+WHERE r.key = 'admin'
+  AND p.key IN ('signatures.sign', 'signatures.manage')
+ON CONFLICT DO NOTHING;
+
 `;
 
 export async function runMigrations(): Promise<void> {

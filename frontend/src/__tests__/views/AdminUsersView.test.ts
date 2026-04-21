@@ -4,13 +4,10 @@ import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
 import axios from 'axios'
 
-vi.mock('vue-router', () => ({
-  useRoute: vi.fn(() => ({ path: '/', params: {}, query: {} })),
-  useRouter: vi.fn(() => ({ push: vi.fn(), replace: vi.fn() })),
-  createRouter: vi.fn(() => ({ beforeEach: vi.fn(), install: vi.fn() })),
-  createWebHistory: vi.fn(),
-  RouterLink: { name: 'RouterLink', template: '<a><slot></slot></a>', props: ['to'] }
-}))
+vi.mock('vue-router', async () => {
+  const { createVueRouterMock } = await import('@/__tests__/helpers/vueRouterMock')
+  return createVueRouterMock()
+})
 
 vi.mock('vue-i18n', () => ({
   useI18n: vi.fn(() => ({ t: (key: string) => key, locale: { value: 'en-US' } })),

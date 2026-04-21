@@ -284,6 +284,28 @@ export interface Attestation {
   // Sprint 5.7: once signed_at is non-null the attestation and any claim
   // it cites become retention-locked. See utils/retention.ts.
   signed_at?: Date | null;
+  // Sprint 6: signature material. signature_type is 'electronic' or
+  // 'digital'. The electronic path uses signed_name (+optional image,
+  // jurisdiction, legal intent). The digital path uses signature_algorithm,
+  // signature_value, public_key_pem (+optional certificate_chain).
+  // canonical_payload_hash is the hash of the canonical payload at sign
+  // time; verify fails if a recomputed hash does not match.
+  signature_type?: string | null;
+  signed_by?: string | null;
+  signed_name?: string | null;
+  signature_image_data?: string | null;
+  signature_ip?: string | null;
+  signature_user_agent?: string | null;
+  signature_jurisdiction?: string | null;
+  signature_legal_intent?: string | null;
+  signature_algorithm?: string | null;
+  signature_value?: string | null;
+  public_key_pem?: string | null;
+  certificate_chain?: string | null;
+  canonical_payload_hash?: string | null;
+  rescinded_at?: Date | null;
+  rescinded_by?: string | null;
+  rescind_reason?: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -315,6 +337,44 @@ export interface Signatory {
   organization_id?: string | null;
   external_reference_type?: string | null;
   external_reference_url?: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+/**
+ * Personal signature inventory. The payload_encrypted column is a
+ * base64-encoded envelope (produced by encryption.ts) that decrypts
+ * into a JSON document whose shape depends on signature_type:
+ *
+ *   electronic: { signedName, jurisdiction?, legalIntent?, signatureImageData? }
+ *   digital:    { algorithm, publicKeyPem, certificateChain? }
+ *
+ * No private-key material is ever stored server-side. For digital
+ * signatures the user supplies the signature value at sign time,
+ * either by pasting or by uploading a file produced by their local
+ * signing tool. Future backend_type values ('hsm', 'signing_server')
+ * will store connection metadata alongside the public material.
+ */
+export interface UserSignature {
+  id: Generated<string>;
+  user_id: string;
+  label: string;
+  signature_type: 'electronic' | 'digital';
+  signature_format?: 'jsf' | 'x509' | null;
+  backend_type: 'local' | 'hsm' | 'signing_server';
+  payload_encrypted: string;
+  key_fingerprint?: string | null;
+  // Optional inline signature image stored via the storage provider
+  // abstraction. Either binary_content (database provider) or
+  // storage_path (S3 provider) is set, never both. Mirrors the
+  // evidence_attachment shape so the same upload code paths apply.
+  signature_image_filename?: string | null;
+  signature_image_content_type?: string | null;
+  signature_image_size_bytes?: number | null;
+  signature_image_storage_path?: string | null;
+  signature_image_binary_content?: Buffer | null;
+  signature_image_content_hash?: string | null;
+  signature_image_storage_provider?: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -691,6 +751,10 @@ export interface Database {
   signatory: Selectable<Signatory>;
   signatory_insert: Insertable<Signatory>;
   signatory_update: Updateable<Signatory>;
+
+  user_signature: Selectable<UserSignature>;
+  user_signature_insert: Insertable<UserSignature>;
+  user_signature_update: Updateable<UserSignature>;
 
   affirmation: Selectable<Affirmation>;
   affirmation_insert: Insertable<Affirmation>;

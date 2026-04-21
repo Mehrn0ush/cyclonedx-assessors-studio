@@ -145,9 +145,9 @@ describe('Export HTTP Routes', () => {
       const res = await agent.get(`/api/v1/export/assessment/${assessmentId}`);
 
       expect(res.status).toBe(200);
-      expect(res.headers['content-type']).toContain('application/json');
+      expect(res.headers['content-type']).toContain('application/vnd.cyclonedx+json');
       expect(res.headers['content-disposition']).toContain('attachment');
-      expect(res.headers['content-disposition']).toContain('cdx.json');
+      expect(res.headers['content-disposition']).toContain('cdx-1.7.json');
 
       // Verify BOM structure
       expect(res.body).toHaveProperty('$schema');
@@ -159,10 +159,10 @@ describe('Export HTTP Routes', () => {
       expect(res.body).toHaveProperty('declarations');
       expect(res.body).toHaveProperty('definitions');
 
-      // Verify CycloneDX schema
-      expect(res.body.$schema).toBe('http://cyclonedx.org/schema/bom-1.6.schema.json');
+      // Verify CycloneDX schema — defaults to 1.7 (ECMA-424 2nd Edition)
+      expect(res.body.$schema).toBe('http://cyclonedx.org/schema/bom-1.7.schema.json');
       expect(res.body.bomFormat).toBe('CycloneDX');
-      expect(res.body.specVersion).toBe('1.6');
+      expect(res.body.specVersion).toBe('1.7');
       expect(res.body.serialNumber).toMatch(/^urn:uuid:/);
       expect(res.body.version).toBe(1);
 
@@ -307,7 +307,8 @@ describe('Export HTTP Routes', () => {
       const disposition = res.headers['content-disposition'];
       expect(disposition).toContain('attachment');
       expect(disposition).toContain(`assessment-${assessmentId}`);
-      expect(disposition).toContain('cdx.json');
+      // Filename now includes the spec version suffix (default 1.7).
+      expect(disposition).toContain('cdx-1.7.json');
     });
 
     it('should require assessor or admin role', async () => {
@@ -531,7 +532,8 @@ describe('Export HTTP Routes', () => {
       const res = await agent.get(`/api/v1/export/project/${projectId}`);
 
       expect(res.status).toBe(200);
-      expect(res.headers['content-type']).toContain('application/json');
+      // CycloneDX exports now advertise the registered media type.
+      expect(res.headers['content-type']).toContain('application/vnd.cyclonedx+json');
       expect(res.headers['content-disposition']).toContain('attachment');
       expect(res.headers['content-disposition']).toContain('project-');
 
@@ -731,7 +733,8 @@ describe('Export HTTP Routes', () => {
       const disposition = res.headers['content-disposition'];
       expect(disposition).toContain('attachment');
       expect(disposition).toContain(`project-${projectId}`);
-      expect(disposition).toContain('cdx.json');
+      // Filename now includes the spec version suffix (default 1.7).
+      expect(disposition).toContain('cdx-1.7.json');
     });
 
     it('should require assessor or admin role', async () => {
@@ -947,15 +950,15 @@ describe('Export HTTP Routes', () => {
       });
     });
 
-    it('should conform to CycloneDX 1.6 schema', async () => {
+    it('should conform to CycloneDX 1.7 schema by default', async () => {
       const agent = await loginAs('admin');
       const { assessmentId } = await createFullTestData(agent);
 
       const res = await agent.get(`/api/v1/export/assessment/${assessmentId}`);
 
       expect(res.status).toBe(200);
-      expect(res.body.specVersion).toBe('1.6');
-      expect(res.body.$schema).toBe('http://cyclonedx.org/schema/bom-1.6.schema.json');
+      expect(res.body.specVersion).toBe('1.7');
+      expect(res.body.$schema).toBe('http://cyclonedx.org/schema/bom-1.7.schema.json');
 
       // Verify required fields
       expect(res.body.bomFormat).toBeDefined();
@@ -963,6 +966,29 @@ describe('Export HTTP Routes', () => {
       expect(res.body.version).toBeDefined();
       expect(res.body.metadata).toBeDefined();
       expect(res.body.declarations).toBeDefined();
+    });
+
+    it('should fall back to CycloneDX 1.6 when ?spec=1.6 is requested', async () => {
+      const agent = await loginAs('admin');
+      const { assessmentId } = await createFullTestData(agent);
+
+      const res = await agent.get(`/api/v1/export/assessment/${assessmentId}?spec=1.6`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.specVersion).toBe('1.6');
+      expect(res.body.$schema).toBe('http://cyclonedx.org/schema/bom-1.6.schema.json');
+      expect(res.headers['content-disposition']).toContain('cdx-1.6.json');
+    });
+
+    it('should ignore unknown spec values and fall back to the default 1.7', async () => {
+      const agent = await loginAs('admin');
+      const { assessmentId } = await createFullTestData(agent);
+
+      const res = await agent.get(`/api/v1/export/assessment/${assessmentId}?spec=9.9`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.specVersion).toBe('1.7');
+      expect(res.body.$schema).toBe('http://cyclonedx.org/schema/bom-1.7.schema.json');
     });
 
     it('should handle optional fields correctly', async () => {

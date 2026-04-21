@@ -75,6 +75,12 @@ A user who leaves the organization should be deactivated rather than deleted. De
 
 Deleting a user is supported but should be reserved for cases where the account was created in error. Deletion preserves activity by substituting a system placeholder for the user in historical records, so audit trails remain coherent.
 
+### Reactivating users
+
+Deactivated accounts remain in the Users table with an Inactive state badge. To restore access, open the user row's action menu and choose Reactivate. The system clears the inactive flag, re-enables password authentication, and writes an audit entry with the actor's identity and the reactivation timestamp. Previous role assignments are preserved through deactivation and return with the account, so the user regains the same effective permissions they had before. Group memberships, which are dropped on deactivation, are not restored automatically; add the user back to the relevant groups after reactivation if scoped access is required.
+
+Reactivation is intentionally a single click rather than a new provisioning flow. Use it when a contractor returns for a follow up engagement, when an employee rejoins the organization, or when an account was deactivated in error and the original permissions should be reinstated as is. For any case where the user's responsibilities have shifted, review their role assignments after reactivation and adjust to match the new scope.
+
 ## Authentication
 
 Authentication today uses local username and password, with passwords hashed using argon2id. Multi factor authentication is supported through an authenticator app compatible with the TOTP standard.

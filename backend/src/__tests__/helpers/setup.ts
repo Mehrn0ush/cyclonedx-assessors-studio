@@ -426,6 +426,30 @@ CREATE TABLE IF NOT EXISTS affirmation_signatory (
   PRIMARY KEY (affirmation_id, signatory_id)
 );
 
+-- Personal signature inventory (Sprint 7). Mirrors the migration shape.
+CREATE TABLE IF NOT EXISTS user_signature (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+  label VARCHAR(255) NOT NULL,
+  signature_type VARCHAR(20) NOT NULL CHECK(signature_type IN ('electronic', 'digital')),
+  signature_format VARCHAR(20) CHECK(signature_format IS NULL OR signature_format IN ('jsf', 'x509')),
+  backend_type VARCHAR(32) NOT NULL DEFAULT 'local' CHECK(backend_type IN ('local', 'hsm', 'signing_server')),
+  payload_encrypted TEXT NOT NULL,
+  key_fingerprint VARCHAR(128),
+  signature_image_filename VARCHAR(512),
+  signature_image_content_type VARCHAR(128),
+  signature_image_size_bytes BIGINT,
+  signature_image_storage_path TEXT,
+  signature_image_binary_content BYTEA,
+  signature_image_content_hash VARCHAR(128),
+  signature_image_storage_provider VARCHAR(32),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id, label)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_signature_user ON user_signature(user_id);
+
 -- API Keys (for programmatic / headless access)
 CREATE TABLE IF NOT EXISTS api_key (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -590,7 +614,13 @@ async function seedDefaultRolesAndPermissionsWithDb(db: Kysely<Database>): Promi
     { key: 'claims.edit', name: 'Edit Claims', description: 'Edit claims', category: 'claims' },
     { key: 'attestations.view', name: 'View Attestations', description: 'View attestations', category: 'attestations' },
     { key: 'attestations.create', name: 'Create Attestations', description: 'Create attestations', category: 'attestations' },
+    { key: 'attestations.edit', name: 'Edit Attestations', description: 'Edit attestations that are not yet signed', category: 'attestations' },
     { key: 'attestations.sign', name: 'Sign Attestations', description: 'Sign attestations as signatory', category: 'attestations' },
+    { key: 'attestations.verify', name: 'Verify Attestations', description: 'Verify attestation signatures', category: 'attestations' },
+    { key: 'attestations.rescind', name: 'Rescind Attestations', description: 'Rescind a signed attestation', category: 'attestations' },
+    { key: 'attestations.export', name: 'Export Attestations', description: 'Export attestations as CycloneDX or PDF', category: 'attestations' },
+    { key: 'signatures.manage', name: 'Manage Own Signatures', description: 'Manage signatures on your own user profile', category: 'signatures' },
+    { key: 'signatures.sign', name: 'Sign Attestations', description: 'Sign attestations using your personal signature inventory', category: 'signatures' },
     { key: 'admin.users', name: 'Manage Users', description: 'Create, edit, and manage user accounts', category: 'admin' },
     { key: 'admin.roles', name: 'Manage Roles', description: 'Create, edit, and manage roles and permissions', category: 'admin' },
     { key: 'admin.settings', name: 'Manage Settings', description: 'Manage application settings', category: 'admin' },
@@ -612,7 +642,8 @@ async function seedDefaultRolesAndPermissionsWithDb(db: Kysely<Database>): Promi
         'assessments.view', 'assessments.create', 'assessments.edit', 'assessments.manage',
         'evidence.view', 'evidence.create', 'evidence.edit', 'evidence.review',
         'claims.view', 'claims.create', 'claims.edit',
-        'attestations.view', 'attestations.create', 'attestations.sign',
+        'attestations.view', 'attestations.create', 'attestations.edit', 'attestations.sign', 'attestations.verify', 'attestations.export',
+        'signatures.manage', 'signatures.sign',
       ],
     },
     {

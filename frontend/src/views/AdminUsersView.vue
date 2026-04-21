@@ -45,11 +45,24 @@
           </template>
         </el-table-column>
         <el-table-column prop="lastLoginAt" :label="t('admin.lastLogin')" min-width="150" sortable></el-table-column>
-        <el-table-column :label="t('common.actions')" width="100">
+        <el-table-column :label="t('common.actions')" width="130">
           <template #default="{ row }">
             <div class="row-actions">
               <IconButton :icon="EditIcon" variant="primary" :tooltip="t('common.edit')" @click="handleEdit(row)" />
-              <IconButton :icon="Delete" variant="danger" :tooltip="t('common.delete')" @click="handleDelete(row)" />
+              <IconButton
+                v-if="row.isActive"
+                :icon="Delete"
+                variant="danger"
+                :tooltip="t('admin.deactivate')"
+                @click="handleDelete(row)"
+              />
+              <IconButton
+                v-else
+                :icon="VideoPlay"
+                variant="primary"
+                :tooltip="t('admin.activate')"
+                @click="handleReactivate(row)"
+              />
             </div>
           </template>
         </el-table-column>
@@ -132,7 +145,7 @@ import axios from 'axios'
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, Edit as EditIcon, Delete } from '@element-plus/icons-vue'
+import { Loading, Edit as EditIcon, Delete, VideoPlay } from '@element-plus/icons-vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import IconButton from '@/components/shared/IconButton.vue'
 
@@ -250,6 +263,38 @@ const handleDelete = async (row: Record<string, unknown>) => {
     // biome-ignore lint/suspicious/noExplicitAny: axios error handling
     const e = err as { response?: { data?: { message?: string } }; message?: string }
     ElMessage.error(e.response?.data?.message || 'Failed to deactivate user')
+  } finally {
+    saving.value = false
+  }
+}
+
+const handleReactivate = async (row: Record<string, unknown>) => {
+  // Deactivate uses a destructive confirm because the user is losing
+  // access; reactivate is the inverse and doesn't need the same gate,
+  // but we still confirm so a misclick on the wrong row doesn't
+  // silently restore access without the admin meaning to.
+  try {
+    await ElMessageBox.confirm(
+      `Reactivate "${row.displayName || row.username}"?`,
+      t('admin.activate'),
+      {
+        confirmButtonText: t('admin.activate'),
+        cancelButtonText: t('common.cancel'),
+        type: 'info',
+      }
+    )
+  } catch {
+    return
+  }
+
+  saving.value = true
+  try {
+    await axios.put(`/api/v1/users/${row.id as string}/activate`)
+    ElMessage.success(t('admin.userActivated'))
+    fetchUsers()
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string; error?: string } }; message?: string }
+    ElMessage.error(e.response?.data?.message || e.response?.data?.error || 'Failed to activate user')
   } finally {
     saving.value = false
   }

@@ -9,13 +9,13 @@ const mockQuery = { value: {} as Record<string, string> }
 // aborted-navigation errors, so the mock must always return a Promise.
 const replaceSpy = vi.fn(() => Promise.resolve())
 
-vi.mock('vue-router', () => ({
-  useRoute: vi.fn(() => ({ path: '/admin/user-management', query: mockQuery.value })),
-  useRouter: vi.fn(() => ({ push: vi.fn(), replace: replaceSpy })),
-  createRouter: vi.fn(() => ({ beforeEach: vi.fn(), install: vi.fn() })),
-  createWebHistory: vi.fn(),
-  RouterLink: { name: 'RouterLink', template: '<a><slot /></a>', props: ['to'] },
-}))
+vi.mock('vue-router', async () => {
+  const { createVueRouterMock } = await import('@/__tests__/helpers/vueRouterMock')
+  return createVueRouterMock({
+    route: () => ({ path: '/admin/user-management', query: mockQuery.value }),
+    router: () => ({ push: vi.fn(), replace: replaceSpy }),
+  })
+})
 
 vi.mock('vue-i18n', () => ({
   useI18n: vi.fn(() => ({ t: (key: string) => key, locale: { value: 'en-US' } })),

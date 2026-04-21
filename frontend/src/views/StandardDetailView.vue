@@ -399,7 +399,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ArrowRight, Loading, Edit, Delete, Plus, ArrowDown } from '@element-plus/icons-vue'
@@ -569,20 +569,44 @@ const fetchProjects = async () => {
   }
 }
 
-const fetchStandard = async () => {
-  loading.value = true
+// Silent reloads avoid toggling `loading.value`. The full-page loading
+// indicator unmounts the requirements tree, which collapses to the top
+// of the page and discards the user's scroll position. Mutation handlers
+// (reparent, level edits, requirement edits, etc.) want to refresh the
+// in-memory model without that visible flicker.
+//
+// The actual scroll container is `.app-main` from App.vue, which has
+// `overflow-y: auto` inside a position:fixed shell. window.scroll* is
+// always 0 here, so we have to capture and restore the container's
+// scrollTop directly.
+const fetchStandard = async (options: { silent?: boolean } = {}) => {
+  if (!options.silent) {
+    loading.value = true
+  }
   error.value = ''
+  const scrollContainer = options.silent
+    ? (document.querySelector('.app-main') as HTMLElement | null)
+    : null
+  const scrollLeft = scrollContainer?.scrollLeft ?? 0
+  const scrollTop = scrollContainer?.scrollTop ?? 0
   try {
     const { data } = await axios.get(`/api/v1/standards/${route.params.id}`)
     standard.value = data.standard
     requirements.value = data.requirements || []
     levels.value = data.levels || []
     await fetchProjects()
+    if (options.silent && scrollContainer) {
+      // Wait for Vue to flush the DOM update before restoring scroll.
+      await nextTick()
+      scrollContainer.scrollTo({ left: scrollLeft, top: scrollTop, behavior: 'auto' })
+    }
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } }; message?: string }
     error.value = e.response?.data?.error || 'Failed to load standard'
   } finally {
-    loading.value = false
+    if (!options.silent) {
+      loading.value = false
+    }
   }
 }
 
@@ -629,7 +653,7 @@ const handleSaveEdit = async () => {
     await axios.put(`/api/v1/standards/${standard.value.id}`, editForm.value)
     ElMessage.success('Standard updated successfully')
     editDialogVisible.value = false
-    await fetchStandard()
+    await fetchStandard({ silent: true })
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } }; message?: string }
     ElMessage.error(e.response?.data?.error || 'Failed to update standard')
@@ -686,7 +710,7 @@ const handleSaveRequirement = async () => {
       ElMessage.success('Requirement added successfully')
     }
     requirementDialogVisible.value = false
-    await fetchStandard()
+    await fetchStandard({ silent: true })
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } }; message?: string }
     ElMessage.error(e.response?.data?.error || 'Failed to save requirement')
@@ -703,7 +727,7 @@ const handleSaveInline = async (row: RequirementNode, field: string, value: stri
       `/api/v1/standards/${standard.value.id}/requirements/${row.id}`,
       { [field]: value }
     )
-    await fetchStandard()
+    await fetchStandard({ silent: true })
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } }; message?: string }
     ElMessage.error(e.response?.data?.error || `Failed to update ${field}`)
@@ -720,7 +744,7 @@ const handleReparent = async (requirementId: string, newParentId: string | null)
       `/api/v1/standards/${standard.value.id}/requirements/${requirementId}/reparent`,
       { parent_id: newParentId }
     )
-    await fetchStandard()
+    await fetchStandard({ silent: true })
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } }; message?: string }
     ElMessage.error(e.response?.data?.error || 'Failed to move requirement')
@@ -746,7 +770,7 @@ const handleDeleteRequirement = async (requirement: RequirementNode) => {
       `/api/v1/standards/${standard.value.id}/requirements/${requirement.id}`
     )
     ElMessage.success('Requirement deleted successfully')
-    await fetchStandard()
+    await fetchStandard({ silent: true })
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } }; message?: string }
     if (e.message !== 'cancel') {
@@ -778,7 +802,7 @@ const handleSaveLevel = async () => {
     await axios.post(`/api/v1/standards/${standard.value.id}/levels`, levelForm.value)
     ElMessage.success('Level added')
     levelDialogVisible.value = false
-    await fetchStandard()
+    await fetchStandard({ silent: true })
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } }; message?: string }
     ElMessage.error(e.response?.data?.error || 'Failed to add level')
@@ -798,7 +822,7 @@ const handleDeleteLevel = async (level: Record<string, unknown>) => {
     )
     await axios.delete(`/api/v1/standards/${standard.value.id}/levels/${level.id as string}`)
     ElMessage.success('Level deleted')
-    await fetchStandard()
+    await fetchStandard({ silent: true })
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } }; message?: string }
     if (e.message !== 'cancel') {
@@ -824,7 +848,7 @@ const saveLevelField = async (row: Record<string, unknown>) => {
       { [editingLevelField.value.field]: editingLevelValue.value }
     )
     editingLevelField.value = null
-    await fetchStandard()
+    await fetchStandard({ silent: true })
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } }; message?: string }
     ElMessage.error(e.response?.data?.error || 'Failed to update level')
@@ -859,7 +883,7 @@ const handleSaveLevelRequirements = async () => {
     )
     ElMessage.success('Level requirements updated')
     levelReqsDialogVisible.value = false
-    await fetchStandard()
+    await fetchStandard({ silent: true })
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } }; message?: string }
     ElMessage.error(e.response?.data?.error || 'Failed to update level requirements')
@@ -884,7 +908,7 @@ const handleSubmitForApproval = async () => {
     )
     await axios.post(`/api/v1/standards/${standard.value.id}/submit`)
     ElMessage.success('Standard submitted for approval')
-    await fetchStandard()
+    await fetchStandard({ silent: true })
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } }; message?: string }
     if (e.message !== 'cancel') {
@@ -910,7 +934,7 @@ const handleApprove = async () => {
     )
     await axios.post(`/api/v1/standards/${standard.value.id}/approve`)
     ElMessage.success('Standard approved')
-    await fetchStandard()
+    await fetchStandard({ silent: true })
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } }; message?: string }
     if (e.message !== 'cancel') {
@@ -936,7 +960,7 @@ const handleReject = async () => {
     )
     await axios.post(`/api/v1/standards/${standard.value.id}/reject`, { reason })
     ElMessage.success('Standard rejected')
-    await fetchStandard()
+    await fetchStandard({ silent: true })
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } }; message?: string }
     if (e.message !== 'cancel') {
@@ -1011,7 +1035,7 @@ const handleRetire = async () => {
     )
     await axios.post(`/api/v1/standards/${standard.value.id}/retire`)
     ElMessage.success('Standard retired')
-    await fetchStandard()
+    await fetchStandard({ silent: true })
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } }; message?: string }
     if (e.message !== 'cancel') {

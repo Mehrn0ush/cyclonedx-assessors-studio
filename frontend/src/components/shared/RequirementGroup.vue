@@ -7,21 +7,20 @@
     >
       <div
         class="req-tree-row"
+        :data-req-id="element.id"
         :class="{
           'req-tree-row-stripe': items.indexOf(element) % 2 === 1,
           'drop-target': dropTargetId === element.id,
           'is-dragging': dragNodeId === element.id,
         }"
-        :draggable="editable"
-        @dragstart.stop="onDragStart($event, element)"
-        @dragend.stop="onDragEnd"
-        @dragover.prevent="onDragOver($event, element)"
-        @dragleave="onDragLeave(element)"
-        @drop.prevent="onDrop($event, element)"
       >
         <!-- Drag handle -->
         <div class="req-cell req-cell-drag" v-if="editable">
-          <span class="drag-handle" title="Drag to reparent">&#x2630;</span>
+          <span
+            class="drag-handle"
+            title="Drag to reparent"
+            @pointerdown.stop.prevent="startPointerDrag($event, element)"
+          >&#x2630;</span>
         </div>
 
         <!-- Identifier (inline editable) -->
@@ -136,18 +135,6 @@
         </div>
       </div>
 
-      <!-- Drop zone: "Make this a root" or "Make child of this node" indicator -->
-      <div
-        v-if="editable && dragNodeId && dragNodeId !== element.id && element.children?.length === 0"
-        class="drop-zone-child"
-        @dragover.prevent="dropZoneTargetId = element.id"
-        @dragleave="dropZoneTargetId = null"
-        @drop.prevent="onDropAsChild($event, element)"
-        :class="{ 'drop-zone-active': dropZoneTargetId === element.id }"
-      >
-        <span>Drop here to make child of {{ element.identifier }}</span>
-      </div>
-
       <!-- Recursive children -->
       <div v-if="element.children?.length && isExpanded(element.id)" class="req-tree-children">
         <RequirementGroup
@@ -158,6 +145,7 @@
           :editing-field="editingField"
           :editing-value="editingValue"
           :drag-node-id="dragNodeId"
+          :drop-target-id="dropTargetId"
           @start-edit="(row: RequirementItem, field: string) => $emit('start-edit', row, field)"
           @save-edit="(row: RequirementItem) => $emit('save-edit', row)"
           @cancel-edit="$emit('cancel-edit')"
@@ -167,18 +155,17 @@
           @reparent="(reqId: string, newParent: string | null) => $emit('reparent', reqId, newParent)"
           @drag-start="(id: string) => $emit('drag-start', id)"
           @drag-end="$emit('drag-end')"
+          @drag-hover="(id: string | null) => $emit('drag-hover', id)"
         />
       </div>
     </div>
 
-    <!-- Drop zone at end of root level to make items root-level -->
+    <!-- "Make root" hint strip, visible during drag at the end of the root list -->
     <div
       v-if="editable && dragNodeId && depth === 0"
       class="drop-zone-root"
-      @dragover.prevent="dropRootActive = true"
-      @dragleave="dropRootActive = false"
-      @drop.prevent="onDropAsRoot"
-      :class="{ 'drop-zone-active': dropRootActive }"
+      :class="{ 'drop-zone-active': dropTargetId === ROOT_TARGET_ID }"
+      :data-req-id="ROOT_TARGET_ID"
     >
       <span>{{ t('dropZones.makeRootLevel') }}</span>
     </div>
@@ -186,7 +173,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Edit as EditIcon, Delete, ArrowRight } from '@element-plus/icons-vue'
 import IconButton from './IconButton.vue'
@@ -197,6 +184,10 @@ type RequirementItem = RequirementNode
 
 const { t } = useI18n()
 
+// Sentinel drop-target id for the "make root" strip. A literal string
+// we will never collide with a real requirement UUID.
+const ROOT_TARGET_ID = '__REQ_TREE_ROOT__'
+
 const props = defineProps<{
   items: RequirementItem[]
   parentId: string | null
@@ -205,6 +196,7 @@ const props = defineProps<{
   editingField: { id: string; field: string } | null
   editingValue: string
   dragNodeId: string | null
+  dropTargetId: string | null
 }>()
 
 const emit = defineEmits<{
@@ -217,6 +209,7 @@ const emit = defineEmits<{
   (e: 'reparent', requirementId: string, newParentId: string | null): void
   (e: 'drag-start', id: string): void
   (e: 'drag-end'): void
+  (e: 'drag-hover', id: string | null): void
 }>()
 
 // Expand/collapse state
@@ -253,59 +246,196 @@ const isEditing = (id: string, field: string) => {
   return props.editingField?.id === id && props.editingField?.field === field
 }
 
-// Drag/drop for reparenting
-const dropTargetId = ref<string | null>(null)
-const dropZoneTargetId = ref<string | null>(null)
-const dropRootActive = ref(false)
+// --- Pointer-based drag implementation ---
+//
+// Why not HTML5 native drag-and-drop? The app shell puts the primary
+// scroll on `.app-main` inside a position:fixed wrapper. Native drag
+// does not reliably work in that layout, and in particular it does not
+// auto-scroll nested overflow containers, so drops on rows that are
+// below the initially visible viewport silently fail in some browsers.
+// Pointer events bypass all of that: we track the pointer globally,
+// hit-test with `document.elementFromPoint`, and scroll the container
+// ourselves when the cursor gets near the top or bottom edge.
 
-const onDragStart = (event: DragEvent, element: RequirementItem) => {
-  if (!props.editable) return
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', element.id)
-  }
-  emit('drag-start', element.id)
+const AUTO_SCROLL_EDGE_PX = 60
+const AUTO_SCROLL_STEP_PX = 18
+const DRAG_THRESHOLD_PX = 4
+
+let activeDragId: string | null = null
+let dragStarted = false
+let pointerStartX = 0
+let pointerStartY = 0
+let scrollContainerEl: HTMLElement | null = null
+let capturedEl: HTMLElement | null = null
+let capturedPointerId: number | null = null
+let autoScrollRAF: number | null = null
+let lastClientX = 0
+let lastClientY = 0
+
+const getAppMain = (): HTMLElement | null => {
+  if (scrollContainerEl && scrollContainerEl.isConnected) return scrollContainerEl
+  scrollContainerEl = document.querySelector('.app-main')
+  return scrollContainerEl
 }
 
-const onDragEnd = () => {
-  dropTargetId.value = null
-  dropZoneTargetId.value = null
-  dropRootActive.value = false
+const hitTestReqId = (clientX: number, clientY: number): string | null => {
+  const target = document.elementFromPoint(clientX, clientY) as HTMLElement | null
+  if (!target) return null
+  const row = target.closest('[data-req-id]') as HTMLElement | null
+  if (!row) return null
+  const id = row.getAttribute('data-req-id')
+  return id || null
+}
+
+const autoScrollTick = () => {
+  autoScrollRAF = null
+  if (!activeDragId) return
+  const container = getAppMain()
+  if (!container) return
+  const rect = container.getBoundingClientRect()
+  let scrolled = false
+  if (lastClientY < rect.top + AUTO_SCROLL_EDGE_PX) {
+    const distance = rect.top + AUTO_SCROLL_EDGE_PX - lastClientY
+    const step = Math.min(AUTO_SCROLL_STEP_PX, Math.max(2, distance / 4))
+    const next = Math.max(0, container.scrollTop - step)
+    if (next !== container.scrollTop) {
+      container.scrollTop = next
+      scrolled = true
+    }
+  } else if (lastClientY > rect.bottom - AUTO_SCROLL_EDGE_PX) {
+    const distance = lastClientY - (rect.bottom - AUTO_SCROLL_EDGE_PX)
+    const step = Math.min(AUTO_SCROLL_STEP_PX, Math.max(2, distance / 4))
+    const maxScroll = container.scrollHeight - container.clientHeight
+    const next = Math.min(maxScroll, container.scrollTop + step)
+    if (next !== container.scrollTop) {
+      container.scrollTop = next
+      scrolled = true
+    }
+  }
+  // After scrolling, the element under the cursor has changed. Re-hit-test
+  // so the drop-target highlight follows the newly revealed row.
+  if (scrolled) {
+    const hoverId = hitTestReqId(lastClientX, lastClientY)
+    emit('drag-hover', hoverId)
+  }
+  // Keep the loop alive while dragging so the page continues to scroll
+  // even if the user stops moving the pointer inside the edge zone.
+  if (activeDragId) {
+    autoScrollRAF = requestAnimationFrame(autoScrollTick)
+  }
+}
+
+const startAutoScroll = () => {
+  if (autoScrollRAF !== null) return
+  autoScrollRAF = requestAnimationFrame(autoScrollTick)
+}
+
+const stopAutoScroll = () => {
+  if (autoScrollRAF !== null) {
+    cancelAnimationFrame(autoScrollRAF)
+    autoScrollRAF = null
+  }
+}
+
+const onPointerMove = (event: PointerEvent) => {
+  if (!activeDragId) return
+  lastClientX = event.clientX
+  lastClientY = event.clientY
+
+  if (!dragStarted) {
+    const dx = event.clientX - pointerStartX
+    const dy = event.clientY - pointerStartY
+    if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return
+    dragStarted = true
+    emit('drag-start', activeDragId)
+    startAutoScroll()
+  }
+
+  const hoverId = hitTestReqId(event.clientX, event.clientY)
+  emit('drag-hover', hoverId)
+}
+
+const endDrag = (commit: boolean, event?: PointerEvent) => {
+  const draggedId = activeDragId
+  activeDragId = null
+  const wasStarted = dragStarted
+  dragStarted = false
+  stopAutoScroll()
+
+  if (capturedEl && capturedPointerId !== null) {
+    try {
+      capturedEl.releasePointerCapture(capturedPointerId)
+    } catch {
+      // no-op, capture may already have been released
+    }
+  }
+  capturedEl = null
+  capturedPointerId = null
+
+  document.removeEventListener('pointermove', onPointerMove)
+  document.removeEventListener('pointerup', onPointerUp)
+  document.removeEventListener('pointercancel', onPointerCancel)
+
+  if (!wasStarted || !draggedId) {
+    if (wasStarted) emit('drag-end')
+    emit('drag-hover', null)
+    return
+  }
+
+  let targetId: string | null = null
+  if (commit && event) {
+    targetId = hitTestReqId(event.clientX, event.clientY)
+  } else if (commit) {
+    targetId = props.dropTargetId
+  }
+
   emit('drag-end')
-}
+  emit('drag-hover', null)
 
-const onDragOver = (_event: DragEvent, element: RequirementItem) => {
-  if (props.dragNodeId === element.id) return
-  dropTargetId.value = element.id
-}
+  if (!commit) return
+  if (!targetId) return
+  if (targetId === draggedId) return
 
-const onDragLeave = (element: RequirementItem) => {
-  if (dropTargetId.value === element.id) {
-    dropTargetId.value = null
+  if (targetId === ROOT_TARGET_ID) {
+    emit('reparent', draggedId, null)
+    return
   }
+
+  emit('reparent', draggedId, targetId)
 }
 
-const onDrop = (event: DragEvent, element: RequirementItem) => {
-  const draggedId = event.dataTransfer?.getData('text/plain')
-  dropTargetId.value = null
-  if (!draggedId || draggedId === element.id) return
-
-  // Dropping ON a row means "make it a child of this row"
-  emit('reparent', draggedId, element.id)
+const onPointerUp = (event: PointerEvent) => {
+  endDrag(true, event)
 }
 
-const onDropAsChild = (event: DragEvent, element: RequirementItem) => {
-  const draggedId = event.dataTransfer?.getData('text/plain')
-  dropZoneTargetId.value = null
-  if (!draggedId || draggedId === element.id) return
-  emit('reparent', draggedId, element.id)
+const onPointerCancel = () => {
+  endDrag(false)
 }
 
-const onDropAsRoot = (event: DragEvent) => {
-  const draggedId = event.dataTransfer?.getData('text/plain')
-  dropRootActive.value = false
-  if (!draggedId) return
-  emit('reparent', draggedId, null)
+const startPointerDrag = (event: PointerEvent, element: RequirementItem) => {
+  if (!props.editable) return
+  if (event.button !== undefined && event.button !== 0) return
+  activeDragId = element.id
+  dragStarted = false
+  pointerStartX = event.clientX
+  pointerStartY = event.clientY
+  lastClientX = event.clientX
+  lastClientY = event.clientY
+
+  // Capture the pointer on the handle so we reliably get subsequent
+  // events even if the cursor moves outside the element while dragging.
+  capturedEl = event.currentTarget as HTMLElement
+  capturedPointerId = event.pointerId
+  try {
+    capturedEl.setPointerCapture(event.pointerId)
+  } catch {
+    // Some test environments or very old browsers may not support
+    // setPointerCapture. Document listeners still work.
+  }
+
+  document.addEventListener('pointermove', onPointerMove)
+  document.addEventListener('pointerup', onPointerUp)
+  document.addEventListener('pointercancel', onPointerCancel)
 }
 </script>
 
@@ -332,14 +462,6 @@ const onDropAsRoot = (event: DragEvent) => {
 
   &.is-dragging {
     opacity: 0.4;
-  }
-
-  &[draggable="true"] {
-    cursor: grab;
-
-    &:active {
-      cursor: grabbing;
-    }
   }
 }
 
@@ -387,10 +509,16 @@ const onDropAsRoot = (event: DragEvent) => {
   user-select: none;
   padding: 2px 4px;
   border-radius: var(--cat-radius-sm);
+  cursor: grab;
+  touch-action: none;
 
   &:hover {
     color: var(--cat-text-primary);
     background-color: var(--cat-bg-secondary);
+  }
+
+  &:active {
+    cursor: grabbing;
   }
 }
 
@@ -470,28 +598,21 @@ const onDropAsRoot = (event: DragEvent) => {
   gap: 4px;
 }
 
-.drop-zone-child,
 .drop-zone-root {
-  padding: 6px 12px;
+  padding: 8px 12px;
+  margin-top: 4px;
   text-align: center;
   font-size: var(--cat-font-size-sm);
   color: var(--cat-text-tertiary);
-  border: 1px dashed transparent;
+  border: 1px dashed var(--cat-border-default);
+  border-radius: var(--cat-radius-sm);
   transition: all 0.15s;
-  display: none;
-}
 
-// Only show drop zones while dragging (controlled by dragNodeId prop)
-.requirement-group:has(.is-dragging) .drop-zone-child,
-.requirement-group:has(.is-dragging) .drop-zone-root {
-  display: block;
-}
-
-.drop-zone-active {
-  display: block !important;
-  border-color: var(--cat-accent-primary);
-  background-color: rgba(99, 102, 241, 0.1);
-  color: var(--cat-accent-primary);
+  &.drop-zone-active {
+    border-color: var(--cat-accent-primary);
+    background-color: rgba(99, 102, 241, 0.1);
+    color: var(--cat-accent-primary);
+  }
 }
 
 .req-tree-children {

@@ -4,16 +4,12 @@ import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
 import StandardDetailView from '@/views/StandardDetailView.vue'
 
-vi.mock('vue-router', () => ({
-  useRoute: vi.fn(() => ({
-    path: '/standards/test-id',
-    params: { id: 'test-id' },
-    query: {},
-  })),
-  useRouter: vi.fn(() => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() })),
-  createRouter: vi.fn(() => ({ beforeEach: vi.fn(), install: vi.fn() })),
-  createWebHistory: vi.fn(),
-}))
+vi.mock('vue-router', async () => {
+  const { createVueRouterMock } = await import('@/__tests__/helpers/vueRouterMock')
+  return createVueRouterMock({
+    route: { path: '/standards/test-id', params: { id: 'test-id' } },
+  })
+})
 
 vi.mock('vue-i18n', () => ({
   useI18n: vi.fn(() => ({

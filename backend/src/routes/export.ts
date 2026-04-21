@@ -10,6 +10,31 @@ import { requireAuth, requirePermission } from '../middleware/auth.js';
 
 const router = Router();
 
+// Supported CycloneDX schema versions. 1.7 (ECMA-424 2nd Edition) is
+// the default for new work per the cyclonedx-spec guidance; 1.6
+// (ECMA-424 1st Edition) is offered as a fallback for consumers that
+// have not yet adopted the 2nd Edition. The `?spec=` query parameter
+// on every export route selects between them.
+export type CycloneDxSpecVersion = '1.6' | '1.7';
+
+/**
+ * Resolve the CycloneDX spec version from the query string. Defaults
+ * to 1.7. Unknown values fall through to the default rather than
+ * throwing so callers cannot trip on a typo in a hand-crafted URL —
+ * the returned value is always something the serializer can handle.
+ */
+function parseSpecVersion(req: AuthRequest): CycloneDxSpecVersion {
+  const raw = typeof req.query.spec === 'string' ? req.query.spec.trim() : '';
+  if (raw === '1.6') return '1.6';
+  return '1.7';
+}
+
+function schemaUrlFor(version: CycloneDxSpecVersion): string {
+  return version === '1.6'
+    ? 'http://cyclonedx.org/schema/bom-1.6.schema.json'
+    : 'http://cyclonedx.org/schema/bom-1.7.schema.json';
+}
+
 interface CycloneDXAssessor {
   'bom-ref': string;
   name: string;
@@ -66,6 +91,22 @@ interface CycloneDXStandard {
   }[];
 }
 
+interface CycloneDXSignatory {
+  name: string;
+  role?: string;
+  organization?: Record<string, unknown>;
+  externalReference?: {
+    type: string;
+    url: string;
+  };
+  signature?: Record<string, unknown>;
+}
+
+interface CycloneDXAffirmation {
+  statement: string;
+  signatories?: CycloneDXSignatory[];
+}
+
 interface CycloneDXBOM {
   $schema: string;
   bomFormat: string;
@@ -90,16 +131,99 @@ interface CycloneDXBOM {
     targets: {
       organizations: Record<string, unknown>[];
     };
-    affirmation?: {
-      statement: string;
-    };
+    affirmation?: CycloneDXAffirmation;
   };
   definitions: {
     standards: CycloneDXStandard[];
   };
 }
 
-async function buildAssessmentBOM(assessmentId: string): Promise<CycloneDXBOM> {
+/**
+ * Build a CycloneDX signatory object from a signatory row plus its
+ * related organization and the signing attestation. The shape is
+ * identical for 1.6 and 1.7; the signatory schema did not change
+ * between the two editions. We branch on signature_type to pick the
+ * CycloneDX oneOf branch:
+ *
+ *   - electronic: organization + externalReference of type
+ *     "electronic-signature" carrying the image URL (emitted as a
+ *     data: URI when signing materialized one). This is the DocuSign-
+ *     style flow.
+ *   - digital: `signature` with algorithm + value + publicKey (JSF)
+ *     or certificatePath[] (X.509). Which branch we emit depends on
+ *     what the signer actually stored at sign time: a certificate
+ *     chain wins (X.509), otherwise we fall back to a JSF-ish
+ *     publicKey reference.
+ */
+function buildSignatoryObject(
+  signatoryRow: Record<string, unknown>,
+  organization: Record<string, unknown> | null | undefined,
+  attestation: Record<string, unknown>
+): CycloneDXSignatory {
+  const base: CycloneDXSignatory = {
+    name: String(signatoryRow.name ?? ''),
+  };
+  const role = signatoryRow.role as string | null | undefined;
+  if (role) base.role = role;
+
+  if (organization) {
+    const address: Record<string, unknown> = {};
+    if (organization.country) address.country = organization.country;
+    if (organization.region) address.region = organization.region;
+    if (organization.locality) address.locality = organization.locality;
+    if (organization.post_office_box_number) {
+      address.postOfficeBoxNumber = organization.post_office_box_number;
+    }
+    if (organization.postal_code) address.postalCode = organization.postal_code;
+    if (organization.street_address) address.streetAddress = organization.street_address;
+
+    const orgShape: Record<string, unknown> = {
+      name: organization.name,
+    };
+    if (Object.keys(address).length > 0) orgShape.address = address;
+    if (organization.website) orgShape.url = [organization.website];
+    base.organization = orgShape;
+  }
+
+  const extRefType = signatoryRow.external_reference_type as string | null | undefined;
+  const extRefUrl = signatoryRow.external_reference_url as string | null | undefined;
+  if (extRefType && extRefUrl) {
+    base.externalReference = { type: extRefType, url: extRefUrl };
+  }
+
+  if (attestation.signature_type === 'digital') {
+    const signature: Record<string, unknown> = {};
+    if (attestation.signature_algorithm) signature.algorithm = attestation.signature_algorithm;
+    if (attestation.signature_value) signature.value = attestation.signature_value;
+    if (attestation.certificate_chain) {
+      // X.509 path: emit as CycloneDX certificatePath[]. The stored
+      // chain is a concatenated PEM bundle; split into individual
+      // base64 DER blocks so consumers can validate each cert.
+      const chain = String(attestation.certificate_chain);
+      const certs = chain
+        .split(/-----END CERTIFICATE-----/g)
+        .map((block) =>
+          block.replace(/-----BEGIN CERTIFICATE-----/g, '').replace(/\s+/g, '').trim()
+        )
+        .filter((block) => block.length > 0);
+      if (certs.length > 0) signature.certificatePath = certs;
+    } else if (attestation.public_key_pem) {
+      // JSF path: emit the PEM public key inline. Consumers that
+      // require strict JSF canonicalization will need to convert this
+      // to the JWK form themselves; keeping the PEM verbatim matches
+      // what the signer stored.
+      signature.publicKey = attestation.public_key_pem;
+    }
+    if (Object.keys(signature).length > 0) base.signature = signature;
+  }
+
+  return base;
+}
+
+async function buildAssessmentBOM(
+  assessmentId: string,
+  specVersion: CycloneDxSpecVersion = '1.7'
+): Promise<CycloneDXBOM> {
   const db = getDatabase();
 
   // Fetch assessment
@@ -266,7 +390,10 @@ async function buildAssessmentBOM(assessmentId: string): Promise<CycloneDXBOM> {
     }
   }
 
-  // Fetch affirmation if exists
+  // Fetch affirmation if exists. The declarations.affirmation block
+  // is the CycloneDX home for legally binding signatories; we pull
+  // them from every signed attestation in the assessment so the
+  // export reflects the full set of people who actually signed.
   let affirmationStatement: string | undefined;
   if (project) {
     const affirmation = await db
@@ -280,10 +407,55 @@ async function buildAssessmentBOM(assessmentId: string): Promise<CycloneDXBOM> {
     }
   }
 
+  const signatories: CycloneDXSignatory[] = [];
+  const seenSignatoryIds = new Set<string>();
+  for (const att of attestations) {
+    if (!att.signed_at || !att.signatory_id) continue;
+    const id = att.signatory_id as string;
+    if (seenSignatoryIds.has(id)) continue;
+    seenSignatoryIds.add(id);
+    const sigRow = await db
+      .selectFrom('signatory')
+      .where('id', '=', id)
+      .selectAll()
+      .executeTakeFirst();
+    if (!sigRow) continue;
+    const org = sigRow.organization_id
+      ? await db
+          .selectFrom('organization')
+          .where('id', '=', sigRow.organization_id)
+          .selectAll()
+          .executeTakeFirst()
+      : null;
+    signatories.push(
+      buildSignatoryObject(
+        sigRow as Record<string, unknown>,
+        (org ?? null) as Record<string, unknown> | null,
+        att as Record<string, unknown>
+      )
+    );
+  }
+
+  const affirmation: CycloneDXAffirmation | undefined = affirmationStatement
+    ? {
+        statement: affirmationStatement,
+        ...(signatories.length > 0 && { signatories }),
+      }
+    : signatories.length > 0
+      ? {
+          // If no project-level statement is recorded but signatories
+          // exist, emit a generic statement so the block still
+          // validates against the schema (statement is required on
+          // affirmation).
+          statement: 'This attestation has been signed by the listed signatories.',
+          signatories,
+        }
+      : undefined;
+
   const bom: CycloneDXBOM = {
-    $schema: 'http://cyclonedx.org/schema/bom-1.6.schema.json',
+    $schema: schemaUrlFor(specVersion),
     bomFormat: 'CycloneDX',
-    specVersion: '1.6',
+    specVersion,
     serialNumber: `urn:uuid:${uuidv4()}`,
     version: 1,
     metadata: {
@@ -305,11 +477,7 @@ async function buildAssessmentBOM(assessmentId: string): Promise<CycloneDXBOM> {
       targets: {
         organizations: [],
       },
-      ...(affirmationStatement && {
-        affirmation: {
-          statement: affirmationStatement,
-        },
-      }),
+      ...(affirmation && { affirmation }),
     },
     definitions: {
       standards,
@@ -714,6 +882,7 @@ async function generateAssessmentPDF(assessmentId: string): Promise<Buffer> {
 
 router.get('/assessment/:assessmentId', requireAuth, requirePermission('export.cyclonedx'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const { assessmentId } = req.params as { assessmentId: string };
+  const specVersion = parseSpecVersion(req);
   const db = getDatabase();
 
   // Verify assessment exists
@@ -729,16 +898,17 @@ router.get('/assessment/:assessmentId', requireAuth, requirePermission('export.c
   }
 
   // Build BOM
-  const bom = await buildAssessmentBOM(assessmentId);
+  const bom = await buildAssessmentBOM(assessmentId, specVersion);
 
   // Set response headers
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Content-Disposition', `attachment; filename="assessment-${assessmentId}-cdx.json"`);
+  res.setHeader('Content-Type', 'application/vnd.cyclonedx+json');
+  res.setHeader('Content-Disposition', `attachment; filename="assessment-${assessmentId}-cdx-${specVersion}.json"`);
 
   res.json(bom);
 
   logger.info('Assessment exported', {
     assessmentId,
+    specVersion,
     requestId: req.requestId,
   });
 }));
@@ -783,6 +953,7 @@ router.get('/assessment/:assessmentId/pdf', requireAuth, requirePermission('expo
 
 router.get('/project/:projectId', requireAuth, requirePermission('export.cyclonedx'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const { projectId } = req.params as { projectId: string };
+  const specVersion = parseSpecVersion(req);
   const db = getDatabase();
 
   // Verify project exists
@@ -805,14 +976,14 @@ router.get('/project/:projectId', requireAuth, requirePermission('export.cyclone
     .execute();
 
   // Build BOMs for all assessments
-  const boms = await Promise.all(assessments.map(a => buildAssessmentBOM(a.id)));
+  const boms = await Promise.all(assessments.map(a => buildAssessmentBOM(a.id, specVersion)));
 
   // Create a wrapper BOM containing all assessment BOMs
   // biome-ignore lint/suspicious/noExplicitAny: CycloneDX BOM structure is complex and dynamic
   const projectBOM: Record<string, unknown> = {
-    $schema: 'http://cyclonedx.org/schema/bom-1.6.schema.json',
+    $schema: schemaUrlFor(specVersion),
     bomFormat: 'CycloneDX',
-    specVersion: '1.6',
+    specVersion,
     serialNumber: `urn:uuid:${uuidv4()}`,
     version: 1,
     metadata: {
@@ -891,13 +1062,14 @@ router.get('/project/:projectId', requireAuth, requirePermission('export.cyclone
   (projectBOM.definitions as any).standards = Array.from(mergedStandards.values());
 
   // Set response headers
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Content-Disposition', `attachment; filename="project-${projectId}-cdx.json"`);
+  res.setHeader('Content-Type', 'application/vnd.cyclonedx+json');
+  res.setHeader('Content-Disposition', `attachment; filename="project-${projectId}-cdx-${specVersion}.json"`);
 
   res.json(projectBOM);
 
   logger.info('Project exported', {
     projectId,
+    specVersion,
     assessmentCount: assessments.length,
     requestId: req.requestId,
   });

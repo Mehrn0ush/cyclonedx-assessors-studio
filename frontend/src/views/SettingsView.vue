@@ -209,6 +209,9 @@
         </div>
       </el-card>
 
+      <!-- My Signatures -->
+      <SignaturesCard v-if="canManageSignatures" />
+
       <!-- API Keys -->
       <ApiKeysCard />
 
@@ -349,11 +352,14 @@ import PageHeader from '@/components/shared/PageHeader.vue'
 import SearchSelect from '@/components/shared/SearchSelect.vue'
 import type { SelectOption } from '@/components/shared/SearchSelect.vue'
 import ApiKeysCard from '@/components/shared/ApiKeysCard.vue'
+import SignaturesCard from '@/components/shared/SignaturesCard.vue'
 
 const { t } = useI18n()
 const router = useRouter()
 
 const authStore = useAuthStore()
+
+const canManageSignatures = computed(() => authStore.hasPermission('signatures.manage'))
 const uiStore = useUIStore()
 // Password policy store drives the minimum length check and error
 // copy in the change password flow. Fetched on mount so the UI

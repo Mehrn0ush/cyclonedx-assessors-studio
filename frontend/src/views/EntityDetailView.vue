@@ -234,6 +234,56 @@
             </div>
           </el-tab-pane>
 
+          <!-- Tab: Children -->
+          <el-tab-pane :label="t('entities.children')" name="children">
+            <div class="tab-content">
+              <div v-if="childrenLoading" class="tab-loading">
+                <el-icon class="is-loading" :size="20"><Loading /></el-icon>
+                <span>{{ t('common.loading') }}</span>
+              </div>
+              <div v-else-if="childEntities.length === 0" class="empty-state">
+                {{ t('entities.noChildren') }}
+              </div>
+              <el-table v-else :data="childEntities" stripe border @row-click="(row: Record<string, unknown>) => router.push(`/entities/${row.id as string}`)">
+                <el-table-column :label="t('common.name')" min-width="200">
+                  <template #default="{ row }">
+                    <router-link :to="`/entities/${row.id as string}`" class="subtle-link" @click.stop>
+                      {{ row.name }}
+                    </router-link>
+                  </template>
+                </el-table-column>
+                <el-table-column :label="t('entities.entityType')" min-width="140">
+                  <template #default="{ row }">
+                    <el-tag type="info" size="small">{{ formatEntityType(row.entityType as string) }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column :label="t('common.state')" min-width="120">
+                  <template #default="{ row }">
+                    <StateBadge :state="row.state as string" />
+                  </template>
+                </el-table-column>
+                <el-table-column :label="t('entities.relationshipType')" min-width="140">
+                  <template #default="{ row }">
+                    <el-tag size="small" :style="{ borderColor: relationshipColor(row.relationshipType as string), color: relationshipColor(row.relationshipType as string), backgroundColor: relationshipColor(row.relationshipType as string) + '18' }">
+                      {{ formatRelationshipType(row.relationshipType as string) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </el-tab-pane>
+
+          <!-- Tab: Activity (Audit history for this entity) -->
+          <el-tab-pane :label="t('entities.activity')" name="activity">
+            <div class="tab-content">
+              <EntityAuditTab
+                v-if="entity"
+                entity-type="entity"
+                :entity-id="entity.id"
+              />
+            </div>
+          </el-tab-pane>
+
           <!-- Tab 4: Progress -->
           <el-tab-pane :label="t('entities.progress')" name="progress">
             <div class="tab-content">
@@ -416,6 +466,7 @@ import TagInput from '@/components/shared/TagInput.vue'
 import SearchSelect from '@/components/shared/SearchSelect.vue'
 import type { SelectOption } from '@/components/shared/SearchSelect.vue'
 import RelationshipGraph from '@/components/shared/RelationshipGraph.vue'
+import EntityAuditTab from '@/components/shared/EntityAuditTab.vue'
 import * as entitiesAPI from '@/api/entities'
 import type { Entity, EntityRelationship, CompliancePolicy, AssessmentProgress, Tag } from '@/types'
 import type { GraphEdge } from '@/components/shared/RelationshipGraph.vue'
@@ -433,6 +484,7 @@ const assessmentsLoading = ref(false)
 const relationshipsLoading = ref(false)
 const policiesLoading = ref(false)
 const progressLoading = ref(false)
+const childrenLoading = ref(false)
 
 // Entity data
 const entity = ref<Entity | null>(null)
@@ -441,6 +493,7 @@ const assessments = ref<Record<string, unknown>[]>([])
 const relationships = ref<EntityRelationship[]>([])
 const policies = ref<CompliancePolicy[]>([])
 const progressData = ref<AssessmentProgress[]>([])
+const childEntities = ref<Record<string, unknown>[]>([])
 const availableStandards = ref<Record<string, unknown>[]>([])
 const graphEdges = ref<GraphEdge[]>([])
 const graphEntities = ref<Array<{ id: string; name: string }>>([])
@@ -652,6 +705,7 @@ const fetchEntity = async () => {
     await Promise.all([
       fetchAssessments(),
       fetchProgress(),
+      fetchChildren(),
     ])
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } }; message?: string }
@@ -683,6 +737,21 @@ const fetchProgress = async () => {
     console.error('Failed to load progress:', err)
   } finally {
     progressLoading.value = false
+  }
+}
+
+const fetchChildren = async () => {
+  childrenLoading.value = true
+  try {
+    // camelCaseResponse middleware transforms entity_type/relationship_type
+    // into entityType/relationshipType before the payload lands here.
+    const data = await entitiesAPI.getEntityChildren(route.params.id as string)
+    childEntities.value = (data.data || []) as Record<string, unknown>[]
+  } catch (err: unknown) {
+    console.error('Failed to load children:', err)
+    childEntities.value = []
+  } finally {
+    childrenLoading.value = false
   }
 }
 
