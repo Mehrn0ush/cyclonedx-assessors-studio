@@ -281,31 +281,16 @@ export interface Attestation {
   assessment_id: string;
   signatory_id?: string | null;
   assessor_id?: string | null;
-  // Sprint 5.7: once signed_at is non-null the attestation and any claim
-  // it cites become retention-locked. See utils/retention.ts.
-  signed_at?: Date | null;
-  // Sprint 6: signature material. signature_type is 'electronic' or
-  // 'digital'. The electronic path uses signed_name (+optional image,
-  // jurisdiction, legal intent). The digital path uses signature_algorithm,
-  // signature_value, public_key_pem (+optional certificate_chain).
-  // canonical_payload_hash is the hash of the canonical payload at sign
-  // time; verify fails if a recomputed hash does not match.
-  signature_type?: string | null;
-  signed_by?: string | null;
-  signed_name?: string | null;
-  signature_image_data?: string | null;
-  signature_ip?: string | null;
-  signature_user_agent?: string | null;
-  signature_jurisdiction?: string | null;
-  signature_legal_intent?: string | null;
-  signature_algorithm?: string | null;
-  signature_value?: string | null;
-  public_key_pem?: string | null;
-  certificate_chain?: string | null;
-  canonical_payload_hash?: string | null;
-  rescinded_at?: Date | null;
-  rescinded_by?: string | null;
-  rescind_reason?: string | null;
+  // PR3.6: signature material (signed_at, signature_type, signed_by,
+  // signed_name, signature_image_data, signature_ip, signature_user_agent,
+  // signature_jurisdiction, signature_legal_intent, signature_algorithm,
+  // signature_value, public_key_pem, certificate_chain,
+  // canonical_payload_hash, rescinded_at, rescinded_by, rescind_reason)
+  // was dropped from the attestation table. Signing now lives on the
+  // assessment-scoped affirmation (see Affirmation below) and cascades
+  // through affirmation_signatory slots. Retention lock keys off
+  // affirmation.sealed_at + terminal assessment state. See
+  // utils/retention.ts.
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -382,15 +367,45 @@ export interface UserSignature {
 export interface Affirmation {
   id: Generated<string>;
   statement: string;
-  project_id: string;
+  project_id?: string | null;
   entity_id?: string | null;
+  assessment_id?: string | null;
+  sealed_at?: Date | null;
+  sealed_by?: string | null;
+  canonical_hash?: string | null;
+  declarations_signature_json?: unknown;
+  document_signature_json?: unknown;
+  platform_key_fingerprint?: string | null;
+  rescinded_at?: Date | null;
+  rescinded_by?: string | null;
+  rescind_reason?: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
 
 export interface AffirmationSignatory {
+  id: Generated<string>;
   affirmation_id: string;
-  signatory_id: string;
+  required_title: string;
+  required_user_id?: string | null;
+  signatory_id?: string | null;
+  signature_json?: unknown;
+  canonical_hash?: string | null;
+  signed_at?: Date | null;
+  signed_by?: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface PlatformSigningKey {
+  id: Generated<string>;
+  fingerprint: string;
+  algorithm: string;
+  public_key_pem: string;
+  private_key_encrypted: string;
+  is_active: boolean;
+  rotated_at?: Date | null;
+  rotated_by?: string | null;
   created_at: Generated<Date>;
 }
 
@@ -762,6 +777,11 @@ export interface Database {
 
   affirmation_signatory: Selectable<AffirmationSignatory>;
   affirmation_signatory_insert: Insertable<AffirmationSignatory>;
+  affirmation_signatory_update: Updateable<AffirmationSignatory>;
+
+  platform_signing_key: Selectable<PlatformSigningKey>;
+  platform_signing_key_insert: Insertable<PlatformSigningKey>;
+  platform_signing_key_update: Updateable<PlatformSigningKey>;
 
   tag: Selectable<Tag>;
   tag_insert: Insertable<Tag>;

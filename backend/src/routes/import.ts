@@ -381,17 +381,32 @@ router.post(
           updated_at: new Date(),
         }).execute();
 
-        // Link signatories to affirmation
+        // Link signatories to the affirmation as already filled slots.
+        // Imported affirmations arrive sealed from another tool, so the
+        // slot concept does not really apply - we synthesize a title
+        // from the signatory role (or fall back to the name) so the
+        // NOT NULL constraint is satisfied and the rows model the
+        // captured signatories rather than empty slots.
+        const seenTitles = new Set<string>();
         for (const sig of signatories) {
           const sigRef = sig['bom-ref'] || sig.name;
-          const sigId = signatoryBomRefMap.get(sigRef);
-          if (sigId) {
-            await db.insertInto('affirmation_signatory').values({
-              affirmation_id: affirmationId,
-              signatory_id: sigId,
-              created_at: new Date(),
-            }).execute();
+          const sigId = sigRef ? signatoryBomRefMap.get(sigRef) : undefined;
+          if (!sigId) continue;
+          let title = (sig.role || sig.name || 'Signatory').trim();
+          let uniqueTitle = title;
+          let suffix = 1;
+          while (seenTitles.has(uniqueTitle)) {
+            suffix += 1;
+            uniqueTitle = `${title} (${suffix})`;
           }
+          seenTitles.add(uniqueTitle);
+          await db.insertInto('affirmation_signatory').values({
+            affirmation_id: affirmationId,
+            required_title: uniqueTitle,
+            signatory_id: sigId,
+            created_at: new Date(),
+            updated_at: new Date(),
+          }).execute();
         }
         importLog.push(`Affirmation imported with ${signatories.length} signatories`);
       }

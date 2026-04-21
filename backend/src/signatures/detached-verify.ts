@@ -1,12 +1,13 @@
 /**
  * Detached digital-signature verification helper.
  *
- * Some Assessors Studio flows (notably the legacy
- * `/api/v1/attestations/:id/verify` endpoint) verify a base64 signature
- * value computed by the client against the canonical payload hash that
- * was returned by `/sign/prepare`. The signature is detached: it does
- * not live inside a JSF envelope, so the JSF provider's `verify()`
- * cannot be applied directly.
+ * Historically this was used by the per-attestation
+ * `/api/v1/attestations/:id/verify` endpoint removed in PR3.6. It is
+ * kept on the signatures public API because the shape (algorithm name,
+ * PEM public key, base64 signature) remains useful for interop with
+ * out-of-band detached signatures that callers compute themselves. The
+ * signature is detached: it does not live inside a JSF envelope, so the
+ * JSF provider's `verify()` cannot be applied directly.
  *
  * This helper bridges that gap. It takes the legacy material
  * (algorithm name, PEM public key, base64 signature) and routes the

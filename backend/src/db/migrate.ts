@@ -1145,6 +1145,154 @@ ALTER TABLE attestation ADD CONSTRAINT attestation_signature_algorithm_check
     )
   );
 
+-- =====================================================================
+-- Sprint 9: Affirmation cascade signing and platform key.
+-- =====================================================================
+-- CycloneDX declarations.affirmation carries the legal signatories for
+-- a set of attestations. Prior sprints tracked signatures per
+-- attestation, which forced per row sealing and produced no top level
+-- document signature. Sprint 9 moves signing up one level so a single
+-- affirmation seals the entire declarations block with a platform
+-- signature over the declarations subtree and a second platform
+-- signature over the full document. Each required signatory signs
+-- their own JSF envelope first, the platform wraps those into the
+-- declarations seal, then seals the full document.
+--
+-- Slot model (Option B). Affirmation managers declare required slots
+-- by title (CISO, COO, CFO etc). A slot can optionally pin a specific
+-- user via required_user_id. If unpinned, any user with signing
+-- authority may claim the slot by signing it. Seal requires every
+-- slot to be signed.
+--
+-- Platform key. Exactly one row in platform_signing_key has is_active
+-- true. Rotation writes a new row and flips the old one inactive.
+-- Historic signatures resolve their verifying key by keyId fingerprint
+-- embedded in the JSF envelope, so rotation never invalidates prior
+-- seals. The private key is stored envelope encrypted. Bootstrap of
+-- the first active key happens on demand in the platform key service
+-- so migrations remain pure SQL.
+--
+-- Keep comment text free of semicolons because the migration runner
+-- splits on that character and cannot tolerate one inside a comment.
+ALTER TABLE affirmation ALTER COLUMN project_id DROP NOT NULL;
+ALTER TABLE affirmation ADD COLUMN IF NOT EXISTS assessment_id UUID REFERENCES assessment(id) ON DELETE CASCADE;
+ALTER TABLE affirmation ADD COLUMN IF NOT EXISTS sealed_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE affirmation ADD COLUMN IF NOT EXISTS sealed_by UUID REFERENCES app_user(id) ON DELETE SET NULL;
+ALTER TABLE affirmation ADD COLUMN IF NOT EXISTS canonical_hash VARCHAR(128);
+ALTER TABLE affirmation ADD COLUMN IF NOT EXISTS declarations_signature_json JSONB;
+ALTER TABLE affirmation ADD COLUMN IF NOT EXISTS document_signature_json JSONB;
+ALTER TABLE affirmation ADD COLUMN IF NOT EXISTS platform_key_fingerprint VARCHAR(128);
+ALTER TABLE affirmation ADD COLUMN IF NOT EXISTS rescinded_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE affirmation ADD COLUMN IF NOT EXISTS rescinded_by UUID REFERENCES app_user(id) ON DELETE SET NULL;
+ALTER TABLE affirmation ADD COLUMN IF NOT EXISTS rescind_reason TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_affirmation_assessment_unique ON affirmation(assessment_id) WHERE assessment_id IS NOT NULL;
+
+-- affirmation_signatory becomes a first class slot entity. The prior
+-- two column junction table is dropped in favor of a wider row that
+-- carries slot metadata, an optional pinned user, the captured
+-- signatory identity once claimed, and the per signatory JSF envelope.
+DROP TABLE IF EXISTS affirmation_signatory CASCADE;
+CREATE TABLE IF NOT EXISTS affirmation_signatory (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  affirmation_id UUID NOT NULL REFERENCES affirmation(id) ON DELETE CASCADE,
+  required_title VARCHAR(255) NOT NULL,
+  required_user_id UUID REFERENCES app_user(id) ON DELETE SET NULL,
+  signatory_id UUID REFERENCES signatory(id) ON DELETE SET NULL,
+  signature_json JSONB,
+  canonical_hash VARCHAR(128),
+  signed_at TIMESTAMP WITH TIME ZONE,
+  signed_by UUID REFERENCES app_user(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (affirmation_id, required_title)
+);
+
+CREATE INDEX IF NOT EXISTS idx_affirmation_signatory_affirmation ON affirmation_signatory(affirmation_id);
+CREATE INDEX IF NOT EXISTS idx_affirmation_signatory_required_user ON affirmation_signatory(required_user_id);
+
+-- Platform signing key inventory. Historic rows are retained so that
+-- signatures generated before a rotation can still be verified using
+-- the key that actually produced them. Only one row has is_active true
+-- at a time, enforced by a partial unique index.
+CREATE TABLE IF NOT EXISTS platform_signing_key (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  fingerprint VARCHAR(128) NOT NULL UNIQUE,
+  algorithm VARCHAR(32) NOT NULL,
+  public_key_pem TEXT NOT NULL,
+  private_key_encrypted TEXT NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT FALSE,
+  rotated_at TIMESTAMP WITH TIME ZONE,
+  rotated_by UUID REFERENCES app_user(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_platform_signing_key_active_singleton ON platform_signing_key(is_active) WHERE is_active;
+
+-- Sprint 9 permissions. affirmations.manage covers the full lifecycle
+-- because affirmation authoring, sealing, and rescinding are all high
+-- trust actions that should travel together. platform_keys.rotate is
+-- split out because key rotation is even more sensitive and should be
+-- grantable independently.
+INSERT INTO permission (key, name, description, category)
+VALUES ('affirmations.manage', 'Manage Affirmations', 'Create affirmations, add required signatories, seal, verify, and rescind', 'affirmations')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO permission (key, name, description, category)
+VALUES ('platform_keys.rotate', 'Rotate Platform Signing Key', 'Generate a new platform signing key and retire the old one', 'platform')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+FROM role r
+  CROSS JOIN permission p
+WHERE r.key = 'admin'
+  AND p.key IN ('affirmations.manage', 'platform_keys.rotate')
+ON CONFLICT DO NOTHING;
+
+-- =====================================================================
+-- PR3.6: Remove per attestation sign, verify, and rescind surface.
+-- =====================================================================
+-- Attestation authority moved from a row level signature block to the
+-- assessment scoped affirmation cascade. The signature material columns
+-- bolted onto attestation in Sprint 6 are no longer written and the
+-- retention lock now keys off affirmation.sealed_at plus terminal
+-- assessment state. Drop the unused columns so fresh installs and
+-- upgrades converge on the new shape. Upgrade data loss is intentional
+-- because the PR3 design memo explicitly scoped out a backfill path.
+--
+-- Keep comment text free of semicolons because the migration runner
+-- splits on that character and cannot tolerate one inside a comment.
+ALTER TABLE attestation DROP CONSTRAINT IF EXISTS attestation_signature_algorithm_check;
+ALTER TABLE attestation DROP COLUMN IF EXISTS signed_at;
+ALTER TABLE attestation DROP COLUMN IF EXISTS signed_by;
+ALTER TABLE attestation DROP COLUMN IF EXISTS signed_name;
+ALTER TABLE attestation DROP COLUMN IF EXISTS signature_type;
+ALTER TABLE attestation DROP COLUMN IF EXISTS signature_image_data;
+ALTER TABLE attestation DROP COLUMN IF EXISTS signature_ip;
+ALTER TABLE attestation DROP COLUMN IF EXISTS signature_user_agent;
+ALTER TABLE attestation DROP COLUMN IF EXISTS signature_jurisdiction;
+ALTER TABLE attestation DROP COLUMN IF EXISTS signature_legal_intent;
+ALTER TABLE attestation DROP COLUMN IF EXISTS signature_algorithm;
+ALTER TABLE attestation DROP COLUMN IF EXISTS signature_value;
+ALTER TABLE attestation DROP COLUMN IF EXISTS public_key_pem;
+ALTER TABLE attestation DROP COLUMN IF EXISTS certificate_chain;
+ALTER TABLE attestation DROP COLUMN IF EXISTS canonical_payload_hash;
+ALTER TABLE attestation DROP COLUMN IF EXISTS rescinded_at;
+ALTER TABLE attestation DROP COLUMN IF EXISTS rescinded_by;
+ALTER TABLE attestation DROP COLUMN IF EXISTS rescind_reason;
+
+-- Revoke the legacy verify and rescind permissions. The endpoints that
+-- consumed them are gone, so leaving the grants would surface phantom
+-- capabilities in the Permissions admin UI. Delete the role mappings
+-- first to satisfy the FK then delete the permission rows themselves.
+DELETE FROM role_permission
+  WHERE permission_id IN (
+    SELECT id FROM permission WHERE key IN ('attestations.verify', 'attestations.rescind')
+  );
+
+DELETE FROM permission WHERE key IN ('attestations.verify', 'attestations.rescind');
+
 `;
 
 export async function runMigrations(): Promise<void> {

@@ -216,9 +216,35 @@ async function seedAffirmations(db: Kysely<Database>, data: DemoData): Promise<v
   }
   logger.info(`Seeded ${data.affirmations.length} affirmations`);
 
+  // Sprint 9 shape: affirmation_signatory rows are slot rows with a
+  // required_title. Seed data comes from the legacy two column layout,
+  // so we look up the signatory's role or name and use it as the title
+  // to keep the demo realistic without hand editing the JSON.
+  const seenTitlesByAffirmation = new Map<string, Set<string>>();
   for (const as_ of data.affirmation_signatories) {
-    // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
-    await db.insertInto('affirmation_signatory').values({ ...as_, created_at: new Date() } as any).execute();
+    // biome-ignore lint/suspicious/noExplicitAny: seed data is loose JSON
+    const row = as_ as any;
+    const affirmationId = row.affirmation_id as string;
+    const signatoryId = row.signatory_id as string;
+    const sigRow = await db.selectFrom('signatory').where('id', '=', signatoryId).selectAll().executeTakeFirst();
+    const baseTitle = (sigRow?.role || sigRow?.name || 'Signatory').toString().trim();
+    const used = seenTitlesByAffirmation.get(affirmationId) ?? new Set<string>();
+    let title = baseTitle;
+    let suffix = 1;
+    while (used.has(title)) {
+      suffix += 1;
+      title = `${baseTitle} (${suffix})`;
+    }
+    used.add(title);
+    seenTitlesByAffirmation.set(affirmationId, used);
+    await db.insertInto('affirmation_signatory').values({
+      affirmation_id: affirmationId,
+      required_title: title,
+      signatory_id: signatoryId,
+      created_at: new Date(),
+      updated_at: new Date(),
+      // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+    } as any).execute();
   }
 }
 

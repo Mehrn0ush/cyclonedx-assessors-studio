@@ -2,9 +2,10 @@
  * JSF asymmetric signature algorithms supported by the platform.
  *
  * These names are the JSF 0.82 identifiers that the backend accepts
- * at /attestations/:id/sign, /me/signatures, and declarations.signature.
- * They are the authoritative enum used by zod schemas in the backend
- * and by the crypto primitives in the @cyclonedx/jsf package.
+ * at /me/signatures, affirmation signatory sign endpoints, and in
+ * declarations.signature / document signature envelopes. They are the
+ * authoritative enum used by zod schemas in the backend and by the
+ * crypto primitives in the @cyclonedx/jsf package.
  *
  * Keep this list in sync with JSF_ASYMMETRIC_ALGORITHMS in
  * backend/packages/jsf/src/algorithms.ts. A backend typecheck will

@@ -1,16 +1,16 @@
 /**
- * Regression tests for Sprint 5.7 symmetric claim / attestation
- * retention lock. This mirrors the Sprint 4.9+ `evidence-retention`
- * suite but moves up one level in the declaration record hierarchy.
+ * Regression tests for the PR3 attestation / claim retention lock.
  *
- * Domain rules enforced by `utils/retention.ts`:
- *   - An attestation is immutable once `signed_at` is non-null, or once
- *     its parent assessment is in a terminal state.
- *   - A claim is immutable once it is cited by any signed attestation
- *     (directly via `claim.attestation_id`, or through the
+ * Domain rules enforced by `utils/retention.ts` (as updated in PR3.6):
+ *   - An attestation is immutable once any affirmation on its parent
+ *     assessment has been sealed (`affirmation.sealed_at IS NOT NULL`),
+ *     or once its parent assessment is in a terminal state.
+ *   - A claim is immutable once it is cited by any attestation on an
+ *     assessment whose affirmation is sealed (directly via
+ *     `claim.attestation_id`, or through the
  *     `attestation_requirement_claim` and
- *     `attestation_requirement_counter_claim` junction tables), or
- *     once its parent assessment is terminal.
+ *     `attestation_requirement_counter_claim` junction tables), or once
+ *     its parent assessment is terminal.
  *
  * Immutability is a record-integrity rule, not an authorization rule:
  * admins are bound too. The enforcement layer returns 409 Conflict
@@ -31,16 +31,18 @@ interface AttestationFixture {
   assessmentId: string;
   requirementId: string;
   signatoryId: string;
+  affirmationId: string | null;
 }
 
 interface ClaimFixture {
   claimId: string;
   attestationId: string;
   assessmentId: string;
+  affirmationId: string;
 }
 
 async function seedAttestationFixture(opts: {
-  signed: boolean;
+  sealed: boolean;
   assessmentState: 'in_progress' | 'complete' | 'archived' | 'cancelled';
   label: string;
 }): Promise<AttestationFixture> {
@@ -88,28 +90,42 @@ async function seedAttestationFixture(opts: {
   }).execute();
 
   const attestationId = uuidv4();
-  // Build the insert manually; signed_at is the load-bearing retention
-  // flag so we either leave it null (unsigned fixtures) or stamp it now.
   await db.insertInto('attestation').values({
     id: attestationId,
     summary: `Ret fixture attestation (${opts.label})`,
     assessment_id: assessmentId,
-    signatory_id: opts.signed ? signatoryId : null,
-    ...(opts.signed ? { signed_at: new Date() } : {}),
+    signatory_id: opts.sealed ? signatoryId : null,
   }).execute();
 
-  return { attestationId, assessmentId, requirementId, signatoryId };
+  // Optional sealed affirmation on the same assessment. The load-bearing
+  // retention flag under PR3.6 is affirmation.sealed_at, so every test
+  // case that wants a locked attestation seeds one here. Using the DB
+  // directly (rather than the affirmations route) keeps the fixture
+  // fast and keeps this suite focused on the retention check rather
+  // than the full seal ceremony.
+  let affirmationId: string | null = null;
+  if (opts.sealed) {
+    affirmationId = uuidv4();
+    await db.insertInto('affirmation').values({
+      id: affirmationId,
+      statement: `Ret fixture affirmation (${opts.label})`,
+      assessment_id: assessmentId,
+      sealed_at: new Date(),
+    }).execute();
+  }
+
+  return { attestationId, assessmentId, requirementId, signatoryId, affirmationId };
 }
 
 async function seedClaimFixture(opts: {
-  linkage: 'direct_signed' | 'map_claim_signed' | 'map_counter_claim_signed';
+  linkage: 'direct_sealed' | 'map_claim_sealed' | 'map_counter_claim_sealed';
   label: string;
 }): Promise<ClaimFixture> {
   const { getDatabase } = await import('../../db/connection.js');
   const db = getDatabase();
 
   const parent = await seedAttestationFixture({
-    signed: true,
+    sealed: true,
     assessmentState: 'in_progress',
     label: opts.label,
   });
@@ -120,15 +136,15 @@ async function seedClaimFixture(opts: {
     name: `Ret fixture claim (${opts.label})`,
     target: 'fixture target',
     predicate: 'conformsTo',
-    is_counter_claim: opts.linkage === 'map_counter_claim_signed',
+    is_counter_claim: opts.linkage === 'map_counter_claim_sealed',
     // Only wire the attestation_id column when we want the direct link
     // retention case. The map linkages use the junction tables below,
     // not the FK column, which mirrors how the CycloneDX schema allows
     // free-floating claims referenced from the attestation map.
-    attestation_id: opts.linkage === 'direct_signed' ? parent.attestationId : null,
+    attestation_id: opts.linkage === 'direct_sealed' ? parent.attestationId : null,
   }).execute();
 
-  if (opts.linkage !== 'direct_signed') {
+  if (opts.linkage !== 'direct_sealed') {
     const attReqId = uuidv4();
     await db.insertInto('attestation_requirement').values({
       id: attReqId,
@@ -138,7 +154,7 @@ async function seedClaimFixture(opts: {
       conformance_rationale: 'fixture',
     }).execute();
 
-    const junction = opts.linkage === 'map_claim_signed'
+    const junction = opts.linkage === 'map_claim_sealed'
       ? 'attestation_requirement_claim'
       : 'attestation_requirement_counter_claim';
     await db.insertInto(junction).values({
@@ -152,14 +168,17 @@ async function seedClaimFixture(opts: {
     claimId,
     attestationId: parent.attestationId,
     assessmentId: parent.assessmentId,
+    // seedAttestationFixture guarantees an affirmation when sealed=true
+    // so the non-null assertion is safe here.
+    affirmationId: parent.affirmationId as string,
   };
 }
 
-describe('Attestation and claim retention regressions (Sprint 5.7)', () => {
+describe('Attestation and claim retention regressions (PR3 affirmation lock)', () => {
   setupHttpTests();
 
   let attFixtures: {
-    signed: AttestationFixture;
+    sealed: AttestationFixture;
     completeAssessment: AttestationFixture;
     archivedAssessment: AttestationFixture;
     cancelledAssessment: AttestationFixture;
@@ -167,33 +186,33 @@ describe('Attestation and claim retention regressions (Sprint 5.7)', () => {
   };
 
   let claimFixtures: {
-    directSigned: ClaimFixture;
-    mapClaimSigned: ClaimFixture;
-    mapCounterClaimSigned: ClaimFixture;
+    directSealed: ClaimFixture;
+    mapClaimSealed: ClaimFixture;
+    mapCounterClaimSealed: ClaimFixture;
     unused: ClaimFixture;
   };
 
   beforeAll(async () => {
     attFixtures = {
-      signed: await seedAttestationFixture({ signed: true, assessmentState: 'in_progress', label: 'signed' }),
-      completeAssessment: await seedAttestationFixture({ signed: false, assessmentState: 'complete', label: 'complete' }),
-      archivedAssessment: await seedAttestationFixture({ signed: false, assessmentState: 'archived', label: 'archived' }),
-      cancelledAssessment: await seedAttestationFixture({ signed: false, assessmentState: 'cancelled', label: 'cancelled' }),
-      unsigned: await seedAttestationFixture({ signed: false, assessmentState: 'in_progress', label: 'unsigned' }),
+      sealed: await seedAttestationFixture({ sealed: true, assessmentState: 'in_progress', label: 'sealed' }),
+      completeAssessment: await seedAttestationFixture({ sealed: false, assessmentState: 'complete', label: 'complete' }),
+      archivedAssessment: await seedAttestationFixture({ sealed: false, assessmentState: 'archived', label: 'archived' }),
+      cancelledAssessment: await seedAttestationFixture({ sealed: false, assessmentState: 'cancelled', label: 'cancelled' }),
+      unsigned: await seedAttestationFixture({ sealed: false, assessmentState: 'in_progress', label: 'unsigned' }),
     };
 
     claimFixtures = {
-      directSigned: await seedClaimFixture({ linkage: 'direct_signed', label: 'direct' }),
-      mapClaimSigned: await seedClaimFixture({ linkage: 'map_claim_signed', label: 'map_claim' }),
-      mapCounterClaimSigned: await seedClaimFixture({ linkage: 'map_counter_claim_signed', label: 'map_counter' }),
+      directSealed: await seedClaimFixture({ linkage: 'direct_sealed', label: 'direct' }),
+      mapClaimSealed: await seedClaimFixture({ linkage: 'map_claim_sealed', label: 'map_claim' }),
+      mapCounterClaimSealed: await seedClaimFixture({ linkage: 'map_counter_claim_sealed', label: 'map_counter' }),
       unused: await (async () => {
-        // An unsigned parent attestation does not lock the claim even
-        // though the claim is wired through the attestation_id FK; this
-        // is the baseline that should remain mutable so we can confirm
-        // the routes still work for the non-locked case.
+        // A claim whose parent attestation lives on an assessment
+        // without a sealed affirmation is not locked. This is the
+        // baseline that should remain mutable so we can confirm the
+        // routes still work for the non-locked case.
         const { getDatabase } = await import('../../db/connection.js');
         const db = getDatabase();
-        const parent = await seedAttestationFixture({ signed: false, assessmentState: 'in_progress', label: 'unused_claim_parent' });
+        const parent = await seedAttestationFixture({ sealed: false, assessmentState: 'in_progress', label: 'unused_claim_parent' });
         const claimId = uuidv4();
         await db.insertInto('claim').values({
           id: claimId,
@@ -203,53 +222,56 @@ describe('Attestation and claim retention regressions (Sprint 5.7)', () => {
           is_counter_claim: false,
           attestation_id: parent.attestationId,
         }).execute();
-        return { claimId, attestationId: parent.attestationId, assessmentId: parent.assessmentId };
+        return {
+          claimId,
+          attestationId: parent.attestationId,
+          assessmentId: parent.assessmentId,
+          affirmationId: 'n/a',
+        };
       })(),
     };
   });
 
   // Note on coverage of caller identity: `testUsers.admin` holds every
-  // permission, which is the exact caller profile the pre-Sprint-5.7
+  // permission, which is the exact caller profile the pre-retention
   // code quietly waved through for edits and deletes. Asserting that
   // admin still gets 409 here is the whole point of the symmetric
   // retention lock.
   const _adminUser = () => testUsers.admin;
 
-  describe('signed attestation is locked for admin', () => {
-    it('PUT /attestations/:id returns 409 with reason=signed', async () => {
+  describe('attestation on sealed-affirmation assessment is locked for admin', () => {
+    it('PUT /attestations/:id returns 409 with reason=affirmation_sealed', async () => {
       const agent = await loginAs('admin');
       const res = await agent
-        .put(`/api/v1/attestations/${attFixtures.signed.attestationId}`)
+        .put(`/api/v1/attestations/${attFixtures.sealed.attestationId}`)
         .send({ summary: 'Tampered' });
       expect(res.status).toBe(409);
-      expect(res.body.reason).toBe('signed');
+      expect(res.body.reason).toBe('affirmation_sealed');
     });
 
-    it('POST /attestations/:id/requirements returns 409 with reason=signed', async () => {
+    it('POST /attestations/:id/requirements returns 409 with reason=affirmation_sealed', async () => {
       const agent = await loginAs('admin');
       const res = await agent
-        .post(`/api/v1/attestations/${attFixtures.signed.attestationId}/requirements`)
+        .post(`/api/v1/attestations/${attFixtures.sealed.attestationId}/requirements`)
         .send({
-          requirementId: attFixtures.signed.requirementId,
+          requirementId: attFixtures.sealed.requirementId,
           conformanceScore: 0.5,
           conformanceRationale: 'tampered',
         });
       expect(res.status).toBe(409);
-      expect(res.body.reason).toBe('signed');
+      expect(res.body.reason).toBe('affirmation_sealed');
     });
 
     it('PUT /attestations/:id/requirements/:rid returns 409 when requirement exists', async () => {
-      // Seed the requirement link first on a fresh unsigned attestation,
-      // then sign that attestation directly in the DB so we reach the
-      // PUT requirement path with a retention-locked parent. The route
-      // has to fetch the attestation_requirement row first, so it has
-      // to exist for the retention check to fire.
+      // Seed the requirement link on an unsealed attestation first,
+      // then seal an affirmation on the same assessment so the PUT
+      // path reaches the retention check with a locked parent.
       const { getDatabase } = await import('../../db/connection.js');
       const db = getDatabase();
       const fixture = await seedAttestationFixture({
-        signed: false,
+        sealed: false,
         assessmentState: 'in_progress',
-        label: 'sign_after_req',
+        label: 'seal_after_req',
       });
       await db.insertInto('attestation_requirement').values({
         id: uuidv4(),
@@ -258,26 +280,19 @@ describe('Attestation and claim retention regressions (Sprint 5.7)', () => {
         conformance_score: 1,
         conformance_rationale: 'fixture',
       }).execute();
-      await db.updateTable('attestation')
-        .set({ signed_at: new Date(), signatory_id: fixture.signatoryId })
-        .where('id', '=', fixture.attestationId)
-        .execute();
+      await db.insertInto('affirmation').values({
+        id: uuidv4(),
+        statement: 'Ret fixture seal_after_req',
+        assessment_id: fixture.assessmentId,
+        sealed_at: new Date(),
+      }).execute();
 
       const agent = await loginAs('admin');
       const res = await agent
         .put(`/api/v1/attestations/${fixture.attestationId}/requirements/${fixture.requirementId}`)
         .send({ conformanceScore: 0.1, conformanceRationale: 'tampered' });
       expect(res.status).toBe(409);
-      expect(res.body.reason).toBe('signed');
-    });
-
-    it('POST /attestations/:id/sign on an already-signed attestation returns 409', async () => {
-      const agent = await loginAs('admin');
-      const res = await agent
-        .post(`/api/v1/attestations/${attFixtures.signed.attestationId}/sign`)
-        .send({ signatoryId: attFixtures.signed.signatoryId });
-      expect(res.status).toBe(409);
-      expect(res.body.reason).toBe('signed');
+      expect(res.body.reason).toBe('affirmation_sealed');
     });
   });
 
@@ -303,7 +318,7 @@ describe('Attestation and claim retention regressions (Sprint 5.7)', () => {
     }
   });
 
-  describe('unsigned attestation on active assessment is NOT locked', () => {
+  describe('attestation on non-sealed active assessment is NOT locked', () => {
     it('PUT /attestations/:id succeeds', async () => {
       const agent = await loginAs('admin');
       const res = await agent
@@ -312,30 +327,46 @@ describe('Attestation and claim retention regressions (Sprint 5.7)', () => {
       expect(res.status).toBe(200);
     });
 
-    it('POST /attestations/:id/sign stamps signed_at and succeeds once', async () => {
-      const agent = await loginAs('admin');
-      const res = await agent
-        .post(`/api/v1/attestations/${attFixtures.unsigned.attestationId}/sign`)
-        .send({ signatoryId: attFixtures.unsigned.signatoryId });
-      expect(res.status).toBe(200);
+    it('inserting a sealed affirmation on the same assessment retroactively locks the attestation', async () => {
+      const { getDatabase } = await import('../../db/connection.js');
+      const db = getDatabase();
+      const fixture = await seedAttestationFixture({
+        sealed: false,
+        assessmentState: 'in_progress',
+        label: 'pre_seal_mutable',
+      });
 
-      // After the first sign, the attestation must be immutable.
+      // Before any affirmation exists, admin can edit the attestation.
+      const agent = await loginAs('admin');
+      const firstEdit = await agent
+        .put(`/api/v1/attestations/${fixture.attestationId}`)
+        .send({ summary: 'Still editable' });
+      expect(firstEdit.status).toBe(200);
+
+      await db.insertInto('affirmation').values({
+        id: uuidv4(),
+        statement: 'Retroactive seal fixture',
+        assessment_id: fixture.assessmentId,
+        sealed_at: new Date(),
+      }).execute();
+
+      // After the seal the same route must be locked.
       const second = await agent
-        .put(`/api/v1/attestations/${attFixtures.unsigned.attestationId}`)
-        .send({ summary: 'Tampered after signing' });
+        .put(`/api/v1/attestations/${fixture.attestationId}`)
+        .send({ summary: 'Tampered after seal' });
       expect(second.status).toBe(409);
-      expect(second.body.reason).toBe('signed');
+      expect(second.body.reason).toBe('affirmation_sealed');
     });
   });
 
-  describe('claim cited by a signed attestation is locked for admin', () => {
+  describe('claim cited by an attestation on a sealed-affirmation assessment is locked for admin', () => {
     const cases: Array<{
       label: string;
       getFixture: () => ClaimFixture;
     }> = [
-      { label: 'direct attestation_id FK', getFixture: () => claimFixtures.directSigned },
-      { label: 'attestation_requirement_claim junction', getFixture: () => claimFixtures.mapClaimSigned },
-      { label: 'attestation_requirement_counter_claim junction', getFixture: () => claimFixtures.mapCounterClaimSigned },
+      { label: 'direct attestation_id FK', getFixture: () => claimFixtures.directSealed },
+      { label: 'attestation_requirement_claim junction', getFixture: () => claimFixtures.mapClaimSealed },
+      { label: 'attestation_requirement_counter_claim junction', getFixture: () => claimFixtures.mapCounterClaimSealed },
     ];
 
     for (const c of cases) {
@@ -345,7 +376,7 @@ describe('Attestation and claim retention regressions (Sprint 5.7)', () => {
           .put(`/api/v1/claims/${c.getFixture().claimId}`)
           .send({ name: 'Tampered claim' });
         expect(res.status).toBe(409);
-        expect(res.body.reason).toBe('cited_in_signed_attestation');
+        expect(res.body.reason).toBe('cited_in_sealed_affirmation');
       });
 
       it(`DELETE /claims/:id with ${c.label} returns 409`, async () => {
@@ -353,13 +384,13 @@ describe('Attestation and claim retention regressions (Sprint 5.7)', () => {
         const res = await agent
           .delete(`/api/v1/claims/${c.getFixture().claimId}`);
         expect(res.status).toBe(409);
-        expect(res.body.reason).toBe('cited_in_signed_attestation');
+        expect(res.body.reason).toBe('cited_in_sealed_affirmation');
       });
     }
   });
 
   describe('unused claim is NOT locked', () => {
-    it('PUT /claims/:id succeeds on a claim whose parent attestation is unsigned', async () => {
+    it('PUT /claims/:id succeeds on a claim whose parent assessment has no sealed affirmation', async () => {
       const agent = await loginAs('admin');
       const res = await agent
         .put(`/api/v1/claims/${claimFixtures.unused.claimId}`)

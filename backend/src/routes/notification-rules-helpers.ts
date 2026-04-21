@@ -43,6 +43,13 @@ export const ADMIN_VALID_EVENT_TYPES = [
   'attestation.created',
   'attestation.signed',
   'attestation.exported',
+  // Affirmation
+  'affirmation.created',
+  'affirmation.signatory_assigned',
+  'affirmation.signed',
+  'affirmation.seal_ready',
+  'affirmation.sealed',
+  'affirmation.rescinded',
   // Project
   'project.created',
   'project.state_changed',
@@ -67,6 +74,10 @@ export const USER_VALID_EVENT_TYPES = [
   'evidence.state_changed',
   'attestation.created',
   'attestation.signed',
+  'affirmation.signatory_assigned',
+  'affirmation.seal_ready',
+  'affirmation.sealed',
+  'affirmation.rescinded',
   '*',
 ];
 

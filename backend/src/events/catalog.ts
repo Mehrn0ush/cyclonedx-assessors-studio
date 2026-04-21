@@ -27,9 +27,25 @@ export const CLAIM_CREATED = 'claim.created';
 export const CLAIM_UPDATED = 'claim.updated';
 
 // Attestation events
+// ATTESTATION_SIGNED is retained as a subscribable event name so existing
+// notification rules that target it keep loading, but PR3.6 removed the
+// per-attestation sign endpoint. No code currently emits it; signing
+// fan-out runs through AFFIRMATION_SIGNED / AFFIRMATION_SEALED instead.
 export const ATTESTATION_CREATED = 'attestation.created';
 export const ATTESTATION_SIGNED = 'attestation.signed';
 export const ATTESTATION_EXPORTED = 'attestation.exported';
+
+// Affirmation events. Emitted by the assessment-scoped affirmation
+// cascade signing flow. The slot-signing and sealing stages fan out to
+// different recipients (slot assignee for signatory_assigned, all slot
+// signers for seal_ready, affirmation admins for sealed/rescinded) via
+// the resolvers wired in events/recipients.ts.
+export const AFFIRMATION_CREATED = 'affirmation.created';
+export const AFFIRMATION_SIGNATORY_ASSIGNED = 'affirmation.signatory_assigned';
+export const AFFIRMATION_SIGNED = 'affirmation.signed';
+export const AFFIRMATION_SEAL_READY = 'affirmation.seal_ready';
+export const AFFIRMATION_SEALED = 'affirmation.sealed';
+export const AFFIRMATION_RESCINDED = 'affirmation.rescinded';
 
 // Project events
 export const PROJECT_CREATED = 'project.created';
@@ -71,6 +87,13 @@ const TYPE_CATEGORY_MAP: Record<string, string> = {
   [ATTESTATION_CREATED]: 'attestation',
   [ATTESTATION_SIGNED]: 'attestation',
   [ATTESTATION_EXPORTED]: 'attestation',
+
+  [AFFIRMATION_CREATED]: 'affirmation',
+  [AFFIRMATION_SIGNATORY_ASSIGNED]: 'affirmation',
+  [AFFIRMATION_SIGNED]: 'affirmation',
+  [AFFIRMATION_SEAL_READY]: 'affirmation',
+  [AFFIRMATION_SEALED]: 'affirmation',
+  [AFFIRMATION_RESCINDED]: 'affirmation',
 
   [PROJECT_CREATED]: 'project',
   [PROJECT_STATE_CHANGED]: 'project',

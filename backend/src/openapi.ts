@@ -3251,27 +3251,6 @@ export function getOpenAPISpec(): OpenAPISpec {
           },
         },
       },
-      '/v1/attestations/{id}/sign': {
-        post: {
-          tags: ['Attestations'],
-          summary: 'Sign attestation',
-          operationId: 'signAttestation',
-          security: [{ cookieAuth: [] }, { apiKeyAuth: [] }],
-          parameters: [
-            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
-          ],
-          responses: {
-            '200': {
-              description: 'Attestation signed',
-              content: {
-                'application/json': {
-                  schema: { type: 'object' },
-                },
-              },
-            },
-          },
-        },
-      },
       '/v1/users': {
         get: {
           tags: ['Users'],

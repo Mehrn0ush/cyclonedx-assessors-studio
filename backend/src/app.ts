@@ -28,6 +28,7 @@ import evidenceRoutes from './routes/evidence.js';
 import apikeyRoutes from './routes/apikeys.js';
 import claimRoutes from './routes/claims.js';
 import attestationRoutes from './routes/attestations.js';
+import affirmationRoutes from './routes/affirmations.js';
 import meSignatureRoutes from './routes/me-signatures.js';
 import userRoutes from './routes/users.js';
 import dashboardRoutes from './routes/dashboard.js';
@@ -44,6 +45,7 @@ import adminRoutes from './routes/admin.js';
 import adminInviteRoutes from './routes/admin-invites.js';
 import webhookRoutes from './routes/webhooks.js';
 import adminEncryptionRoutes from './routes/admin-encryption.js';
+import adminPlatformKeyRoutes from './routes/admin-platform-keys.js';
 import chatIntegrationRoutes from './routes/chat-integrations.js';
 import metricsRoutes from './routes/metrics.js';
 import { getOpenAPISpec } from './openapi.js';
@@ -243,6 +245,7 @@ function registerAPIRoutes(app: Express): void {
   app.use('/api/v1/apikeys', apikeyRoutes);
   app.use('/api/v1/claims', claimRoutes);
   app.use('/api/v1/attestations', attestationRoutes);
+  app.use('/api/v1/affirmations', affirmationRoutes);
   app.use('/api/v1/me/signatures', meSignatureRoutes);
   app.use('/api/v1/users', userRoutes);
   app.use('/api/v1/dashboard', dashboardRoutes);
@@ -259,6 +262,7 @@ function registerAPIRoutes(app: Express): void {
   app.use('/api/v1/admin/invites', adminInviteRoutes);
   app.use('/api/v1/webhooks', webhookRoutes);
   app.use('/api/v1/admin/encryption', adminEncryptionRoutes);
+  app.use('/api/v1/admin/platform-keys', adminPlatformKeyRoutes);
   app.use('/api/v1/integrations/chat', chatIntegrationRoutes);
 }
 

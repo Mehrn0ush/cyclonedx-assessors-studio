@@ -10,6 +10,7 @@ const tables = [
   'signatory', 'claim', 'claim_evidence', 'claim_counter_evidence', 'claim_mitigation_strategy',
   'attestation', 'attestation_requirement', 'attestation_requirement_mitigation',
   'affirmation', 'affirmation_signatory',
+  'platform_signing_key',
   'tag', 'entity', 'entity_relationship', 'entity_tag', 'entity_standard',
   'compliance_policy', 'work_note', 'audit_log', 'notification', 'dashboard',
   'api_key', 'session'
@@ -35,6 +36,7 @@ async function main() {
   
   const sanitized = JSON.parse(JSON.stringify(dump, (key, value) => {
     if (key === 'password_hash' || key === 'token_hash' || key === 'key_hash') return '[REDACTED]';
+    if (key === 'private_key_encrypted' || key === 'payload_encrypted') return '[REDACTED]';
     return value;
   }));
   

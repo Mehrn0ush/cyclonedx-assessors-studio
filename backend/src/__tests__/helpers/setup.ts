@@ -383,6 +383,7 @@ CREATE TABLE IF NOT EXISTS attestation (
   summary TEXT,
   assessment_id UUID NOT NULL REFERENCES assessment(id) ON DELETE CASCADE,
   signatory_id UUID REFERENCES signatory(id) ON DELETE SET NULL,
+  assessor_id UUID REFERENCES assessor(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -409,21 +410,53 @@ CREATE TABLE IF NOT EXISTS attestation_requirement_mitigation (
   PRIMARY KEY (attestation_requirement_id, evidence_id)
 );
 
--- Affirmations
+-- Affirmations (Sprint 9 cascade signing shape).
 CREATE TABLE IF NOT EXISTS affirmation (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   statement TEXT NOT NULL,
-  project_id UUID NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  project_id UUID REFERENCES project(id) ON DELETE CASCADE,
+  entity_id UUID REFERENCES entity(id) ON DELETE SET NULL,
+  assessment_id UUID REFERENCES assessment(id) ON DELETE CASCADE,
+  sealed_at TIMESTAMP WITH TIME ZONE,
+  sealed_by UUID REFERENCES app_user(id) ON DELETE SET NULL,
+  canonical_hash VARCHAR(128),
+  declarations_signature_json JSONB,
+  document_signature_json JSONB,
+  platform_key_fingerprint VARCHAR(128),
+  rescinded_at TIMESTAMP WITH TIME ZONE,
+  rescinded_by UUID REFERENCES app_user(id) ON DELETE SET NULL,
+  rescind_reason TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Affirmation Signatory junction
+-- Affirmation required signatory slot (Sprint 9).
 CREATE TABLE IF NOT EXISTS affirmation_signatory (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   affirmation_id UUID NOT NULL REFERENCES affirmation(id) ON DELETE CASCADE,
-  signatory_id UUID NOT NULL REFERENCES signatory(id) ON DELETE CASCADE,
+  required_title VARCHAR(255) NOT NULL,
+  required_user_id UUID REFERENCES app_user(id) ON DELETE SET NULL,
+  signatory_id UUID REFERENCES signatory(id) ON DELETE SET NULL,
+  signature_json JSONB,
+  canonical_hash VARCHAR(128),
+  signed_at TIMESTAMP WITH TIME ZONE,
+  signed_by UUID REFERENCES app_user(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (affirmation_id, signatory_id)
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (affirmation_id, required_title)
+);
+
+-- Platform signing key inventory (Sprint 9).
+CREATE TABLE IF NOT EXISTS platform_signing_key (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  fingerprint VARCHAR(128) NOT NULL UNIQUE,
+  algorithm VARCHAR(32) NOT NULL,
+  public_key_pem TEXT NOT NULL,
+  private_key_encrypted TEXT NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT FALSE,
+  rotated_at TIMESTAMP WITH TIME ZONE,
+  rotated_by UUID REFERENCES app_user(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Personal signature inventory (Sprint 7). Mirrors the migration shape.
@@ -616,8 +649,6 @@ async function seedDefaultRolesAndPermissionsWithDb(db: Kysely<Database>): Promi
     { key: 'attestations.create', name: 'Create Attestations', description: 'Create attestations', category: 'attestations' },
     { key: 'attestations.edit', name: 'Edit Attestations', description: 'Edit attestations that are not yet signed', category: 'attestations' },
     { key: 'attestations.sign', name: 'Sign Attestations', description: 'Sign attestations as signatory', category: 'attestations' },
-    { key: 'attestations.verify', name: 'Verify Attestations', description: 'Verify attestation signatures', category: 'attestations' },
-    { key: 'attestations.rescind', name: 'Rescind Attestations', description: 'Rescind a signed attestation', category: 'attestations' },
     { key: 'attestations.export', name: 'Export Attestations', description: 'Export attestations as CycloneDX or PDF', category: 'attestations' },
     { key: 'signatures.manage', name: 'Manage Own Signatures', description: 'Manage signatures on your own user profile', category: 'signatures' },
     { key: 'signatures.sign', name: 'Sign Attestations', description: 'Sign attestations using your personal signature inventory', category: 'signatures' },
@@ -642,7 +673,7 @@ async function seedDefaultRolesAndPermissionsWithDb(db: Kysely<Database>): Promi
         'assessments.view', 'assessments.create', 'assessments.edit', 'assessments.manage',
         'evidence.view', 'evidence.create', 'evidence.edit', 'evidence.review',
         'claims.view', 'claims.create', 'claims.edit',
-        'attestations.view', 'attestations.create', 'attestations.edit', 'attestations.sign', 'attestations.verify', 'attestations.export',
+        'attestations.view', 'attestations.create', 'attestations.edit', 'attestations.sign', 'attestations.export',
         'signatures.manage', 'signatures.sign',
       ],
     },

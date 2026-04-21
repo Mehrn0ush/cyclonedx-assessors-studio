@@ -416,7 +416,13 @@
                 </div>
                 <div class="attestation-actions mt-token-4">
                   <el-button v-if="!isReadOnly" @click="openEditScoresDialog">{{ t('assessments.editScores') }}</el-button>
-                  <el-button v-if="!isReadOnly" type="primary" @click="handleSignAttestation">{{ t('assessments.signAttestation') }}</el-button>
+                  <!--
+                    PR3.6: The per-attestation Sign button was removed.
+                    Signing now lives on the assessment affirmation,
+                    which cascades its signed envelope into every
+                    attestation on the assessment. Use the Affirmation
+                    panel to seal the declarations tree.
+                  -->
                   <el-button :loading="exportingCycloneDX" @click="handleExportCycloneDX">{{ t('assessments.exportCycloneDX') }}</el-button>
                   <el-button :loading="exportingPDF" @click="handleExportPDF">{{ t('assessments.exportPDF') }}</el-button>
                 </div>
@@ -848,12 +854,6 @@
       </template>
     </el-dialog>
 
-    <SignAttestationDialog
-      v-model="showSignDialog"
-      :attestation-id="attestation?.id || null"
-      @signed="handleSignedSuccess"
-    />
-
   </div>
 </template>
 
@@ -869,7 +869,6 @@ import StateBadge from '@/components/shared/StateBadge.vue'
 import HelpTip from '@/components/shared/HelpTip.vue'
 import SearchSelect from '@/components/shared/SearchSelect.vue'
 import MentionTextarea from '@/components/shared/MentionTextarea.vue'
-import SignAttestationDialog from '@/components/shared/SignAttestationDialog.vue'
 import { formatDate } from '@/utils/dateFormat'
 
 interface Participant {
@@ -1332,19 +1331,9 @@ const handleSaveScores = async () => {
   }
 }
 
-const showSignDialog = ref(false)
-
-const handleSignAttestation = () => {
-  if (!attestation.value?.id) {
-    ElMessage.error(t('common.errorOccurred'))
-    return
-  }
-  showSignDialog.value = true
-}
-
-const handleSignedSuccess = async () => {
-  await fetchAttestation()
-}
+// PR3.6: handleSignAttestation / showSignDialog / handleSignedSuccess
+// were removed here along with the per-attestation sign endpoint.
+// Signing now runs through the assessment affirmation.
 
 const handleExportCycloneDX = () => {
   pendingExportType.value = 'cyclonedx'

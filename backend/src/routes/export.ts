@@ -105,6 +105,12 @@ interface CycloneDXSignatory {
 interface CycloneDXAffirmation {
   statement: string;
   signatories?: CycloneDXSignatory[];
+  // Declarations level JSF envelope produced by the platform seal.
+  // CycloneDX specifies this as `declarations.signature` adjacent to
+  // the affirmation block; our internal model hangs it off the
+  // affirmation object because it is an artefact of the affirmation
+  // ceremony, and the serializer hoists it to the correct position.
+  signature?: Record<string, unknown>;
 }
 
 interface CycloneDXBOM {
@@ -132,93 +138,26 @@ interface CycloneDXBOM {
       organizations: Record<string, unknown>[];
     };
     affirmation?: CycloneDXAffirmation;
+    // JSF envelope sealing the entire declarations subtree. Populated
+    // only when the assessment's affirmation has been sealed.
+    signature?: Record<string, unknown>;
   };
   definitions: {
     standards: CycloneDXStandard[];
   };
+  // Top level document JSF envelope produced by the same seal
+  // ceremony. Populated only when the assessment's affirmation has
+  // been sealed.
+  signature?: Record<string, unknown>;
 }
 
-/**
- * Build a CycloneDX signatory object from a signatory row plus its
- * related organization and the signing attestation. The shape is
- * identical for 1.6 and 1.7; the signatory schema did not change
- * between the two editions. We branch on signature_type to pick the
- * CycloneDX oneOf branch:
- *
- *   - electronic: organization + externalReference of type
- *     "electronic-signature" carrying the image URL (emitted as a
- *     data: URI when signing materialized one). This is the DocuSign-
- *     style flow.
- *   - digital: `signature` with algorithm + value + publicKey (JSF)
- *     or certificatePath[] (X.509). Which branch we emit depends on
- *     what the signer actually stored at sign time: a certificate
- *     chain wins (X.509), otherwise we fall back to a JSF-ish
- *     publicKey reference.
- */
-function buildSignatoryObject(
-  signatoryRow: Record<string, unknown>,
-  organization: Record<string, unknown> | null | undefined,
-  attestation: Record<string, unknown>
-): CycloneDXSignatory {
-  const base: CycloneDXSignatory = {
-    name: String(signatoryRow.name ?? ''),
-  };
-  const role = signatoryRow.role as string | null | undefined;
-  if (role) base.role = role;
-
-  if (organization) {
-    const address: Record<string, unknown> = {};
-    if (organization.country) address.country = organization.country;
-    if (organization.region) address.region = organization.region;
-    if (organization.locality) address.locality = organization.locality;
-    if (organization.post_office_box_number) {
-      address.postOfficeBoxNumber = organization.post_office_box_number;
-    }
-    if (organization.postal_code) address.postalCode = organization.postal_code;
-    if (organization.street_address) address.streetAddress = organization.street_address;
-
-    const orgShape: Record<string, unknown> = {
-      name: organization.name,
-    };
-    if (Object.keys(address).length > 0) orgShape.address = address;
-    if (organization.website) orgShape.url = [organization.website];
-    base.organization = orgShape;
-  }
-
-  const extRefType = signatoryRow.external_reference_type as string | null | undefined;
-  const extRefUrl = signatoryRow.external_reference_url as string | null | undefined;
-  if (extRefType && extRefUrl) {
-    base.externalReference = { type: extRefType, url: extRefUrl };
-  }
-
-  if (attestation.signature_type === 'digital') {
-    const signature: Record<string, unknown> = {};
-    if (attestation.signature_algorithm) signature.algorithm = attestation.signature_algorithm;
-    if (attestation.signature_value) signature.value = attestation.signature_value;
-    if (attestation.certificate_chain) {
-      // X.509 path: emit as CycloneDX certificatePath[]. The stored
-      // chain is a concatenated PEM bundle; split into individual
-      // base64 DER blocks so consumers can validate each cert.
-      const chain = String(attestation.certificate_chain);
-      const certs = chain
-        .split(/-----END CERTIFICATE-----/g)
-        .map((block) =>
-          block.replace(/-----BEGIN CERTIFICATE-----/g, '').replace(/\s+/g, '').trim()
-        )
-        .filter((block) => block.length > 0);
-      if (certs.length > 0) signature.certificatePath = certs;
-    } else if (attestation.public_key_pem) {
-      // JSF path: emit the PEM public key inline. Consumers that
-      // require strict JSF canonicalization will need to convert this
-      // to the JWK form themselves; keeping the PEM verbatim matches
-      // what the signer stored.
-      signature.publicKey = attestation.public_key_pem;
-    }
-    if (Object.keys(signature).length > 0) base.signature = signature;
-  }
-
-  return base;
-}
+// PR3.6: buildSignatoryObject was removed. The per-attestation
+// signature columns it read from (signature_type, signature_value,
+// public_key_pem, certificate_chain, signature_algorithm) no longer
+// exist. Affirmation signatories are built inline from the
+// affirmation_signatory slot rows and carry their per-signatory JSF
+// envelope in signature_json. See the affirmationSignatories block
+// below.
 
 async function buildAssessmentBOM(
   assessmentId: string,
@@ -390,67 +329,139 @@ async function buildAssessmentBOM(
     }
   }
 
-  // Fetch affirmation if exists. The declarations.affirmation block
-  // is the CycloneDX home for legally binding signatories; we pull
-  // them from every signed attestation in the assessment so the
-  // export reflects the full set of people who actually signed.
-  let affirmationStatement: string | undefined;
-  if (project) {
-    const affirmation = await db
-      .selectFrom('affirmation')
-      .where('project_id', '=', project.id)
-      .selectAll()
-      .executeTakeFirst();
+  // Fetch the assessment level affirmation. The PR3 cascade signing
+  // model binds one affirmation per assessment via the
+  // `assessment_id` column. Legacy rows keyed only by project_id are
+  // ignored here; the assessment scoped row is authoritative.
+  const affirmationRow = await db
+    .selectFrom('affirmation')
+    .where('assessment_id', '=', assessmentId)
+    .selectAll()
+    .executeTakeFirst();
 
-    if (affirmation) {
-      affirmationStatement = affirmation.statement;
+  // Build affirmation signatories from the affirmation_signatory
+  // slot table. Each signed slot carries its own JSF envelope in
+  // signature_json plus a pointer to the signatory identity row, so
+  // the CycloneDX signatory object is assembled from the identity row
+  // and the embedded envelope. Slots that were declared but never
+  // signed are skipped: the export represents signatures that
+  // actually exist, not empty placeholders.
+  const affirmationSignatories: CycloneDXSignatory[] = [];
+  let signedSlotCount = 0;
+  if (affirmationRow) {
+    const slots = await db
+      .selectFrom('affirmation_signatory')
+      .where('affirmation_id', '=', affirmationRow.id)
+      .selectAll()
+      .orderBy('created_at', 'asc')
+      .execute();
+
+    for (const slot of slots) {
+      if (!slot.signed_at || !slot.signatory_id || !slot.signature_json) continue;
+      signedSlotCount += 1;
+
+      const sigRow = await db
+        .selectFrom('signatory')
+        .where('id', '=', slot.signatory_id)
+        .selectAll()
+        .executeTakeFirst();
+      if (!sigRow) continue;
+
+      const org = sigRow.organization_id
+        ? await db
+            .selectFrom('organization')
+            .where('id', '=', sigRow.organization_id)
+            .selectAll()
+            .executeTakeFirst()
+        : null;
+
+      // The slot's signature_json is stored as a JSONB column. In
+      // PGlite / node-postgres it may arrive as either a parsed
+      // object or a raw string depending on the driver, so we
+      // tolerate both shapes.
+      const envelopeRaw = slot.signature_json as unknown;
+      let envelope: Record<string, unknown> | undefined;
+      if (typeof envelopeRaw === 'string') {
+        try {
+          envelope = JSON.parse(envelopeRaw) as Record<string, unknown>;
+        } catch {
+          envelope = undefined;
+        }
+      } else if (envelopeRaw && typeof envelopeRaw === 'object') {
+        envelope = envelopeRaw as Record<string, unknown>;
+      }
+
+      const signatoryObj: CycloneDXSignatory = {
+        name: String(sigRow.name ?? ''),
+      };
+      const role = (slot.required_title ?? sigRow.role) as string | null | undefined;
+      if (role) signatoryObj.role = role;
+
+      if (org) {
+        const address: Record<string, unknown> = {};
+        if (org.country) address.country = org.country;
+        if (org.region) address.region = org.region;
+        if (org.locality) address.locality = org.locality;
+        if (org.post_office_box_number) address.postOfficeBoxNumber = org.post_office_box_number;
+        if (org.postal_code) address.postalCode = org.postal_code;
+        if (org.street_address) address.streetAddress = org.street_address;
+
+        const orgShape: Record<string, unknown> = { name: org.name };
+        if (Object.keys(address).length > 0) orgShape.address = address;
+        if (org.website) orgShape.url = [org.website];
+        signatoryObj.organization = orgShape;
+      }
+
+      const extRefType = sigRow.external_reference_type as string | null | undefined;
+      const extRefUrl = sigRow.external_reference_url as string | null | undefined;
+      if (extRefType && extRefUrl) {
+        signatoryObj.externalReference = { type: extRefType, url: extRefUrl };
+      }
+
+      if (envelope) signatoryObj.signature = envelope;
+      affirmationSignatories.push(signatoryObj);
     }
   }
 
-  const signatories: CycloneDXSignatory[] = [];
-  const seenSignatoryIds = new Set<string>();
-  for (const att of attestations) {
-    if (!att.signed_at || !att.signatory_id) continue;
-    const id = att.signatory_id as string;
-    if (seenSignatoryIds.has(id)) continue;
-    seenSignatoryIds.add(id);
-    const sigRow = await db
-      .selectFrom('signatory')
-      .where('id', '=', id)
-      .selectAll()
-      .executeTakeFirst();
-    if (!sigRow) continue;
-    const org = sigRow.organization_id
-      ? await db
-          .selectFrom('organization')
-          .where('id', '=', sigRow.organization_id)
-          .selectAll()
-          .executeTakeFirst()
-      : null;
-    signatories.push(
-      buildSignatoryObject(
-        sigRow as Record<string, unknown>,
-        (org ?? null) as Record<string, unknown> | null,
-        att as Record<string, unknown>
-      )
-    );
+  // PR3.6: per-attestation signature material was removed. An
+  // assessment that has no affirmation row simply exports without a
+  // declarations.affirmation block. Consumers can still see the
+  // attestation map and claims; the signature layer is optional.
+
+  // Parse sealed envelopes if the affirmation is sealed. These flow
+  // into declarations.signature and the top level bom.signature.
+  function parseJsonbColumn(value: unknown): Record<string, unknown> | undefined {
+    if (!value) return undefined;
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value) as Record<string, unknown>;
+      } catch {
+        return undefined;
+      }
+    }
+    if (typeof value === 'object') return value as Record<string, unknown>;
+    return undefined;
   }
 
-  const affirmation: CycloneDXAffirmation | undefined = affirmationStatement
-    ? {
-        statement: affirmationStatement,
-        ...(signatories.length > 0 && { signatories }),
-      }
-    : signatories.length > 0
-      ? {
-          // If no project-level statement is recorded but signatories
-          // exist, emit a generic statement so the block still
-          // validates against the schema (statement is required on
-          // affirmation).
-          statement: 'This attestation has been signed by the listed signatories.',
-          signatories,
-        }
-      : undefined;
+  const declarationsSealEnvelope = affirmationRow?.sealed_at
+    ? parseJsonbColumn(affirmationRow.declarations_signature_json)
+    : undefined;
+  const documentSealEnvelope = affirmationRow?.sealed_at
+    ? parseJsonbColumn(affirmationRow.document_signature_json)
+    : undefined;
+
+  let affirmation: CycloneDXAffirmation | undefined;
+  if (affirmationRow) {
+    affirmation = {
+      statement: affirmationRow.statement,
+      ...(affirmationSignatories.length > 0 && { signatories: affirmationSignatories }),
+      ...(declarationsSealEnvelope && { signature: declarationsSealEnvelope }),
+    };
+  }
+  // signedSlotCount is retained for future metrics / debug; currently
+  // unused but makes the logic audit easier when tracing a missing
+  // signatory.
+  void signedSlotCount;
 
   const bom: CycloneDXBOM = {
     $schema: schemaUrlFor(specVersion),
@@ -477,12 +488,29 @@ async function buildAssessmentBOM(
       targets: {
         organizations: [],
       },
+      // The CycloneDX schema places `affirmation` and `signature`
+      // as siblings inside declarations. The internal affirmation
+      // object carries the declarations-level seal as `signature`
+      // for cohesion, but before handing the structure to the
+      // schema it is hoisted to the declarations level. The hoist
+      // happens below, after the BOM is built, by stripping the
+      // duplicate from the affirmation object.
       ...(affirmation && { affirmation }),
+      ...(declarationsSealEnvelope && { signature: declarationsSealEnvelope }),
     },
     definitions: {
       standards,
     },
+    ...(documentSealEnvelope && { signature: documentSealEnvelope }),
   };
+
+  // Remove the internal duplicate of the declarations seal from the
+  // affirmation object so the exported JSON matches the schema.
+  if (bom.declarations.affirmation && bom.declarations.affirmation.signature) {
+    const { signature: _internal, ...rest } = bom.declarations.affirmation;
+    bom.declarations.affirmation = rest;
+    void _internal;
+  }
 
   return bom;
 }
@@ -1044,11 +1072,41 @@ router.get('/project/:projectId', requireAuth, requirePermission('export.cyclone
       mergedStandards.set(standard.identifier, standard);
     }
 
-    // Merge affirmation if present
+    // Merge affirmation if present. A project BOM is the union of
+    // multiple assessment BOMs; each assessment may have its own
+    // sealed affirmation, but the declarations block can only carry
+    // one affirmation. We keep the first one encountered. The
+    // declarations-level seal and the top level document seal are
+    // carried only when exactly one sealed assessment contributes to
+    // this project BOM; if more than one contributes a seal they are
+    // dropped because a merged BOM is a different document and the
+    // original seals no longer verify against its canonical form.
     // biome-ignore lint/suspicious/noExplicitAny: CycloneDX BOM structure is dynamically composed
     if (bomData.declarations.affirmation && !(projectBOM.declarations as any).affirmation) {
       // biome-ignore lint/suspicious/noExplicitAny: CycloneDX BOM structure is dynamically composed
       (projectBOM.declarations as any).affirmation = bomData.declarations.affirmation;
+    }
+  }
+
+  // Handle declarations and document signatures at the project
+  // level. Propagate only when exactly one sealed assessment
+  // contributed to this project, because a merged multi assessment
+  // BOM has a different canonical form than any single assessment
+  // BOM. Anything else gets dropped.
+  const sealedBoms = boms.filter((b) => {
+    const d = (b as unknown as { declarations?: { signature?: unknown } }).declarations;
+    return Boolean(d?.signature);
+  });
+  if (sealedBoms.length === 1) {
+    const sealed = sealedBoms[0] as unknown as {
+      declarations?: { signature?: unknown };
+      signature?: unknown;
+    };
+    // biome-ignore lint/suspicious/noExplicitAny: CycloneDX BOM structure is dynamically composed
+    (projectBOM.declarations as any).signature = sealed.declarations?.signature;
+    if (sealed.signature) {
+      // biome-ignore lint/suspicious/noExplicitAny: CycloneDX BOM structure is dynamically composed
+      (projectBOM as any).signature = sealed.signature;
     }
   }
 
