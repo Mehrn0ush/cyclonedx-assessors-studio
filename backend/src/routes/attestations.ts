@@ -17,6 +17,23 @@ import {
   checkRequirementExists,
 } from '../utils/attestation-queries.js';
 import { rejectIfAttestationImmutable } from '../utils/retention.js';
+import {
+  TargetResolver,
+  attestationFromRow,
+  claimFromRow,
+  composeBom,
+  composeDeclarations,
+  isCounterClaim,
+  signatoryBlock,
+} from '../cdxspec/index.js';
+import type {
+  CdxSpecVersion,
+  Claim as CdxClaim,
+  AttestationRequirementRowInput,
+  ClaimRefMap,
+  ClaimRowInput,
+  SignatoryBlockInput,
+} from '../cdxspec/index.js';
 
 const router = Router();
 
@@ -474,108 +491,87 @@ router.get(
     }
 
     const rawSpec = typeof req.query.spec === 'string' ? req.query.spec.trim() : '';
-    const specVersion: '1.6' | '1.7' = rawSpec === '1.6' ? '1.6' : '1.7';
-    const schemaUrl =
-      specVersion === '1.6'
-        ? 'http://cyclonedx.org/schema/bom-1.6.schema.json'
-        : 'http://cyclonedx.org/schema/bom-1.7.schema.json';
+    const specVersion: CdxSpecVersion = rawSpec === '1.6' ? '1.6' : '1.7';
 
-    const requirements = await fetchAttestationRequirements(db, req.params.id as string);
-    const claims = await fetchAttestationClaims(db, req.params.id as string);
+    const requirements = (await fetchAttestationRequirements(
+      db,
+      req.params.id as string
+    )) as unknown as AttestationRequirementRowInput[];
+    const claimRows = (await fetchAttestationClaims(
+      db,
+      req.params.id as string
+    )) as unknown as Array<ClaimRowInput & { is_counter_claim?: boolean }>;
     const signatory = await fetchSignatory(db, attestation.signatory_id || null);
 
-    let signatoryOrg: Record<string, unknown> | null = null;
+    // Resolve claim.target strings to synthetic organizationalEntity
+    // bom-refs. Accumulated targets go into declarations.targets.
+    const resolver = new TargetResolver();
+    const claims: CdxClaim[] = claimRows.map((row) => claimFromRow(row, resolver));
+
+    // Split claim bom-refs into claims vs counterClaims for the
+    // attestation map. Without a per-requirement link in this export
+    // shape, every claim is attached to every map entry; the schema
+    // permits this and matches the prior behavior of the assessment-
+    // level export.
+    const allClaims: string[] = [];
+    const allCounterClaims: string[] = [];
+    claimRows.forEach((row, idx) => {
+      const ref = claims[idx]['bom-ref'];
+      if (isCounterClaim(row)) {
+        allCounterClaims.push(ref);
+      } else {
+        allClaims.push(ref);
+      }
+    });
+
+    const claimRefs: ClaimRefMap = {
+      byRequirementId: new Map(),
+      allClaims,
+      allCounterClaims,
+    };
+
+    const cdxAttestation = attestationFromRow({
+      row: { id: attestation.id, summary: attestation.summary ?? null },
+      requirements,
+      claimRefs,
+    });
+
+    // Build the signatory block if a signatory is attached. Single
+    // attestation exports intentionally omit the JSF envelope here.
+    let signatoryOrgRow: Record<string, unknown> | null = null;
     if (signatory && (signatory as Record<string, unknown>).organization_id) {
-      signatoryOrg = (await db
+      signatoryOrgRow = (await db
         .selectFrom('organization')
         .where('id', '=', (signatory as Record<string, unknown>).organization_id as string)
         .selectAll()
         .executeTakeFirst()) as Record<string, unknown> | null;
     }
 
-    // Build a CycloneDX-shaped signatory block from the row. Signature
-    // subtree is intentionally omitted here; see the block comment above
-    // for why single-attestation exports never carry a JSF envelope.
-    let signatoryBlock: Record<string, unknown> | undefined;
+    let affirmation: { statement: string; signatories?: Array<Record<string, unknown>> } | undefined;
     if (signatory) {
-      const row = signatory as Record<string, unknown>;
-      const block: Record<string, unknown> = { name: row.name };
-      if (row.role) block.role = row.role;
-      if (signatoryOrg) {
-        const address: Record<string, unknown> = {};
-        if (signatoryOrg.country) address.country = signatoryOrg.country;
-        if (signatoryOrg.region) address.region = signatoryOrg.region;
-        if (signatoryOrg.locality) address.locality = signatoryOrg.locality;
-        if (signatoryOrg.post_office_box_number) {
-          address.postOfficeBoxNumber = signatoryOrg.post_office_box_number;
-        }
-        if (signatoryOrg.postal_code) address.postalCode = signatoryOrg.postal_code;
-        if (signatoryOrg.street_address) address.streetAddress = signatoryOrg.street_address;
-        const org: Record<string, unknown> = { name: signatoryOrg.name };
-        if (Object.keys(address).length > 0) org.address = address;
-        if (signatoryOrg.website) org.url = [signatoryOrg.website];
-        block.organization = org;
-      }
-      if (row.external_reference_type && row.external_reference_url) {
-        block.externalReference = {
-          type: row.external_reference_type,
-          url: row.external_reference_url,
-        };
-      }
-      signatoryBlock = block;
+      const signatoryInput: SignatoryBlockInput = {
+        row: signatory as SignatoryBlockInput['row'],
+        organization: signatoryOrgRow as SignatoryBlockInput['organization'],
+      };
+      const block = signatoryBlock(signatoryInput);
+      affirmation = {
+        statement:
+          'This attestation identifies the signatory listed. See the assessment-level export for the sealed CycloneDX affirmation and JSF signature envelope.',
+        signatories: [block as Record<string, unknown>],
+      };
     }
 
-    const cdxa: Record<string, unknown> = {
-      $schema: schemaUrl,
-      bomFormat: 'CycloneDX',
+    const declarations = composeDeclarations({
+      attestations: [cdxAttestation],
+      claims,
+      affirmation,
+      targetResolver: resolver,
+    });
+
+    const cdxa = composeBom({
       specVersion,
-      serialNumber: `urn:uuid:${uuidv4()}`,
-      version: 1,
-      metadata: {
-        timestamp: new Date().toISOString(),
-        tools: {
-          components: [
-            { type: 'application', name: 'CycloneDX Assessors Studio' },
-          ],
-        },
-      },
-      declarations: {
-        attestations: [
-          {
-            summary: attestation.summary ?? null,
-            map: (requirements as Record<string, unknown>[]).map((r) => ({
-              requirement: r.requirement_id ?? r.requirementId,
-              conformance: {
-                score: r.conformance_score ?? r.conformanceScore,
-                rationale: r.conformance_rationale ?? r.conformanceRationale,
-              },
-              confidence:
-                (r.confidence_score ?? r.confidenceScore) != null
-                  ? {
-                      score: r.confidence_score ?? r.confidenceScore,
-                      rationale: r.confidence_rationale ?? r.confidenceRationale,
-                    }
-                  : undefined,
-            })),
-          },
-        ],
-        claims: claims as Record<string, unknown>[],
-        // Single-attestation exports include the signatory identity
-        // block (so a consumer can see who is named on the attestation)
-        // but never an affirmation.signatures[] subtree, since a valid
-        // JSF envelope requires the assessment-scoped declarations tree
-        // that the /assessments/:id/export route emits.
-        ...(signatoryBlock
-          ? {
-              affirmation: {
-                statement:
-                  'This attestation identifies the signatory listed. See the assessment-level export for the sealed CycloneDX affirmation and JSF signature envelope.',
-                signatories: [signatoryBlock],
-              },
-            }
-          : {}),
-      },
-    };
+      declarations,
+    });
 
     res.setHeader('Content-Type', 'application/vnd.cyclonedx+json');
     res.setHeader(

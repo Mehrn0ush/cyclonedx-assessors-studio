@@ -3,6 +3,7 @@ import {
   setupHttpTests,
   loginAs,
   getAgent,
+  testUsers,
 } from '../helpers/http.js';
 
 describe('Export HTTP Routes', () => {
@@ -15,7 +16,10 @@ describe('Export HTTP Routes', () => {
    * Returns { projectId, standardId, assessmentId, requirementIds, attestationId }
    */
   let testDataCounter = 0;
-  async function createFullTestData(agent: any) {
+  async function createFullTestData(
+    agent: any,
+    opts: { assessorIds?: string[] } = {}
+  ) {
     testDataCounter++;
     const suffix = testDataCounter;
 
@@ -55,13 +59,16 @@ describe('Export HTTP Routes', () => {
     expect(projectRes.status).toBe(201);
     const projectId = projectRes.body.id;
 
-    // Create assessment
+    // Create assessment (optionally with pre-linked assessors so export
+    // tests that exercise the declarations.assessors shape can control
+    // whether the array is present).
     const assessmentRes = await agent
       .post('/api/v1/assessments')
       .send({
         title: `Export Test Assessment ${suffix}`,
         description: 'Assessment for export tests',
         projectId,
+        ...(opts.assessorIds ? { assessorIds: opts.assessorIds } : {}),
       });
     expect(assessmentRes.status).toBe(201);
     const assessmentId = assessmentRes.body.id;
@@ -171,12 +178,20 @@ describe('Export HTTP Routes', () => {
       expect(res.body.metadata.tools).toBeDefined();
       expect(Array.isArray(res.body.metadata.tools.components)).toBe(true);
 
-      // Verify declarations structure
-      expect(Array.isArray(res.body.declarations.assessors)).toBe(true);
+      // Verify declarations structure. Per CycloneDX schema, optional
+      // arrays are omitted when empty rather than emitted as `[]`, so
+      // assessors/evidence/targets are only present when populated.
       expect(Array.isArray(res.body.declarations.attestations)).toBe(true);
       expect(Array.isArray(res.body.declarations.claims)).toBe(true);
-      expect(Array.isArray(res.body.declarations.evidence)).toBe(true);
-      expect(res.body.declarations.targets).toHaveProperty('organizations');
+      if (res.body.declarations.assessors !== undefined) {
+        expect(Array.isArray(res.body.declarations.assessors)).toBe(true);
+      }
+      if (res.body.declarations.evidence !== undefined) {
+        expect(Array.isArray(res.body.declarations.evidence)).toBe(true);
+      }
+      if (res.body.declarations.targets !== undefined) {
+        expect(typeof res.body.declarations.targets).toBe('object');
+      }
 
       // Verify definitions structure
       expect(Array.isArray(res.body.definitions.standards)).toBe(true);
@@ -184,25 +199,36 @@ describe('Export HTTP Routes', () => {
 
     it('should include assessors in CycloneDX declarations', async () => {
       const agent = await loginAs('admin');
-      const { assessmentId } = await createFullTestData(agent);
+      const { assessmentId } = await createFullTestData(agent, {
+        assessorIds: [testUsers.assessor.id],
+      });
 
       const res = await agent.get(`/api/v1/export/assessment/${assessmentId}`);
 
       expect(res.status).toBe(200);
-      expect(res.body.declarations.assessors.length).toBeGreaterThanOrEqual(0);
+      expect(Array.isArray(res.body.declarations.assessors)).toBe(true);
+      expect(res.body.declarations.assessors.length).toBe(1);
 
-      // Each assessor should have bom-ref, name, and optionally email
-      if (res.body.declarations.assessors.length > 0) {
-        const assessor = res.body.declarations.assessors[0];
-        expect(assessor).toHaveProperty('bom-ref');
-        expect(assessor).toHaveProperty('name');
-        expect(assessor['bom-ref']).toMatch(/^assessor-/);
-      }
+      // The CycloneDX assessor object only permits `bom-ref`,
+      // `organization`, and `thirdParty`. The person's display name
+      // and email belong inside `organization.contact[]`, never at the
+      // top level (which would fail additionalProperties validation).
+      const assessor = res.body.declarations.assessors[0];
+      expect(assessor).toHaveProperty('bom-ref');
+      expect(assessor['bom-ref']).toMatch(/^assessor-/);
+      expect(assessor).not.toHaveProperty('name');
+      expect(assessor).not.toHaveProperty('email');
+      expect(assessor.organization).toBeDefined();
+      expect(Array.isArray(assessor.organization.contact)).toBe(true);
+      expect(assessor.organization.contact[0].name).toBe('Test Assessor');
+      expect(assessor.organization.contact[0].email).toBe(testUsers.assessor.email);
     });
 
     it('should include attestations with requirements and scores', async () => {
       const agent = await loginAs('admin');
-      const { assessmentId, requirementIds } = await createFullTestData(agent);
+      const { assessmentId } = await createFullTestData(agent, {
+        assessorIds: [testUsers.assessor.id],
+      });
 
       const res = await agent.get(`/api/v1/export/assessment/${assessmentId}`);
 
@@ -210,47 +236,71 @@ describe('Export HTTP Routes', () => {
       expect(res.body.declarations.attestations.length).toBeGreaterThan(0);
 
       const attestation = res.body.declarations.attestations[0];
+      // The attestation references its assessor by bom-ref. The
+      // writer only sets this when an assessor is linked to the
+      // assessment, so this test seeds one above.
       expect(attestation).toHaveProperty('assessor');
+      expect(attestation.assessor).toMatch(/^assessor-/);
       expect(attestation).toHaveProperty('map');
       expect(Array.isArray(attestation.map)).toBe(true);
 
-      // Each requirement map should have conformance and confidence
+      // Each requirement map carries the conformance block and,
+      // because the test seeds confidence scores, a confidence block.
+      // The `claims`/`counterClaims` arrays are schema-omitted when
+      // empty so we only assert them when present.
       if (attestation.map.length > 0) {
         const requirementMap = attestation.map[0];
         expect(requirementMap).toHaveProperty('requirement');
-        expect(requirementMap).toHaveProperty('claims');
-        expect(requirementMap).toHaveProperty('counterClaims');
         expect(requirementMap).toHaveProperty('conformance');
         expect(requirementMap).toHaveProperty('confidence');
 
         expect(requirementMap.conformance).toHaveProperty('score');
+        expect(typeof requirementMap.conformance.score).toBe('number');
         expect(requirementMap.conformance).toHaveProperty('rationale');
-        expect(requirementMap.confidence.score).toBeDefined();
+        expect(typeof requirementMap.confidence.score).toBe('number');
         expect(requirementMap.confidence.rationale).toBeDefined();
+
+        if (requirementMap.claims !== undefined) {
+          expect(Array.isArray(requirementMap.claims)).toBe(true);
+        }
+        if (requirementMap.counterClaims !== undefined) {
+          expect(Array.isArray(requirementMap.counterClaims)).toBe(true);
+        }
       }
     });
 
     it('should include standards in definitions', async () => {
       const agent = await loginAs('admin');
-      const { assessmentId, standardId } = await createFullTestData(agent);
+      const { assessmentId } = await createFullTestData(agent);
 
       const res = await agent.get(`/api/v1/export/assessment/${assessmentId}`);
 
       expect(res.status).toBe(200);
       expect(res.body.definitions.standards.length).toBeGreaterThan(0);
 
+      // The CycloneDX standard object defines `bom-ref`, `name`,
+      // `version`, `description`, `owner`, `requirements`, `levels`,
+      // `externalReferences`, and `signature`. There is no
+      // `identifier` property at the standard level; the internal DB
+      // identifier column flows through only via the bom-ref.
       const standard = res.body.definitions.standards[0];
-      expect(standard).toHaveProperty('identifier');
+      expect(standard).toHaveProperty('bom-ref');
+      expect(standard['bom-ref']).toMatch(/^standard-/);
       expect(standard).toHaveProperty('name');
+      expect(standard).not.toHaveProperty('identifier');
       expect(standard).toHaveProperty('requirements');
       expect(Array.isArray(standard.requirements)).toBe(true);
 
       if (standard.requirements.length > 0) {
+        // Each requirement uses `title`/`text` (the schema names)
+        // rather than the DB column names `name`/`description`.
         const req = standard.requirements[0];
         expect(req).toHaveProperty('bom-ref');
-        expect(req).toHaveProperty('identifier');
-        expect(req).toHaveProperty('name');
         expect(req['bom-ref']).toMatch(/^requirement-/);
+        expect(req).toHaveProperty('identifier');
+        expect(req).toHaveProperty('title');
+        expect(req).not.toHaveProperty('name');
+        expect(req).not.toHaveProperty('description');
       }
     });
 
@@ -293,8 +343,11 @@ describe('Export HTTP Routes', () => {
       expect(res.body.bomFormat).toBe('CycloneDX');
       // Project requires a standard, so definitions.standards will have the linked standard
       expect(Array.isArray(res.body.definitions.standards)).toBe(true);
+      // claims is always emitted (even empty) because the writer
+      // spreads it unconditionally. evidence is omitted entirely when
+      // empty, per schema conformance (no evidence === no key).
       expect(res.body.declarations.claims).toEqual([]);
-      expect(res.body.declarations.evidence).toEqual([]);
+      expect(res.body.declarations.evidence).toBeUndefined();
     });
 
     it('should set correct content-disposition header with assessment ID', async () => {
@@ -578,26 +631,35 @@ describe('Export HTTP Routes', () => {
         });
       const projectId = projectRes.body.id;
 
-      // Create assessments
+      // Create assessments, each with the same assessor linked. The
+      // merge step at the project level deduplicates by bom-ref so
+      // the merged BOM should carry exactly one assessor entry
+      // despite two source assessments.
       const assessment1Res = await agent
         .post('/api/v1/assessments')
         .send({
           title: `Assessment Merge 1 ${Date.now()}`,
           projectId,
+          assessorIds: [testUsers.assessor.id],
         });
+      expect(assessment1Res.status).toBe(201);
 
       const assessment2Res = await agent
         .post('/api/v1/assessments')
         .send({
           title: `Assessment Merge 2 ${Date.now()}`,
           projectId,
+          assessorIds: [testUsers.assessor.id],
         });
+      expect(assessment2Res.status).toBe(201);
 
       const res = await agent.get(`/api/v1/export/project/${projectId}`);
 
       expect(res.status).toBe(200);
       expect(res.body.declarations.assessors).toBeDefined();
       expect(Array.isArray(res.body.declarations.assessors)).toBe(true);
+      expect(res.body.declarations.assessors.length).toBe(1);
+      expect(res.body.declarations.assessors[0]['bom-ref']).toMatch(/^assessor-/);
     });
 
     it('should merge standards from multiple assessments', async () => {
@@ -719,8 +781,11 @@ describe('Export HTTP Routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.bomFormat).toBe('CycloneDX');
+      // attestations is always emitted (writer spreads it
+      // unconditionally) but assessors is omitted when empty per
+      // schema conformance.
       expect(res.body.declarations.attestations).toEqual([]);
-      expect(res.body.declarations.assessors).toEqual([]);
+      expect(res.body.declarations.assessors).toBeUndefined();
     });
 
     it('should set correct content-disposition header with project ID', async () => {
@@ -921,31 +986,35 @@ describe('Export HTTP Routes', () => {
   describe('CycloneDX compliance', () => {
     it('should use bom-ref format for all referenced elements', async () => {
       const agent = await loginAs('admin');
-      const { assessmentId } = await createFullTestData(agent);
+      const { assessmentId } = await createFullTestData(agent, {
+        assessorIds: [testUsers.assessor.id],
+      });
 
       const res = await agent.get(`/api/v1/export/assessment/${assessmentId}`);
 
       expect(res.status).toBe(200);
 
-      // Check assessor bom-refs
+      // Check assessor bom-refs (assessors omitted when empty, so
+      // this test seeds one so the array is populated).
+      expect(Array.isArray(res.body.declarations.assessors)).toBe(true);
       res.body.declarations.assessors.forEach((a: any) => {
         expect(a['bom-ref']).toMatch(/^assessor-/);
       });
 
-      // Check requirement bom-refs in definitions
+      // Check standard and requirement bom-refs in definitions.
       res.body.definitions.standards.forEach((s: any) => {
-        s.requirements.forEach((r: any) => {
+        expect(s['bom-ref']).toMatch(/^standard-/);
+        (s.requirements ?? []).forEach((r: any) => {
           expect(r['bom-ref']).toMatch(/^requirement-/);
         });
       });
 
-      // Check claim bom-refs
-      res.body.declarations.claims.forEach((c: any) => {
+      // Check claim and evidence bom-refs only if present (both are
+      // omitted from declarations when the collection is empty).
+      (res.body.declarations.claims ?? []).forEach((c: any) => {
         expect(c['bom-ref']).toMatch(/^claim-/);
       });
-
-      // Check evidence bom-refs
-      res.body.declarations.evidence.forEach((e: any) => {
+      (res.body.declarations.evidence ?? []).forEach((e: any) => {
         expect(e['bom-ref']).toMatch(/^evidence-/);
       });
     });

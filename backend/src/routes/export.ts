@@ -1,12 +1,34 @@
 import { Router } from 'express';
 import type { Response } from 'express';
-import { v4 as uuidv4 } from 'uuid';
 import PDFDocument from 'pdfkit';
 import { getDatabase } from '../db/connection.js';
 import { asyncHandler } from '../utils/route-helpers.js';
 import { logger } from '../utils/logger.js';
 import type { AuthRequest } from '../middleware/auth.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
+import {
+  assessorFromUserRow,
+  attestationFromRow,
+  claimFromRow,
+  composeBom,
+  composeDeclarations,
+  isCounterClaim,
+  refFor,
+  signatoryBlock,
+  standardFromRow,
+  TargetResolver,
+  type Affirmation as CdxAffirmation,
+  type Assessor as CdxAssessor,
+  type Attestation as CdxAttestation,
+  type Bom,
+  type CdxSpecVersion,
+  type Claim as CdxClaim,
+  type ClaimRefMap,
+  type Evidence as CdxEvidence,
+  type Signatory as CdxSignatory,
+  type Signature as CdxSignature,
+  type Standard as CdxStandard,
+} from '../cdxspec/index.js';
 
 const router = Router();
 
@@ -15,12 +37,12 @@ const router = Router();
 // (ECMA-424 1st Edition) is offered as a fallback for consumers that
 // have not yet adopted the 2nd Edition. The `?spec=` query parameter
 // on every export route selects between them.
-export type CycloneDxSpecVersion = '1.6' | '1.7';
+export type CycloneDxSpecVersion = CdxSpecVersion;
 
 /**
  * Resolve the CycloneDX spec version from the query string. Defaults
  * to 1.7. Unknown values fall through to the default rather than
- * throwing so callers cannot trip on a typo in a hand-crafted URL —
+ * throwing so callers cannot trip on a typo in a hand-crafted URL:
  * the returned value is always something the serializer can handle.
  */
 function parseSpecVersion(req: AuthRequest): CycloneDxSpecVersion {
@@ -29,140 +51,28 @@ function parseSpecVersion(req: AuthRequest): CycloneDxSpecVersion {
   return '1.7';
 }
 
-function schemaUrlFor(version: CycloneDxSpecVersion): string {
-  return version === '1.6'
-    ? 'http://cyclonedx.org/schema/bom-1.6.schema.json'
-    : 'http://cyclonedx.org/schema/bom-1.7.schema.json';
+/**
+ * Parse a JSONB column value into a plain object. PGlite and
+ * node-postgres deliver JSONB as either a parsed object or a raw
+ * string depending on driver version, so both shapes are tolerated.
+ */
+function parseJsonbColumn(value: unknown): CdxSignature | undefined {
+  if (!value) return undefined;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value) as CdxSignature;
+    } catch {
+      return undefined;
+    }
+  }
+  if (typeof value === 'object') return value as CdxSignature;
+  return undefined;
 }
-
-interface CycloneDXAssessor {
-  'bom-ref': string;
-  name: string;
-  email?: string;
-}
-
-interface CycloneDXConformance {
-  score: number;
-  rationale: string;
-}
-
-interface CycloneDXConfidence {
-  score?: number;
-  rationale?: string;
-}
-
-interface CycloneDXRequirementMap {
-  requirement: string;
-  claims: string[];
-  counterClaims: string[];
-  conformance: CycloneDXConformance;
-  confidence: CycloneDXConfidence;
-}
-
-interface CycloneDXAttestation {
-  summary?: string;
-  assessor: string;
-  map: CycloneDXRequirementMap[];
-}
-
-interface CycloneDXClaim {
-  'bom-ref': string;
-  name: string;
-  target: string;
-  predicate: string;
-  reasoning?: string;
-}
-
-interface CycloneDXEvidence {
-  'bom-ref': string;
-  name: string;
-  description?: string;
-}
-
-interface CycloneDXStandard {
-  identifier: string;
-  name: string;
-  version?: string;
-  requirements: {
-    'bom-ref': string;
-    identifier: string;
-    name: string;
-    description?: string;
-  }[];
-}
-
-interface CycloneDXSignatory {
-  name: string;
-  role?: string;
-  organization?: Record<string, unknown>;
-  externalReference?: {
-    type: string;
-    url: string;
-  };
-  signature?: Record<string, unknown>;
-}
-
-interface CycloneDXAffirmation {
-  statement: string;
-  signatories?: CycloneDXSignatory[];
-  // Declarations level JSF envelope produced by the platform seal.
-  // CycloneDX specifies this as `declarations.signature` adjacent to
-  // the affirmation block; our internal model hangs it off the
-  // affirmation object because it is an artefact of the affirmation
-  // ceremony, and the serializer hoists it to the correct position.
-  signature?: Record<string, unknown>;
-}
-
-interface CycloneDXBOM {
-  $schema: string;
-  bomFormat: string;
-  specVersion: string;
-  serialNumber: string;
-  version: number;
-  metadata: {
-    timestamp: string;
-    tools: {
-      components: {
-        type: string;
-        name: string;
-        version?: string;
-      }[];
-    };
-  };
-  declarations: {
-    assessors: CycloneDXAssessor[];
-    attestations: CycloneDXAttestation[];
-    claims: CycloneDXClaim[];
-    evidence: CycloneDXEvidence[];
-    targets: {
-      organizations: Record<string, unknown>[];
-    };
-    affirmation?: CycloneDXAffirmation;
-    // JSF envelope sealing the entire declarations subtree. Populated
-    // only when the assessment's affirmation has been sealed.
-    signature?: Record<string, unknown>;
-  };
-  definitions: {
-    standards: CycloneDXStandard[];
-  };
-  // Top level document JSF envelope produced by the same seal
-  // ceremony. Populated only when the assessment's affirmation has
-  // been sealed.
-  signature?: Record<string, unknown>;
-}
-
-// PR3.6: buildSignatoryObject was removed. The per-attestation
-// signature columns it read from (signature_type, signature_value,
-// public_key_pem, certificate_chain, signature_algorithm) no longer
-// exist. Affirmation signatories are built inline from the
-// affirmation_signatory slot rows and carry their per-signatory JSF
-// envelope in signature_json. See the affirmationSignatories block
-// below.
 
 async function buildAssessmentBOM(
   assessmentId: string,
   specVersion: CycloneDxSpecVersion = '1.7'
-): Promise<CycloneDXBOM> {
+): Promise<Bom> {
   const db = getDatabase();
 
   // Fetch assessment
@@ -177,18 +87,16 @@ async function buildAssessmentBOM(
   }
 
   // Fetch assessors
-  const assessors = await db
+  const assessorRows = await db
     .selectFrom('assessment_assessor')
     .innerJoin('app_user', 'app_user.id', 'assessment_assessor.user_id')
     .where('assessment_assessor.assessment_id', '=', assessmentId)
     .select(['app_user.id', 'app_user.display_name', 'app_user.email'])
     .execute();
 
-  const assessorsMap: CycloneDXAssessor[] = assessors.map((a: Record<string, unknown>) => ({
-    'bom-ref': `assessor-${a.id as string}`,
-    name: a.display_name as string,
-    email: a.email as string,
-  }));
+  const assessors: CdxAssessor[] = assessorRows.map((a) =>
+    assessorFromUserRow({ user: { id: a.id, display_name: a.display_name, email: a.email } })
+  );
 
   // Fetch attestation(s) for this assessment
   const attestations = await db
@@ -197,11 +105,54 @@ async function buildAssessmentBOM(
     .selectAll()
     .execute();
 
-  // Build declarations attestations array
-  const declarationAttestations: CycloneDXAttestation[] = [];
+  // The target resolver is shared across every attestation so that
+  // claims pointing at the same target resolve to one synthetic
+  // organizationalEntity record. Emitted under
+  // declarations.targets.organizations by composeDeclarations.
+  const targetResolver = new TargetResolver();
+
+  // Claim serialization is centralized: the DB rows are filtered
+  // down to the schema-legal keys and the counter-claim flag is
+  // translated into the attestation.map[] split by
+  // attestationFromRow.
+  const claimRowsAll: Record<string, unknown>[] = [];
+  const allClaimsOut: CdxClaim[] = [];
+
+  if (attestations.length > 0) {
+    const raw = await db
+      .selectFrom('claim')
+      .where('attestation_id', 'in', attestations.map((a) => a.id))
+      .selectAll()
+      .execute();
+    claimRowsAll.push(...(raw as Record<string, unknown>[]));
+  }
+
+  for (const row of claimRowsAll) {
+    allClaimsOut.push(
+      claimFromRow(
+        {
+          id: row.id as string,
+          bom_ref: (row.bom_ref as string | null | undefined) ?? null,
+          target: String(row.target ?? ''),
+          target_entity_id: (row.target_entity_id as string | null | undefined) ?? null,
+          predicate: (row.predicate as string | null | undefined) ?? null,
+          reasoning: (row.reasoning as string | null | undefined) ?? null,
+          is_counter_claim: Boolean(row.is_counter_claim),
+        },
+        targetResolver
+      )
+    );
+  }
+
+  // Build per-attestation map entries. Each attestation references
+  // all of its own claims; counter claims are split into the
+  // counterClaims array. When the upstream DB does not carry a
+  // per-requirement claim join, every claim on the attestation is
+  // projected onto every requirement in its map, matching prior
+  // behavior.
+  const declarationAttestations: CdxAttestation[] = [];
 
   for (const attestation of attestations) {
-    // Get requirements for this attestation
     const attestationRequirements = await db
       .selectFrom('attestation_requirement')
       .innerJoin('requirement', 'requirement.id', 'attestation_requirement.requirement_id')
@@ -209,87 +160,80 @@ async function buildAssessmentBOM(
       .selectAll()
       .execute();
 
-    const map: CycloneDXRequirementMap[] = [];
+    // Collect claim bom-refs belonging to this attestation. The
+    // bom-ref on each claim is either a custom value from the DB
+    // column or the default refFor('claim', id).
+    const attestationAllClaims: string[] = [];
+    const attestationAllCounterClaims: string[] = [];
 
-    for (const ar of attestationRequirements) {
-      // Get claims linked to this requirement in this attestation
-      const claims = await db
-        .selectFrom('claim')
-        .where('attestation_id', '=', attestation.id)
-        .selectAll()
-        .execute();
-
-      const requirementClaims = claims
-        .filter(c => !c.is_counter_claim)
-        .map(c => `claim-${c.id}`);
-
-      const counterClaims = claims
-        .filter(c => c.is_counter_claim)
-        .map(c => `claim-${c.id}`);
-
-      map.push({
-        requirement: `requirement-${ar.requirement_id}`,
-        claims: requirementClaims,
-        counterClaims: counterClaims,
-        conformance: {
-          score: ar.conformance_score,
-          rationale: ar.conformance_rationale,
-        },
-        confidence: {
-          score: ar.confidence_score ?? undefined,
-          rationale: ar.confidence_rationale ?? undefined,
-        },
-      });
+    for (const row of claimRowsAll) {
+      if (row.attestation_id !== attestation.id) continue;
+      const ref =
+        (row.bom_ref as string | null | undefined) && (row.bom_ref as string).trim().length > 0
+          ? (row.bom_ref as string)
+          : refFor('claim', row.id as string);
+      if (isCounterClaim(row as { is_counter_claim?: boolean })) {
+        attestationAllCounterClaims.push(ref);
+      } else {
+        attestationAllClaims.push(ref);
+      }
     }
 
-    const firstAssessor = assessorsMap.length > 0 ? assessorsMap[0]['bom-ref'] : 'assessor-unknown';
+    const claimRefs: ClaimRefMap = {
+      byRequirementId: new Map(),
+      allClaims: attestationAllClaims,
+      allCounterClaims: attestationAllCounterClaims,
+    };
 
-    declarationAttestations.push({
-      summary: attestation.summary ?? undefined,
-      assessor: firstAssessor,
-      map,
+    const assessorRef = assessors.length > 0 ? assessors[0]['bom-ref'] : undefined;
+
+    const attestationObj = attestationFromRow({
+      row: { id: attestation.id, summary: attestation.summary ?? null },
+      requirements: attestationRequirements.map((ar) => ({
+        requirement_id: ar.requirement_id,
+        conformance_score: ar.conformance_score,
+        conformance_rationale: ar.conformance_rationale ?? null,
+        confidence_score: ar.confidence_score ?? null,
+        confidence_rationale: ar.confidence_rationale ?? null,
+      })),
+      claimRefs,
+      assessorRef,
     });
+
+    declarationAttestations.push(attestationObj);
   }
 
-  // Fetch all claims for this assessment
-  let claims: Record<string, unknown>[] = [];
-  if (attestations.length > 0) {
-    claims = await db
-      .selectFrom('claim')
-      .where('attestation_id', 'in', attestations.map(a => a.id))
-      .selectAll()
-      .execute();
-  }
-
-  const claimsDeclaration: CycloneDXClaim[] = claims.map((c: Record<string, unknown>) => ({
-    'bom-ref': `claim-${c.id as string}`,
-    name: c.name as string,
-    target: c.target as string,
-    predicate: c.predicate as string,
-    reasoning: c.reasoning as string | undefined,
-  }));
-
-  // Fetch evidence linked to assessment
-  let evidenceRecords: Record<string, unknown>[] = [];
-  if (claims.length > 0) {
-    evidenceRecords = await db
+  // Fetch evidence linked to the claims and emit one entry per
+  // distinct evidence row. The DB column `evidence.name` maps to
+  // `propertyName` in the CycloneDX schema; there is no `name` field
+  // on the Evidence object.
+  let evidenceOut: CdxEvidence[] = [];
+  if (claimRowsAll.length > 0) {
+    const evidenceRows = await db
       .selectFrom('evidence')
-      .where('evidence.id', 'in',
+      .where(
+        'evidence.id',
+        'in',
         db.selectFrom('claim_evidence')
           .select('evidence_id')
-          .where('claim_id', 'in', claims.map(c => c.id as string))
+          .where(
+            'claim_id',
+            'in',
+            claimRowsAll.map((c) => c.id as string)
+          )
       )
       .selectAll()
       .execute();
+
+    evidenceOut = evidenceRows.map((e) => {
+      const ev: CdxEvidence = { 'bom-ref': refFor('evidence', String(e.id)) };
+      if (e.name) ev.propertyName = String(e.name);
+      if (e.description) ev.description = String(e.description);
+      return ev;
+    });
   }
 
-  const evidenceDeclaration: CycloneDXEvidence[] = evidenceRecords.map((e: Record<string, unknown>) => ({
-    'bom-ref': `evidence-${String(e.id)}`,
-    name: String(e.name),
-    description: e.description ? String(e.description) : undefined,
-  }));
-
-  // Fetch project and its standards
+  // Fetch project and its standards for definitions.standards.
   const project = assessment.project_id
     ? await db
         .selectFrom('project')
@@ -298,7 +242,7 @@ async function buildAssessmentBOM(
         .executeTakeFirst()
     : null;
 
-  const standards: CycloneDXStandard[] = [];
+  const standards: CdxStandard[] = [];
 
   if (project) {
     const projectStandards = await db
@@ -315,17 +259,26 @@ async function buildAssessmentBOM(
         .selectAll()
         .execute();
 
-      standards.push({
-        identifier: ps.identifier,
-        name: ps.name,
-        version: ps.version ?? undefined,
-        requirements: requirements.map((r: Record<string, unknown>) => ({
-          'bom-ref': `requirement-${r.id as string}`,
-          identifier: r.identifier as string,
-          name: r.name as string,
-          description: r.description as string | undefined,
-        })),
-      });
+      standards.push(
+        standardFromRow({
+          row: {
+            id: ps.standard_id,
+            identifier: ps.identifier ?? null,
+            name: ps.name ?? null,
+            version: ps.version ?? null,
+            description: ps.description ?? null,
+            owner: ps.owner ?? null,
+          },
+          requirements: requirements.map((r) => ({
+            id: r.id as string,
+            identifier: (r.identifier as string | null | undefined) ?? null,
+            name: (r.name as string | null | undefined) ?? null,
+            description: (r.description as string | null | undefined) ?? null,
+            parent_id: (r.parent_id as string | null | undefined) ?? null,
+            open_cre: (r.open_cre as string | null | undefined) ?? null,
+          })),
+        })
+      );
     }
   }
 
@@ -342,11 +295,11 @@ async function buildAssessmentBOM(
   // Build affirmation signatories from the affirmation_signatory
   // slot table. Each signed slot carries its own JSF envelope in
   // signature_json plus a pointer to the signatory identity row, so
-  // the CycloneDX signatory object is assembled from the identity row
-  // and the embedded envelope. Slots that were declared but never
-  // signed are skipped: the export represents signatures that
+  // the CycloneDX signatory object is assembled from the identity
+  // row and the embedded envelope. Slots that were declared but
+  // never signed are skipped: the export represents signatures that
   // actually exist, not empty placeholders.
-  const affirmationSignatories: CycloneDXSignatory[] = [];
+  const affirmationSignatories: CdxSignatory[] = [];
   let signedSlotCount = 0;
   if (affirmationRow) {
     const slots = await db
@@ -375,51 +328,32 @@ async function buildAssessmentBOM(
             .executeTakeFirst()
         : null;
 
-      // The slot's signature_json is stored as a JSONB column. In
-      // PGlite / node-postgres it may arrive as either a parsed
-      // object or a raw string depending on the driver, so we
-      // tolerate both shapes.
-      const envelopeRaw = slot.signature_json as unknown;
-      let envelope: Record<string, unknown> | undefined;
-      if (typeof envelopeRaw === 'string') {
-        try {
-          envelope = JSON.parse(envelopeRaw) as Record<string, unknown>;
-        } catch {
-          envelope = undefined;
-        }
-      } else if (envelopeRaw && typeof envelopeRaw === 'object') {
-        envelope = envelopeRaw as Record<string, unknown>;
-      }
+      const envelope = parseJsonbColumn(slot.signature_json);
 
-      const signatoryObj: CycloneDXSignatory = {
-        name: String(sigRow.name ?? ''),
-      };
-      const role = (slot.required_title ?? sigRow.role) as string | null | undefined;
-      if (role) signatoryObj.role = role;
-
-      if (org) {
-        const address: Record<string, unknown> = {};
-        if (org.country) address.country = org.country;
-        if (org.region) address.region = org.region;
-        if (org.locality) address.locality = org.locality;
-        if (org.post_office_box_number) address.postOfficeBoxNumber = org.post_office_box_number;
-        if (org.postal_code) address.postalCode = org.postal_code;
-        if (org.street_address) address.streetAddress = org.street_address;
-
-        const orgShape: Record<string, unknown> = { name: org.name };
-        if (Object.keys(address).length > 0) orgShape.address = address;
-        if (org.website) orgShape.url = [org.website];
-        signatoryObj.organization = orgShape;
-      }
-
-      const extRefType = sigRow.external_reference_type as string | null | undefined;
-      const extRefUrl = sigRow.external_reference_url as string | null | undefined;
-      if (extRefType && extRefUrl) {
-        signatoryObj.externalReference = { type: extRefType, url: extRefUrl };
-      }
-
-      if (envelope) signatoryObj.signature = envelope;
-      affirmationSignatories.push(signatoryObj);
+      affirmationSignatories.push(
+        signatoryBlock({
+          row: {
+            name: sigRow.name ?? null,
+            role: sigRow.role ?? null,
+            external_reference_type: sigRow.external_reference_type ?? null,
+            external_reference_url: sigRow.external_reference_url ?? null,
+          },
+          organization: org
+            ? {
+                name: org.name ?? null,
+                country: org.country ?? null,
+                region: org.region ?? null,
+                locality: org.locality ?? null,
+                post_office_box_number: org.post_office_box_number ?? null,
+                postal_code: org.postal_code ?? null,
+                street_address: org.street_address ?? null,
+                website: org.website ?? null,
+              }
+            : null,
+          envelope: envelope ?? null,
+          roleOverride: slot.required_title ?? null,
+        })
+      );
     }
   }
 
@@ -428,21 +362,8 @@ async function buildAssessmentBOM(
   // declarations.affirmation block. Consumers can still see the
   // attestation map and claims; the signature layer is optional.
 
-  // Parse sealed envelopes if the affirmation is sealed. These flow
-  // into declarations.signature and the top level bom.signature.
-  function parseJsonbColumn(value: unknown): Record<string, unknown> | undefined {
-    if (!value) return undefined;
-    if (typeof value === 'string') {
-      try {
-        return JSON.parse(value) as Record<string, unknown>;
-      } catch {
-        return undefined;
-      }
-    }
-    if (typeof value === 'object') return value as Record<string, unknown>;
-    return undefined;
-  }
-
+  // Parse sealed envelopes when the affirmation is sealed. These
+  // flow into declarations.signature and the top level bom.signature.
   const declarationsSealEnvelope = affirmationRow?.sealed_at
     ? parseJsonbColumn(affirmationRow.declarations_signature_json)
     : undefined;
@@ -450,69 +371,34 @@ async function buildAssessmentBOM(
     ? parseJsonbColumn(affirmationRow.document_signature_json)
     : undefined;
 
-  let affirmation: CycloneDXAffirmation | undefined;
+  let affirmation: CdxAffirmation | undefined;
   if (affirmationRow) {
-    affirmation = {
-      statement: affirmationRow.statement,
-      ...(affirmationSignatories.length > 0 && { signatories: affirmationSignatories }),
-      ...(declarationsSealEnvelope && { signature: declarationsSealEnvelope }),
-    };
+    affirmation = { statement: affirmationRow.statement };
+    if (affirmationSignatories.length > 0) {
+      affirmation.signatories = affirmationSignatories;
+    }
   }
   // signedSlotCount is retained for future metrics / debug; currently
   // unused but makes the logic audit easier when tracing a missing
   // signatory.
   void signedSlotCount;
 
-  const bom: CycloneDXBOM = {
-    $schema: schemaUrlFor(specVersion),
-    bomFormat: 'CycloneDX',
+  const declarations = composeDeclarations({
+    assessors,
+    attestations: declarationAttestations,
+    claims: allClaimsOut,
+    evidence: evidenceOut,
+    affirmation,
+    seal: declarationsSealEnvelope,
+    targetResolver,
+  });
+
+  return composeBom({
     specVersion,
-    serialNumber: `urn:uuid:${uuidv4()}`,
-    version: 1,
-    metadata: {
-      timestamp: new Date().toISOString(),
-      tools: {
-        components: [
-          {
-            type: 'application',
-            name: 'CycloneDX Assessors Studio',
-          },
-        ],
-      },
-    },
-    declarations: {
-      assessors: assessorsMap,
-      attestations: declarationAttestations,
-      claims: claimsDeclaration,
-      evidence: evidenceDeclaration,
-      targets: {
-        organizations: [],
-      },
-      // The CycloneDX schema places `affirmation` and `signature`
-      // as siblings inside declarations. The internal affirmation
-      // object carries the declarations-level seal as `signature`
-      // for cohesion, but before handing the structure to the
-      // schema it is hoisted to the declarations level. The hoist
-      // happens below, after the BOM is built, by stripping the
-      // duplicate from the affirmation object.
-      ...(affirmation && { affirmation }),
-      ...(declarationsSealEnvelope && { signature: declarationsSealEnvelope }),
-    },
-    definitions: {
-      standards,
-    },
-    ...(documentSealEnvelope && { signature: documentSealEnvelope }),
-  };
-
-  // Remove the internal duplicate of the declarations seal from the
-  // affirmation object so the exported JSON matches the schema.
-  if (bom.declarations.affirmation && bom.declarations.affirmation.signature) {
-    const { signature: _internal, ...rest } = bom.declarations.affirmation;
-    bom.declarations.affirmation = rest;
-    void _internal;
-  }
-
-  return bom;
+    declarations,
+    definitions: standards.length > 0 ? { standards } : undefined,
+    documentSeal: documentSealEnvelope,
+  });
 }
 
 // ---- Helper functions for PDF generation ----
@@ -1004,120 +890,82 @@ router.get('/project/:projectId', requireAuth, requirePermission('export.cyclone
     .execute();
 
   // Build BOMs for all assessments
-  const boms = await Promise.all(assessments.map(a => buildAssessmentBOM(a.id, specVersion)));
+  const boms = await Promise.all(assessments.map((a) => buildAssessmentBOM(a.id, specVersion)));
 
-  // Create a wrapper BOM containing all assessment BOMs
-  // biome-ignore lint/suspicious/noExplicitAny: CycloneDX BOM structure is complex and dynamic
-  const projectBOM: Record<string, unknown> = {
-    $schema: schemaUrlFor(specVersion),
-    bomFormat: 'CycloneDX',
-    specVersion,
-    serialNumber: `urn:uuid:${uuidv4()}`,
-    version: 1,
-    metadata: {
-      timestamp: new Date().toISOString(),
-      tools: {
-        components: [
-          {
-            type: 'application',
-            name: 'CycloneDX Assessors Studio',
-          },
-        ],
-      },
-    },
-    declarations: {
-      assessors: [],
-      attestations: [],
-      claims: [],
-      evidence: [],
-      targets: {
-        organizations: [],
-      },
-    },
-    definitions: {
-      standards: [],
-    },
-  };
-
-  // Merge all assessment BOMs
-  const mergedAssessors = new Map<string, CycloneDXAssessor>();
-  const mergedClaims = new Map<string, CycloneDXClaim>();
-  const mergedEvidence = new Map<string, CycloneDXEvidence>();
-  const mergedStandards = new Map<string, CycloneDXStandard>();
+  // Merge all assessment BOMs into a single project-scoped BOM. The
+  // merge preserves per-attestation map entries verbatim while
+  // deduping the shared declaration arrays (assessors, claims,
+  // evidence, standards). Keys are the bom-ref values to guarantee
+  // cross-reference integrity.
+  const mergedAssessors = new Map<string, CdxAssessor>();
+  const mergedAttestations: CdxAttestation[] = [];
+  const mergedClaims = new Map<string, CdxClaim>();
+  const mergedEvidence = new Map<string, CdxEvidence>();
+  const mergedStandards = new Map<string, CdxStandard>();
+  let mergedAffirmation: CdxAffirmation | undefined;
 
   for (const bom of boms) {
-    // biome-ignore lint/suspicious/noExplicitAny: Merging dynamic BOM structures from multiple assessments
-    const bomData = bom as any;
-    // Merge assessors
-    for (const assessor of bomData.declarations.assessors) {
-      mergedAssessors.set(assessor['bom-ref'], assessor);
+    const decls = bom.declarations;
+    const defs = bom.definitions;
+    if (decls) {
+      for (const assessor of decls.assessors ?? []) {
+        mergedAssessors.set(assessor['bom-ref'], assessor);
+      }
+      if (decls.attestations) mergedAttestations.push(...decls.attestations);
+      for (const claim of decls.claims ?? []) {
+        mergedClaims.set(claim['bom-ref'], claim);
+      }
+      for (const evidence of decls.evidence ?? []) {
+        mergedEvidence.set(evidence['bom-ref'], evidence);
+      }
+      // A project BOM is the union of multiple assessment BOMs;
+      // each assessment may have its own sealed affirmation, but
+      // the declarations block can only carry one affirmation. Keep
+      // the first one encountered.
+      if (decls.affirmation && !mergedAffirmation) {
+        mergedAffirmation = decls.affirmation;
+      }
     }
-
-    // Merge attestations
-    // biome-ignore lint/suspicious/noExplicitAny: CycloneDX BOM structure is dynamically composed
-    (projectBOM.declarations as any).attestations.push(...bomData.declarations.attestations);
-
-    // Merge claims
-    for (const claim of bomData.declarations.claims) {
-      mergedClaims.set(claim['bom-ref'], claim);
-    }
-
-    // Merge evidence
-    for (const evidence of bomData.declarations.evidence) {
-      mergedEvidence.set(evidence['bom-ref'], evidence);
-    }
-
-    // Merge standards
-    for (const standard of bomData.definitions.standards) {
-      mergedStandards.set(standard.identifier, standard);
-    }
-
-    // Merge affirmation if present. A project BOM is the union of
-    // multiple assessment BOMs; each assessment may have its own
-    // sealed affirmation, but the declarations block can only carry
-    // one affirmation. We keep the first one encountered. The
-    // declarations-level seal and the top level document seal are
-    // carried only when exactly one sealed assessment contributes to
-    // this project BOM; if more than one contributes a seal they are
-    // dropped because a merged BOM is a different document and the
-    // original seals no longer verify against its canonical form.
-    // biome-ignore lint/suspicious/noExplicitAny: CycloneDX BOM structure is dynamically composed
-    if (bomData.declarations.affirmation && !(projectBOM.declarations as any).affirmation) {
-      // biome-ignore lint/suspicious/noExplicitAny: CycloneDX BOM structure is dynamically composed
-      (projectBOM.declarations as any).affirmation = bomData.declarations.affirmation;
+    if (defs?.standards) {
+      for (const standard of defs.standards) {
+        mergedStandards.set(standard['bom-ref'], standard);
+      }
     }
   }
 
-  // Handle declarations and document signatures at the project
-  // level. Propagate only when exactly one sealed assessment
-  // contributed to this project, because a merged multi assessment
-  // BOM has a different canonical form than any single assessment
-  // BOM. Anything else gets dropped.
-  const sealedBoms = boms.filter((b) => {
-    const d = (b as unknown as { declarations?: { signature?: unknown } }).declarations;
-    return Boolean(d?.signature);
-  });
+  // Propagate declarations and document seals only when exactly one
+  // sealed assessment contributed to this project BOM. A merged
+  // multi-assessment BOM has a different canonical form than any
+  // single assessment BOM, so seals from more than one source would
+  // not verify against the merged document and are therefore
+  // dropped.
+  let mergedSeal: CdxSignature | undefined;
+  let mergedDocumentSeal: CdxSignature | undefined;
+  const sealedBoms = boms.filter((b) => Boolean(b.declarations?.signature));
   if (sealedBoms.length === 1) {
-    const sealed = sealedBoms[0] as unknown as {
-      declarations?: { signature?: unknown };
-      signature?: unknown;
-    };
-    // biome-ignore lint/suspicious/noExplicitAny: CycloneDX BOM structure is dynamically composed
-    (projectBOM.declarations as any).signature = sealed.declarations?.signature;
-    if (sealed.signature) {
-      // biome-ignore lint/suspicious/noExplicitAny: CycloneDX BOM structure is dynamically composed
-      (projectBOM as any).signature = sealed.signature;
-    }
+    const sealed = sealedBoms[0];
+    mergedSeal = sealed.declarations?.signature;
+    mergedDocumentSeal = sealed.signature;
   }
 
-  // biome-ignore lint/suspicious/noExplicitAny: CycloneDX BOM structure is dynamically composed
-  (projectBOM.declarations as any).assessors = Array.from(mergedAssessors.values());
-  // biome-ignore lint/suspicious/noExplicitAny: CycloneDX BOM structure is dynamically composed
-  (projectBOM.declarations as any).claims = Array.from(mergedClaims.values());
-  // biome-ignore lint/suspicious/noExplicitAny: CycloneDX BOM structure is dynamically composed
-  (projectBOM.declarations as any).evidence = Array.from(mergedEvidence.values());
-  // biome-ignore lint/suspicious/noExplicitAny: CycloneDX BOM structure is dynamically composed
-  (projectBOM.definitions as any).standards = Array.from(mergedStandards.values());
+  const projectDeclarations = composeDeclarations({
+    assessors: Array.from(mergedAssessors.values()),
+    attestations: mergedAttestations,
+    claims: Array.from(mergedClaims.values()),
+    evidence: Array.from(mergedEvidence.values()),
+    affirmation: mergedAffirmation,
+    seal: mergedSeal,
+  });
+
+  const projectBOM = composeBom({
+    specVersion,
+    declarations: projectDeclarations,
+    definitions:
+      mergedStandards.size > 0
+        ? { standards: Array.from(mergedStandards.values()) }
+        : undefined,
+    documentSeal: mergedDocumentSeal,
+  });
 
   // Set response headers
   res.setHeader('Content-Type', 'application/vnd.cyclonedx+json');
