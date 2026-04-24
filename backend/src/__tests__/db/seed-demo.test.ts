@@ -27,22 +27,30 @@ describe('seedDemoData loads demo-data.json without FK violations', () => {
     const { getDatabase } = await import('../../db/connection.js');
     const db = getDatabase();
 
-    // Import the SSDF standard first so seedSSDF can resolve
-    // SSDF requirement identifiers. The setup-wizard path imports
-    // from the standards feed at first boot; here we import the
-    // same local JSON directly.
+    // Import the SSDF standard first so seedSSDF can resolve SSDF
+    // requirement identifiers. The production setup-wizard path
+    // fetches the standards feed from cyclonedx.org at first boot;
+    // here we import a committed local copy of the same document
+    // so the test works offline and in CI where network egress
+    // may be blocked. The fixture path resolves from the test file
+    // location so it is stable across local / CI / sandbox runs.
     const { importStandard } = await import('../../services/standard-import.js');
     const fs = await import('node:fs');
-    const feedPath = process.env.SSDF_FEED_PATH
-      ?? '/sessions/optimistic-epic-goldberg/mnt/uploads/nist_secure-software-development-framework_1.1.cdx.json';
-    if (fs.existsSync(feedPath)) {
-      const raw = fs.readFileSync(feedPath, 'utf8');
-      const feed = JSON.parse(raw);
-      const std = feed.definitions?.standards?.[0];
-      if (std) {
-        await importStandard(std, { markAsImported: true });
-      }
+    const path = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const feedPath = path.resolve(here, '../fixtures/nist-ssdf-1.1.cdx.json');
+    if (!fs.existsSync(feedPath)) {
+      throw new Error(
+        `SSDF fixture not found at ${feedPath}. ` +
+          'Ensure backend/src/__tests__/fixtures/nist-ssdf-1.1.cdx.json is committed.',
+      );
     }
+    const raw = fs.readFileSync(feedPath, 'utf8');
+    const feed = JSON.parse(raw);
+    const std = feed.definitions?.standards?.[0];
+    expect(std).toBeDefined();
+    await importStandard(std, { markAsImported: true });
 
     // Seed the demo fixture end to end.
     const { seedDemoData } = await import('../../db/seed-demo.js');
