@@ -65,6 +65,13 @@ jobs:
       - name: Rebuild native modules
         run: npm rebuild argon2
 
+      # The local @cyclonedx/jsf workspace package (file:./packages/jsf)
+      # is symlinked without its dist/ output when npm ci --ignore-scripts
+      # skips the postinstall hook. Build it explicitly so tsc can
+      # resolve the module's type declarations.
+      - name: Build local @cyclonedx/jsf package
+        run: npm --prefix packages/jsf run build
+
       - name: Typecheck
         run: npx tsc --noEmit
 
@@ -106,6 +113,11 @@ jobs:
 
       - name: Rebuild native modules
         run: npm rebuild argon2
+
+      # As in the build job: build the local @cyclonedx/jsf workspace
+      # package because --ignore-scripts skipped its postinstall.
+      - name: Build local @cyclonedx/jsf package
+        run: npm --prefix packages/jsf run build
 
       - name: Run tests with coverage
         run: npx vitest run --reporter=verbose --coverage
