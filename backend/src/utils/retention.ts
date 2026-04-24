@@ -61,7 +61,17 @@ type ClaimImmutableResult =
   | { immutable: true; reason: ClaimImmutableReason }
   | { immutable: false };
 
-const TERMINAL_ASSESSMENT_STATES = ['complete', 'archived', 'cancelled'] as const;
+// The states that lock attestations and claims against modification.
+// Historically `complete` was included here because attestations used
+// to be authored during in-progress work and locked when the
+// assessment transitioned to complete. The workflow now *requires*
+// the assessment to be `complete` before an attestation can be
+// created at all (see POST /api/v1/attestations), so `complete`
+// cannot be the lock point — it is the working state for attestation
+// authoring. The real lock point is the affirmation seal, handled
+// separately. Only `archived` and `cancelled` remain as retention
+// terminals.
+const TERMINAL_ASSESSMENT_STATES = ['archived', 'cancelled'] as const;
 
 /**
  * Return true when the assessment has any sealed affirmation. We lock
@@ -205,14 +215,14 @@ const ATTESTATION_REASON_MESSAGES: Record<AttestationImmutableReason, string> = 
   affirmation_sealed:
     'Attestation is immutable once an affirmation on this assessment has been sealed',
   assessment_terminal:
-    'Attestation is immutable once its assessment is complete, archived, or cancelled',
+    'Attestation is immutable once its assessment is archived or cancelled',
 };
 
 const CLAIM_REASON_MESSAGES: Record<ClaimImmutableReason, string> = {
   cited_in_sealed_affirmation:
     'Claim is immutable once cited on an attestation whose assessment has a sealed affirmation',
   assessment_terminal:
-    'Claim is immutable once its assessment is complete, archived, or cancelled',
+    'Claim is immutable once its assessment is archived or cancelled',
 };
 
 /**

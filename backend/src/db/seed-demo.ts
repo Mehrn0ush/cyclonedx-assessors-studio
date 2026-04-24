@@ -121,13 +121,13 @@ async function seedEntitiesAndRelationships(db: Kysely<Database>, data: DemoData
   // Entity Standards
   if (firstStandardId) {
     const entityStandardPairs = [
-      { entity_id: '00000000-0000-4000-e000-000000000007', standard_id: firstStandardId },
-      { entity_id: '00000000-0000-4000-e000-000000000009', standard_id: firstStandardId },
+      { entity_id: '00000000-0000-4000-a100-000000000007', standard_id: firstStandardId },
+      { entity_id: '00000000-0000-4000-a100-000000000009', standard_id: firstStandardId },
     ];
     if (secondStandardId && secondStandardId !== firstStandardId) {
       entityStandardPairs.push(
-        { entity_id: '00000000-0000-4000-e000-000000000006', standard_id: secondStandardId },
-        { entity_id: '00000000-0000-4000-e000-000000000001', standard_id: secondStandardId },
+        { entity_id: '00000000-0000-4000-a100-000000000006', standard_id: secondStandardId },
+        { entity_id: '00000000-0000-4000-a100-000000000001', standard_id: secondStandardId },
       );
     }
     for (const es of entityStandardPairs) {
@@ -138,7 +138,7 @@ async function seedEntitiesAndRelationships(db: Kysely<Database>, data: DemoData
 
   if (ssdfStandardId) {
     await db.insertInto('entity_standard').values({
-      entity_id: '00000000-0000-4000-e000-000000000006',
+      entity_id: '00000000-0000-4000-a100-000000000006',
       standard_id: ssdfStandardId,
       created_at: new Date(),
     }).execute();
@@ -153,7 +153,7 @@ async function seedCompliancePolicies(db: Kysely<Database>, _data: DemoData, fir
   const policies = [
     {
       id: uuidv4(),
-      entity_id: '00000000-0000-4000-e000-000000000001',
+      entity_id: '00000000-0000-4000-a100-000000000001',
       standard_id: firstStandardId,
       description: 'All Acme products must comply with ASVS Level 2 requirements.',
       is_inherited: false,
@@ -162,7 +162,7 @@ async function seedCompliancePolicies(db: Kysely<Database>, _data: DemoData, fir
   if (secondStandardId && secondStandardId !== firstStandardId) {
     policies.push({
       id: uuidv4(),
-      entity_id: '00000000-0000-4000-e000-000000000006',
+      entity_id: '00000000-0000-4000-a100-000000000006',
       standard_id: secondStandardId,
       description: 'Suppliers must demonstrate compliance with applicable security maturity standards.',
       is_inherited: false,
@@ -193,11 +193,11 @@ async function seedSignatoriesAndProjects(db: Kysely<Database>, data: DemoData, 
 
   if (firstStandardId) {
     const projectStandards = [
-      { project_id: '00000000-0000-4000-f000-000000000001', standard_id: firstStandardId },
+      { project_id: '00000000-0000-4000-b100-000000000001', standard_id: firstStandardId },
     ];
     if (secondStandardId && secondStandardId !== firstStandardId) {
       projectStandards.push(
-        { project_id: '00000000-0000-4000-f000-000000000002', standard_id: secondStandardId },
+        { project_id: '00000000-0000-4000-b100-000000000002', standard_id: secondStandardId },
       );
     }
     for (const ps of projectStandards) {
@@ -375,7 +375,7 @@ async function seedAssessmentRequirements(db: Kysely<Database>, _data: DemoData,
 
     await db.insertInto('assessment_requirement').values({
       id: arId,
-      assessment_id: '00000000-0000-4000-f300-000000000001',
+      assessment_id: '00000000-0000-4000-b400-000000000001',
       // eslint-disable-next-line security/detect-object-injection
       requirement_id: requirements[i].id,
       // eslint-disable-next-line security/detect-object-injection
@@ -388,26 +388,26 @@ async function seedAssessmentRequirements(db: Kysely<Database>, _data: DemoData,
   const workNotes = [
     {
       id: uuidv4(),
-      assessment_id: '00000000-0000-4000-f300-000000000001',
-      user_id: '00000000-0000-4000-c000-000000000002',
+      assessment_id: '00000000-0000-4000-b400-000000000001',
+      user_id: '00000000-0000-4000-8000-000000000002',
       content: 'Reviewed pentest report section 4.2 which covers authentication requirements. All findings remediated. @spatil can you verify the remediation on your end?',
     },
     {
       id: uuidv4(),
-      assessment_id: '00000000-0000-4000-f300-000000000001',
-      user_id: '00000000-0000-4000-c000-000000000002',
+      assessment_id: '00000000-0000-4000-b400-000000000001',
+      user_id: '00000000-0000-4000-8000-000000000002',
       content: 'API MFA enforcement is on the roadmap for Q2 2026. Currently only web UI enforces MFA. @mwilson need to follow up with API gateway team on timeline.',
     },
     {
       id: uuidv4(),
-      assessment_id: '00000000-0000-4000-f300-000000000001',
-      user_id: '00000000-0000-4000-c000-000000000004',
+      assessment_id: '00000000-0000-4000-b400-000000000001',
+      user_id: '00000000-0000-4000-8000-000000000004',
       content: 'The API gateway team has started work on MFA enforcement. Expected completion: 2026-05-15. @jthompson updating you as requested.',
     },
     {
       id: uuidv4(),
-      assessment_id: '00000000-0000-4000-f300-000000000001',
-      user_id: '00000000-0000-4000-c000-000000000003',
+      assessment_id: '00000000-0000-4000-b400-000000000001',
+      user_id: '00000000-0000-4000-8000-000000000003',
       content: 'Current password policy: 8 chars minimum, no complexity. Need to upgrade to 12 chars with complexity rules per ASVS requirement.',
     },
   ];
@@ -418,12 +418,12 @@ async function seedAssessmentRequirements(db: Kysely<Database>, _data: DemoData,
 
   await db.insertInto('assessment_requirement_evidence').values({
     assessment_requirement_id: assessmentReqIds[0],
-    evidence_id: '00000000-0000-4000-f400-000000000001',
+    evidence_id: '00000000-0000-4000-b500-000000000001',
     created_at: new Date(),
   }).execute();
   await db.insertInto('assessment_requirement_evidence').values({
     assessment_requirement_id: assessmentReqIds[1],
-    evidence_id: '00000000-0000-4000-f400-000000000003',
+    evidence_id: '00000000-0000-4000-b500-000000000003',
     created_at: new Date(),
   }).execute();
 
@@ -467,35 +467,35 @@ async function seedAssessorsAndReferences(db: Kysely<Database>): Promise<{ inter
     id: internalAssessorId,
     bom_ref: `assessor-${internalAssessorId.substring(0, 8)}`,
     third_party: false,
-    entity_id: '00000000-0000-4000-e000-000000000004',
+    entity_id: '00000000-0000-4000-a100-000000000004',
     user_id: null,
   }).execute();
   await db.insertInto('assessor').values({
     id: externalAssessorId,
     bom_ref: `assessor-${externalAssessorId.substring(0, 8)}`,
     third_party: true,
-    entity_id: '00000000-0000-4000-e000-000000000013',
+    entity_id: '00000000-0000-4000-a100-000000000013',
     user_id: null,
   }).execute();
   logger.info('Seeded 2 assessors (1 internal, 1 external)');
 
   await db.insertInto('claim_external_reference').values({
     id: uuidv4(),
-    claim_id: '00000000-0000-4000-f500-000000000001',
+    claim_id: '00000000-0000-4000-b600-000000000001',
     type: 'issue-tracker',
     url: 'https://jira.acme.example.com/browse/SEC-1234',
     comment: 'Authentication hardening tracking ticket',
   }).execute();
   await db.insertInto('claim_external_reference').values({
     id: uuidv4(),
-    claim_id: '00000000-0000-4000-f500-000000000002',
+    claim_id: '00000000-0000-4000-b600-000000000002',
     type: 'pentest-report',
     url: 'https://docs.acme.example.com/security/pentest-2026-q1.pdf',
     comment: 'Q1 2026 penetration test identifying session fixation',
   }).execute();
   await db.insertInto('claim_external_reference').values({
     id: uuidv4(),
-    claim_id: '00000000-0000-4000-f500-000000000003',
+    claim_id: '00000000-0000-4000-b600-000000000003',
     type: 'certification-report',
     url: 'https://compliance.suppliera.example.com/soc2-type2-2025.pdf',
     comment: 'Supplier A SOC 2 Type II report',
@@ -506,96 +506,17 @@ async function seedAssessorsAndReferences(db: Kysely<Database>): Promise<{ inter
 }
 
 // Helper: Seed attestations
-async function seedAttestations(db: Kysely<Database>, firstStandardId: string | null, ssdfStandardId: string | null, internalAssessorId: string): Promise<void> {
-  if (!firstStandardId) return;
-
-  const attestation1Id = uuidv4();
-  await db.insertInto('attestation').values({
-    id: attestation1Id,
-    summary: 'Based on our comprehensive assessment of Supplier A against NIST SP 800-218 (SSDF v1.1) requirements, we attest that the organization substantially meets the secure software development practices with identified exceptions documented in counter claims.',
-    assessment_id: '00000000-0000-4000-f300-100000000001',
-    signatory_id: '00000000-0000-4000-f100-000000000001',
-    assessor_id: internalAssessorId,
-  }).execute();
-
-  await db
-    .updateTable('claim')
-    .set({ attestation_id: attestation1Id })
-    .where('id', '=', '00000000-0000-4000-f500-100000000001')
-    .execute();
-  await db
-    .updateTable('claim')
-    .set({ attestation_id: attestation1Id })
-    .where('id', '=', '00000000-0000-4000-f500-100000000002')
-    .execute();
-
-  if (ssdfStandardId) {
-    const reqs = await db
-      .selectFrom('requirement')
-      .where('standard_id', '=', ssdfStandardId)
-      .select(['id'])
-      .orderBy('identifier', 'asc')
-      .limit(5)
-      .execute();
-
-    for (let i = 0; i < reqs.length; i++) {
-      const scores = [0.95, 1.0, 0.85, 0.9, 0.8];
-      const confidences = [0.9, 0.95, 0.85, 0.9, 0.75];
-      const rationales = [
-        'Organization has comprehensive security requirements documented and communicated to all stakeholders.',
-        'Security roles and training are well defined with regular training programs in place.',
-        'Toolchain automation supports secure development practices with minor gaps in third party component verification.',
-        'Security gates and quality criteria are enforced throughout the development lifecycle.',
-        'Source code access controls are strong with MFA, branch protection, and regular access reviews.',
-      ];
-      const confRationales = [
-        'High confidence based on documentation review and stakeholder interviews.',
-        'Verified through training records and role definition documentation.',
-        'Good confidence; automation is in place but some manual processes remain.',
-        'High confidence; pipeline configuration demonstrates enforcement.',
-        'Verified through repository configuration and access audit logs.',
-      ];
-
-      await db.insertInto('attestation_requirement').values({
-        id: uuidv4(),
-        attestation_id: attestation1Id,
-        // eslint-disable-next-line security/detect-object-injection
-        requirement_id: reqs[i].id,
-        // eslint-disable-next-line security/detect-object-injection
-        conformance_score: scores[i],
-        // eslint-disable-next-line security/detect-object-injection
-        conformance_rationale: rationales[i],
-        // eslint-disable-next-line security/detect-object-injection
-        confidence_score: confidences[i],
-        // eslint-disable-next-line security/detect-object-injection
-        confidence_rationale: confRationales[i],
-      }).execute();
-    }
-    logger.info(`Seeded attestation with ${reqs.length} requirement mappings`);
-
-    const attReqs = await db
-      .selectFrom('attestation_requirement')
-      .where('attestation_id', '=', attestation1Id)
-      .select(['id'])
-      .orderBy('created_at', 'asc')
-      .execute();
-
-    if (attReqs.length > 0) {
-      await db.insertInto('attestation_requirement_claim').values({
-        attestation_requirement_id: attReqs[0].id,
-        claim_id: '00000000-0000-4000-f500-100000000001',
-        created_at: new Date(),
-      }).execute();
-    }
-    if (attReqs.length > 1) {
-      await db.insertInto('attestation_requirement_claim').values({
-        attestation_requirement_id: attReqs[1].id,
-        claim_id: '00000000-0000-4000-f500-100000000002',
-        created_at: new Date(),
-      }).execute();
-    }
-    logger.info('Seeded attestation requirement claim links');
-  }
+//
+// The SSDF assessment's single, fully populated attestation is seeded
+// by seedSSDF() from `data.ssdf_assessment_data`. An earlier iteration
+// also seeded a hardcoded second attestation on the same assessment
+// with five cherry-picked requirements; that duplicate has been
+// removed per the "one fully populated SSDF attestation" demo shape.
+async function seedAttestations(_db: Kysely<Database>, _firstStandardId: string | null, _ssdfStandardId: string | null, _internalAssessorId: string): Promise<void> {
+  // Intentionally empty. Kept as a stub so the call graph in
+  // seedDemoData stays symmetric with other seed helpers. Remove the
+  // stub once the call site is also removed if the demo grows more
+  // attestation variants later.
 }
 
 // Helper: Seed SSDF data
@@ -618,7 +539,7 @@ async function seedSSDF(db: Kysely<Database>, data: DemoData, ssdfStandardId: st
     ssdfReqMap.set(r.identifier, r.id);
   }
 
-  const ssdfAssessmentId = '00000000-0000-4000-f300-100000000001';
+  const ssdfAssessmentId = '00000000-0000-4000-b400-100000000001';
   const ssdfAssessmentReqMap = new Map<string, string>();
 
   for (const ar of ssdf.assessment_requirements) {
@@ -688,23 +609,23 @@ async function seedSSDF(db: Kysely<Database>, data: DemoData, ssdfStandardId: st
   }).execute();
 
   const ssdfTargetEntityMap: Record<string, string> = {
-    'Acme Corporation SDLC': '00000000-0000-4000-e000-000000000001',
-    'Acme Corporation': '00000000-0000-4000-e000-000000000001',
-    'Acme Corporation Development Infrastructure': '00000000-0000-4000-e000-000000000001',
-    'Acme Corporation Development Process': '00000000-0000-4000-e000-000000000001',
-    'Product A v2.1 Source Repositories': '00000000-0000-4000-e000-000000000008',
-    'Product A v2.1 Build and Release': '00000000-0000-4000-e000-000000000008',
-    'Product A v2.1 Releases': '00000000-0000-4000-e000-000000000008',
-    'Product A v2.1 Supply Chain': '00000000-0000-4000-e000-000000000008',
-    'Product A v2.1 Development': '00000000-0000-4000-e000-000000000008',
-    'Product A v2.1 Architecture': '00000000-0000-4000-e000-000000000008',
+    'Acme Corporation SDLC': '00000000-0000-4000-a100-000000000001',
+    'Acme Corporation': '00000000-0000-4000-a100-000000000001',
+    'Acme Corporation Development Infrastructure': '00000000-0000-4000-a100-000000000001',
+    'Acme Corporation Development Process': '00000000-0000-4000-a100-000000000001',
+    'Product A v2.1 Source Repositories': '00000000-0000-4000-a100-000000000008',
+    'Product A v2.1 Build and Release': '00000000-0000-4000-a100-000000000008',
+    'Product A v2.1 Releases': '00000000-0000-4000-a100-000000000008',
+    'Product A v2.1 Supply Chain': '00000000-0000-4000-a100-000000000008',
+    'Product A v2.1 Development': '00000000-0000-4000-a100-000000000008',
+    'Product A v2.1 Architecture': '00000000-0000-4000-a100-000000000008',
   };
 
   for (const claim of data.claims) {
     // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
     const claimData = claim as any;
     const claimId = claimData.id as string;
-    if (claimId.startsWith('00000000-0000-4000-f500-1000')) {
+    if (claimId.startsWith('00000000-0000-4000-b600-1000')) {
       const targetEntityId = ssdfTargetEntityMap[claimData.target as string] || null;
       await db
         .updateTable('claim')
@@ -739,6 +660,45 @@ async function seedSSDF(db: Kysely<Database>, data: DemoData, ssdfStandardId: st
       confidence_score: atReqData.confidence_score as number,
       confidence_rationale: atReqData.confidence_rationale as string,
     }).execute();
+
+    // Attach per-requirement claims and counterClaims so the CycloneDX
+    // export's declarations.attestations[].map[].claims / counterClaims
+    // arrays are populated from structured data rather than the
+    // legacy "all claims on this attestation" fallback. Each entry
+    // must reference a claim that was appended to the top-level
+    // claims array; we skip gracefully if the claim row is missing
+    // so a partial demo file still loads.
+    const linkClaims = async (ids: string[], table: 'attestation_requirement_claim' | 'attestation_requirement_counter_claim') => {
+      for (const claimId of ids) {
+        try {
+          await db
+            // biome-ignore lint/suspicious/noExplicitAny: dynamic table
+            .insertInto(table as any)
+            .values({
+              attestation_requirement_id: atReqId,
+              claim_id: claimId,
+              created_at: new Date(),
+              // biome-ignore lint/suspicious/noExplicitAny: Kysely seed data requires dynamic types
+            } as any)
+            .execute();
+        } catch (e: unknown) {
+          const err = e as Record<string, unknown>;
+          const msg = err?.message as string | undefined;
+          if (!msg?.includes('duplicate') && !msg?.includes('unique') && !msg?.includes('foreign')) {
+            throw e;
+          }
+        }
+      }
+    };
+    if (Array.isArray(atReqData.claim_ids)) {
+      await linkClaims(atReqData.claim_ids as string[], 'attestation_requirement_claim');
+    }
+    if (Array.isArray(atReqData.counter_claim_ids)) {
+      await linkClaims(
+        atReqData.counter_claim_ids as string[],
+        'attestation_requirement_counter_claim',
+      );
+    }
   }
   logger.info(`Seeded ${ssdfAttReqMap.size} SSDF attestation requirements`);
 
@@ -942,8 +902,11 @@ export async function seedDemoData(): Promise<boolean> {
   await seedEntitiesAndRelationships(db, data, firstStandardId, secondStandardId, ssdfStandardId);
   await seedCompliancePolicies(db, data, firstStandardId, secondStandardId);
   await seedSignatoriesAndProjects(db, data, firstStandardId, secondStandardId);
-  await seedAffirmations(db, data);
+  // Assessments must be seeded before affirmations now that
+  // demo-data.json scopes at least one affirmation to a specific
+  // assessment via affirmation.assessment_id (FK).
   await seedAssessments(db, data, resolveId);
+  await seedAffirmations(db, data);
   await seedEvidence(db, data, resolveId);
   await seedAssessmentRequirements(db, data, firstStandardId, adminUserId);
   await seedClaims(db, data, resolveId);
@@ -953,6 +916,21 @@ export async function seedDemoData(): Promise<boolean> {
   await seedSSDF(db, data, ssdfStandardId, externalAssessorId, adminUserId);
 
   await seedFinalEntities(db, data, resolveId);
+
+  // Seal the SSDF demo affirmation end-to-end. Uses a freshly
+  // generated RSA key for the digital signatory and the platform
+  // key (auto-provisioned on first seed run) to produce the
+  // declarations and document envelopes. Skipped silently if the
+  // affirmation or admin user is not in place yet so non-demo
+  // reseeds stay idempotent.
+  try {
+    const { sealSsdfDemoAffirmation } = await import('./seed-demo-seal.js');
+    await sealSsdfDemoAffirmation();
+  } catch (err) {
+    logger.warn('Demo SSDF affirmation seal failed — demo data is still seeded, just unsigned', {
+      error: (err as Error).message,
+    });
+  }
 
   logger.info('Demo data seeded successfully');
   return true;

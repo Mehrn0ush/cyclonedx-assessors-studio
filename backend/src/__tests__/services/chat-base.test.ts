@@ -411,10 +411,18 @@ describe('BaseChatChannel', () => {
 
       await channel.process(envelope);
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // UpdateTable should have been called to set is_active=false
-      expect(mockDb.updateTable).toHaveBeenCalled();
+      // The auto-disable path writes to the DB asynchronously after
+      // process() resolves — the failure bookkeeping continues in a
+      // background promise, and the updateTable call lands a few
+      // event-loop ticks later. Poll for the side effect instead of
+      // sleeping a fixed 100 ms: under full-suite parallel load that
+      // wait is not always long enough and the test flakes.
+      await vi.waitFor(
+        () => {
+          expect(mockDb.updateTable).toHaveBeenCalled();
+        },
+        { timeout: 5_000, interval: 25 },
+      );
     });
   });
 
@@ -571,10 +579,15 @@ describe('BaseChatChannel', () => {
 
       await channel.process(envelope);
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // insertInto should be called for chat_delivery
-      expect(mockDb.insertInto).toHaveBeenCalled();
+      // process() schedules the chat_delivery insert asynchronously;
+      // poll for the side effect rather than sleep, so the assertion
+      // does not flake when the full suite runs under parallel load.
+      await vi.waitFor(
+        () => {
+          expect(mockDb.insertInto).toHaveBeenCalled();
+        },
+        { timeout: 5_000, interval: 25 },
+      );
     });
   });
 

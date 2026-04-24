@@ -18,9 +18,19 @@ describe('Attestations HTTP Routes', () => {
   /**
    * Helper to create test data: project, standard with requirements, assessment.
    * Returns { projectId, standardId, assessmentId, requirementIds }
+   *
+   * The assessment is marked `complete` by default because the CREATE
+   * attestation route now requires a completed assessment (see
+   * POST /api/v1/attestations). Pass `{ state: 'new' }` to leave the
+   * assessment in its initial state for tests that specifically
+   * exercise non-complete error paths.
    */
   let testDataCounter = 0;
-  async function createTestData(agent: any) {
+  async function createTestData(
+    agent: any,
+    opts: { state?: 'new' | 'complete' | 'archived' | 'cancelled' } = {},
+  ) {
+    const state = opts.state ?? 'complete';
     testDataCounter++;
     const suffix = testDataCounter;
 
@@ -70,6 +80,13 @@ describe('Attestations HTTP Routes', () => {
       });
     expect(assessmentRes.status).toBe(201);
     const assessmentId = assessmentRes.body.id;
+
+    if (state !== 'new') {
+      const transitionRes = await agent
+        .put(`/api/v1/assessments/${assessmentId}`)
+        .send({ state });
+      expect(transitionRes.status).toBe(200);
+    }
 
     return { projectId, standardId, assessmentId, requirementIds };
   }
@@ -134,14 +151,10 @@ describe('Attestations HTTP Routes', () => {
       expect(res.body.error).toBe('Invalid input');
     });
 
-    it('should return 403 if assessment is complete', async () => {
+    it('should return 409 if assessment is not yet complete', async () => {
       const agent = await loginAs('admin');
-      const { assessmentId } = await createTestData(agent);
-
-      // Mark assessment as complete
-      await agent
-        .put(`/api/v1/assessments/${assessmentId}`)
-        .send({ state: 'complete' });
+      // Keep the assessment in its initial `new` state — not complete.
+      const { assessmentId } = await createTestData(agent, { state: 'new' });
 
       const res = await agent
         .post('/api/v1/attestations')
@@ -150,18 +163,18 @@ describe('Attestations HTTP Routes', () => {
           summary: 'Should Fail',
         });
 
-      expect(res.status).toBe(403);
-      expect(res.body.error).toContain('completed assessment');
+      expect(res.status).toBe(409);
+      expect(res.body.error).toContain('completed assessments');
     });
 
-    it('should return 403 if assessment is archived', async () => {
+    it('should return 409 if assessment is archived', async () => {
       const agent = await loginAs('admin');
-      const { assessmentId } = await createTestData(agent);
-
-      // Mark assessment as archived
-      await agent
+      // Assessment must be completed first before it can be archived.
+      const { assessmentId } = await createTestData(agent, { state: 'complete' });
+      const archiveRes = await agent
         .put(`/api/v1/assessments/${assessmentId}`)
         .send({ state: 'archived' });
+      expect(archiveRes.status).toBe(200);
 
       const res = await agent
         .post('/api/v1/attestations')
@@ -170,8 +183,11 @@ describe('Attestations HTTP Routes', () => {
           summary: 'Should Fail',
         });
 
-      expect(res.status).toBe(403);
-      expect(res.body.error).toContain('archived assessment');
+      // An archived assessment is not `complete`, so the create guard
+      // rejects it. The response is 409 because the request conflicts
+      // with the assessment's state, not with authorization.
+      expect(res.status).toBe(409);
+      expect(res.body.error).toContain('completed assessments');
     });
 
     it('should require assessor or admin role', async () => {
@@ -336,8 +352,12 @@ describe('Attestations HTTP Routes', () => {
       expect(res.body.error).toBe('Attestation not found');
     });
 
-    it('should return 409 if assessment is complete (Sprint 5.7 retention lock)', async () => {
+    it('should return 409 if assessment is archived (terminal retention lock)', async () => {
       const agent = await loginAs('admin');
+      // Default state is `complete` so create succeeds. `complete` is
+      // no longer a retention terminal (it is the working state for
+      // attestation authoring); transitioning to `archived` is what
+      // triggers the assessment_terminal lock.
       const { assessmentId } = await createTestData(agent);
 
       const createRes = await agent
@@ -349,18 +369,15 @@ describe('Attestations HTTP Routes', () => {
 
       const attestationId = createRes.body.id;
 
-      // Mark assessment as complete
-      await agent
+      const archiveRes = await agent
         .put(`/api/v1/assessments/${assessmentId}`)
-        .send({ state: 'complete' });
+        .send({ state: 'archived' });
+      expect(archiveRes.status).toBe(200);
 
       const updateRes = await agent
         .put(`/api/v1/attestations/${attestationId}`)
         .send({ summary: 'Updated' });
 
-      // Sprint 5.7 flipped the terminal-assessment response from 403
-      // (authorization) to 409 Conflict with a machine-readable reason
-      // so clients can distinguish retention from a permission denial.
       expect(updateRes.status).toBe(409);
       expect(updateRes.body.reason).toBe('assessment_terminal');
     });
@@ -515,7 +532,7 @@ describe('Attestations HTTP Routes', () => {
       expect(res.body.error).toBe('Invalid input');
     });
 
-    it('should return 409 if assessment is complete (Sprint 5.7 retention lock)', async () => {
+    it('should return 409 if assessment is archived (terminal retention lock)', async () => {
       const agent = await loginAs('admin');
       const { assessmentId, requirementIds } = await createTestData(agent);
 
@@ -525,10 +542,10 @@ describe('Attestations HTTP Routes', () => {
 
       const attestationId = attestationRes.body.id;
 
-      // Mark assessment as complete
-      await agent
+      const archiveRes = await agent
         .put(`/api/v1/assessments/${assessmentId}`)
-        .send({ state: 'complete' });
+        .send({ state: 'archived' });
+      expect(archiveRes.status).toBe(200);
 
       const res = await agent
         .post(`/api/v1/attestations/${attestationId}/requirements`)
@@ -538,9 +555,6 @@ describe('Attestations HTTP Routes', () => {
           conformanceRationale: 'Should Fail',
         });
 
-      // Sprint 5.7 promoted this from a 403 authorization denial to a
-      // 409 Conflict with a machine-readable retention reason so clients
-      // can react to record-integrity locks specifically.
       expect(res.status).toBe(409);
       expect(res.body.reason).toBe('assessment_terminal');
     });
@@ -623,7 +637,7 @@ describe('Attestations HTTP Routes', () => {
       expect(res.body.error).toBe('Attestation requirement not found');
     });
 
-    it('should return 409 if assessment is complete (Sprint 5.7 retention lock)', async () => {
+    it('should return 409 if assessment is archived (terminal retention lock)', async () => {
       const agent = await loginAs('admin');
       const { assessmentId, requirementIds } = await createTestData(agent);
 
@@ -642,10 +656,10 @@ describe('Attestations HTTP Routes', () => {
           conformanceRationale: 'Initial',
         });
 
-      // Mark assessment as complete
-      await agent
+      const archiveRes = await agent
         .put(`/api/v1/assessments/${assessmentId}`)
-        .send({ state: 'complete' });
+        .send({ state: 'archived' });
+      expect(archiveRes.status).toBe(200);
 
       const updateRes = await agent
         .put(`/api/v1/attestations/${attestationId}/requirements/${requirementIds[0]}`)
@@ -654,9 +668,6 @@ describe('Attestations HTTP Routes', () => {
           conformanceRationale: 'Should Fail',
         });
 
-      // Sprint 5.7 flipped this to 409 Conflict with a
-      // machine-readable `reason` so clients can distinguish
-      // record-integrity retention from authorization denial.
       expect(updateRes.status).toBe(409);
       expect(updateRes.body.reason).toBe('assessment_terminal');
     });

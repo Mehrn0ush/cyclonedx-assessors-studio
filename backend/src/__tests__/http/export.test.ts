@@ -73,6 +73,14 @@ describe('Export HTTP Routes', () => {
     expect(assessmentRes.status).toBe(201);
     const assessmentId = assessmentRes.body.id;
 
+    // Attestations may only be authored on completed assessments —
+    // transition here so the POST below succeeds under the PR3.6
+    // create-on-complete rule.
+    const completeRes = await agent
+      .put(`/api/v1/assessments/${assessmentId}`)
+      .send({ state: 'complete' });
+    expect(completeRes.status).toBe(200);
+
     // Create attestation
     const attestationRes = await agent
       .post('/api/v1/attestations')
@@ -282,10 +290,14 @@ describe('Export HTTP Routes', () => {
       // `version`, `description`, `owner`, `requirements`, `levels`,
       // `externalReferences`, and `signature`. There is no
       // `identifier` property at the standard level; the internal DB
-      // identifier column flows through only via the bom-ref.
+      // identifier column flows through only via the bom-ref. The
+      // bom-ref is the imported value when present (verbatim from
+      // the source feed) and falls back to `standard-<uuid>`
+      // otherwise.
       const standard = res.body.definitions.standards[0];
       expect(standard).toHaveProperty('bom-ref');
-      expect(standard['bom-ref']).toMatch(/^standard-/);
+      expect(typeof standard['bom-ref']).toBe('string');
+      expect((standard['bom-ref'] as string).length).toBeGreaterThan(0);
       expect(standard).toHaveProperty('name');
       expect(standard).not.toHaveProperty('identifier');
       expect(standard).toHaveProperty('requirements');
@@ -294,9 +306,14 @@ describe('Export HTTP Routes', () => {
       if (standard.requirements.length > 0) {
         // Each requirement uses `title`/`text` (the schema names)
         // rather than the DB column names `name`/`description`.
+        // Requirements imported via the standards route preserve the
+        // original bom-ref; test fixtures crafted by this suite have
+        // no upstream bom-ref, so the writer synthesises
+        // `requirement-<uuid>`.
         const req = standard.requirements[0];
         expect(req).toHaveProperty('bom-ref');
-        expect(req['bom-ref']).toMatch(/^requirement-/);
+        expect(typeof req['bom-ref']).toBe('string');
+        expect((req['bom-ref'] as string).length).toBeGreaterThan(0);
         expect(req).toHaveProperty('identifier');
         expect(req).toHaveProperty('title');
         expect(req).not.toHaveProperty('name');
@@ -566,6 +583,17 @@ describe('Export HTTP Routes', () => {
           projectId,
         });
       const assessmentId2 = assessment2Res.body.id;
+
+      // Both assessments must be complete before attestations can be
+      // authored against them.
+      const complete1 = await agent
+        .put(`/api/v1/assessments/${assessmentId1}`)
+        .send({ state: 'complete' });
+      expect(complete1.status).toBe(200);
+      const complete2 = await agent
+        .put(`/api/v1/assessments/${assessmentId2}`)
+        .send({ state: 'complete' });
+      expect(complete2.status).toBe(200);
 
       // Create attestations
       const att1Res = await agent
@@ -1002,10 +1030,17 @@ describe('Export HTTP Routes', () => {
       });
 
       // Check standard and requirement bom-refs in definitions.
+      // Upstream CycloneDX standards can bring their own bom-refs
+      // (e.g. `ssdf-1.1-PO.1.1`), so the format check is "non-empty
+      // string" rather than a prefix match. The writer synthesises
+      // `standard-<uuid>` / `requirement-<uuid>` only when the
+      // source feed did not carry a bom-ref.
       res.body.definitions.standards.forEach((s: any) => {
-        expect(s['bom-ref']).toMatch(/^standard-/);
+        expect(typeof s['bom-ref']).toBe('string');
+        expect((s['bom-ref'] as string).length).toBeGreaterThan(0);
         (s.requirements ?? []).forEach((r: any) => {
-          expect(r['bom-ref']).toMatch(/^requirement-/);
+          expect(typeof r['bom-ref']).toBe('string');
+          expect((r['bom-ref'] as string).length).toBeGreaterThan(0);
         });
       });
 

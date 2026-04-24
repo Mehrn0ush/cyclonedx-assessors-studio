@@ -14,7 +14,6 @@ import {
   composeDeclarations,
   isCounterClaim,
   refFor,
-  signatoryBlock,
   standardFromRow,
   TargetResolver,
   type Affirmation as CdxAffirmation,
@@ -25,10 +24,10 @@ import {
   type Claim as CdxClaim,
   type ClaimRefMap,
   type Evidence as CdxEvidence,
-  type Signatory as CdxSignatory,
   type Signature as CdxSignature,
   type Standard as CdxStandard,
 } from '../cdxspec/index.js';
+import { buildAffirmationForAssessment, parseJsonbColumn as parseJsonbColumnLocal } from '../utils/export-affirmation.js';
 
 const router = Router();
 
@@ -49,24 +48,6 @@ function parseSpecVersion(req: AuthRequest): CycloneDxSpecVersion {
   const raw = typeof req.query.spec === 'string' ? req.query.spec.trim() : '';
   if (raw === '1.6') return '1.6';
   return '1.7';
-}
-
-/**
- * Parse a JSONB column value into a plain object. PGlite and
- * node-postgres deliver JSONB as either a parsed object or a raw
- * string depending on driver version, so both shapes are tolerated.
- */
-function parseJsonbColumn(value: unknown): CdxSignature | undefined {
-  if (!value) return undefined;
-  if (typeof value === 'string') {
-    try {
-      return JSON.parse(value) as CdxSignature;
-    } catch {
-      return undefined;
-    }
-  }
-  if (typeof value === 'object') return value as CdxSignature;
-  return undefined;
 }
 
 async function buildAssessmentBOM(
@@ -157,7 +138,14 @@ async function buildAssessmentBOM(
       .selectFrom('attestation_requirement')
       .innerJoin('requirement', 'requirement.id', 'attestation_requirement.requirement_id')
       .where('attestation_requirement.attestation_id', '=', attestation.id)
-      .selectAll()
+      .select([
+        'attestation_requirement.requirement_id',
+        'attestation_requirement.conformance_score',
+        'attestation_requirement.conformance_rationale',
+        'attestation_requirement.confidence_score',
+        'attestation_requirement.confidence_rationale',
+        'requirement.imported_bom_ref as requirement_imported_bom_ref',
+      ])
       .execute();
 
     // Collect claim bom-refs belonging to this attestation. The
@@ -165,6 +153,9 @@ async function buildAssessmentBOM(
     // column or the default refFor('claim', id).
     const attestationAllClaims: string[] = [];
     const attestationAllCounterClaims: string[] = [];
+    // Build a claim id → bom-ref lookup for the per-requirement
+    // junction reads below.
+    const claimRefById = new Map<string, { ref: string; counter: boolean }>();
 
     for (const row of claimRowsAll) {
       if (row.attestation_id !== attestation.id) continue;
@@ -172,25 +163,111 @@ async function buildAssessmentBOM(
         (row.bom_ref as string | null | undefined) && (row.bom_ref as string).trim().length > 0
           ? (row.bom_ref as string)
           : refFor('claim', row.id as string);
-      if (isCounterClaim(row as { is_counter_claim?: boolean })) {
+      const counter = isCounterClaim(row as { is_counter_claim?: boolean });
+      claimRefById.set(row.id as string, { ref, counter });
+      if (counter) {
         attestationAllCounterClaims.push(ref);
       } else {
         attestationAllClaims.push(ref);
       }
     }
 
+    // Build per-requirement claim maps from the
+    // attestation_requirement_claim / _counter_claim junction tables
+    // so the exported map[].claims and map[].counterClaims arrays
+    // reflect the structured linkage rather than falling back to
+    // "every claim on every map entry". The fallback below stays
+    // active for attestations that have no junction rows yet.
+    const byRequirementId = new Map<
+      string,
+      { claims: string[]; counterClaims: string[] }
+    >();
+    const perReqClaimRows = await db
+      .selectFrom('attestation_requirement_claim as arc')
+      .innerJoin('attestation_requirement as ar', 'ar.id', 'arc.attestation_requirement_id')
+      .where('ar.attestation_id', '=', attestation.id)
+      .select(['ar.requirement_id', 'arc.claim_id'])
+      .execute();
+    for (const prc of perReqClaimRows) {
+      const look = claimRefById.get(prc.claim_id as string);
+      if (!look) continue;
+      const requirementId = prc.requirement_id as string;
+      const bucket =
+        byRequirementId.get(requirementId) ?? { claims: [], counterClaims: [] };
+      if (look.counter) {
+        bucket.counterClaims.push(look.ref);
+      } else {
+        bucket.claims.push(look.ref);
+      }
+      byRequirementId.set(requirementId, bucket);
+    }
+    const perReqCounterRows = await db
+      .selectFrom('attestation_requirement_counter_claim as arcc')
+      .innerJoin(
+        'attestation_requirement as ar',
+        'ar.id',
+        'arcc.attestation_requirement_id',
+      )
+      .where('ar.attestation_id', '=', attestation.id)
+      .select(['ar.requirement_id', 'arcc.claim_id'])
+      .execute();
+    for (const prc of perReqCounterRows) {
+      const look = claimRefById.get(prc.claim_id as string);
+      if (!look) continue;
+      const requirementId = prc.requirement_id as string;
+      const bucket =
+        byRequirementId.get(requirementId) ?? { claims: [], counterClaims: [] };
+      bucket.counterClaims.push(look.ref);
+      byRequirementId.set(requirementId, bucket);
+    }
+
+    // When any per-requirement linkage exists, the writer's fallback
+    // to allClaims/allCounterClaims should NOT fire for map entries
+    // that have an empty per-requirement bucket. Represent the
+    // "explicitly no claims for this requirement" case by inserting
+    // an empty bucket for every requirement on the attestation so
+    // buildMapEntry uses the bucket value (empty array) instead of
+    // the `all` fallback.
+    if (byRequirementId.size > 0) {
+      for (const ar of attestationRequirements) {
+        if (!byRequirementId.has(ar.requirement_id as string)) {
+          byRequirementId.set(ar.requirement_id as string, {
+            claims: [],
+            counterClaims: [],
+          });
+        }
+      }
+    }
+
     const claimRefs: ClaimRefMap = {
-      byRequirementId: new Map(),
+      byRequirementId,
       allClaims: attestationAllClaims,
       allCounterClaims: attestationAllCounterClaims,
     };
 
     const assessorRef = assessors.length > 0 ? assessors[0]['bom-ref'] : undefined;
 
+    // Pull the per-attestation signature envelope, if any, so the
+    // writer can attach it as `attestation.signature` in the CDX
+    // output. Stored as JSONB on `attestation.signature_json`.
+    const attestationSignatureRow = await db
+      .selectFrom('attestation')
+      .where('id', '=', attestation.id)
+      .select(['signature_json'])
+      .executeTakeFirst();
+    const attestationSignature = attestationSignatureRow?.signature_json
+      ? parseJsonbColumnLocal(attestationSignatureRow.signature_json)
+      : null;
+
     const attestationObj = attestationFromRow({
-      row: { id: attestation.id, summary: attestation.summary ?? null },
+      row: {
+        id: attestation.id,
+        summary: attestation.summary ?? null,
+        signature: attestationSignature,
+      },
       requirements: attestationRequirements.map((ar) => ({
         requirement_id: ar.requirement_id,
+        requirement_imported_bom_ref: ar.requirement_imported_bom_ref ?? null,
         conformance_score: ar.conformance_score,
         conformance_rationale: ar.conformance_rationale ?? null,
         confidence_score: ar.confidence_score ?? null,
@@ -268,6 +345,11 @@ async function buildAssessmentBOM(
             version: ps.version ?? null,
             description: ps.description ?? null,
             owner: ps.owner ?? null,
+            // standard-import.ts stores the original CycloneDX
+            // `bom-ref` from the upstream feed into
+            // `standard.identifier`. Surface it as the imported
+            // bom-ref so exports round trip with that value.
+            imported_bom_ref: ps.identifier ?? null,
           },
           requirements: requirements.map((r) => ({
             id: r.id as string,
@@ -276,6 +358,8 @@ async function buildAssessmentBOM(
             description: (r.description as string | null | undefined) ?? null,
             parent_id: (r.parent_id as string | null | undefined) ?? null,
             open_cre: (r.open_cre as string | null | undefined) ?? null,
+            imported_bom_ref:
+              (r.imported_bom_ref as string | null | undefined) ?? null,
           })),
         })
       );
@@ -284,104 +368,20 @@ async function buildAssessmentBOM(
 
   // Fetch the assessment level affirmation. The PR3 cascade signing
   // model binds one affirmation per assessment via the
-  // `assessment_id` column. Legacy rows keyed only by project_id are
-  // ignored here; the assessment scoped row is authoritative.
-  const affirmationRow = await db
-    .selectFrom('affirmation')
-    .where('assessment_id', '=', assessmentId)
-    .selectAll()
-    .executeTakeFirst();
-
-  // Build affirmation signatories from the affirmation_signatory
-  // slot table. Each signed slot carries its own JSF envelope in
-  // signature_json plus a pointer to the signatory identity row, so
-  // the CycloneDX signatory object is assembled from the identity
-  // row and the embedded envelope. Slots that were declared but
-  // never signed are skipped: the export represents signatures that
-  // actually exist, not empty placeholders.
-  const affirmationSignatories: CdxSignatory[] = [];
-  let signedSlotCount = 0;
-  if (affirmationRow) {
-    const slots = await db
-      .selectFrom('affirmation_signatory')
-      .where('affirmation_id', '=', affirmationRow.id)
-      .selectAll()
-      .orderBy('created_at', 'asc')
-      .execute();
-
-    for (const slot of slots) {
-      if (!slot.signed_at || !slot.signatory_id || !slot.signature_json) continue;
-      signedSlotCount += 1;
-
-      const sigRow = await db
-        .selectFrom('signatory')
-        .where('id', '=', slot.signatory_id)
-        .selectAll()
-        .executeTakeFirst();
-      if (!sigRow) continue;
-
-      const org = sigRow.organization_id
-        ? await db
-            .selectFrom('organization')
-            .where('id', '=', sigRow.organization_id)
-            .selectAll()
-            .executeTakeFirst()
-        : null;
-
-      const envelope = parseJsonbColumn(slot.signature_json);
-
-      affirmationSignatories.push(
-        signatoryBlock({
-          row: {
-            name: sigRow.name ?? null,
-            role: sigRow.role ?? null,
-            external_reference_type: sigRow.external_reference_type ?? null,
-            external_reference_url: sigRow.external_reference_url ?? null,
-          },
-          organization: org
-            ? {
-                name: org.name ?? null,
-                country: org.country ?? null,
-                region: org.region ?? null,
-                locality: org.locality ?? null,
-                post_office_box_number: org.post_office_box_number ?? null,
-                postal_code: org.postal_code ?? null,
-                street_address: org.street_address ?? null,
-                website: org.website ?? null,
-              }
-            : null,
-          envelope: envelope ?? null,
-          roleOverride: slot.required_title ?? null,
-        })
-      );
-    }
-  }
+  // `assessment_id` column. The build helper walks the
+  // affirmation_signatory slot table, rehydrates each JSF envelope,
+  // and filters any signatory that fails the CycloneDX 1.6/1.7
+  // Signatory oneOf (signature OR externalReference + organization).
+  const {
+    affirmation,
+    declarationsSeal: declarationsSealEnvelope,
+    documentSeal: documentSealEnvelope,
+  } = await buildAffirmationForAssessment(db, assessmentId);
 
   // PR3.6: per-attestation signature material was removed. An
   // assessment that has no affirmation row simply exports without a
   // declarations.affirmation block. Consumers can still see the
   // attestation map and claims; the signature layer is optional.
-
-  // Parse sealed envelopes when the affirmation is sealed. These
-  // flow into declarations.signature and the top level bom.signature.
-  const declarationsSealEnvelope = affirmationRow?.sealed_at
-    ? parseJsonbColumn(affirmationRow.declarations_signature_json)
-    : undefined;
-  const documentSealEnvelope = affirmationRow?.sealed_at
-    ? parseJsonbColumn(affirmationRow.document_signature_json)
-    : undefined;
-
-  let affirmation: CdxAffirmation | undefined;
-  if (affirmationRow) {
-    affirmation = { statement: affirmationRow.statement };
-    if (affirmationSignatories.length > 0) {
-      affirmation.signatories = affirmationSignatories;
-    }
-  }
-  // signedSlotCount is retained for future metrics / debug; currently
-  // unused but makes the logic audit easier when tracing a missing
-  // signatory.
-  void signedSlotCount;
 
   const declarations = composeDeclarations({
     assessors,

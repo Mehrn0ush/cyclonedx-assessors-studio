@@ -49,6 +49,13 @@ describe('Claims HTTP Routes', () => {
     expect(assessmentRes.status).toBe(201);
     const assessmentId = assessmentRes.body.id;
 
+    // Mark assessment complete — attestations may only be created on
+    // completed assessments (see POST /api/v1/attestations).
+    const transitionRes = await agent
+      .put(`/api/v1/assessments/${assessmentId}`)
+      .send({ state: 'complete' });
+    expect(transitionRes.status).toBe(200);
+
     // Create attestation
     const attestationRes = await agent
       .post('/api/v1/attestations')
@@ -149,26 +156,27 @@ describe('Claims HTTP Routes', () => {
       expect(res.body.error).toBe('Invalid input');
     });
 
-    it('should return 403 if attestation assessment is complete', async () => {
+    it('should return 403 if attestation assessment is archived', async () => {
       const agent = await loginAs('admin');
+      // `complete` is the working state under PR3.6 — the claim-
+      // writable gate moved to `archived` and `cancelled`.
       const { assessmentId, attestationId } = await createTestData(agent);
-
-      // Mark assessment as complete
-      await agent
+      const archiveRes = await agent
         .put(`/api/v1/assessments/${assessmentId}`)
-        .send({ state: 'complete' });
+        .send({ state: 'archived' });
+      expect(archiveRes.status).toBe(200);
 
       const res = await agent
         .post('/api/v1/claims')
         .send({
           name: 'Blocked Claim',
-          target: 'Sealed Assessment',
+          target: 'Archived Assessment',
           predicate: 'forbidden',
           attestationId,
         });
 
       expect(res.status).toBe(403);
-      expect(res.body.error).toContain('completed assessment');
+      expect(res.body.error).toContain('archived assessment');
     });
 
     it('should require authentication', async () => {
@@ -298,7 +306,7 @@ describe('Claims HTTP Routes', () => {
       expect(res.body.error).toBe('Claim not found');
     });
 
-    it('should return 409 if parent assessment is complete (Sprint 5.7 retention lock)', async () => {
+    it('should return 409 if parent assessment is archived (terminal retention lock)', async () => {
       const agent = await loginAs('admin');
       const { assessmentId, attestationId } = await createTestData(agent);
 
@@ -313,19 +321,19 @@ describe('Claims HTTP Routes', () => {
 
       const claimId = createRes.body.id;
 
-      // Mark assessment as complete
-      await agent
+      // `complete` is no longer a retention terminal for claims
+      // (it is the working state for attestation authoring under
+      // PR3.6). Transitioning to `archived` is what triggers the
+      // assessment_terminal lock.
+      const archiveRes = await agent
         .put(`/api/v1/assessments/${assessmentId}`)
-        .send({ state: 'complete' });
+        .send({ state: 'archived' });
+      expect(archiveRes.status).toBe(200);
 
       const updateRes = await agent
         .put(`/api/v1/claims/${claimId}`)
         .send({ name: 'Updated Name' });
 
-      // Sprint 5.7 replaced the legacy 403 response with 409 Conflict
-      // plus a machine-readable `reason`. Record-integrity retention is
-      // not an authorization concern and must be distinguishable from
-      // a permission denial.
       expect(updateRes.status).toBe(409);
       expect(updateRes.body.reason).toBe('assessment_terminal');
     });
@@ -374,7 +382,7 @@ describe('Claims HTTP Routes', () => {
       expect(res.body.error).toBe('Claim not found');
     });
 
-    it('should return 409 if parent assessment is complete (Sprint 5.7 retention lock)', async () => {
+    it('should return 409 if parent assessment is archived (terminal retention lock)', async () => {
       const agent = await loginAs('admin');
       const { assessmentId, attestationId } = await createTestData(agent);
 
@@ -389,16 +397,15 @@ describe('Claims HTTP Routes', () => {
 
       const claimId = createRes.body.id;
 
-      // Mark assessment as complete
-      await agent
+      // `complete` is the working state under PR3.6; `archived` is
+      // the retention terminal.
+      const archiveRes = await agent
         .put(`/api/v1/assessments/${assessmentId}`)
-        .send({ state: 'complete' });
+        .send({ state: 'archived' });
+      expect(archiveRes.status).toBe(200);
 
       const deleteRes = await agent.delete(`/api/v1/claims/${claimId}`);
 
-      // Sprint 5.7 lifted the terminal-assessment denial from 403 to
-      // 409 Conflict with a retention `reason` so record integrity is
-      // distinguishable from authorization.
       expect(deleteRes.status).toBe(409);
       expect(deleteRes.body.reason).toBe('assessment_terminal');
     });

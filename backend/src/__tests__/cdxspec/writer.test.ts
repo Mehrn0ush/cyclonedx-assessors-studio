@@ -334,12 +334,11 @@ describe('cdxspec writer — SSDF regression', () => {
     expect(a.thirdParty).toBe(false);
   });
 
-  it('signatoryBlock passes through current shape (Bug C deferred)', () => {
-    // This documents the current behavior pending the Bug C
-    // decision: a signatory with name + role + organization but no
-    // signature and no externalReference is emitted as-is. When the
-    // enforcement strategy lands, this test should be replaced with
-    // the new contract.
+  it('signatoryBlock passes through the row shape without mutation', () => {
+    // The writer itself still produces a best-effort block from the
+    // DB row; validation against the CycloneDX Signatory oneOf is a
+    // separate concern (see isSignatoryValid and the
+    // buildAffirmationForAssessment export helper).
     const sig = signatoryBlock({
       row: { name: 'Carol Signer', role: 'CTO' },
       organization: { name: 'Acme Software, Inc.' },
@@ -349,5 +348,67 @@ describe('cdxspec writer — SSDF regression', () => {
     expect(sig.organization?.name).toBe('Acme Software, Inc.');
     expect(sig.signature).toBeUndefined();
     expect(sig.externalReference).toBeUndefined();
+  });
+
+  it('isSignatoryValid enforces the CycloneDX Signatory oneOf', async () => {
+    const { isSignatoryValid } = await import('../../cdxspec/index.js');
+
+    // Name + role + organization only: satisfies neither branch.
+    expect(
+      isSignatoryValid(
+        signatoryBlock({
+          row: { name: 'Name Only', role: 'CTO' },
+          organization: { name: 'Acme Software, Inc.' },
+        }),
+      ),
+    ).toBe(false);
+
+    // Digital signature branch: `signature` alone passes.
+    expect(
+      isSignatoryValid(
+        signatoryBlock({
+          row: { name: 'Digital', role: 'CTO' },
+          organization: { name: 'Acme' },
+          envelope: {
+            algorithm: 'Ed25519',
+            publicKey: {
+              kty: 'OKP',
+              crv: 'Ed25519',
+              x: 'placeholder',
+            },
+            value: 'placeholder',
+          },
+        }),
+      ),
+    ).toBe(true);
+
+    // Electronic signature branch: externalReference + organization.
+    expect(
+      isSignatoryValid(
+        signatoryBlock({
+          row: {
+            name: 'Electronic',
+            role: 'CTO',
+            external_reference_type: 'signature',
+            external_reference_url: 'https://example.com/sig.pdf',
+          },
+          organization: { name: 'Acme' },
+        }),
+      ),
+    ).toBe(true);
+
+    // externalReference without organization fails oneOf.
+    expect(
+      isSignatoryValid(
+        signatoryBlock({
+          row: {
+            name: 'Orphan Ref',
+            external_reference_type: 'signature',
+            external_reference_url: 'https://example.com/sig.pdf',
+          },
+          organization: null,
+        }),
+      ),
+    ).toBe(false);
   });
 });

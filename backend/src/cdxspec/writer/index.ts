@@ -25,7 +25,7 @@ export type {
   AttestationInputs,
 } from './attestationMap.js';
 
-export { signatoryBlock } from './signatory.js';
+export { signatoryBlock, isSignatoryValid } from './signatory.js';
 export type {
   SignatoryRowInput,
   OrganizationRowInput,

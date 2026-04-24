@@ -241,7 +241,13 @@ async function insertRequirement(
         open_cre: normalized.openCre,
         parent_id: parentId,
         standard_id: standardId,
-      })
+        // Preserve the source bom-ref so exports can round trip the
+        // original identifier. Falls back to null when the upstream
+        // feed only carried an `identifier` and no explicit bom-ref;
+        // the writer treats null as "synthesize a fallback".
+        imported_bom_ref: normalized.bomRef !== '' ? normalized.bomRef : null,
+        // biome-ignore lint/suspicious/noExplicitAny: Kysely Insertable lags the migration
+      } as any)
       .execute();
 
     const mapKey = normalized.bomRef !== '' ? normalized.bomRef : normalized.identifier;

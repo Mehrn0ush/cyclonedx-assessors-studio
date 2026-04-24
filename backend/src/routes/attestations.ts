@@ -25,7 +25,9 @@ import {
   composeDeclarations,
   isCounterClaim,
   signatoryBlock,
+  isSignatoryValid,
 } from '../cdxspec/index.js';
+import { buildAffirmationForAssessment } from '../utils/export-affirmation.js';
 import type {
   CdxSpecVersion,
   Claim as CdxClaim,
@@ -174,10 +176,16 @@ router.post(
         return;
       }
 
-      // Guard: reject if assessment is complete/archived
-      const readOnlyError = await checkAttestationAssessmentReadOnly(db, data.assessmentId);
-      if (readOnlyError) {
-        res.status(403).json({ error: readOnlyError });
+      // Attestations can only be created on assessments that have
+      // reached the `complete` state. Attesting to in-flight work
+      // would lock evidence and requirements that are still being
+      // edited. Archived assessments are likewise rejected — once
+      // archived, nothing on the assessment is modifiable, including
+      // adding new attestations.
+      if (assessment.state !== 'complete') {
+        res.status(409).json({
+          error: 'Attestations can only be created on completed assessments. Mark the assessment complete first.',
+        });
         return;
       }
 
@@ -530,25 +538,50 @@ router.get(
       allCounterClaims,
     };
 
+    // Pull per-attestation signature envelope when present. Stored
+    // as JSONB on `attestation.signature_json` and emitted verbatim
+    // as `attestation.signature` under CycloneDX 1.7.
+    const { parseJsonbColumn } = await import('../utils/export-affirmation.js');
+    const attestationSignature = attestation.signature_json
+      ? parseJsonbColumn(attestation.signature_json)
+      : null;
+
     const cdxAttestation = attestationFromRow({
-      row: { id: attestation.id, summary: attestation.summary ?? null },
+      row: {
+        id: attestation.id,
+        summary: attestation.summary ?? null,
+        signature: attestationSignature,
+      },
       requirements,
       claimRefs,
     });
 
-    // Build the signatory block if a signatory is attached. Single
-    // attestation exports intentionally omit the JSF envelope here.
-    let signatoryOrgRow: Record<string, unknown> | null = null;
-    if (signatory && (signatory as Record<string, unknown>).organization_id) {
-      signatoryOrgRow = (await db
-        .selectFrom('organization')
-        .where('id', '=', (signatory as Record<string, unknown>).organization_id as string)
-        .selectAll()
-        .executeTakeFirst()) as Record<string, unknown> | null;
-    }
+    // Build the affirmation block. Under the PR3.6 cascade model the
+    // signatures and signatories live on the assessment-level
+    // affirmation, so a per-attestation export pulls the same
+    // affirmation object as the assessment-level export. The shared
+    // helper filters signatories that do not satisfy the CycloneDX
+    // Signatory oneOf (signature OR externalReference +
+    // organization) and drops the `signatories[]` array entirely if
+    // none pass, keeping the statement as a pointer.
+    //
+    // As a fallback for attestations that still carry a legacy
+    // per-attestation signatory row (attestation.signatory_id), the
+    // block is synthesized and validated here so legacy rows can
+    // still contribute an electronic-signature signatory if the row
+    // carries an externalReference.
+    let affirmation = (await buildAffirmationForAssessment(db, attestation.assessment_id ?? ''))
+      .affirmation;
 
-    let affirmation: { statement: string; signatories?: Array<Record<string, unknown>> } | undefined;
-    if (signatory) {
+    if (!affirmation && signatory) {
+      let signatoryOrgRow: Record<string, unknown> | null = null;
+      if ((signatory as Record<string, unknown>).organization_id) {
+        signatoryOrgRow = (await db
+          .selectFrom('organization')
+          .where('id', '=', (signatory as Record<string, unknown>).organization_id as string)
+          .selectAll()
+          .executeTakeFirst()) as Record<string, unknown> | null;
+      }
       const signatoryInput: SignatoryBlockInput = {
         row: signatory as SignatoryBlockInput['row'],
         organization: signatoryOrgRow as SignatoryBlockInput['organization'],
@@ -557,8 +590,10 @@ router.get(
       affirmation = {
         statement:
           'This attestation identifies the signatory listed. See the assessment-level export for the sealed CycloneDX affirmation and JSF signature envelope.',
-        signatories: [block as Record<string, unknown>],
       };
+      if (isSignatoryValid(block)) {
+        affirmation.signatories = [block];
+      }
     }
 
     const declarations = composeDeclarations({

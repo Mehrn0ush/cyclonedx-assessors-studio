@@ -100,7 +100,7 @@ const rescindSchema = z.object({
 // Row shapes
 // ---------------------------------------------------------------------------
 
-interface AffirmationRow {
+export interface AffirmationRow {
   id: string;
   statement: string;
   project_id: string | null;
@@ -119,7 +119,7 @@ interface AffirmationRow {
   updated_at: Date;
 }
 
-interface SlotRow {
+export interface SlotRow {
   id: string;
   affirmation_id: string;
   required_title: string;
@@ -147,7 +147,7 @@ interface StoredSignatureRow {
   signature_image_storage_provider: string | null;
 }
 
-interface StoredSignatoryIdentity {
+export interface StoredSignatoryIdentity {
   name: string;
   role?: string;
   organization: {
@@ -164,13 +164,13 @@ interface StoredSignatoryIdentity {
   };
 }
 
-interface StoredElectronicPayload extends StoredSignatoryIdentity {
+export interface StoredElectronicPayload extends StoredSignatoryIdentity {
   signedName?: string;
   jurisdiction?: string;
   legalIntent?: string;
 }
 
-interface StoredDigitalPayload extends StoredSignatoryIdentity {
+export interface StoredDigitalPayload extends StoredSignatoryIdentity {
   signatureFormat: 'jsf' | 'x509';
   signatureAlgorithm: string;
   publicKeyPem: string;
@@ -363,7 +363,7 @@ async function loadStoredSignatureImageDataUri(
  * replay into a different assessment or under a different required
  * title would fail verification.
  */
-function buildSlotCanonicalPayload(args: {
+export function buildSlotCanonicalPayload(args: {
   affirmation: AffirmationRow;
   slot: Pick<SlotRow, 'id' | 'required_title'>;
   identity: StoredSignatoryIdentity;
@@ -391,7 +391,7 @@ function buildSlotCanonicalPayload(args: {
  * detached JSF signature. Order is stable by slot creation time so
  * re-canonicalization at verify time always lines up.
  */
-function buildDeclarationsSubtree(args: {
+export function buildDeclarationsSubtree(args: {
   affirmation: AffirmationRow;
   slots: SlotRow[];
   slotIdentities: Map<string, StoredSignatoryIdentity>;
@@ -429,7 +429,7 @@ function buildDeclarationsSubtree(args: {
  * would not pass document verify even if the tamperer re-signed the
  * subtree with a different key.
  */
-function buildDocumentEnvelopePayload(args: {
+export function buildDocumentEnvelopePayload(args: {
   affirmation: AffirmationRow;
   declarationsSignatureValue: string;
   declarationsCanonicalHash: string;

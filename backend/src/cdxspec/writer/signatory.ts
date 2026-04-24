@@ -1,19 +1,27 @@
 /**
  * Signatory serializer.
  *
- * TODO(C): CycloneDX 1.7 requires a Signatory object to satisfy a
- * oneOf constraint: either `signature` is present, or BOTH
- * `externalReference` AND `organization` are present. The current
- * demo data produces signatories that meet neither branch (name +
- * role + organization, no externalReference, no signature) when a
- * single-attestation export omits the JSF envelope. Per the
- * decision in the design review, this pass preserves the existing
- * behavior. A follow-up decision will select between:
- *   (a) dropping the signatories[] array when no signatory can
- *       satisfy oneOf, keeping `affirmation.statement`;
- *   (b) omitting the entire `affirmation` block in that case.
- * Once chosen, add the enforcement here so invalid signatories
- * never reach the BOM.
+ * CycloneDX 1.7 (and 1.6) constrain every Signatory object with a
+ * oneOf: either `signature` is present, or BOTH `externalReference`
+ * AND `organization` are present. A signatory that provides only
+ * `name` / `role` / `organization` satisfies neither branch and
+ * breaks schema validation on the whole BOM.
+ *
+ * The writer therefore guards the output in two places:
+ *
+ *   1. `isSignatoryValid` inspects the final block and reports
+ *      whether it satisfies `oneOf`. Callers use this to filter
+ *      signatory rows before emitting them into `affirmation.
+ *      signatories`.
+ *   2. `signatoryBlock` still produces a best-effort block from
+ *      whatever the DB row carries. It never throws — validation
+ *      is the caller's job so tests can inspect the raw shape.
+ *
+ * The two-part split lets the route layer decide how to degrade: a
+ * per-attestation export that cannot collect a signature for a
+ * signatory can either drop that entry or drop the whole
+ * `signatories[]` array, keeping `affirmation.statement` as a
+ * pointer to the assessment-level sealed envelope.
  */
 
 import type {
@@ -92,7 +100,16 @@ export function signatoryBlock(input: SignatoryBlockInput): Signatory {
   const org = buildOrganization(input.organization ?? null);
   if (org) block.organization = org;
 
-  if (input.row.external_reference_type && input.row.external_reference_url) {
+  // CycloneDX 1.6 and 1.7 require a Signatory to satisfy exactly
+  // one of the two branches: `signature` alone, or
+  // `externalReference + organization`. Emitting both causes the
+  // schema `oneOf` to fail with "passingSchemas: [0,1]". Prefer the
+  // digital-signature branch when an envelope is available, and
+  // fall back to externalReference only when the row has no
+  // envelope.
+  if (input.envelope) {
+    block.signature = input.envelope;
+  } else if (input.row.external_reference_type && input.row.external_reference_url) {
     const extRef: ExternalReference = {
       type: input.row.external_reference_type,
       url: input.row.external_reference_url,
@@ -100,7 +117,22 @@ export function signatoryBlock(input: SignatoryBlockInput): Signatory {
     block.externalReference = extRef;
   }
 
-  if (input.envelope) block.signature = input.envelope;
-
   return block;
+}
+
+/**
+ * Return true when the block satisfies the CycloneDX 1.6 / 1.7
+ * Signatory `oneOf`:
+ *   - `signature` present (digital signature branch), OR
+ *   - BOTH `externalReference` AND `organization` present
+ *     (electronic signature / external reference branch).
+ *
+ * Callers should drop any signatory that returns false before
+ * inserting it into an `affirmation.signatories` array; otherwise
+ * the entire exported BOM fails schema validation.
+ */
+export function isSignatoryValid(block: Signatory): boolean {
+  if (block.signature) return true;
+  if (block.externalReference && block.organization) return true;
+  return false;
 }

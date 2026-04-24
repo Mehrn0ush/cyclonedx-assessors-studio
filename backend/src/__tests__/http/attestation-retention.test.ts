@@ -179,6 +179,12 @@ describe('Attestation and claim retention regressions (PR3 affirmation lock)', (
 
   let attFixtures: {
     sealed: AttestationFixture;
+    // `complete` used to be a retention terminal for attestations but
+    // the PR3.6 workflow requires attestations to be authored on
+    // already-complete assessments, so `complete` is now the working
+    // state. Only `archived` and `cancelled` lock attestations as
+    // assessment_terminal. The `completeAssessment` fixture is kept so
+    // we can positively assert that complete does NOT lock.
     completeAssessment: AttestationFixture;
     archivedAssessment: AttestationFixture;
     cancelledAssessment: AttestationFixture;
@@ -301,7 +307,9 @@ describe('Attestation and claim retention regressions (PR3 affirmation lock)', (
       label: string;
       getFixture: () => AttestationFixture;
     }> = [
-      { label: 'complete', getFixture: () => attFixtures.completeAssessment },
+      // `complete` is deliberately absent: attestations are authored on
+      // complete assessments under PR3.6, so it is the working state,
+      // not a retention terminal.
       { label: 'archived', getFixture: () => attFixtures.archivedAssessment },
       { label: 'cancelled', getFixture: () => attFixtures.cancelledAssessment },
     ];
@@ -316,6 +324,15 @@ describe('Attestation and claim retention regressions (PR3 affirmation lock)', (
         expect(res.body.reason).toBe('assessment_terminal');
       });
     }
+
+    it('PUT /attestations/:id on a complete (non-sealed) assessment is allowed', async () => {
+      const agent = await loginAs('admin');
+      const res = await agent
+        .put(`/api/v1/attestations/${attFixtures.completeAssessment.attestationId}`)
+        .send({ summary: 'Updated while complete' });
+      expect(res.status).toBe(200);
+      expect(res.body.summary).toBe('Updated while complete');
+    });
   });
 
   describe('attestation on non-sealed active assessment is NOT locked', () => {

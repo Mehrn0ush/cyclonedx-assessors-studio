@@ -12,19 +12,41 @@
 
 import { refFor } from '../bomref.js';
 import { toScore, requireScore } from '../scores.js';
-import type { Attestation, AttestationMapEntry, Conformance, Confidence } from '../types.js';
+import type {
+  Attestation,
+  AttestationMapEntry,
+  Conformance,
+  Confidence,
+  Signature,
+} from '../types.js';
 
 export interface AttestationRowInput {
   id: string;
   summary?: string | null;
+  /**
+   * Optional CycloneDX 1.7 per-attestation signature (a JSF
+   * envelope). When present, the writer attaches it as
+   * `attestation.signature`. Surfaced here so the export route can
+   * pass through the value stored on `attestation.signature_json`
+   * without the writer needing to know how it was produced.
+   */
+  signature?: Signature | null;
 }
 
 export interface AttestationRequirementRowInput {
   /**
    * The `id` (PK) of the upstream requirement row. The map entry's
-   * `requirement` property is built from this value via bomref.refFor.
+   * `requirement` property is built from this value, preferring the
+   * imported bom-ref when available so the export round trips the
+   * source feed identifier.
    */
   requirement_id: string;
+  /**
+   * Original CycloneDX bom-ref captured at standards import time
+   * for the linked requirement. Optional; when null the writer
+   * falls back to the deterministic `requirement-<uuid>` form.
+   */
+  requirement_imported_bom_ref?: string | null;
   conformance_score: unknown;
   conformance_rationale?: string | null;
   confidence_score?: unknown;
@@ -66,12 +88,19 @@ function buildConfidence(ar: AttestationRequirementRowInput): Confidence | undef
   return confidence;
 }
 
+function requirementBomRefForMap(ar: AttestationRequirementRowInput): string {
+  if (ar.requirement_imported_bom_ref && ar.requirement_imported_bom_ref.length > 0) {
+    return ar.requirement_imported_bom_ref;
+  }
+  return refFor('requirement', ar.requirement_id);
+}
+
 function buildMapEntry(
   ar: AttestationRequirementRowInput,
   claimRefs: ClaimRefMap
 ): AttestationMapEntry {
   const entry: AttestationMapEntry = {
-    requirement: refFor('requirement', ar.requirement_id),
+    requirement: requirementBomRefForMap(ar),
     conformance: buildConformance(ar),
   };
 
@@ -98,6 +127,9 @@ export function attestationFromRow(inputs: AttestationInputs): Attestation {
   }
   if (inputs.assessorRef) {
     attestation.assessor = inputs.assessorRef;
+  }
+  if (inputs.row.signature) {
+    attestation.signature = inputs.row.signature;
   }
 
   return attestation;

@@ -90,8 +90,10 @@ export async function bootstrapRegistrationModeTracking(): Promise<void> {
   // Use a fixed entity id derived from the config key so multiple
   // drift events are queryable together in the audit_log. Any valid
   // UUID that is stable across runs works; we use a deterministic
-  // namespace constant so operators can filter the table.
-  const REGISTRATION_MODE_ENTITY_ID = '00000000-0000-0000-0000-000000000f15';
+  // namespace constant so operators can filter the table. The
+  // version nibble is 4 and the variant nibble is 8 to satisfy
+  // RFC 9562 (zod 4 rejects anything else).
+  const REGISTRATION_MODE_ENTITY_ID = '00000000-0000-4000-8000-000000000f15';
 
   await logAudit(db, {
     entityType: 'config',

@@ -23,6 +23,12 @@ export interface StandardRowInput {
   version?: string | null;
   description?: string | null;
   owner?: string | null;
+  /**
+   * Original CycloneDX bom-ref captured at standards import time.
+   * When present, the writer emits this verbatim so an export can
+   * round trip the same identifier the source feed used.
+   */
+  imported_bom_ref?: string | null;
 }
 
 export interface RequirementRowInput {
@@ -38,6 +44,13 @@ export interface RequirementRowInput {
   description?: string | null;
   parent_id?: string | null;
   open_cre?: string | null;
+  /**
+   * Original CycloneDX bom-ref from the upstream standard feed.
+   * Falls back to `requirement-<uuid>` when null. Used for both the
+   * requirement object's bom-ref and the parent pointer (resolved by
+   * the caller via the lookup map below).
+   */
+  imported_bom_ref?: string | null;
 }
 
 export interface StandardInputs {
@@ -45,14 +58,53 @@ export interface StandardInputs {
   requirements: RequirementRowInput[];
 }
 
-function requirementFromRow(row: RequirementRowInput): StandardRequirement {
+/**
+ * Resolve the bom-ref for a requirement: prefer the imported value
+ * captured at standards import, fall back to the deterministic UUID
+ * synthesis when the column is null. Exposed so other writers
+ * (e.g. attestation map serializer) can reference the same value
+ * the standard block emits.
+ */
+export function requirementBomRef(row: Pick<RequirementRowInput, 'id' | 'imported_bom_ref'>): string {
+  if (row.imported_bom_ref && row.imported_bom_ref.length > 0) {
+    return row.imported_bom_ref;
+  }
+  return refFor('requirement', row.id);
+}
+
+/**
+ * Resolve the bom-ref for a standard. Same lossless-when-possible
+ * preference as requirements.
+ */
+export function standardBomRef(row: Pick<StandardRowInput, 'id' | 'imported_bom_ref'>): string {
+  if (row.imported_bom_ref && row.imported_bom_ref.length > 0) {
+    return row.imported_bom_ref;
+  }
+  return refFor('standard', row.id);
+}
+
+function requirementFromRow(
+  row: RequirementRowInput,
+  parentRefByDbId: Map<string, string>,
+): StandardRequirement {
   const req: StandardRequirement = {
-    'bom-ref': refFor('requirement', row.id),
+    'bom-ref': requirementBomRef(row),
   };
   if (row.identifier) req.identifier = row.identifier;
   if (row.name) req.title = row.name;
   if (row.description) req.text = row.description;
-  if (row.parent_id) req.parent = refFor('requirement', row.parent_id);
+  if (row.parent_id) {
+    // The parent reference must use whatever bom-ref the parent
+    // requirement itself emits. Look it up from the precomputed map
+    // so a parent that survived import with its own bom-ref points
+    // at that bom-ref, not the synthesised fallback.
+    const parentRef = parentRefByDbId.get(row.parent_id);
+    if (parentRef) {
+      req.parent = parentRef;
+    } else {
+      req.parent = refFor('requirement', row.parent_id);
+    }
+  }
   if (row.open_cre && row.open_cre.trim().length > 0) {
     req.openCre = row.open_cre
       .split(',')
@@ -64,7 +116,7 @@ function requirementFromRow(row: RequirementRowInput): StandardRequirement {
 
 export function standardFromRow(inputs: StandardInputs): Standard {
   const std: Standard = {
-    'bom-ref': refFor('standard', inputs.row.id),
+    'bom-ref': standardBomRef(inputs.row),
   };
   // The DB `identifier` (e.g. "SSDF") is a short code and the DB
   // `name` is the expanded form ("Secure Software Development
@@ -77,7 +129,19 @@ export function standardFromRow(inputs: StandardInputs): Standard {
   if (inputs.row.owner) std.owner = inputs.row.owner;
 
   if (inputs.requirements.length > 0) {
-    std.requirements = inputs.requirements.map(requirementFromRow);
+    // Build a parent-lookup table once so each requirement can
+    // resolve its parent reference to the same bom-ref the parent
+    // requirement itself will emit. Without this, an imported feed
+    // with bom-refs like "ssdf-1.1-PO.1" would emit
+    // `parent: "requirement-<uuid>"` while the parent itself emits
+    // `bom-ref: "ssdf-1.1-PO.1"`, breaking the parent link.
+    const parentRefByDbId = new Map<string, string>();
+    for (const r of inputs.requirements) {
+      parentRefByDbId.set(r.id, requirementBomRef(r));
+    }
+    std.requirements = inputs.requirements.map((r) =>
+      requirementFromRow(r, parentRefByDbId),
+    );
   }
   return std;
 }

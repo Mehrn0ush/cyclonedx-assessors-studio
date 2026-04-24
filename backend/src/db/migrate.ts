@@ -1293,6 +1293,22 @@ DELETE FROM role_permission
 
 DELETE FROM permission WHERE key IN ('attestations.verify', 'attestations.rescind');
 
+-- Preserve the original CycloneDX bom-ref from imported standards on
+-- each requirement so the export round trip stays lossless. When the
+-- column is null (legacy rows or hand-typed standards), the writer
+-- falls back to the synthesized requirement-uuid bom-ref.
+ALTER TABLE requirement ADD COLUMN IF NOT EXISTS imported_bom_ref TEXT;
+
+-- Per-attestation signature material. CycloneDX 1.7 supports a
+-- signature directly on each declarations.attestations item (a JSF
+-- envelope), separate from the affirmation signatory and the
+-- platform document seal. Storing as JSONB keeps the envelope
+-- exactly as produced by the JSF provider so verify can run a byte
+-- equal canonical comparison.
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS signature_json JSONB;
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS signed_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE attestation ADD COLUMN IF NOT EXISTS signature_canonical_hash VARCHAR(128);
+
 `;
 
 export async function runMigrations(): Promise<void> {

@@ -60,6 +60,10 @@ export interface Requirement {
   description?: string | null;
   open_cre?: string | null;
   standard_id: string;
+  // Original CycloneDX bom-ref captured at standards import time.
+  // Null for legacy rows or hand-typed standards; the writer
+  // synthesizes a fallback in that case.
+  imported_bom_ref?: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -291,6 +295,16 @@ export interface Attestation {
   // through affirmation_signatory slots. Retention lock keys off
   // affirmation.sealed_at + terminal assessment state. See
   // utils/retention.ts.
+  //
+  // CycloneDX 1.7 brings a per-attestation `signature` property
+  // (declarations.attestations[].signature) back into scope as a JSF
+  // envelope on each attestation row. This is distinct from the
+  // affirmation-scoped seal: the assessor signs each attestation
+  // they assert, and that envelope is emitted verbatim by the
+  // exporter.
+  signature_json?: unknown;
+  signed_at?: Date | null;
+  signature_canonical_hash?: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

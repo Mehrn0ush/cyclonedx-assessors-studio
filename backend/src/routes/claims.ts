@@ -79,7 +79,9 @@ async function checkClaimAssessmentReadOnly(
   if (!assessment) return null;
 
   if (assessment.state === 'archived') return 'This claim belongs to an archived assessment and cannot be modified';
-  if (assessment.state === 'complete') return 'This claim belongs to a completed assessment. Reopen the assessment to make changes.';
+  // `complete` is NOT a read-only state for claims under PR3.6.
+  // Claims attached to attestations on completed assessments remain
+  // mutable until the affirmation is sealed (see retention.ts).
   return null;
 }
 
