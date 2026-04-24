@@ -57,9 +57,72 @@ describe('seedDemoData loads demo-data.json without FK violations', () => {
 
     // Idempotency: a second call on the same database is a no-op and
     // returns false (guarded by the "entities already exist" check
-    // at the top of seedDemoData).
+    // at the top of seedDemoData). The seal step still runs as a
+    // repair pass and is itself step-idempotent, so nothing changes
+    // on a healthy database.
     const again = await seedDemoData();
     expect(again).toBe(false);
+
+    // Repair-pass regression guard: simulate the pre-fix state
+    // where the data seed ran but the seal failed, leaving slot
+    // signatures absent and the affirmation unsealed. Then call
+    // seedDemoData again and assert the seal step completes the
+    // missing work in place, without a DB wipe.
+    const affirmationId = '00000000-0000-4000-b300-000000000002';
+    await db
+      .updateTable('affirmation_signatory')
+      .set({
+        signature_json: null,
+        signed_at: null,
+        signed_by: null,
+        canonical_hash: null,
+      })
+      .where('affirmation_id', '=', affirmationId)
+      .execute();
+    await db
+      .updateTable('affirmation')
+      .set({
+        sealed_at: null,
+        sealed_by: null,
+        canonical_hash: null,
+        declarations_signature_json: null,
+        document_signature_json: null,
+        platform_key_fingerprint: null,
+      })
+      .where('id', '=', affirmationId)
+      .execute();
+    await db
+      .updateTable('attestation')
+      .set({ signature_json: null, signed_at: null, signature_canonical_hash: null })
+      .where('assessment_id', '=', '00000000-0000-4000-b400-100000000001')
+      .execute();
+
+    const repair = await seedDemoData();
+    expect(repair).toBe(false);
+
+    const repairedAff = await db
+      .selectFrom('affirmation')
+      .where('id', '=', affirmationId)
+      .select([
+        'sealed_at',
+        'declarations_signature_json',
+        'document_signature_json',
+      ])
+      .executeTakeFirst();
+    expect(repairedAff?.sealed_at).toBeDefined();
+    expect(repairedAff?.sealed_at).not.toBeNull();
+    expect(repairedAff?.declarations_signature_json).not.toBeNull();
+    expect(repairedAff?.document_signature_json).not.toBeNull();
+
+    const repairedSlots = await db
+      .selectFrom('affirmation_signatory')
+      .where('affirmation_id', '=', affirmationId)
+      .select(['signature_json'])
+      .execute();
+    expect(repairedSlots.length).toBeGreaterThan(0);
+    for (const slot of repairedSlots) {
+      expect(slot.signature_json).not.toBeNull();
+    }
 
     // Sanity checks: at least some core rows should have landed.
     const { count: assessmentCount } = (await db

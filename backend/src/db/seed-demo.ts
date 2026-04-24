@@ -856,7 +856,22 @@ export async function seedDemoData(): Promise<boolean> {
     .executeTakeFirstOrThrow();
 
   if (Number(existingEntities.count) > 0) {
-    logger.info('Demo data already present, skipping seed');
+    // The data-seed phase is a no-op when the demo is already in the
+    // database, but the seal step is cheap and now step-idempotent,
+    // so run it anyway. That way a DB that was seeded before the
+    // sealer worked (or before the admin lookup was fixed) picks up
+    // the missing signatures on the next server start without a wipe.
+    logger.info('Demo data already present, skipping row seed; running seal repair pass');
+    try {
+      const { sealSsdfDemoAffirmation } = await import('./seed-demo-seal.js');
+      const repaired = await sealSsdfDemoAffirmation();
+      logger.info('Demo SSDF seal repair result', { repaired });
+    } catch (err) {
+      logger.warn('Demo SSDF seal repair pass failed', {
+        error: (err as Error).message,
+        stack: (err as Error).stack,
+      });
+    }
     return false;
   }
 

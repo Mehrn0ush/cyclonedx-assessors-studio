@@ -106,6 +106,18 @@ async function createUserSignature(
     | { type: 'electronic'; label: string; payload: StoredElectronicPayload; fingerprint?: string },
 ): Promise<string> {
   const db = getDatabase();
+
+  // Reuse any existing user_signature row with the same (user, label)
+  // pair so the sealer's repair pass does not trip the
+  // `user_signature_user_id_label_key` unique constraint.
+  const existing = await db
+    .selectFrom('user_signature')
+    .where('user_id', '=', userId)
+    .where('label', '=', args.label)
+    .select('id')
+    .executeTakeFirst();
+  if (existing) return existing.id;
+
   const id = uuidv4();
 
   const payloadEncrypted = encryptionService.encrypt(JSON.stringify(args.payload));
@@ -227,13 +239,12 @@ export async function sealSsdfDemoAffirmation(): Promise<boolean> {
     });
     return false;
   }
-  if (affirmation.sealed_at) {
-    logger.info('Demo seal skipped: SSDF affirmation already sealed', {
-      affirmationId: SSDF_AFFIRMATION_ID,
-    });
-    return false;
-  }
-
+  // The sealer used to early-return whenever `sealed_at` was set.
+  // That blocked repair: a half-completed prior run could leave the
+  // affirmation sealed (declarations + document envelopes present)
+  // but the signatory slots unsigned, and there was no path back to
+  // a full seal short of wiping the DB. Now we step through each
+  // layer independently and only do work that is missing.
   const slots = (await db
     .selectFrom('affirmation_signatory')
     .where('affirmation_id', '=', affirmation.id)
@@ -271,53 +282,66 @@ export async function sealSsdfDemoAffirmation(): Promise<boolean> {
   }
 
   // --- Slot 0: digital signature ---
+  //
+  // Skip when the slot has already been signed in a prior run so
+  // the seed can complete a partial seal without regenerating keys
+  // (re-signing would produce a new envelope whose canonical bytes
+  // differ, invalidating any downstream declarations seal that
+  // covered the prior envelope).
   const firstSlot = slots[0];
   const firstIdentity = slotIdentityMap.get(firstSlot.id);
   if (!firstIdentity) {
     logger.warn('Demo seal aborted: missing identity on first slot');
     return false;
   }
-  const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
-    modulusLength: 2048,
-  });
-  const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
-  const privateKeyPem = privateKey
-    .export({ type: 'pkcs8', format: 'pem' })
-    .toString();
-  const digitalPayload: StoredDigitalPayload = {
-    name: firstIdentity.name,
-    role: firstIdentity.role,
-    organization: firstIdentity.organization,
-    signatureFormat: 'jsf',
-    signatureAlgorithm: 'RS256',
-    publicKeyPem,
-  };
-  const digitalSignatureId = await createUserSignature(adminUserId, {
-    type: 'digital',
-    label: 'Demo Digital Signature (SSDF)',
-    payload: digitalPayload,
-  });
-  const firstSlotResult = buildDigitalSlotEnvelope({
-    affirmation,
-    slot: firstSlot,
-    identity: firstIdentity,
-    privateKeyPem,
-    publicKeyPem,
-    algorithm: 'RS256',
-  });
-  await db
-    .updateTable('affirmation_signatory')
-    .set(
-      toSnakeCase({
-        signatureJson: JSON.stringify(firstSlotResult.envelope),
-        canonicalHash: firstSlotResult.canonicalHash,
-        signedAt: new Date(),
-        signedBy: adminUserId,
-        updatedAt: new Date(),
-      }),
-    )
-    .where('id', '=', firstSlot.id)
-    .execute();
+  let digitalSignatureId: string | null = null;
+  if (!firstSlot.signature_json) {
+    const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
+      modulusLength: 2048,
+    });
+    const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+    const privateKeyPem = privateKey
+      .export({ type: 'pkcs8', format: 'pem' })
+      .toString();
+    const digitalPayload: StoredDigitalPayload = {
+      name: firstIdentity.name,
+      role: firstIdentity.role,
+      organization: firstIdentity.organization,
+      signatureFormat: 'jsf',
+      signatureAlgorithm: 'RS256',
+      publicKeyPem,
+    };
+    digitalSignatureId = await createUserSignature(adminUserId, {
+      type: 'digital',
+      label: 'Demo Digital Signature (SSDF)',
+      payload: digitalPayload,
+    });
+    const firstSlotResult = buildDigitalSlotEnvelope({
+      affirmation,
+      slot: firstSlot,
+      identity: firstIdentity,
+      privateKeyPem,
+      publicKeyPem,
+      algorithm: 'RS256',
+    });
+    await db
+      .updateTable('affirmation_signatory')
+      .set(
+        toSnakeCase({
+          signatureJson: JSON.stringify(firstSlotResult.envelope),
+          canonicalHash: firstSlotResult.canonicalHash,
+          signedAt: new Date(),
+          signedBy: adminUserId,
+          updatedAt: new Date(),
+        }),
+      )
+      .where('id', '=', firstSlot.id)
+      .execute();
+  } else {
+    logger.info('Demo seal: digital slot already signed, skipping', {
+      slotId: firstSlot.id,
+    });
+  }
 
   // --- Slot 1 (if present): electronic signature ---
   let electronicSignatureId: string | null = null;
@@ -325,44 +349,47 @@ export async function sealSsdfDemoAffirmation(): Promise<boolean> {
     const secondSlot = slots[1];
     const secondIdentity = slotIdentityMap.get(secondSlot.id);
     if (secondIdentity) {
-      const electronicPayload: StoredElectronicPayload = {
-        name: secondIdentity.name,
-        role: secondIdentity.role,
-        organization: secondIdentity.organization,
-        signedName: secondIdentity.name,
-        jurisdiction: 'US',
-        legalIntent: 'I intend to sign this attestation',
-      };
-      electronicSignatureId = await createUserSignature(adminUserId, {
-        type: 'electronic',
-        label: 'Demo Electronic Signature (SSDF)',
-        payload: electronicPayload,
-      });
-      const electronicResult = buildElectronicSlotEnvelope({
-        affirmation,
-        slot: secondSlot,
-        identity: secondIdentity,
-        signedName: secondIdentity.name,
-        jurisdiction: 'US',
-        legalIntent: 'I intend to sign this attestation',
-      });
-      await db
-        .updateTable('affirmation_signatory')
-        .set(
-          toSnakeCase({
-            signatureJson: JSON.stringify(electronicResult.envelope),
-            canonicalHash: electronicResult.canonicalHash,
-            signedAt: new Date(),
-            signedBy: adminUserId,
-            updatedAt: new Date(),
-          }),
-        )
-        .where('id', '=', secondSlot.id)
-        .execute();
+      if (!secondSlot.signature_json) {
+        const electronicPayload: StoredElectronicPayload = {
+          name: secondIdentity.name,
+          role: secondIdentity.role,
+          organization: secondIdentity.organization,
+          signedName: secondIdentity.name,
+          jurisdiction: 'US',
+          legalIntent: 'I intend to sign this attestation',
+        };
+        electronicSignatureId = await createUserSignature(adminUserId, {
+          type: 'electronic',
+          label: 'Demo Electronic Signature (SSDF)',
+          payload: electronicPayload,
+        });
+        const electronicResult = buildElectronicSlotEnvelope({
+          affirmation,
+          slot: secondSlot,
+          identity: secondIdentity,
+          signedName: secondIdentity.name,
+          jurisdiction: 'US',
+          legalIntent: 'I intend to sign this attestation',
+        });
+        await db
+          .updateTable('affirmation_signatory')
+          .set(
+            toSnakeCase({
+              signatureJson: JSON.stringify(electronicResult.envelope),
+              canonicalHash: electronicResult.canonicalHash,
+              signedAt: new Date(),
+              signedBy: adminUserId,
+              updatedAt: new Date(),
+            }),
+          )
+          .where('id', '=', secondSlot.id)
+          .execute();
+      }
 
       // Populate the signatory's external_reference_* columns so the
       // CycloneDX Signatory object emitted at export time carries an
       // externalReference that satisfies the oneOf electronic branch.
+      // Idempotent on its own (UPDATE is a no-op if the values match).
       if (secondSlot.signatory_id) {
         await db
           .updateTable('signatory')
@@ -392,67 +419,77 @@ export async function sealSsdfDemoAffirmation(): Promise<boolean> {
   }
 
   // --- Platform seal ---
-  const refreshedSlots = (await db
-    .selectFrom('affirmation_signatory')
-    .where('affirmation_id', '=', affirmation.id)
-    .selectAll()
-    .orderBy('created_at', 'asc')
-    .execute()) as SlotRow[];
+  // Skip when the affirmation already carries both envelopes so
+  // a second seal pass does not overwrite them with a fresh signature
+  // whose canonical bytes differ.
+  if (!affirmation.sealed_at) {
+    const refreshedSlots = (await db
+      .selectFrom('affirmation_signatory')
+      .where('affirmation_id', '=', affirmation.id)
+      .selectAll()
+      .orderBy('created_at', 'asc')
+      .execute()) as SlotRow[];
 
-  const declarationsSubtree = buildDeclarationsSubtree({
-    affirmation,
-    slots: refreshedSlots,
-    slotIdentities: slotIdentityMap,
-  });
-  const platformKey = await getActiveKey();
-  const provider = getSignatureProviders().getDefault();
-  const declarationsSign = provider.sign(
-    declarationsSubtree as unknown as Parameters<typeof provider.sign>[0],
-    {
-      algorithm: platformKey.algorithm,
-      privateKey: platformKey.privateKeyPem,
-      publicKey: platformKey.publicKeyPem,
-    },
-  );
-  const sealedAt = new Date();
-  const documentPayload = buildDocumentEnvelopePayload({
-    affirmation,
-    declarationsSignatureValue: declarationsSign.signatureValue,
-    declarationsCanonicalHash: declarationsSign.canonicalHashSha256,
-    platformKeyFingerprint: platformKey.fingerprint,
-    sealedAtIso: sealedAt.toISOString(),
-  });
-  const documentSign = provider.sign(
-    documentPayload as unknown as Parameters<typeof provider.sign>[0],
-    {
-      algorithm: platformKey.algorithm,
-      privateKey: platformKey.privateKeyPem,
-      publicKey: platformKey.publicKeyPem,
-    },
-  );
+    const declarationsSubtree = buildDeclarationsSubtree({
+      affirmation,
+      slots: refreshedSlots,
+      slotIdentities: slotIdentityMap,
+    });
+    const platformKey = await getActiveKey();
+    const provider = getSignatureProviders().getDefault();
+    const declarationsSign = provider.sign(
+      declarationsSubtree as unknown as Parameters<typeof provider.sign>[0],
+      {
+        algorithm: platformKey.algorithm,
+        privateKey: platformKey.privateKeyPem,
+        publicKey: platformKey.publicKeyPem,
+      },
+    );
+    const sealedAt = new Date();
+    const documentPayload = buildDocumentEnvelopePayload({
+      affirmation,
+      declarationsSignatureValue: declarationsSign.signatureValue,
+      declarationsCanonicalHash: declarationsSign.canonicalHashSha256,
+      platformKeyFingerprint: platformKey.fingerprint,
+      sealedAtIso: sealedAt.toISOString(),
+    });
+    const documentSign = provider.sign(
+      documentPayload as unknown as Parameters<typeof provider.sign>[0],
+      {
+        algorithm: platformKey.algorithm,
+        privateKey: platformKey.privateKeyPem,
+        publicKey: platformKey.publicKeyPem,
+      },
+    );
 
-  await db
-    .updateTable('affirmation')
-    .set(
-      toSnakeCase({
-        sealedAt,
-        sealedBy: adminUserId,
-        canonicalHash: declarationsSign.canonicalHashSha256,
-        platformKeyFingerprint: platformKey.fingerprint,
-        declarationsSignatureJson: JSON.stringify(declarationsSign.envelope),
-        documentSignatureJson: JSON.stringify(documentSign.envelope),
-        updatedAt: new Date(),
-      }),
-    )
-    .where('id', '=', affirmation.id)
-    .execute();
+    await db
+      .updateTable('affirmation')
+      .set(
+        toSnakeCase({
+          sealedAt,
+          sealedBy: adminUserId,
+          canonicalHash: declarationsSign.canonicalHashSha256,
+          platformKeyFingerprint: platformKey.fingerprint,
+          declarationsSignatureJson: JSON.stringify(declarationsSign.envelope),
+          documentSignatureJson: JSON.stringify(documentSign.envelope),
+          updatedAt: new Date(),
+        }),
+      )
+      .where('id', '=', affirmation.id)
+      .execute();
 
-  logger.info('Demo SSDF affirmation sealed', {
-    affirmationId: affirmation.id,
-    digitalSignatureId,
-    electronicSignatureId,
-    platformKeyFingerprint: platformKey.fingerprint,
-  });
+    logger.info('Demo SSDF affirmation sealed', {
+      affirmationId: affirmation.id,
+      digitalSignatureId,
+      electronicSignatureId,
+      platformKeyFingerprint: platformKey.fingerprint,
+    });
+  } else {
+    logger.info('Demo SSDF affirmation already sealed; completed any missing sub-layers', {
+      affirmationId: affirmation.id,
+    });
+  }
+
   return true;
 }
 
@@ -486,6 +523,18 @@ async function sealAssessmentAttestations(
     .execute();
   if (attestations.length === 0) return;
 
+  // Skip attestations that were already signed in a prior run so
+  // we do not overwrite a signature the outer declarations seal
+  // may already have covered.
+  const unsigned = attestations.filter((a) => !a.signature_json);
+  if (unsigned.length === 0) {
+    logger.info('Demo seal: per-attestation signatures already present, skipping', {
+      assessmentId,
+      count: attestations.length,
+    });
+    return;
+  }
+
   // Generate one assessor keypair per batch. In a real deployment
   // each assessor would bring their own key; for the demo a single
   // key signs every attestation on the assessment, which is the
@@ -501,7 +550,7 @@ async function sealAssessmentAttestations(
   const provider = getSignatureProviders().getDefault();
   const algorithm = 'RS256';
 
-  for (const att of attestations) {
+  for (const att of unsigned) {
     // Rebuild the exported attestation object from DB rows so the
     // canonical hash matches what the exporter will later compute.
     const requirements = await db
