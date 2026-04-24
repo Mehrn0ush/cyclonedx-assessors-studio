@@ -17,8 +17,9 @@ import type {
   Affirmation as CdxAffirmation,
   Signatory as CdxSignatory,
   Signature as CdxSignature,
+  Standard as CdxStandard,
 } from '../cdxspec/types.js';
-import { signatoryBlock, isSignatoryValid } from '../cdxspec/index.js';
+import { signatoryBlock, isSignatoryValid, standardFromRow } from '../cdxspec/index.js';
 
 /**
  * Parse a JSONB column value into a plain object. PGlite and
@@ -36,6 +37,68 @@ export function parseJsonbColumn(value: unknown): CdxSignature | undefined {
   }
   if (typeof value === 'object') return value as CdxSignature;
   return undefined;
+}
+
+/**
+ * Fields permitted on a JSF `signer` object per the JSF 0.82 schema
+ * bundled with CycloneDX. Any other key makes the outer BOM schema
+ * invalid because signer has `additionalProperties: false`. We keep
+ * this list explicit so a silent shape drift in the stored
+ * envelope does not sneak an invalid field into the export.
+ */
+const JSF_SIGNER_FIELDS = new Set([
+  'algorithm',
+  'keyId',
+  'publicKey',
+  'certificatePath',
+  'excludes',
+  'value',
+]);
+
+/**
+ * Normalize a stored signature envelope into the JSF signer shape
+ * that CycloneDX expects on `attestation.signature`, Signatory
+ * `signature`, `declarations.signature`, and `bom.signature`.
+ *
+ * Our internal sign path stores the full canonical payload with a
+ * nested `.signature` (the signer), which is useful for re-verify
+ * but invalid at export time because the CycloneDX schema points
+ * at jsf-0.82.schema.json#/definitions/signer, which has
+ * `additionalProperties: false` and only whitelists algorithm,
+ * keyId, publicKey, certificatePath, excludes, and value.
+ *
+ * Returns undefined when no JSF-shaped signer can be extracted
+ * (e.g. electronic signature envelopes that have no algorithm/value
+ * — those flow through the externalReference branch of the
+ * Signatory oneOf instead).
+ */
+export function toJsfSigner(envelope: unknown): CdxSignature | undefined {
+  if (!envelope || typeof envelope !== 'object') return undefined;
+  let current = envelope as Record<string, unknown>;
+  // Descend through nested `.signature` wrappers until we find a
+  // node that looks like a signer (has algorithm and value) or
+  // until there's no more .signature to unwrap.
+  // Cap the descent to avoid runaway on malformed data.
+  for (let depth = 0; depth < 4; depth += 1) {
+    const hasSigner =
+      typeof current.algorithm === 'string' && typeof current.value === 'string';
+    if (hasSigner) break;
+    const next = current.signature;
+    if (!next || typeof next !== 'object') break;
+    current = next as Record<string, unknown>;
+  }
+  if (typeof current.algorithm !== 'string' || typeof current.value !== 'string') {
+    return undefined;
+  }
+  // Strip every non-JSF field. Order the output so callers that
+  // JSON.stringify the result get a stable shape for diffing.
+  const clean: Record<string, unknown> = {};
+  for (const key of JSF_SIGNER_FIELDS) {
+    if (key in current) {
+      clean[key] = current[key];
+    }
+  }
+  return clean as unknown as CdxSignature;
 }
 
 export interface AffirmationExportResult {
@@ -124,9 +187,15 @@ export async function buildAffirmationForAssessment(
           .executeTakeFirst()
       : null;
 
-    const envelope = slot.signature_json
+    // Extract a clean JSF signer from whatever shape the sign path
+    // stored. The stored envelope wraps the signer in a canonical
+    // payload plus nested `.signature` with extra metadata; the
+    // CycloneDX schema will reject those extras via
+    // additionalProperties:false.
+    const rawEnvelope = slot.signature_json
       ? parseJsonbColumn(slot.signature_json)
       : undefined;
+    const envelope = rawEnvelope ? toJsfSigner(rawEnvelope) : undefined;
     if (envelope && slot.signed_at) signedSlotCount += 1;
 
     const block = signatoryBlock({
@@ -162,12 +231,81 @@ export async function buildAffirmationForAssessment(
     affirmation.signatories = signatories;
   }
 
+  // Strip the canonical-payload wrapper off the stored envelopes so
+  // declarations.signature and bom.signature emit a bare JSF signer
+  // rather than the whole sealed subtree.
   const declarationsSeal = affirmationRow.sealed_at
-    ? parseJsonbColumn(affirmationRow.declarations_signature_json)
+    ? toJsfSigner(parseJsonbColumn(affirmationRow.declarations_signature_json))
     : undefined;
   const documentSeal = affirmationRow.sealed_at
-    ? parseJsonbColumn(affirmationRow.document_signature_json)
+    ? toJsfSigner(parseJsonbColumn(affirmationRow.document_signature_json))
     : undefined;
 
   return { affirmation, declarationsSeal, documentSeal, signedSlotCount };
+}
+
+/**
+ * Build `definitions.standards[]` for an attestation export, scoped
+ * to the single standard the attestation is attesting to. The
+ * standard is derived from the attestation_requirement rows: every
+ * requirement on an attestation references the same standard by
+ * construction, so the first row's `requirement.standard_id` is
+ * authoritative. Returns an empty array when the attestation has no
+ * requirements (e.g. a skeleton attestation).
+ *
+ * The standard's own bom-ref and every requirement's bom-ref come
+ * from the `imported_bom_ref` column populated at standards import
+ * time, so an exported attestation round trips the exact identifiers
+ * the source feed used.
+ */
+export async function buildStandardsForAttestation(
+  db: Kysely<Database>,
+  attestationId: string,
+): Promise<CdxStandard[]> {
+  const firstReq = await db
+    .selectFrom('attestation_requirement')
+    .innerJoin('requirement', 'requirement.id', 'attestation_requirement.requirement_id')
+    .where('attestation_requirement.attestation_id', '=', attestationId)
+    .select(['requirement.standard_id'])
+    .executeTakeFirst();
+  if (!firstReq?.standard_id) return [];
+
+  const standardRow = await db
+    .selectFrom('standard')
+    .where('id', '=', firstReq.standard_id as string)
+    .selectAll()
+    .executeTakeFirst();
+  if (!standardRow) return [];
+
+  const requirementRows = await db
+    .selectFrom('requirement')
+    .where('standard_id', '=', firstReq.standard_id as string)
+    .selectAll()
+    .execute();
+
+  return [
+    standardFromRow({
+      row: {
+        id: standardRow.id as string,
+        identifier: (standardRow.identifier as string | null) ?? null,
+        name: (standardRow.name as string | null) ?? null,
+        version: (standardRow.version as string | null) ?? null,
+        description: (standardRow.description as string | null) ?? null,
+        owner: (standardRow.owner as string | null) ?? null,
+        // standard-import.ts stores the upstream bom-ref into the
+        // `standard.identifier` column. Surface it as the imported
+        // bom-ref so the standard round trips with its source value.
+        imported_bom_ref: (standardRow.identifier as string | null) ?? null,
+      },
+      requirements: requirementRows.map((r) => ({
+        id: r.id as string,
+        identifier: (r.identifier as string | null) ?? null,
+        name: (r.name as string | null) ?? null,
+        description: (r.description as string | null) ?? null,
+        parent_id: (r.parent_id as string | null) ?? null,
+        open_cre: (r.open_cre as string | null) ?? null,
+        imported_bom_ref: (r.imported_bom_ref as string | null) ?? null,
+      })),
+    }),
+  ];
 }

@@ -61,13 +61,26 @@ const SSDF_AFFIRMATION_ID = '00000000-0000-4000-b300-000000000002';
  */
 async function findAdminUserId(): Promise<string | null> {
   const db = getDatabase();
+  // The admin role's `name` column is "Administrator" (see
+  // DEFAULT_ROLES in db/seed.ts). Look up by the stable `key` column
+  // instead so a display-name change does not silently break the
+  // seal step. Fall back to the legacy `app_user.role = 'admin'`
+  // column for installs that predate the role_id RBAC migration.
   const admin = await db
     .selectFrom('app_user')
     .innerJoin('role', 'role.id', 'app_user.role_id')
-    .where('role.name', '=', 'Admin')
+    .where('role.key', '=', 'admin')
     .select('app_user.id')
     .executeTakeFirst();
-  return admin?.id ?? null;
+  if (admin) return admin.id;
+
+  const legacy = await db
+    .selectFrom('app_user')
+    // biome-ignore lint/suspicious/noExplicitAny: legacy `role` column
+    .where('role' as any, '=', 'admin')
+    .select('id')
+    .executeTakeFirst();
+  return legacy?.id ?? null;
 }
 
 /**
@@ -102,7 +115,7 @@ async function createUserSignature(
     label: args.label,
     signature_type: args.type,
     signature_format: args.type === 'digital' ? 'jsf' : null,
-    backend_type: 'stored',
+    backend_type: 'local',
     payload_encrypted: payloadEncrypted,
     key_fingerprint: null,
   };

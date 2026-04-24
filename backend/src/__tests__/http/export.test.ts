@@ -739,13 +739,27 @@ describe('Export HTTP Routes', () => {
         });
       const projectId = projectRes.body.id;
 
-      // Create assessment
-      const assessmentRes = await agent
+      // Each assessment is scoped to a single standard under the
+      // new export rule ("only the standard(s) being attested to").
+      // Create one assessment per standard so the project-level
+      // export merges distinct standards from every assessment.
+      const assessment1Res = await agent
         .post('/api/v1/assessments')
         .send({
-          title: `Multi Standard Assessment ${Date.now()}`,
+          title: `Std1 Assessment ${Date.now()}`,
           projectId,
+          standardId: standardId1,
         });
+      expect(assessment1Res.status).toBe(201);
+
+      const assessment2Res = await agent
+        .post('/api/v1/assessments')
+        .send({
+          title: `Std2 Assessment ${Date.now()}`,
+          projectId,
+          standardId: standardId2,
+        });
+      expect(assessment2Res.status).toBe(201);
 
       const res = await agent.get(`/api/v1/export/project/${projectId}`);
 

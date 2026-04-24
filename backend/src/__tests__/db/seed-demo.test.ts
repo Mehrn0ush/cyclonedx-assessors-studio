@@ -80,6 +80,109 @@ describe('seedDemoData loads demo-data.json without FK violations', () => {
       .executeTakeFirstOrThrow()) as { count: number | string };
     expect(Number(claimEvidenceCount)).toBeGreaterThan(0);
 
+    // End-to-end: exporting the SSDF attestation should produce a
+    // BOM that carries (a) definitions.standards with exactly one
+    // standard (the attested SSDF standard) using the upstream
+    // bom-ref verbatim; (b) attestation.signature; (c)
+    // declarations.signature; (d) bom.signature; and (e) at least
+    // one affirmation signatory valid against the CycloneDX
+    // Signatory oneOf.
+    const ssdfAttestation = await db
+      .selectFrom('attestation')
+      .where('assessment_id', '=', '00000000-0000-4000-b400-100000000001')
+      .select(['id'])
+      .executeTakeFirst();
+    expect(ssdfAttestation).toBeDefined();
+    const attestationId = ssdfAttestation?.id as string;
+
+    const adminAgent = await loginAs('admin');
+    const exportRes = await adminAgent.get(
+      `/api/v1/attestations/${attestationId}/export`,
+    );
+    expect(exportRes.status).toBe(200);
+    const bom = exportRes.body as Record<string, unknown>;
+
+    // (a) Exactly the SSDF standard, bom-ref verbatim.
+    const defs = bom.definitions as Record<string, unknown>;
+    const standards = defs?.standards as Array<Record<string, unknown>>;
+    expect(Array.isArray(standards)).toBe(true);
+    expect(standards).toHaveLength(1);
+    expect(standards[0]['bom-ref']).toBe('ssdf-1.1');
+    const reqs = standards[0].requirements as Array<Record<string, unknown>>;
+    // The SSDF feed has 65 requirement rows (groups + leaves).
+    expect(reqs.length).toBe(65);
+    const firstLeaf = reqs.find((r) => r.identifier === 'PO.1.1');
+    expect(firstLeaf?.['bom-ref']).toBe('ssdf-1.1-PO.1.1');
+
+    // (b) attestation.signature
+    const declarations = bom.declarations as Record<string, unknown>;
+    const attestations = declarations.attestations as Array<Record<string, unknown>>;
+    expect(attestations[0].signature).toBeDefined();
+
+    // (c) declarations.signature
+    expect(declarations.signature).toBeDefined();
+
+    // (d) bom.signature (root document seal)
+    expect(bom.signature).toBeDefined();
+
+    // (e) affirmation signatories
+    const affirmation = declarations.affirmation as Record<string, unknown>;
+    expect(affirmation).toBeDefined();
+    const signatories = affirmation.signatories as Array<Record<string, unknown>>;
+    expect(Array.isArray(signatories)).toBe(true);
+    expect(signatories.length).toBeGreaterThan(0);
+    for (const s of signatories) {
+      const hasSignature = Boolean(s.signature);
+      const hasExtRefAndOrg = Boolean(s.externalReference) && Boolean(s.organization);
+      expect(hasSignature || hasExtRefAndOrg).toBe(true);
+    }
+
+    // (f) Every signature object is a JSF signer with only the
+    // whitelisted fields (algorithm, keyId, publicKey,
+    // certificatePath, excludes, value). Our internal sign path
+    // stores the full canonical payload with a nested .signature;
+    // the exporter must strip that wrapper or the CycloneDX signer
+    // schema (additionalProperties:false) rejects the BOM.
+    const JSF_ALLOWED = new Set([
+      'algorithm',
+      'keyId',
+      'publicKey',
+      'certificatePath',
+      'excludes',
+      'value',
+    ]);
+    const assertJsfSigner = (label: string, sig: unknown) => {
+      expect(sig).toBeDefined();
+      const obj = sig as Record<string, unknown>;
+      expect(typeof obj.algorithm).toBe('string');
+      expect(typeof obj.value).toBe('string');
+      for (const key of Object.keys(obj)) {
+        if (!JSF_ALLOWED.has(key)) {
+          throw new Error(`${label} has non-JSF key: ${key}`);
+        }
+      }
+    };
+    assertJsfSigner('attestation.signature', attestations[0].signature);
+    assertJsfSigner('declarations.signature', declarations.signature);
+    assertJsfSigner('bom.signature', bom.signature);
+    for (let i = 0; i < signatories.length; i += 1) {
+      const s = signatories[i];
+      if (s.signature) {
+        assertJsfSigner(`signatories[${i}].signature`, s.signature);
+      }
+    }
+
+    // (g) The whole BOM validates against bom-1.7.schema.json.
+    const { validateBom } = await import('../../cdxspec/validator/index.js');
+    const validation = validateBom(bom, '1.7');
+    if (!validation.valid) {
+      console.error(
+        'Exported BOM failed schema validation:',
+        JSON.stringify(validation.errors).slice(0, 4000),
+      );
+    }
+    expect(validation.valid).toBe(true);
+
     // Silence unused-import lint on uuidv4 (kept in scope for
     // future fixtures that may need to tack on extra rows before
     // re-seeding).

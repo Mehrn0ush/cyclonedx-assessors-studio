@@ -27,8 +27,12 @@ import {
   signatoryBlock,
   isSignatoryValid,
 } from '../cdxspec/index.js';
-import { buildAffirmationForAssessment } from '../utils/export-affirmation.js';
+import {
+  buildAffirmationForAssessment,
+  buildStandardsForAttestation,
+} from '../utils/export-affirmation.js';
 import type {
+  Assessor as CdxAssessor,
   CdxSpecVersion,
   Claim as CdxClaim,
   AttestationRequirementRowInput,
@@ -516,34 +520,143 @@ router.get(
     const resolver = new TargetResolver();
     const claims: CdxClaim[] = claimRows.map((row) => claimFromRow(row, resolver));
 
-    // Split claim bom-refs into claims vs counterClaims for the
-    // attestation map. Without a per-requirement link in this export
-    // shape, every claim is attached to every map entry; the schema
-    // permits this and matches the prior behavior of the assessment-
-    // level export.
-    const allClaims: string[] = [];
-    const allCounterClaims: string[] = [];
+    // Build a claim id -> bom-ref lookup for the per-requirement
+    // junction query below, plus "all claims" fallback arrays for
+    // legacy attestations that have no junction rows.
+    const claimRefById = new Map<string, { ref: string; counter: boolean }>();
+    const attestationAllClaims: string[] = [];
+    const attestationAllCounterClaims: string[] = [];
     claimRows.forEach((row, idx) => {
       const ref = claims[idx]['bom-ref'];
-      if (isCounterClaim(row)) {
-        allCounterClaims.push(ref);
+      const counter = isCounterClaim(row);
+      claimRefById.set(row.id as string, { ref, counter });
+      if (counter) {
+        attestationAllCounterClaims.push(ref);
       } else {
-        allClaims.push(ref);
+        attestationAllClaims.push(ref);
       }
     });
 
+    // Pull per-requirement claim linkages from the
+    // attestation_requirement_claim and _counter_claim junctions so
+    // each map entry only emits the claims that actually back it.
+    // When any linkage exists, we also insert empty buckets for the
+    // remaining requirements so the writer's all-claims fallback
+    // does not reintroduce the "every claim on every requirement"
+    // shape.
+    const byRequirementId = new Map<
+      string,
+      { claims: string[]; counterClaims: string[] }
+    >();
+    const perReqClaimRows = await db
+      .selectFrom('attestation_requirement_claim as arc')
+      .innerJoin('attestation_requirement as ar', 'ar.id', 'arc.attestation_requirement_id')
+      .where('ar.attestation_id', '=', attestation.id)
+      .select(['ar.requirement_id', 'arc.claim_id'])
+      .execute();
+    for (const prc of perReqClaimRows) {
+      const look = claimRefById.get(prc.claim_id as string);
+      if (!look) continue;
+      const requirementId = prc.requirement_id as string;
+      const bucket =
+        byRequirementId.get(requirementId) ?? { claims: [], counterClaims: [] };
+      if (look.counter) {
+        bucket.counterClaims.push(look.ref);
+      } else {
+        bucket.claims.push(look.ref);
+      }
+      byRequirementId.set(requirementId, bucket);
+    }
+    const perReqCounterRows = await db
+      .selectFrom('attestation_requirement_counter_claim as arcc')
+      .innerJoin(
+        'attestation_requirement as ar',
+        'ar.id',
+        'arcc.attestation_requirement_id',
+      )
+      .where('ar.attestation_id', '=', attestation.id)
+      .select(['ar.requirement_id', 'arcc.claim_id'])
+      .execute();
+    for (const prc of perReqCounterRows) {
+      const look = claimRefById.get(prc.claim_id as string);
+      if (!look) continue;
+      const requirementId = prc.requirement_id as string;
+      const bucket =
+        byRequirementId.get(requirementId) ?? { claims: [], counterClaims: [] };
+      bucket.counterClaims.push(look.ref);
+      byRequirementId.set(requirementId, bucket);
+    }
+    if (byRequirementId.size > 0) {
+      for (const ar of requirements) {
+        if (!byRequirementId.has(ar.requirement_id as string)) {
+          byRequirementId.set(ar.requirement_id as string, {
+            claims: [],
+            counterClaims: [],
+          });
+        }
+      }
+    }
+
     const claimRefs: ClaimRefMap = {
-      byRequirementId: new Map(),
-      allClaims,
-      allCounterClaims,
+      byRequirementId,
+      allClaims: attestationAllClaims,
+      allCounterClaims: attestationAllCounterClaims,
     };
+
+    // Resolve the attestation's assessor and materialize it as an
+    // assessor block so declarations.assessors can carry the same
+    // identity the attestation.assessor bom-ref references.
+    let assessorBlock: CdxAssessor | undefined;
+    let assessorRef: string | undefined;
+    if (attestation.assessor_id) {
+      const { assessorFromUserRow } = await import('../cdxspec/index.js');
+      const assessorRow = await db
+        .selectFrom('assessor')
+        .leftJoin('entity', 'entity.id', 'assessor.entity_id')
+        .where('assessor.id', '=', attestation.assessor_id)
+        .select([
+          'assessor.id',
+          'assessor.bom_ref',
+          'assessor.third_party',
+          'assessor.entity_id',
+          'entity.name as entity_name',
+        ])
+        .executeTakeFirst();
+      if (assessorRow) {
+        assessorBlock = assessorFromUserRow({
+          user: {
+            id: assessorRow.id as string,
+            display_name: null,
+            email: null,
+            organization_name:
+              (assessorRow.entity_name as string | null | undefined) ?? null,
+          },
+          thirdParty: Boolean(assessorRow.third_party),
+        });
+        // Prefer the DB-stored bom_ref verbatim when present so the
+        // attestation's `assessor` field matches the assessor the
+        // assessment-level export emits. Falls back to the writer's
+        // synthesised value when the column is empty.
+        const storedRef = (assessorRow.bom_ref as string | null) ?? '';
+        if (storedRef.length > 0) {
+          assessorBlock = { ...assessorBlock, 'bom-ref': storedRef };
+        }
+        assessorRef = assessorBlock['bom-ref'];
+      }
+    }
 
     // Pull per-attestation signature envelope when present. Stored
     // as JSONB on `attestation.signature_json` and emitted verbatim
     // as `attestation.signature` under CycloneDX 1.7.
-    const { parseJsonbColumn } = await import('../utils/export-affirmation.js');
+    // Strip the canonical-payload wrapper so attestation.signature
+    // emits a bare JSF signer (additionalProperties:false on the
+    // CycloneDX signer type means the wrapper's extra keys would
+    // fail schema validation).
+    const { parseJsonbColumn, toJsfSigner } = await import(
+      '../utils/export-affirmation.js'
+    );
     const attestationSignature = attestation.signature_json
-      ? parseJsonbColumn(attestation.signature_json)
+      ? toJsfSigner(parseJsonbColumn(attestation.signature_json)) ?? null
       : null;
 
     const cdxAttestation = attestationFromRow({
@@ -554,6 +667,7 @@ router.get(
       },
       requirements,
       claimRefs,
+      assessorRef,
     });
 
     // Build the affirmation block. Under the PR3.6 cascade model the
@@ -570,8 +684,10 @@ router.get(
     // block is synthesized and validated here so legacy rows can
     // still contribute an electronic-signature signatory if the row
     // carries an externalReference.
-    let affirmation = (await buildAffirmationForAssessment(db, attestation.assessment_id ?? ''))
-      .affirmation;
+    const affirmationBuild = attestation.assessment_id
+      ? await buildAffirmationForAssessment(db, attestation.assessment_id)
+      : { affirmation: undefined, declarationsSeal: undefined, documentSeal: undefined, signedSlotCount: 0 };
+    let affirmation = affirmationBuild.affirmation;
 
     if (!affirmation && signatory) {
       let signatoryOrgRow: Record<string, unknown> | null = null;
@@ -596,16 +712,28 @@ router.get(
       }
     }
 
+    // Assemble definitions.standards scoped to the single standard
+    // this attestation covers. The standard is derived from the
+    // attestation's requirements (every map entry references the
+    // same standard by construction; take the first requirement's
+    // standard_id and emit that standard verbatim, including all
+    // of its imported requirements with their original bom-refs).
+    const standards = await buildStandardsForAttestation(db, attestation.id);
+
     const declarations = composeDeclarations({
+      assessors: assessorBlock ? [assessorBlock] : undefined,
       attestations: [cdxAttestation],
       claims,
       affirmation,
+      seal: affirmationBuild.declarationsSeal,
       targetResolver: resolver,
     });
 
     const cdxa = composeBom({
       specVersion,
       declarations,
+      definitions: standards.length > 0 ? { standards } : undefined,
+      documentSeal: affirmationBuild.documentSeal,
     });
 
     res.setHeader('Content-Type', 'application/vnd.cyclonedx+json');

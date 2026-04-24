@@ -27,7 +27,11 @@ import {
   type Signature as CdxSignature,
   type Standard as CdxStandard,
 } from '../cdxspec/index.js';
-import { buildAffirmationForAssessment, parseJsonbColumn as parseJsonbColumnLocal } from '../utils/export-affirmation.js';
+import {
+  buildAffirmationForAssessment,
+  parseJsonbColumn as parseJsonbColumnLocal,
+  toJsfSigner,
+} from '../utils/export-affirmation.js';
 
 const router = Router();
 
@@ -255,8 +259,11 @@ async function buildAssessmentBOM(
       .where('id', '=', attestation.id)
       .select(['signature_json'])
       .executeTakeFirst();
+    // Strip the canonical-payload wrapper so attestation.signature
+    // emits a bare JSF signer object (the CycloneDX schema enforces
+    // additionalProperties:false on signer).
     const attestationSignature = attestationSignatureRow?.signature_json
-      ? parseJsonbColumnLocal(attestationSignatureRow.signature_json)
+      ? toJsfSigner(parseJsonbColumnLocal(attestationSignatureRow.signature_json)) ?? null
       : null;
 
     const attestationObj = attestationFromRow({
@@ -319,37 +326,52 @@ async function buildAssessmentBOM(
         .executeTakeFirst()
     : null;
 
+  // An assessment is scoped to a single standard via
+  // `assessment.standard_id`. Include only that standard in the
+  // export (not every standard the parent project uses), scoped to
+  // "the standard(s) being attested to". Fall back to the first
+  // project standard when `assessment.standard_id` is null on older
+  // rows so legacy assessments still export something useful.
   const standards: CdxStandard[] = [];
-
-  if (project) {
-    const projectStandards = await db
+  let effectiveStandardId: string | null = null;
+  if (assessment.standard_id) {
+    effectiveStandardId = assessment.standard_id as string;
+  } else if (project) {
+    const firstProjectStandard = await db
       .selectFrom('project_standard')
-      .innerJoin('standard', 'standard.id', 'project_standard.standard_id')
-      .where('project_standard.project_id', '=', project.id)
-      .selectAll()
-      .execute();
+      .where('project_id', '=', project.id)
+      .select('standard_id')
+      .executeTakeFirst();
+    effectiveStandardId = firstProjectStandard?.standard_id ?? null;
+  }
 
-    for (const ps of projectStandards) {
+  if (effectiveStandardId) {
+    const standardRow = await db
+      .selectFrom('standard')
+      .where('id', '=', effectiveStandardId)
+      .selectAll()
+      .executeTakeFirst();
+    if (standardRow) {
       const requirements = await db
         .selectFrom('requirement')
-        .where('standard_id', '=', ps.standard_id)
+        .where('standard_id', '=', effectiveStandardId)
         .selectAll()
         .execute();
 
       standards.push(
         standardFromRow({
           row: {
-            id: ps.standard_id,
-            identifier: ps.identifier ?? null,
-            name: ps.name ?? null,
-            version: ps.version ?? null,
-            description: ps.description ?? null,
-            owner: ps.owner ?? null,
+            id: standardRow.id as string,
+            identifier: (standardRow.identifier as string | null) ?? null,
+            name: (standardRow.name as string | null) ?? null,
+            version: (standardRow.version as string | null) ?? null,
+            description: (standardRow.description as string | null) ?? null,
+            owner: (standardRow.owner as string | null) ?? null,
             // standard-import.ts stores the original CycloneDX
             // `bom-ref` from the upstream feed into
             // `standard.identifier`. Surface it as the imported
             // bom-ref so exports round trip with that value.
-            imported_bom_ref: ps.identifier ?? null,
+            imported_bom_ref: (standardRow.identifier as string | null) ?? null,
           },
           requirements: requirements.map((r) => ({
             id: r.id as string,

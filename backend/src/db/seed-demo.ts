@@ -925,10 +925,14 @@ export async function seedDemoData(): Promise<boolean> {
   // reseeds stay idempotent.
   try {
     const { sealSsdfDemoAffirmation } = await import('./seed-demo-seal.js');
-    await sealSsdfDemoAffirmation();
+    const sealed = await sealSsdfDemoAffirmation();
+    logger.info('Demo SSDF seal result', { sealed });
   } catch (err) {
+    // Surface the seal failure at warn level but do not throw so a
+    // partial demo (unsigned) still ends up in the DB for inspection.
     logger.warn('Demo SSDF affirmation seal failed — demo data is still seeded, just unsigned', {
       error: (err as Error).message,
+      stack: (err as Error).stack,
     });
   }
 
