@@ -1,26 +1,29 @@
 /**
  * JSF SignatureProvider — thin adapter over the standalone
- * @cyclonedx/jsf package. The adapter keeps the route layer free of
- * JSF-specific imports and pins a predictable shape for DB storage.
+ * @cyclonedx/sign package (JSF subpath). The adapter keeps the route
+ * layer free of JSF-specific imports and pins a predictable shape for
+ * DB storage.
  *
  * The implementation defers every crypto and canonicalization concern
- * to @cyclonedx/jsf so that a future WebCrypto or HSM swap lives in
- * exactly one place — the JSF package itself.
+ * to @cyclonedx/sign so that a future WebCrypto or HSM swap lives in
+ * exactly one place — the signing library itself.
  */
 
 import { createHash } from 'node:crypto';
 
 import {
   canonicalize,
+  type JsonObject as JsfJsonObject,
+  type KeyInput as JsfKeyInput,
+} from '@cyclonedx/sign';
+import {
   computeCanonicalInput,
   sign as jsfSign,
   verify as jsfVerify,
-  type JsonObject as JsfJsonObject,
   type JsfSigner,
-  type KeyInput as JsfKeyInput,
-  type SignOptions as JsfSignOptions,
-  type VerifyOptions as JsfVerifyOptions,
-} from '@cyclonedx/jsf';
+  type JsfSignOptions,
+  type JsfVerifyOptions,
+} from '@cyclonedx/sign/jsf';
 
 import type {
   CanonicalizedPayload,

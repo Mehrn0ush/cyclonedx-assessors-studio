@@ -5,10 +5,10 @@
  * at /me/signatures, affirmation signatory sign endpoints, and in
  * declarations.signature / document signature envelopes. They are the
  * authoritative enum used by zod schemas in the backend and by the
- * crypto primitives in the @cyclonedx/jsf package.
+ * crypto primitives in the @cyclonedx/sign package (JSF subpath).
  *
- * Keep this list in sync with JSF_ASYMMETRIC_ALGORITHMS in
- * backend/packages/jsf/src/algorithms.ts. A backend typecheck will
+ * Keep this list in sync with JSF_ASYMMETRIC_ALGORITHMS exported by
+ * @cyclonedx/sign/jsf. A backend typecheck will
  * fail if the backend schema widens beyond what the frontend knows
  * about; a drift in the other direction is caught at runtime by
  * zod at the POST boundary.

@@ -42,7 +42,7 @@ import { toSnakeCase } from '../middleware/camelCase.js';
 import { encryptionService } from '../utils/encryption.js';
 import { getStorageProvider } from '../storage/index.js';
 import { getSignatureProviders } from '../signatures/index.js';
-import { exportPublicJwk } from '@cyclonedx/jsf';
+import { exportPublicJwk } from '@cyclonedx/sign';
 import { getActiveKey, getKeyByFingerprint } from '../services/platform-keys.js';
 import { logger } from '../utils/logger.js';
 import {

@@ -23,13 +23,13 @@
  * storing whichever name they were given without needing to translate.
  */
 
+import { toPublicKey } from '@cyclonedx/sign';
 import {
   getAlgorithmSpec,
-  toPublicKey,
   verifyBytes,
   type AlgorithmSpec,
   type JsfAlgorithm,
-} from '@cyclonedx/jsf';
+} from '@cyclonedx/sign/jsf';
 
 /**
  * Map JCA-style or other vendor algorithm spellings to the JSF/JWS

@@ -23,9 +23,9 @@
  * anchor, or store them out of band as appropriate for their format.
  */
 
-import type { JsonObject } from '@cyclonedx/jsf';
+import type { JsonObject } from '@cyclonedx/sign';
 
-export type { JsonObject, JsonValue } from '@cyclonedx/jsf';
+export type { JsonObject, JsonValue } from '@cyclonedx/sign';
 
 /**
  * A key the caller passes in. Providers decide how to parse it:

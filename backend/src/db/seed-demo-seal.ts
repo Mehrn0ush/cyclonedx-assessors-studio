@@ -37,7 +37,7 @@ import { toSnakeCase } from '../middleware/camelCase.js';
 import { encryptionService } from '../utils/encryption.js';
 import { getSignatureProviders } from '../signatures/index.js';
 import { getActiveKey } from '../services/platform-keys.js';
-import { exportPublicJwk } from '@cyclonedx/jsf';
+import { exportPublicJwk } from '@cyclonedx/sign';
 import {
   buildSlotCanonicalPayload,
   buildDeclarationsSubtree,

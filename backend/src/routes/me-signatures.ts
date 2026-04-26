@@ -56,7 +56,7 @@ import {
 } from '../storage/index.js';
 import type { StorageProviderName } from '../storage/types.js';
 import { verifyAttachmentMimeType } from '../utils/attachment-mime.js';
-import { JSF_ASYMMETRIC_ALGORITHMS } from '@cyclonedx/jsf';
+import { JSF_ASYMMETRIC_ALGORITHMS } from '@cyclonedx/sign/jsf';
 
 const router = Router();
 

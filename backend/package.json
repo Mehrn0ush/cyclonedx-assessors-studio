@@ -9,7 +9,6 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "postinstall": "npm --prefix packages/jsf run build",
     "build": "tsc && node scripts/copy-assets.mjs",
     "start": "node dist/index.js",
     "migrate": "tsx src/db/migrate.ts",
@@ -23,7 +22,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1029.0",
-    "@cyclonedx/jsf": "file:./packages/jsf",
+    "@cyclonedx/sign": "github:CycloneDX/cyclonedx-sign-javascript",
     "@electric-sql/pglite": "0.4.4",
     "@types/busboy": "1.5.4",
     "@types/pdfkit": "0.17.5",
