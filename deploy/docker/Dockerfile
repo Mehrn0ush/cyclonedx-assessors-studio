@@ -34,14 +34,11 @@ RUN npm run build
 FROM ${NODE_IMAGE} AS backend-build
 RUN apk add --no-cache python3 make g++
 WORKDIR /app/backend
-# Copy package manifests AND the local `@cyclonedx/jsf` workspace
-# package (file:./packages/jsf) so `npm ci` can resolve the file:
-# dependency and its postinstall hook (which builds the JSF dist
-# via tsc) succeeds. Skipping this COPY leaves packages/jsf/ absent
-# during install and the postinstall fails with `npm ci` unable to
-# run `npm --prefix packages/jsf run build`.
 COPY backend/package*.json ./
-COPY backend/packages ./packages
+# `@cyclonedx/sign` is installed from a git URL. npm runs the package's
+# `prepare: tsc` step automatically when fetching from git, which
+# produces dist/ inside node_modules/@cyclonedx/sign. Nothing extra
+# is required here.
 RUN npm ci
 COPY backend/ ./
 RUN npm run build
@@ -53,25 +50,23 @@ WORKDIR /app
 
 # Install production dependencies only (build tools needed for argon2 native compilation).
 #
-# `@cyclonedx/jsf` is a file:./packages/jsf local dependency. Its
-# postinstall invokes `tsc` which is a dev dependency and is not
-# installed under --omit=dev; running the postinstall here would
-# fail with "tsc: not found". Instead:
-#   1. Reuse the JSF dist that stage 2 already produced by copying
-#      the entire packages directory (including dist/) from the
-#      backend-build stage.
-#   2. Install with --ignore-scripts so the JSF postinstall does
-#      not re-fire and try to invoke the missing tsc.
-#   3. Rebuild argon2 explicitly — --ignore-scripts also skipped its
-#      native build, and argon2 is a runtime dep so it must be
-#      compiled against the image's Node version.
+# `@cyclonedx/sign` is installed from a git URL. Its `prepare: tsc`
+# step depends on TypeScript, which is a devDependency that is not
+# present under --omit=dev — so running prepare here would fail with
+# "tsc: not found". Instead, reuse the dist that stage 2 already
+# produced by copying the entire @cyclonedx/sign directory (including
+# its built dist/) from the backend-build stage, and install with
+# --ignore-scripts so prepare does not re-fire. Rebuild argon2
+# explicitly because --ignore-scripts also skipped its native build,
+# and argon2 is a runtime dep that must be compiled against the
+# image's Node version.
 COPY backend/package*.json ./backend/
-COPY --from=backend-build /app/backend/packages ./backend/packages
 RUN apk add --no-cache python3 make g++
 WORKDIR /app/backend
 RUN npm ci --omit=dev --ignore-scripts \
     && npm rebuild argon2 \
     && apk del python3 make g++
+COPY --from=backend-build /app/backend/node_modules/@cyclonedx/sign ./node_modules/@cyclonedx/sign
 WORKDIR /app
 
 # Copy compiled backend
