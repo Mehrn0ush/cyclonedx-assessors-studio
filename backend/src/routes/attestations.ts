@@ -471,9 +471,13 @@ router.get(
 //   - POST /:id/verify           (replaced by affirmation-level verify)
 //   - POST /:id/rescind          (replaced by affirmation rescind/reseal)
 //
-// The migration in db/migrate.ts drops the signature_* /
-// rescinded_* columns from attestation and revokes the legacy
-// attestations.verify and attestations.rescind permissions.
+// The legacy signature_* / rescinded_* columns and the
+// attestations.verify / attestations.rescind permission rows are
+// no longer present in the bootstrap SQL or the seed file. New
+// installs never see them. Any pre PR3.6 install that still
+// carries them is harmless — the orphan columns and permission
+// rows are unreferenced and can be cleaned up by hand if a
+// future migration step is added.
 // ---------------------------------------------------------------------------
 
 /**

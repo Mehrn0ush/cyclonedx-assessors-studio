@@ -3,7 +3,6 @@ import type { Request, Response, NextFunction } from 'express';
 import {
   hashApiKey,
   requireAuth,
-  requireRole,
   requirePermission,
   tryAuthenticate,
   getPermissionsForRole,
@@ -282,92 +281,11 @@ describe('Auth Middleware', () => {
     });
   });
 
-  describe('requireRole', () => {
-    it('should return 401 if no user is authenticated', () => {
-      const req = mockReq();
-      const res = mockRes();
-      const middleware = requireRole('admin');
-
-      middleware(req as any, res as any, mockNext);
-
-      expect(res.status).toHaveBeenCalledWith(401);
-      expect(mockNext).not.toHaveBeenCalled();
-    });
-
-    it('should pass if user role matches', () => {
-      const req = mockReq({
-        user: {
-          id: uuidv4(),
-          username: 'test',
-          email: 'test@example.com',
-          role: 'admin',
-          displayName: 'Test User',
-        },
-      });
-      const res = mockRes();
-      const middleware = requireRole('admin');
-
-      middleware(req as any, res as any, mockNext);
-
-      expect(mockNext).toHaveBeenCalled();
-      expect(res.status).not.toHaveBeenCalled();
-    });
-
-    it('should return 403 if user role does not match', () => {
-      const req = mockReq({
-        user: {
-          id: uuidv4(),
-          username: 'test',
-          email: 'test@example.com',
-          role: 'assessee',
-          displayName: 'Test User',
-        },
-      });
-      const res = mockRes();
-      const middleware = requireRole('admin');
-
-      middleware(req as any, res as any, mockNext);
-
-      expect(res.status).toHaveBeenCalledWith(403);
-      expect(mockNext).not.toHaveBeenCalled();
-    });
-
-    it('should pass if user role matches any of multiple required roles', () => {
-      const req = mockReq({
-        user: {
-          id: uuidv4(),
-          username: 'test',
-          email: 'test@example.com',
-          role: 'assessor',
-          displayName: 'Test User',
-        },
-      });
-      const res = mockRes();
-      const middleware = requireRole('admin', 'assessor', 'standards_manager');
-
-      middleware(req as any, res as any, mockNext);
-
-      expect(mockNext).toHaveBeenCalled();
-    });
-
-    it('should return 403 if user role does not match any required roles', () => {
-      const req = mockReq({
-        user: {
-          id: uuidv4(),
-          username: 'test',
-          email: 'test@example.com',
-          role: 'assessee',
-          displayName: 'Test User',
-        },
-      });
-      const res = mockRes();
-      const middleware = requireRole('admin', 'assessor');
-
-      middleware(req as any, res as any, mockNext);
-
-      expect(res.status).toHaveBeenCalledWith(403);
-    });
-  });
+  // The `requireRole` middleware was removed alongside its tests. The
+  // codebase enforces authorization through permission keys only (see
+  // memory note `feedback_permissions_only`), so any role gating now
+  // happens through `requirePermission` against the
+  // role_permission / permission tables.
 
   describe('getPermissionsForRole', () => {
     it('should return permission keys for a role', async () => {

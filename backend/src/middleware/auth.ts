@@ -163,27 +163,13 @@ export async function requireAuth(
   }
 }
 
-export function requireRole(...roles: string[]) {
-  return (req: AuthRequest, res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      res.status(401).json({ error: 'Authentication required' });
-      return;
-    }
-
-    if (!roles.includes(req.user.role)) {
-      logger.warn('Unauthorized access attempt', {
-        userId: req.user.id,
-        requiredRoles: roles,
-        userRole: req.user.role,
-        requestId: req.requestId,
-      });
-      res.status(403).json({ error: 'Insufficient permissions' });
-      return;
-    }
-
-    next();
-  };
-}
+// NOTE: A `requireRole(...roles)` middleware lived here previously and
+// gated routes by role name. It was removed deliberately. Authorization
+// in this codebase is permission keyed, not role keyed: roles are only
+// a convenience grouping of permission rows, and any new gate must use
+// `requirePermission(...)` against permission keys from the DB. See the
+// memory note `feedback_permissions_only` for the reasoning. Do not
+// reintroduce a role name based middleware.
 
 export async function getPermissionsForRole(roleKey: string): Promise<string[]> {
   const db = getDatabase();

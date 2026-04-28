@@ -9,8 +9,7 @@ Tests are organized by type and location:
 ```
 src/__tests__/
 ├── utils/
-│   ├── dateFormat.test.ts      # Date formatting utilities
-│   └── caseTransform.test.ts   # Case transformation utilities
+│   └── dateFormat.test.ts      # Date formatting utilities
 ├── stores/
 │   ├── auth.test.ts            # Auth store tests
 │   └── ui.test.ts              # UI store tests
@@ -77,21 +76,6 @@ Coverage includes:
 - Invalid date handling
 - Locale support
 - Edge cases
-
-#### `caseTransform.test.ts`
-
-Tests case transformation utilities:
-
-- `snakeToCamel()` - Convert snake_case to camelCase
-- `keysToCamel()` - Recursively convert object keys from snake_case to camelCase
-
-Coverage includes:
-
-- Simple and nested transformations
-- Arrays and deeply nested structures
-- Primitive values and Date objects
-- Empty objects/arrays
-- Edge cases (leading underscores, consecutive underscores)
 
 ### Store Tests
 

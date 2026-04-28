@@ -551,7 +551,9 @@ describe('Setup HTTP Routes', () => {
       const res = await agent.get('/api/v1/setup/standards-feed');
 
       if (await setupIsComplete()) {
-        // Gated after setup completes (requireSetupIncomplete).
+        // Gated after setup completes (requireSetupOr without a
+        // matching permission). Anonymous callers always get 403 once
+        // a first admin exists.
         expect(res.status).toBe(403);
         return;
       }

@@ -1,12 +1,14 @@
 /**
  * SignatureProvider abstraction.
  *
- * Assessors Studio today signs attestations using JSF (the CycloneDX
- * jsf-0.82 subschema). CycloneDX v2 is scheduled to add ITU-T X.590
- * (the JSON signature scheme, "JSS") as an alternate signature format,
- * so the route code never talks to a concrete library. It asks a
- * SignatureProvider to canonicalize, sign, and verify, and the registry
- * decides which implementation answers.
+ * Assessors Studio supports both CycloneDX signature formats through
+ * one provider interface. JSF (the CycloneDX jsf-0.82 subschema) is
+ * the format for CycloneDX 1.x. JSS (ITU-T X.590, the JSON signature
+ * scheme) is the format for CycloneDX 2.x. Route code never talks to
+ * a concrete library: it asks a SignatureProvider to canonicalize,
+ * sign, and verify, and the registry decides which implementation
+ * answers. The mapping from spec version to provider lives in
+ * `signatures/index.ts`.
  *
  * A provider owns:
  *   1. Canonicalization of the JSON payload (for JSF: JCS / RFC 8785;

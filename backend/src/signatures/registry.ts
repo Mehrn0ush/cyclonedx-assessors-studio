@@ -2,11 +2,14 @@
  * Registry of SignatureProviders.
  *
  * The registry is the only place the route code needs to look up a
- * provider by name. Today the JSF provider is registered at boot;
- * the JSS provider (ITU-T X.590) is scaffolded but throws until
- * CycloneDX v2 ships. Tests can swap in their own providers for
- * deterministic verification by calling register() before the route
- * imports.
+ * provider by name. The JSF provider (CycloneDX 1.x) and the JSS
+ * provider (CycloneDX 2.x, ITU-T X.590) are both registered at boot.
+ * Routes that already know which CycloneDX major version they are
+ * producing should resolve the provider through
+ * `getProviderForCycloneDxMajor()` in `signatures/index.ts` instead
+ * of reaching for a fixed name. Tests can swap in their own providers
+ * for deterministic verification by calling register() before the
+ * route imports.
  */
 
 import type { SignatureProvider } from './types.js';

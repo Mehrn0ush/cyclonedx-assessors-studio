@@ -1,10 +1,11 @@
 /**
  * SignatureProvider contract tests.
  *
- * These exercise the provider abstraction end-to-end against the
- * JSF provider, and confirm the registry behaves as advertised.
- * The JSS (ITU-T X.590) stub is validated to refuse every operation
- * with a recognizable error type until CycloneDX v2 lands.
+ * These exercise the provider abstraction end-to-end against the JSF
+ * provider (CycloneDX 1.x), the JSS provider (CycloneDX 2.x), and
+ * confirm the registry behaves as advertised. JSS is no longer a
+ * stub — the @cyclonedx/sign 0.4.0 release ships a working JSS / X.590
+ * implementation, so the provider is exercised the same way as JSF.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -15,10 +16,10 @@ import {
 
 import {
   JsfSignatureProvider,
-  JssNotImplementedError,
   JssSignatureProvider,
   SignatureProviderRegistry,
   createRegistry,
+  getProviderForCycloneDxMajor,
   getSignatureProviders,
 } from '../../signatures/index.js';
 
@@ -125,19 +126,47 @@ describe('JsfSignatureProvider', () => {
 describe('JssSignatureProvider', () => {
   const provider = new JssSignatureProvider();
 
-  it('identifies as jss with the x590 format and advertises no algorithms yet', () => {
+  it('identifies as jss and advertises the X.590 asymmetric algorithm set', () => {
     expect(provider.name).toBe('jss');
-    expect(provider.signatureFormat).toBe('x590');
-    expect(provider.supportedAlgorithms.length).toBe(0);
+    expect(provider.signatureFormat).toBe('jss');
+    expect(provider.supportedAlgorithms).toContain('ES256');
+    expect(provider.supportedAlgorithms).toContain('RS256');
+    expect(provider.supportedAlgorithms).toContain('Ed25519');
+    // JSS is asymmetric only — HMAC is intentionally absent.
+    expect(provider.supportedAlgorithms).not.toContain('HS256');
   });
 
-  it('throws a recognizable error on every operation', () => {
-    const payload = { a: 1 };
-    expect(() => provider.canonicalize(payload, { algorithm: 'noop' })).toThrow(JssNotImplementedError);
-    expect(() =>
-      provider.sign(payload, { algorithm: 'noop', privateKey: 'does-not-matter' }),
-    ).toThrow(JssNotImplementedError);
-    expect(() => provider.verify(payload)).toThrow(JssNotImplementedError);
+  it('produces canonical bytes and a hash for a given payload', () => {
+    const payload = samplePayload();
+    const { bytes, sha256Hex } = provider.canonicalize(payload, { algorithm: 'ES256' });
+    expect(bytes.length).toBeGreaterThan(0);
+    expect(sha256Hex).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('signs and verifies a JSON payload', async () => {
+    const { privateKey } = ecPair();
+    const signResult = await provider.sign(samplePayload(), {
+      algorithm: 'ES256',
+      privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+    });
+    expect(signResult.algorithm).toBe('ES256');
+    expect(signResult.signatureValue.length).toBeGreaterThan(0);
+    expect(signResult.canonicalHashSha256).toMatch(/^[0-9a-f]{64}$/);
+
+    const verifyResult = await provider.verify(signResult.envelope);
+    expect(verifyResult.valid).toBe(true);
+    expect(verifyResult.algorithm).toBe('ES256');
+    expect(verifyResult.reasons).toEqual([]);
+  });
+
+  it('rejects unsupported algorithms at sign time', async () => {
+    const { privateKey } = ecPair();
+    await expect(
+      provider.sign(samplePayload(), {
+        algorithm: 'NOT-A-REAL-ALG',
+        privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+      }),
+    ).rejects.toThrow(/does not support/);
   });
 });
 
@@ -200,5 +229,25 @@ describe('createRegistry / getSignatureProviders', () => {
     const b = getSignatureProviders();
     expect(a).toBe(b);
     expect(a.has('jsf')).toBe(true);
+  });
+});
+
+describe('getProviderForCycloneDxMajor', () => {
+  it('returns the JSF provider for CycloneDX 1.x', () => {
+    const reg = createRegistry();
+    const provider = getProviderForCycloneDxMajor(1, reg);
+    expect(provider.name).toBe('jsf');
+  });
+
+  it('returns the JSS provider for CycloneDX 2.x', () => {
+    const reg = createRegistry();
+    const provider = getProviderForCycloneDxMajor(2, reg);
+    expect(provider.name).toBe('jss');
+  });
+
+  it('throws when the requested provider is missing from the registry', () => {
+    const reg = new SignatureProviderRegistry();
+    reg.register(new JsfSignatureProvider());
+    expect(() => getProviderForCycloneDxMajor(2, reg)).toThrow(/not registered/);
   });
 });
