@@ -181,9 +181,14 @@ export interface SignatureProvider {
     signer: { algorithm: string; excludes?: string[]; signatureProperty?: string },
   ): CanonicalizedPayload;
 
-  /** Sign a JSON payload and return the resulting envelope. */
-  sign(payload: JsonObject, options: ProviderSignOptions): ProviderSignResult;
+  /**
+   * Sign a JSON payload and return the resulting envelope. Async so
+   * provider implementations are free to delegate to async crypto
+   * primitives (the bundled @cyclonedx/sign package switched to an
+   * async surface in 0.4.0 to support HSM and KMS backed signers).
+   */
+  sign(payload: JsonObject, options: ProviderSignOptions): Promise<ProviderSignResult>;
 
   /** Verify a signed envelope. */
-  verify(envelope: JsonObject, options?: ProviderVerifyOptions): ProviderVerifyResult;
+  verify(envelope: JsonObject, options?: ProviderVerifyOptions): Promise<ProviderVerifyResult>;
 }

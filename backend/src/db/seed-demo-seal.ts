@@ -144,21 +144,21 @@ async function createUserSignature(
  * supplied private key and returns the envelope + canonical hash
  * bundle ready to persist.
  */
-function buildDigitalSlotEnvelope(args: {
+async function buildDigitalSlotEnvelope(args: {
   affirmation: AffirmationRow;
   slot: SlotRow;
   identity: StoredSignatoryIdentity;
   privateKeyPem: string;
   publicKeyPem: string;
   algorithm: string;
-}): { envelope: Record<string, unknown>; canonicalHash: string } {
+}): Promise<{ envelope: Record<string, unknown>; canonicalHash: string }> {
   const canonicalPayload = buildSlotCanonicalPayload({
     affirmation: args.affirmation,
     slot: args.slot,
     identity: args.identity,
   });
   const provider = getSignatureProviders().getDefault();
-  const result = provider.sign(
+  const result = await provider.sign(
     canonicalPayload as unknown as Parameters<typeof provider.sign>[0],
     {
       algorithm: args.algorithm,
@@ -167,15 +167,16 @@ function buildDigitalSlotEnvelope(args: {
     },
   );
   const embeddedPublicJwk = exportPublicJwk(args.publicKeyPem);
+  // Mirror the route's slot envelope shape: signature object holds
+  // only JSF signaturecore fields. Application bookkeeping
+  // (signature_type, canonical_hash, signed_at) lives on the
+  // affirmation_signatory row.
   const envelope: Record<string, unknown> = {
     ...canonicalPayload,
     signature: {
-      type: 'digital',
       algorithm: args.algorithm,
       publicKey: embeddedPublicJwk,
       value: result.signatureValue,
-      canonicalPayloadHash: result.canonicalHashSha256,
-      signedAt: new Date().toISOString(),
     },
   };
   return { envelope, canonicalHash: result.canonicalHashSha256 };
@@ -316,7 +317,7 @@ export async function sealSsdfDemoAffirmation(): Promise<boolean> {
       label: 'Demo Digital Signature (SSDF)',
       payload: digitalPayload,
     });
-    const firstSlotResult = buildDigitalSlotEnvelope({
+    const firstSlotResult = await buildDigitalSlotEnvelope({
       affirmation,
       slot: firstSlot,
       identity: firstIdentity,
@@ -437,7 +438,7 @@ export async function sealSsdfDemoAffirmation(): Promise<boolean> {
     });
     const platformKey = await getActiveKey();
     const provider = getSignatureProviders().getDefault();
-    const declarationsSign = provider.sign(
+    const declarationsSign = await provider.sign(
       declarationsSubtree as unknown as Parameters<typeof provider.sign>[0],
       {
         algorithm: platformKey.algorithm,
@@ -453,7 +454,7 @@ export async function sealSsdfDemoAffirmation(): Promise<boolean> {
       platformKeyFingerprint: platformKey.fingerprint,
       sealedAtIso: sealedAt.toISOString(),
     });
-    const documentSign = provider.sign(
+    const documentSign = await provider.sign(
       documentPayload as unknown as Parameters<typeof provider.sign>[0],
       {
         algorithm: platformKey.algorithm,
@@ -635,7 +636,7 @@ async function sealAssessmentAttestations(
       assessorRef,
     });
 
-    const signResult = provider.sign(
+    const signResult = await provider.sign(
       cdxAttestation as unknown as Parameters<typeof provider.sign>[0],
       { algorithm, privateKey: privateKeyPem, publicKey: publicKeyPem },
     );

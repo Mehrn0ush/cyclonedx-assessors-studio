@@ -154,7 +154,7 @@ async function createDigitalSignature(
  * signatureValue plus the sha256 canonical hash ready to submit to
  * /sign.
  */
-function signSlotLocally(args: {
+async function signSlotLocally(args: {
   affirmationId: string;
   assessmentId: string;
   statement: string;
@@ -164,7 +164,7 @@ function signSlotLocally(args: {
   privateKeyPem: string;
   publicKeyPem: string;
   algorithm: string;
-}): { signatureValue: string; canonicalPayloadHash: string } {
+}): Promise<{ signatureValue: string; canonicalPayloadHash: string }> {
   const canonicalPayload = {
     affirmationId: args.affirmationId,
     assessmentId: args.assessmentId,
@@ -181,7 +181,7 @@ function signSlotLocally(args: {
   };
 
   const provider = getSignatureProviders().getDefault();
-  const result = provider.sign(canonicalPayload, {
+  const result = await provider.sign(canonicalPayload, {
     algorithm: args.algorithm,
     privateKey: args.privateKeyPem,
     publicKey: args.publicKeyPem,
@@ -629,7 +629,7 @@ describe('Affirmations HTTP Routes', () => {
       });
       const digital = await createDigitalSignature(admin, 'Dana Digital');
 
-      const { signatureValue, canonicalPayloadHash } = signSlotLocally({
+      const { signatureValue, canonicalPayloadHash } = await signSlotLocally({
         affirmationId,
         assessmentId,
         statement: 'Digital end-to-end.',
@@ -651,10 +651,14 @@ describe('Affirmations HTTP Routes', () => {
 
       expect(signRes.status).toBe(200);
       expect(signRes.body.data.signedAt).not.toBeNull();
+      // The signature object is a clean JSF signaturecore: algorithm,
+      // publicKey (JWK), value. Application bookkeeping such as the
+      // signature kind, canonical hash, and signed_at lives on the
+      // affirmation_signatory row, not inside the signature object.
       const sigBlock = (signRes.body.data.signature as { signature: Record<string, unknown> }).signature;
-      expect(sigBlock.type).toBe('digital');
       expect(sigBlock.algorithm).toBe('RS256');
       expect(sigBlock.value).toBe(signatureValue);
+      expect(sigBlock.publicKey).toBeDefined();
     });
   });
 
@@ -820,7 +824,7 @@ describe('Affirmations HTTP Routes', () => {
         requiredTitle: 'CTO',
       });
       const digital = await createDigitalSignature(admin, 'Dana Digital');
-      const { signatureValue, canonicalPayloadHash } = signSlotLocally({
+      const { signatureValue, canonicalPayloadHash } = await signSlotLocally({
         affirmationId,
         assessmentId,
         statement: 'Digital verify.',

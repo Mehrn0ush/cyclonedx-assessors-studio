@@ -1027,15 +1027,16 @@ router.post(
         // shapes for the embedded publicKey; a `{ pem: ... }` wrapper
         // throws "Unsupported public key input" during verify.
         const embeddedPublicJwk = exportPublicJwk(digital.publicKeyPem);
+        // Keep the signature object to JSF signaturecore fields only
+        // (algorithm, publicKey, value). Application bookkeeping
+        // (signature_type, canonical_hash, signed_at, signed_by)
+        // lives on the affirmation_signatory row.
         signatureEnvelope = {
           ...canonicalPayload,
           signature: {
-            type: 'digital',
             algorithm: digital.signatureAlgorithm,
             publicKey: embeddedPublicJwk,
             value: data.signatureValue,
-            canonicalPayloadHash: data.canonicalPayloadHash ?? canonicalHash,
-            signedAt: new Date().toISOString(),
           },
         };
 
@@ -1273,7 +1274,7 @@ router.post(
     const platformKey = await getActiveKey();
     const provider = getSignatureProviders().getDefault();
 
-    const declarationsSign = provider.sign(
+    const declarationsSign = await provider.sign(
       declarationsSubtree as unknown as Parameters<typeof provider.sign>[0],
       {
         algorithm: platformKey.algorithm,
@@ -1297,7 +1298,7 @@ router.post(
       sealedAtIso: sealedAt.toISOString(),
     });
 
-    const documentSign = provider.sign(
+    const documentSign = await provider.sign(
       documentPayload as unknown as Parameters<typeof provider.sign>[0],
       {
         algorithm: platformKey.algorithm,
@@ -1398,14 +1399,22 @@ router.post(
       });
       const envelope = slot.signature_json as Record<string, unknown>;
       const signatureBlock = envelope.signature as Record<string, unknown> | undefined;
-      const sigType = signatureBlock?.type;
+      // A digital signaturecore is identifiable by the JSF `value`
+      // field carrying a non-empty string (the base64url signature).
+      // Electronic envelopes never populate `value`; they carry
+      // signedName, jurisdiction, legalIntent, etc. instead. Using
+      // shape detection instead of an envelope `type` field keeps the
+      // signature object spec-clean (JSF signaturecore fields only).
+      const isDigital =
+        typeof signatureBlock?.value === 'string' && signatureBlock.value.length > 0;
+      const sigType: 'digital' | 'electronic' = isDigital ? 'digital' : 'electronic';
       // Drift detection must re-canonicalize with the same algorithm
       // that was used when the slot was signed. Digital slots carry
       // the algorithm inside the envelope (the caller chose it when
       // computing signatureValue). Electronic slots have no signing
       // algorithm, so we fall back to the platform's stable stamp.
       const hashAlgorithm =
-        sigType === 'digital' && typeof signatureBlock?.algorithm === 'string'
+        isDigital && typeof signatureBlock?.algorithm === 'string'
           ? (signatureBlock.algorithm as string)
           : 'ES256';
       const { sha256Hex } = provider.canonicalize(
@@ -1418,11 +1427,11 @@ router.post(
         issues.push(`Slot ${slot.id} canonical payload has drifted since signing`);
       }
 
-      if (sigType === 'digital') {
+      if (isDigital) {
         // For digital slots, use the SignatureProvider's verify via
         // the full envelope. The envelope carries publicKey.pem and
         // value, which JSF can walk directly.
-        const result = provider.verify(envelope as unknown as Parameters<typeof provider.verify>[0], {
+        const result = await provider.verify(envelope as unknown as Parameters<typeof provider.verify>[0], {
           requireEmbeddedPublicKey: false,
         });
         if (!result.valid) {
@@ -1442,7 +1451,7 @@ router.post(
           slotId: slot.id,
           valid: !drifted,
           drifted,
-          signatureType: sigType ?? 'electronic',
+          signatureType: sigType,
         });
       }
     }
@@ -1456,7 +1465,7 @@ router.post(
       issues.push('Platform key that sealed this affirmation could not be located by fingerprint');
     } else if (affirmation.declarations_signature_json) {
       const envelope = affirmation.declarations_signature_json as Record<string, unknown>;
-      const result = provider.verify(envelope as unknown as Parameters<typeof provider.verify>[0], {
+      const result = await provider.verify(envelope as unknown as Parameters<typeof provider.verify>[0], {
         publicKey: platformKey.publicKeyPem,
       });
       declarationsValid = result.valid;
@@ -1471,7 +1480,7 @@ router.post(
     let documentValid = false;
     if (platformKey && affirmation.document_signature_json) {
       const envelope = affirmation.document_signature_json as Record<string, unknown>;
-      const result = provider.verify(envelope as unknown as Parameters<typeof provider.verify>[0], {
+      const result = await provider.verify(envelope as unknown as Parameters<typeof provider.verify>[0], {
         publicKey: platformKey.publicKeyPem,
       });
       documentValid = result.valid;

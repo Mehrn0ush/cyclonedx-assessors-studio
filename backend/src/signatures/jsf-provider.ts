@@ -6,7 +6,11 @@
  *
  * The implementation defers every crypto and canonicalization concern
  * to @cyclonedx/sign so that a future WebCrypto or HSM swap lives in
- * exactly one place — the signing library itself.
+ * exactly one place: the signing library itself.
+ *
+ * The library's public sign() / verify() are async (HSM and KMS
+ * backed signers are first class in 0.4.0), so the provider methods
+ * are async too. The SignatureProvider interface mirrors that.
  */
 
 import { createHash } from 'node:crypto';
@@ -17,12 +21,16 @@ import {
   type KeyInput as JsfKeyInput,
 } from '@cyclonedx/sign';
 import {
-  computeCanonicalInput,
+  computeCanonicalInputs,
   sign as jsfSign,
   verify as jsfVerify,
+  type JsfAlgorithm,
+  type JsfCanonicalInputState,
   type JsfSigner,
+  type JsfSignerInput,
   type JsfSignOptions,
   type JsfVerifyOptions,
+  type JsfVerifyResult,
 } from '@cyclonedx/sign/jsf';
 
 import type {
@@ -53,23 +61,38 @@ export class JsfSignatureProvider implements SignatureProvider {
     payload: JsonObject,
     signer: { algorithm: string; excludes?: string[]; signatureProperty?: string },
   ): CanonicalizedPayload {
-    const bytes = computeCanonicalInput(
+    const descriptor: Omit<JsfSigner, 'value'> = {
+      algorithm: signer.algorithm as JsfAlgorithm,
+      ...(signer.excludes ? { excludes: [...signer.excludes] } : {}),
+    };
+    const state: JsfCanonicalInputState = {
+      mode: 'single',
+      signers: [descriptor],
+      finalized: [false],
+      ...(signer.excludes ? { excludes: [...signer.excludes] } : {}),
+    };
+    const inputs = computeCanonicalInputs(
       payload as JsfJsonObject,
-      {
-        algorithm: signer.algorithm,
-        ...(signer.excludes ? { excludes: signer.excludes } : {}),
-      } as Omit<JsfSigner, 'value'> & { value?: string },
+      state,
       signer.signatureProperty,
     );
+    const bytes = inputs[0];
+    if (!bytes) {
+      // Should be impossible: state.signers has exactly one entry.
+      throw new Error('JSF computeCanonicalInputs returned no input bytes');
+    }
     return {
       bytes,
       sha256Hex: sha256Hex(bytes),
     };
   }
 
-  sign(payload: JsonObject, options: ProviderSignOptions): ProviderSignResult {
+  async sign(
+    payload: JsonObject,
+    options: ProviderSignOptions,
+  ): Promise<ProviderSignResult> {
     const jsfOptions = mapSignOptions(options);
-    const envelope = jsfSign(payload as JsfJsonObject, jsfOptions);
+    const envelope = await jsfSign(payload as JsfJsonObject, jsfOptions);
 
     // Recompute the canonical bytes so we can return them to the caller
     // alongside the envelope. Both callers and audit logs benefit from
@@ -100,13 +123,18 @@ export class JsfSignatureProvider implements SignatureProvider {
     return result;
   }
 
-  verify(envelope: JsonObject, options: ProviderVerifyOptions = {}): ProviderVerifyResult {
+  async verify(
+    envelope: JsonObject,
+    options: ProviderVerifyOptions = {},
+  ): Promise<ProviderVerifyResult> {
     const jsfOptions: JsfVerifyOptions = {};
     if (options.publicKey !== undefined) {
       jsfOptions.publicKey = toJsfKeyInput(options.publicKey);
     }
     if (options.allowedAlgorithms) {
-      jsfOptions.allowedAlgorithms = [...options.allowedAlgorithms];
+      // Trust caller-supplied identifiers as JSF algorithm strings;
+      // unknown values fail closed during verify.
+      jsfOptions.allowedAlgorithms = [...options.allowedAlgorithms] as JsfAlgorithm[];
     }
     if (options.requireEmbeddedPublicKey) {
       jsfOptions.requireEmbeddedPublicKey = true;
@@ -115,16 +143,47 @@ export class JsfSignatureProvider implements SignatureProvider {
       jsfOptions.signatureProperty = options.signatureProperty;
     }
 
-    const jsfResult = jsfVerify(envelope as JsfJsonObject, jsfOptions);
+    let jsfResult: JsfVerifyResult;
+    try {
+      jsfResult = await jsfVerify(envelope as JsfJsonObject, jsfOptions);
+    } catch (err) {
+      // The JSF library throws on caller bugs (malformed envelope,
+      // missing key, unknown algorithm). Surface those as a structured
+      // failure so the route layer can render a reason without
+      // unwrapping a thrown Error.
+      return {
+        valid: false,
+        reasons: [(err as Error).message],
+      };
+    }
+
+    // Single-mode is what the provider supports, so map the first
+    // signer's per-signer fields to the flat ProviderVerifyResult
+    // shape and concatenate envelope-level errors with that signer's
+    // errors so the caller sees a unified reason list.
+    const firstSigner = jsfResult.signers[0];
     const out: ProviderVerifyResult = {
       valid: jsfResult.valid,
-      reasons: [...jsfResult.errors],
+      reasons: [
+        ...jsfResult.errors,
+        ...(firstSigner ? firstSigner.errors : []),
+      ],
     };
-    if (jsfResult.algorithm !== undefined) out.algorithm = jsfResult.algorithm;
-    if (jsfResult.publicKey !== undefined) out.publicKey = jsfResult.publicKey;
-    if (jsfResult.keyId !== undefined) out.keyId = jsfResult.keyId;
-    if (jsfResult.certificatePath !== undefined) out.certificatePath = [...jsfResult.certificatePath];
-    if (jsfResult.excludes !== undefined) out.excludes = [...jsfResult.excludes];
+    if (firstSigner?.algorithm !== undefined) {
+      out.algorithm = firstSigner.algorithm;
+    }
+    if (firstSigner?.publicKey !== undefined) {
+      out.publicKey = firstSigner.publicKey;
+    }
+    if (firstSigner?.keyId !== undefined) {
+      out.keyId = firstSigner.keyId;
+    }
+    if (firstSigner?.certificatePath !== undefined) {
+      out.certificatePath = [...firstSigner.certificatePath];
+    }
+    if (jsfResult.excludes !== undefined) {
+      out.excludes = [...jsfResult.excludes];
+    }
     return out;
   }
 }
@@ -157,21 +216,33 @@ function mapSignOptions(options: ProviderSignOptions): JsfSignOptions {
   if (!isSupportedAlgorithm(options.algorithm)) {
     throw new Error(`JSF provider does not support algorithm: ${options.algorithm}`);
   }
-  const jsfOptions: JsfSignOptions = {
+  // 0.4.0 nests per-signer fields under a `signer` object on
+  // JsfSignOptions. Top-level options on JsfSignOptions cover wrapper
+  // concerns that apply across signers (excludes, extensions,
+  // signatureProperty, mode).
+  const signer: JsfSignerInput = {
     algorithm: options.algorithm,
     privateKey: toJsfKeyInput(options.privateKey),
   };
   if (options.publicKey !== undefined) {
-    if (options.publicKey === false || options.publicKey === 'auto') {
-      jsfOptions.publicKey = options.publicKey;
-    } else {
-      jsfOptions.publicKey = toJsfKeyInput(options.publicKey);
+    if (options.publicKey === false) {
+      signer.publicKey = false;
+    } else if (options.publicKey !== 'auto') {
+      // 'auto' is the library default when publicKey is unset; we
+      // omit the field rather than passing a sentinel string.
+      signer.publicKey = toJsfKeyInput(options.publicKey);
     }
   }
-  if (options.keyId !== undefined) jsfOptions.keyId = options.keyId;
-  if (options.certificatePath !== undefined) jsfOptions.certificatePath = [...options.certificatePath];
+  if (options.keyId !== undefined) signer.keyId = options.keyId;
+  if (options.certificatePath !== undefined) {
+    signer.certificatePath = [...options.certificatePath];
+  }
+
+  const jsfOptions: JsfSignOptions = { signer };
   if (options.excludes !== undefined) jsfOptions.excludes = [...options.excludes];
-  if (options.signatureProperty !== undefined) jsfOptions.signatureProperty = options.signatureProperty;
+  if (options.signatureProperty !== undefined) {
+    jsfOptions.signatureProperty = options.signatureProperty;
+  }
   return jsfOptions;
 }
 

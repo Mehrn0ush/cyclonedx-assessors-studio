@@ -52,14 +52,14 @@ export class JssSignatureProvider implements SignatureProvider {
     throw new JssNotImplementedError();
   }
 
-  sign(_payload: JsonObject, _options: ProviderSignOptions): ProviderSignResult {
+  sign(_payload: JsonObject, _options: ProviderSignOptions): Promise<ProviderSignResult> {
     throw new JssNotImplementedError();
   }
 
   verify(
     _envelope: JsonObject,
     _options?: ProviderVerifyOptions,
-  ): ProviderVerifyResult {
+  ): Promise<ProviderVerifyResult> {
     throw new JssNotImplementedError();
   }
 }
