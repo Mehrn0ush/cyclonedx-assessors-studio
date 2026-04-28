@@ -65,46 +65,6 @@ jobs:
       - name: Rebuild native modules
         run: npm rebuild argon2
 
-      # @cyclonedx/sign is installed from a git URL. Under
-      # `npm ci --ignore-scripts` the package's `prepare: tsc` step is
-      # suppressed, so node_modules/@cyclonedx/sign ships without
-      # dist/. Install its devDependencies in place and run tsc so the
-      # compiled JavaScript and type declarations are present before
-      # the typecheck step runs.
-      - name: Build @cyclonedx/sign (git dependency)
-        run: |
-          cd node_modules/@cyclonedx/sign
-          # The package's `files` array does not include tsconfig.json,
-          # so the installed package has src/ but no project file for
-          # tsc to discover. Reproduce the upstream tsconfig inline.
-          cat > tsconfig.json << 'EOF'
-          {
-            "compilerOptions": {
-              "target": "ES2022",
-              "module": "NodeNext",
-              "moduleResolution": "NodeNext",
-              "strict": true,
-              "noUncheckedIndexedAccess": true,
-              "noImplicitOverride": true,
-              "esModuleInterop": true,
-              "skipLibCheck": true,
-              "forceConsistentCasingInFileNames": true,
-              "resolveJsonModule": true,
-              "declaration": true,
-              "declarationMap": true,
-              "sourceMap": true,
-              "outDir": "./dist",
-              "rootDir": "./src",
-              "lib": ["ES2022"],
-              "types": ["node"]
-            },
-            "include": ["src/**/*"],
-            "exclude": ["node_modules", "dist", "test"]
-          }
-          EOF
-          npm install --no-save --no-audit --no-fund --no-package-lock --ignore-scripts
-          npx tsc
-
       - name: Typecheck
         run: npx tsc --noEmit
 
@@ -146,43 +106,6 @@ jobs:
 
       - name: Rebuild native modules
         run: npm rebuild argon2
-
-      # As in the build job: --ignore-scripts skipped the
-      # @cyclonedx/sign git package's `prepare: tsc`. Install its
-      # devDependencies in place and produce dist/ before tests run.
-      - name: Build @cyclonedx/sign (git dependency)
-        run: |
-          cd node_modules/@cyclonedx/sign
-          # The package's `files` array does not include tsconfig.json,
-          # so the installed package has src/ but no project file for
-          # tsc to discover. Reproduce the upstream tsconfig inline.
-          cat > tsconfig.json << 'EOF'
-          {
-            "compilerOptions": {
-              "target": "ES2022",
-              "module": "NodeNext",
-              "moduleResolution": "NodeNext",
-              "strict": true,
-              "noUncheckedIndexedAccess": true,
-              "noImplicitOverride": true,
-              "esModuleInterop": true,
-              "skipLibCheck": true,
-              "forceConsistentCasingInFileNames": true,
-              "resolveJsonModule": true,
-              "declaration": true,
-              "declarationMap": true,
-              "sourceMap": true,
-              "outDir": "./dist",
-              "rootDir": "./src",
-              "lib": ["ES2022"],
-              "types": ["node"]
-            },
-            "include": ["src/**/*"],
-            "exclude": ["node_modules", "dist", "test"]
-          }
-          EOF
-          npm install --no-save --no-audit --no-fund --no-package-lock --ignore-scripts
-          npx tsc
 
       - name: Run tests with coverage
         run: npx vitest run --reporter=verbose --coverage

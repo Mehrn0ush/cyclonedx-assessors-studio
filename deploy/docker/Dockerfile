@@ -35,10 +35,6 @@ FROM ${NODE_IMAGE} AS backend-build
 RUN apk add --no-cache python3 make g++
 WORKDIR /app/backend
 COPY backend/package*.json ./
-# `@cyclonedx/sign` is installed from a git URL. npm runs the package's
-# `prepare: tsc` step automatically when fetching from git, which
-# produces dist/ inside node_modules/@cyclonedx/sign. Nothing extra
-# is required here.
 RUN npm ci
 COPY backend/ ./
 RUN npm run build
@@ -48,25 +44,16 @@ RUN npm run build
 FROM ${NODE_IMAGE} AS production
 WORKDIR /app
 
-# Install production dependencies only (build tools needed for argon2 native compilation).
-#
-# `@cyclonedx/sign` is installed from a git URL. Its `prepare: tsc`
-# step depends on TypeScript, which is a devDependency that is not
-# present under --omit=dev — so running prepare here would fail with
-# "tsc: not found". Instead, reuse the dist that stage 2 already
-# produced by copying the entire @cyclonedx/sign directory (including
-# its built dist/) from the backend-build stage, and install with
-# --ignore-scripts so prepare does not re-fire. Rebuild argon2
-# explicitly because --ignore-scripts also skipped its native build,
-# and argon2 is a runtime dep that must be compiled against the
-# image's Node version.
+# Install production dependencies only. Build tools are needed for
+# argon2 native compilation. argon2 is rebuilt explicitly because
+# --ignore-scripts skips its native build, and argon2 is a runtime
+# dep that must be compiled against the image's Node version.
 COPY backend/package*.json ./backend/
 RUN apk add --no-cache python3 make g++
 WORKDIR /app/backend
 RUN npm ci --omit=dev --ignore-scripts \
     && npm rebuild argon2 \
     && apk del python3 make g++
-COPY --from=backend-build /app/backend/node_modules/@cyclonedx/sign ./node_modules/@cyclonedx/sign
 WORKDIR /app
 
 # Copy compiled backend
