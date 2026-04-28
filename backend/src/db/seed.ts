@@ -138,12 +138,9 @@ export async function seedDefaultRolesAndPermissions(
   // on the default of pulling from getDatabase().
   const db = dbOverride ?? getDatabase();
 
-  // Idempotency check: skip only if roles have been seeded. We used to
-  // check for the presence of any permission, but the Sprint 4 migration
-  // block in migrate.ts upserts two permissions before this runs, which
-  // caused the seed to bail out on fresh installs and leave the DB
-  // without any roles. Roles are only ever inserted by this seeder, so
-  // their presence is a reliable "already done" signal.
+  // Idempotency check: skip only if roles have been seeded. Roles are
+  // only ever inserted by this seeder, so their presence is a reliable
+  // "already done" signal across re-runs.
   const existingRoles = await db
     .selectFrom('role')
     .select(db.fn.count<number>('id').as('count'))
@@ -156,12 +153,9 @@ export async function seedDefaultRolesAndPermissions(
 
   logger.info('Seeding default permissions and roles...');
 
-  // Insert permissions. The Sprint 4 migration block pre-inserts two
-  // permissions (evidence.view_all, assessments.view_all) so those may
-  // already exist when we reach this point on a fresh install. Use an
-  // idempotent upsert and reload the canonical ids for all permissions
-  // after the write so the role_permission joins below work regardless
-  // of who inserted the row first.
+  // Insert permissions. ON CONFLICT DO NOTHING keeps the seed
+  // idempotent across re-runs and across test suites that pre-create
+  // a subset of the permission set.
   const permissionMap = new Map<string, string>();
   for (const perm of DEFAULT_PERMISSIONS) {
     const id = uuidv4();
