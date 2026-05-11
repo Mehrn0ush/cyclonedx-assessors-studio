@@ -37,7 +37,7 @@
     "express-rate-limit": "8.3.2",
     "helmet": "8.1.0",
     "jsonwebtoken": "9.0.3",
-    "kysely": "0.28.15",
+    "kysely": "0.28.17",
     "kysely-pglite": "0.6.1",
     "nodemailer": "8.0.5",
     "pdfkit": "0.18.0",
