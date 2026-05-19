@@ -64,7 +64,14 @@ Status legend:
 | Attestations: RBAC matrix (create, edit, export, view) | DONE | same spec |
 | Attestations: sign via affirmation flow | PLANNED | belongs in affirmations spec (PR3 moved signing to affirmation layer) |
 | Attestations: drift detection on re-canonicalization | PLANNED | needs platform-key signing prerequisite |
-| Affirmations: create, add slot, sign slot, rescind | PLANNED |
+| Affirmations: create, edit, delete (unsealed), one-per-assessment guard | DONE | `specs/affirmations/lifecycle.spec.ts` |
+| Affirmations: add slot, delete unsigned slot, pin slot to user | DONE | same spec |
+| Affirmations: sign (electronic), seal, verify 3-layer report | DONE | same spec |
+| Affirmations: sealed = immutable (edit / delete / add-slot all 409) | DONE | same spec |
+| Affirmations: rescind sealed; cannot rescind unsealed; verify reports rescinded | DONE | same spec |
+| Affirmations: RBAC (assessor/assessee/standards_* cannot manage) | DONE | same spec |
+| Affirmations: digital signing (caller-supplied JSF signatureValue) | PLANNED | requires generating EC P-256 key pair + signing canonical hash in the test, out of E2E scope |
+| Affirmations: drifted=true after canonical payload mutation | PLANNED | requires direct DB mutation (sealed slot is locked by route); belongs in backend unit suite, not E2E |
 | Claims: CRUD + link to evidence and assessment requirement | PLANNED |
 | Tags admin: CRUD + color picker | PLANNED |
 | Notification rules: CRUD | PLANNED |
