@@ -36,7 +36,7 @@ Status legend:
 | Notifications list (admin + assessor) | DONE | `specs/admin/notifications.spec.ts` |
 | Webhooks: admin opens view, non-admin 403 | DONE | `specs/admin/webhooks.spec.ts` |
 
-## Phase 2 (in progress)
+## Phase 2 (shipped)
 
 | Surface | Status | Notes |
 | --- | --- | --- |
@@ -78,20 +78,20 @@ Status legend:
 | Claims: validation (missing required, invalid uuid, 404 unknown) | DONE | same spec |
 | Claims: RBAC matrix | DONE | same spec |
 | Claims: link mitigation strategies | PLANNED | route reads them but population mechanism is elsewhere in the stack |
-| Tags admin: CRUD + color picker | PLANNED |
-| Notification rules: CRUD | PLANNED |
-| Chat integrations: CRUD + send-test stub | PLANNED |
-| Webhooks: CRUD + delivery log pagination + retry | PLANNED |
-| Audit log: filters (user, action, entity, date range) | PLANNED |
-| Settings: profile edit, password change, language switch, theme | PLANNED |
-| Invites: issue, copy token, redeem, expired, revoked | PLANNED |
-| Platform keys: list + rotate with confirm | PLANNED |
-| Encryption: key status + re-encryption run | PLANNED |
-| Assessment: archive + reopen | PLANNED |
-| Assessment: declarations subview | PLANNED |
-| Assessment: assessor/assessee assignment flow | PLANNED |
-| User profile: change-password from settings | PLANNED |
-| User profile: profile fields persist | PLANNED |
+| Tags admin: CRUD + color picker | DONE | `specs/admin/tags.spec.ts` — CRUD, duplicate 409, idempotent delete, autocomplete, RBAC |
+| Notification rules: CRUD | DONE | `specs/admin/notification-rules.spec.ts` — user-owned CRUD + admin-only global rules RBAC |
+| Chat integrations: CRUD + send-test stub | DONE | `specs/admin/chat-integrations.spec.ts` — platform URL validation, test endpoint, deliveries pagination, RBAC |
+| Webhooks: CRUD + delivery log pagination + retry | DONE | `specs/admin/webhooks-full.spec.ts` — full CRUD, private URL reject, secret regenerate, enable/disable, test emit, deliveries paginated |
+| Audit log: filters (user, action, entity, date range) | DONE | `specs/admin/audit-filters.spec.ts` — entityType, action, entity-scoped, catalog, ordering |
+| Settings: profile edit, password change, language switch, theme | PARTIAL | `specs/settings/profile.spec.ts` — profile patch + change-password (wrong/reuse/policy/success); language and theme deferred to Phase 3 (frontend-only) |
+| Invites: issue, copy token, redeem, expired, revoked | DONE | `specs/admin/invites.spec.ts` — issue (token returned once), list with derived status, revoke 204 idempotent, register-with-bad-token rejected, email-configured boolean, RBAC |
+| Platform keys: list + rotate with confirm | DONE | `specs/admin/platform-keys.spec.ts` — list, active, rotate (Ed25519 + bad algo), fingerprint changes, RBAC |
+| Encryption: key status + re-encryption run | DONE | `specs/admin/encryption.spec.ts` — status envelope, conditional rotate (200 with master key, 400 in passthrough), RBAC |
+| Assessment: archive + reopen | DONE | `specs/assessments/archive-reopen.spec.ts` — archive only from complete, 409 double-archive, reopen back to in_progress, archived rejects mutations |
+| Assessment: assessor/assessee assignment flow | DONE | `specs/assessments/assignment.spec.ts` — sync semantics, clearing, omission preserves, uuid validation, post-reopen reassignment |
+| Assessment: declarations subview | PLANNED | belongs in affirmations UI spec |
+| User profile: change-password from settings | DONE | covered in `specs/settings/profile.spec.ts` |
+| User profile: profile fields persist | DONE | covered in `specs/settings/profile.spec.ts` |
 
 ## Phase 3 (planned, edge + i18n + a11y)
 
@@ -127,6 +127,13 @@ Status legend:
 
 Phase 1 total tests: ~50 (varies by role-fanout in `users/create-user.spec.ts`).
 
-Phase 2 will add roughly 120 tests, Phase 3 roughly 80. Target at
-"near 100%" is ~250 tests across the suite. The denominator for
-"100%" is the union of user-visible flows, not lines of code.
+Phase 2 total tests: ~200 (standards lifecycle 22, entities lifecycle
+28, evidence lifecycle 19, attestations lifecycle 16, affirmations
+lifecycle 25, claims lifecycle 23, tags 9, notification-rules 6,
+audit-filters 5, chat-integrations 11, webhooks-full 12, invites 9,
+platform-keys 6, encryption 4, archive-reopen 8, assignment 6,
+settings-profile 7).
+
+Phase 3 will add roughly 80 more. Target at "near 100%" is ~330 tests
+across the suite. The denominator for "100%" is the union of
+user-visible flows, not lines of code.
