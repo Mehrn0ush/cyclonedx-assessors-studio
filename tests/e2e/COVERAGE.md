@@ -45,11 +45,12 @@ Status legend:
 | Standards: duplicate any state → new draft | DONE | same spec |
 | Standards: retire path (published → retired) | DONE | same spec |
 | Standards: import from CycloneDX feed URL | PLANNED | hits /api/v1/setup/import-standard with a trusted URL |
-| Entities: create each of 8 entity types | PLANNED | organization, business_unit, team, product, product_version, component, service, project |
-| Entities: parent/child hierarchy edit | PLANNED | uses the relationships graph |
-| Entities: producer/consumer perspective toggle | PLANNED |
-| Entities: tag add/remove | PLANNED |
-| Entities: archive + restore | PLANNED |
+| Entities: create each of 8 entity types | DONE | `specs/entities/lifecycle.spec.ts` |
+| Entities: 8 relationship types + producer/consumer perspective | DONE | same spec |
+| Entities: tag add / replace | DONE | same spec |
+| Entities: archive + restore + state filter | DONE | same spec |
+| Entities: search and entity_type filter | DONE | same spec |
+| Entities: RBAC matrix | DONE | same spec |
 | Projects: edit, archive, list assessments under project | PLANNED |
 | Evidence: file upload (multipart), download, classification, expiresOn | PLANNED |
 | Evidence: add note, submit for review, accept, reject | PLANNED |
