@@ -36,13 +36,15 @@ Status legend:
 | Notifications list (admin + assessor) | DONE | `specs/admin/notifications.spec.ts` |
 | Webhooks: admin opens view, non-admin 403 | DONE | `specs/admin/webhooks.spec.ts` |
 
-## Phase 2 (planned, not yet implemented)
+## Phase 2 (in progress)
 
 | Surface | Status | Notes |
 | --- | --- | --- |
-| Standards: draft → review → published workflow | PLANNED | standards_manager submits, standards_approver approves, admin sees both |
+| Standards: draft → in_review → published workflow | DONE | `specs/standards/lifecycle.spec.ts` — full state machine, RBAC matrix across all 5 roles, state-machine guards |
+| Standards: requirement CRUD on a draft | DONE | same spec — add / edit / delete |
+| Standards: duplicate any state → new draft | DONE | same spec |
+| Standards: retire path (published → retired) | DONE | same spec |
 | Standards: import from CycloneDX feed URL | PLANNED | hits /api/v1/setup/import-standard with a trusted URL |
-| Standards: requirement CRUD | PLANNED | covers the inner table inside StandardDetailView |
 | Entities: create each of 8 entity types | PLANNED | organization, business_unit, team, product, product_version, component, service, project |
 | Entities: parent/child hierarchy edit | PLANNED | uses the relationships graph |
 | Entities: producer/consumer perspective toggle | PLANNED |
