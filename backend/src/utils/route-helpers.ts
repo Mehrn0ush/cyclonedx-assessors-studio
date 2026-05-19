@@ -29,16 +29,18 @@ export function asyncHandler(
   fn: (req: Request, res: Response) => Promise<void>
 ): (req: Request, res: Response) => void {
   return (req: Request, res: Response) => {
-    try {
-      void fn(req, res).catch((error) => {
-        const requestId = (req as RequestWithId).requestId;
-        logger.error('Unhandled route error', { error, requestId });
-        res.status(500).json({ error: 'Internal server error' });
-      });
-    } catch (error) {
+    const handleError = (error: unknown): void => {
+      if (res.headersSent) return;
+      if (handleValidationError(res, error)) return;
       const requestId = (req as RequestWithId).requestId;
       logger.error('Unhandled route error', { error, requestId });
       res.status(500).json({ error: 'Internal server error' });
+    };
+
+    try {
+      void fn(req, res).catch(handleError);
+    } catch (error) {
+      handleError(error);
     }
   };
 }

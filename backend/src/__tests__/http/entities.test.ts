@@ -95,6 +95,68 @@ describe('Entities HTTP Routes', () => {
       expect(res.body.pagination.offset).toBe(2);
     });
 
+    /**
+     * Regression test for issue #21:
+     * https://github.com/CycloneDX/cyclonedx-assessors-studio/issues/21
+     *
+     * Limit of 100 is the documented maximum and must succeed; limit of 101
+     * exceeds the cap. Before the fix, the Zod validation error from
+     * validatePagination() was caught by the route's local try/catch and
+     * converted into a 500 "Internal server error" response. The contract is
+     * that out-of-range pagination input is a client error and must return
+     * 400 with a structured details payload, not 500.
+     */
+    describe('pagination bounds (issue #21)', () => {
+      it('should accept limit=100 (boundary, inclusive)', async () => {
+        const agent = await loginAs('admin');
+
+        const res = await agent.get('/api/v1/entities?limit=100');
+
+        expect(res.status).toBe(200);
+        expect(res.body.pagination.limit).toBe(100);
+      });
+
+      it('should reject limit=101 with 400, not 500', async () => {
+        const agent = await loginAs('admin');
+
+        const res = await agent.get('/api/v1/entities?limit=101');
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBe('Invalid input');
+        expect(Array.isArray(res.body.details)).toBe(true);
+        expect(res.body.details.some((d: { path: (string | number)[] }) =>
+          d.path.includes('limit')
+        )).toBe(true);
+      });
+
+      it('should reject non-numeric limit with 400', async () => {
+        const agent = await loginAs('admin');
+
+        const res = await agent.get('/api/v1/entities?limit=abc');
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBe('Invalid input');
+      });
+
+      it('should reject limit=0 with 400', async () => {
+        const agent = await loginAs('admin');
+
+        const res = await agent.get('/api/v1/entities?limit=0');
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBe('Invalid input');
+      });
+
+      it('should reject negative offset with 400', async () => {
+        const agent = await loginAs('admin');
+
+        const res = await agent.get('/api/v1/entities?offset=-1');
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBe('Invalid input');
+      });
+    });
+
     it('should filter entities by entity_type', async () => {
       const agent = await loginAs('admin');
       await createEntity(agent, { entityType: 'organization' });

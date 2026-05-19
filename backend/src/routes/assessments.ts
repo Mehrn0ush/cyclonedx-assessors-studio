@@ -338,6 +338,7 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
       },
     });
   } catch (error) {
+    if (handleValidationError(res, error)) return;
     logger.error('Get assessments error', { error, requestId: req.requestId });
     res.status(500).json({ error: 'Internal server error' });
   }

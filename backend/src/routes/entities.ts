@@ -104,6 +104,7 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
       },
     });
   } catch (error) {
+    if (handleValidationError(res, error)) return;
     logger.error('Get entities error', { error, requestId: req.requestId });
     res.status(500).json({ error: 'Internal server error' });
   }
