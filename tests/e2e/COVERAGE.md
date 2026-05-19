@@ -52,9 +52,13 @@ Status legend:
 | Entities: search and entity_type filter | DONE | same spec |
 | Entities: RBAC matrix | DONE | same spec |
 | Projects: edit, archive, list assessments under project | PLANNED |
-| Evidence: file upload (multipart), download, classification, expiresOn | PLANNED |
-| Evidence: add note, submit for review, accept, reject | PLANNED |
-| Evidence: retention immutability on terminal state (409 on edit) | PLANNED |
+| Evidence: classification, isCounterEvidence round-trip | DONE | `specs/evidence/lifecycle.spec.ts` |
+| Evidence: file upload (multipart), download | PLANNED |
+| Evidence: add note, submit for review, accept, reject | DONE | same spec |
+| Evidence: retention immutability on claimed state (409) | DONE | same spec — edit, add note, delete all blocked |
+| Evidence: state machine guards (resubmit, premature approve) | DONE | same spec |
+| Evidence: author guard (cannot approve/reject own) | DONE | same spec |
+| Evidence: RBAC matrix | DONE | same spec |
 | Attestations: create attestation, add requirement claim | PLANNED |
 | Attestations: sign with platform key | PLANNED |
 | Attestations: drift detection on re-canonicalization | PLANNED |
