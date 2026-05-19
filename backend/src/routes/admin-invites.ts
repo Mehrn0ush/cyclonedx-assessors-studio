@@ -8,6 +8,7 @@ import { logger } from '../utils/logger.js';
 import { asyncHandler, handleValidationError } from '../utils/route-helpers.js';
 import { type AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { generateToken, hashToken } from '../utils/crypto.js';
+import { VALID_ROLE_KEYS } from '../utils/roles.js';
 
 const router = Router();
 
@@ -27,17 +28,9 @@ const router = Router();
  *     use, on explicit revocation, or when the expiration elapses.
  */
 
-const VALID_ROLES = [
-  'admin',
-  'assessor',
-  'assessee',
-  'standards_manager',
-  'standards_approver',
-] as const;
-
 const createInviteSchema = z.object({
   email: z.string().email('Invalid email address').optional(),
-  intendedRole: z.enum(VALID_ROLES).default('assessee'),
+  intendedRole: z.enum(VALID_ROLE_KEYS).default('assessee'),
   // Default to seven days. Clamp to a week at most so stale invites
   // cannot linger indefinitely in the database.
   expiresInHours: z.coerce.number().int().positive().max(24 * 30).default(24 * 7),

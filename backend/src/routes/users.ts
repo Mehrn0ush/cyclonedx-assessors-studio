@@ -10,6 +10,7 @@ import { logger } from '../utils/logger.js';
 import { type AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 import { toSnakeCase } from '../middleware/camelCase.js';
 import { fetchUserById, fetchAssignableUsers, USER_PROFILE_COLUMNS } from '../utils/user-queries.js';
+import { VALID_ROLE_KEYS } from '../utils/roles.js';
 
 const router = Router();
 
@@ -23,13 +24,13 @@ const createUserSchema = z.object({
   email: z.string().email('Invalid email address'),
   displayName: z.string().min(1, 'Display name is required'),
   password: z.string().min(1, 'Password is required').max(PASSWORD_MAX_LENGTH),
-  role: z.enum(['admin', 'assessor', 'assessee']).default('assessee'),
+  role: z.enum(VALID_ROLE_KEYS).default('assessee'),
 });
 
 const updateUserSchema = z.object({
   displayName: z.string().min(1).optional(),
   email: z.string().email().optional(),
-  role: z.enum(['admin', 'assessor', 'assessee']).optional(),
+  role: z.enum(VALID_ROLE_KEYS).optional(),
   isActive: z.boolean().optional(),
 });
 

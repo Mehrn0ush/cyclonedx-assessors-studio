@@ -252,6 +252,69 @@ describe('Users Routes (HTTP Integration)', () => {
       expect(res.body.role).toBe('assessee');
     });
 
+    /**
+     * Regression tests for issue #20:
+     * https://github.com/CycloneDX/cyclonedx-assessors-studio/issues/20
+     *
+     * The schema previously rejected standards_manager and
+     * standards_approver despite the DB CHECK constraint, the seeded
+     * `role` table, the AuthRequest type, and the parallel
+     * admin-invites route all accepting them.
+     */
+    it('should create user with standards_manager role (issue #20)', async () => {
+      const agent = await loginAs('admin');
+
+      const res = await agent
+        .post('/api/v1/users')
+        .send({
+          username: 'sm_user_issue20',
+          email: 'sm@test.local',
+          displayName: 'Standards Manager',
+          password: 'SecurePassword123!',
+          role: 'standards_manager',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.role).toBe('standards_manager');
+    });
+
+    it('should create user with standards_approver role (issue #20)', async () => {
+      const agent = await loginAs('admin');
+
+      const res = await agent
+        .post('/api/v1/users')
+        .send({
+          username: 'sa_user_issue20',
+          email: 'sa@test.local',
+          displayName: 'Standards Approver',
+          password: 'SecurePassword123!',
+          role: 'standards_approver',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.role).toBe('standards_approver');
+    });
+
+    it('should still reject unknown role values with 400', async () => {
+      const agent = await loginAs('admin');
+
+      const res = await agent
+        .post('/api/v1/users')
+        .send({
+          username: 'bogus_role_user',
+          email: 'bogus@test.local',
+          displayName: 'Bogus Role',
+          password: 'SecurePassword123!',
+          role: 'bogus_role',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Invalid input');
+      expect(res.body.details.some((d: { path: (string | number)[] }) =>
+        d.path.includes('role')
+      )).toBe(true);
+    });
+
     it('should return 409 for duplicate username', async () => {
       const agent = await loginAs('admin');
       const existingUsername = testUsers.assessor.username;
@@ -374,6 +437,56 @@ describe('Users Routes (HTTP Integration)', () => {
       expect(res.status).toBe(200);
       expect(res.body.displayName).toBe('Updated User');
       expect(res.body.role).toBe('admin');
+    });
+
+    /**
+     * Regression test for issue #20: role update must accept
+     * standards_manager and standards_approver.
+     */
+    it('should update user role to standards_manager (issue #20)', async () => {
+      const agent = await loginAs('admin');
+
+      const createRes = await agent
+        .post('/api/v1/users')
+        .send({
+          username: 'sm_update_target',
+          email: 'sm_update@test.local',
+          displayName: 'SM Update Target',
+          password: 'SecurePassword123!',
+          role: 'assessee',
+        });
+      expect(createRes.status).toBe(201);
+      const userId = createRes.body.id;
+
+      const res = await agent
+        .put(`/api/v1/users/${userId}`)
+        .send({ role: 'standards_manager' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.role).toBe('standards_manager');
+    });
+
+    it('should update user role to standards_approver (issue #20)', async () => {
+      const agent = await loginAs('admin');
+
+      const createRes = await agent
+        .post('/api/v1/users')
+        .send({
+          username: 'sa_update_target',
+          email: 'sa_update@test.local',
+          displayName: 'SA Update Target',
+          password: 'SecurePassword123!',
+          role: 'assessee',
+        });
+      expect(createRes.status).toBe(201);
+      const userId = createRes.body.id;
+
+      const res = await agent
+        .put(`/api/v1/users/${userId}`)
+        .send({ role: 'standards_approver' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.role).toBe('standards_approver');
     });
 
     it('should update only provided fields', async () => {
