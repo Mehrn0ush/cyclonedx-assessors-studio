@@ -123,6 +123,12 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
       'assessor.third_party as assessor_third_party',
       'assessor_entity.name as assessor_entity_name',
     ])
+    // Order newest first so attestations created via the UI surface
+    // at the top of the list and stay reachable on page 1. Secondary
+    // id sort guarantees stable ordering for rows that share a
+    // created_at timestamp.
+    .orderBy('attestation.created_at', 'desc')
+    .orderBy('attestation.id', 'desc')
     .limit(limit)
     .offset(offset)
     .execute()) as Record<string, unknown>[];
