@@ -72,7 +72,12 @@ Status legend:
 | Affirmations: RBAC (assessor/assessee/standards_* cannot manage) | DONE | same spec |
 | Affirmations: digital signing (caller-supplied JSF signatureValue) | PLANNED | requires generating EC P-256 key pair + signing canonical hash in the test, out of E2E scope |
 | Affirmations: drifted=true after canonical payload mutation | PLANNED | requires direct DB mutation (sealed slot is locked by route); belongs in backend unit suite, not E2E |
-| Claims: CRUD + link to evidence and assessment requirement | PLANNED |
+| Claims: CRUD with evidence, counter-evidence, target entity | DONE | `specs/claims/lifecycle.spec.ts` |
+| Claims: PUT sync semantics (replace / preserve / clear linked evidence) | DONE | same spec |
+| Claims: junction dedup, isCounterClaim, target entity resolution | DONE | same spec |
+| Claims: validation (missing required, invalid uuid, 404 unknown) | DONE | same spec |
+| Claims: RBAC matrix | DONE | same spec |
+| Claims: link mitigation strategies | PLANNED | route reads them but population mechanism is elsewhere in the stack |
 | Tags admin: CRUD + color picker | PLANNED |
 | Notification rules: CRUD | PLANNED |
 | Chat integrations: CRUD + send-test stub | PLANNED |
