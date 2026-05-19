@@ -1,0 +1,16 @@
+# Playwright artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
+
+# Generated auth states (regenerated per run by global-setup)
+auth/storage-states/*.json
+!auth/storage-states/.gitkeep
+
+# Editor
+.vscode/
+.idea/
+
+# Dependencies
+node_modules/

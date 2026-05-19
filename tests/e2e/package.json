@@ -1,0 +1,36 @@
+{
+  "name": "@cyclonedx/assessors-studio-e2e",
+  "version": "0.6.0-alpha",
+  "private": true,
+  "description": "Playwright end-to-end tests for CycloneDX Assessors Studio",
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "pretest": "node scripts/reset-state.mjs",
+    "test": "playwright test",
+    "pretest:headed": "node scripts/reset-state.mjs",
+    "test:headed": "playwright test --headed",
+    "pretest:ui": "node scripts/reset-state.mjs",
+    "test:ui": "playwright test --ui",
+    "test:debug": "PWDEBUG=1 playwright test",
+    "test:chrome": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit",
+    "test:auth": "playwright test specs/auth",
+    "test:users": "playwright test specs/users",
+    "test:assessments": "playwright test specs/assessments",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:regression": "playwright test --grep @regression",
+    "report": "playwright show-report",
+    "codegen": "playwright codegen http://localhost:5173",
+    "install:browsers": "playwright install --with-deps chromium firefox webkit",
+    "reset-state": "node scripts/reset-state.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.6.0"
+  }
+}

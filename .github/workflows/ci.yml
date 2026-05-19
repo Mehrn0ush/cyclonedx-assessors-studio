@@ -221,6 +221,113 @@ jobs:
           if-no-files-found: warn
 
   # ---------------------------------------------------------------------------
+  # E2E (Playwright) — gated behind a green backend AND frontend build+test.
+  # Boots backend (PGlite) and frontend (vite dev) in-process, walks the
+  # setup wizard, seeds demo data, captures per-role storage states, and
+  # runs the Playwright suite on chromium. Smoke-tagged subset also runs
+  # on firefox/webkit. See tests/e2e/PLAN.md for the multi-phase plan.
+  # ---------------------------------------------------------------------------
+  e2e:
+    name: "E2E / Playwright"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [backend-build, backend-test, frontend-build, frontend-test]
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci --ignore-scripts
+        env:
+          NODE_ENV: development
+
+      - name: Rebuild backend native modules
+        working-directory: backend
+        run: npm rebuild argon2
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --ignore-scripts
+        env:
+          NODE_ENV: development
+
+      - name: Install e2e dependencies
+        working-directory: tests/e2e
+        run: npm ci --ignore-scripts
+
+      # Cache the Playwright browser binaries by Playwright version so
+      # that recurring CI runs do not re-download ~300 MB of WebKit and
+      # Firefox bundles on every commit.
+      - name: Get Playwright version
+        id: pw-version
+        working-directory: tests/e2e
+        run: |
+          PW_VERSION=$(node -p "require('@playwright/test/package.json').version")
+          echo "version=$PW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw-version.outputs.version }}
+
+      - name: Install Playwright browsers and OS deps
+        working-directory: tests/e2e
+        # `--with-deps` ensures Ubuntu pulls the libs Chromium/WebKit need.
+        # When the cache hit, only the OS deps step runs (fast).
+        run: |
+          if [ "${{ steps.pw-cache.outputs.cache-hit }}" != 'true' ]; then
+            npx playwright install --with-deps chromium firefox webkit
+          else
+            npx playwright install-deps chromium firefox webkit
+          fi
+
+      - name: Typecheck e2e
+        working-directory: tests/e2e
+        run: npx tsc --noEmit
+
+      - name: Run Playwright suite
+        working-directory: tests/e2e
+        env:
+          CI: 'true'
+          # PGlite is the embedded provider; tests run against a fresh
+          # data directory under tests/e2e/data so each CI run starts
+          # from a known-empty state.
+          E2E_PGLITE_DIR: ./data/pglite-e2e
+        run: npx playwright test
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: playwright-report
+          path: tests/e2e/playwright-report
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Upload traces and screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: playwright-traces
+          path: tests/e2e/test-results
+          retention-days: 7
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------------------
   # Codacy coverage (main branch only) - upload coverage from test jobs
   # ---------------------------------------------------------------------------
   codacy-coverage:
@@ -306,7 +413,10 @@ jobs:
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [backend-test, frontend-test]
+    # Snapshot images may only be pushed once the full pipeline is green,
+    # including E2E. Add e2e to the gate so a broken UI flow cannot be
+    # published to Docker Hub.
+    needs: [backend-test, frontend-test, e2e]
     permissions:
       contents: read
 
