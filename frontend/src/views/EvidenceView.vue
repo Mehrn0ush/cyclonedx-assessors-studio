@@ -120,6 +120,7 @@ import PageHeader from '@/components/shared/PageHeader.vue'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import HelpTip from '@/components/shared/HelpTip.vue'
 import { formatDate } from '@/utils/dateFormat'
+import { apiErrorMessage } from '@/utils/errorMessage'
 import type { Evidence } from '@/types'
 
 const { t } = useI18n()
@@ -162,9 +163,7 @@ const fetchEvidence = async () => {
     const response = await axios.get('/api/v1/evidence', { params })
     evidence.value = response.data.data || []
   } catch (err: unknown) {
-    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
-    const e = err as { response?: { data?: { message?: string } }; message?: string }
-    error.value = e.response?.data?.message || t('common.error')
+    error.value = apiErrorMessage(err, t('common.error'))
     console.error('Failed to fetch evidence:', err)
   } finally {
     loading.value = false
@@ -212,9 +211,7 @@ const handleCreate = async () => {
     createForm.value = { name: '', description: '', classification: '', expiresOn: null, isCounterEvidence: false }
     await fetchEvidence()
   } catch (err: unknown) {
-    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
-    const e = err as { response?: { data?: { message?: string } }; message?: string }
-    ElMessage.error(e.response?.data?.message || 'Failed to create evidence')
+    ElMessage.error(apiErrorMessage(err, 'Failed to create evidence'))
   } finally {
     saving.value = false
   }

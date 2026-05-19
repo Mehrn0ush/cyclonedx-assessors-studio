@@ -97,21 +97,7 @@ test.describe('Admin user management @regression', () => {
     expect(updated!.role).toBe('standards_manager');
   });
 
-  // BLOCKED on a separate product bug: AdminUsersView.vue:346 reads
-  // `e.response?.data?.message`, but the backend's error envelope is
-  // `{ error: '...' }` (the standard shape used everywhere else in
-  // the API). Every 4xx response from /users surfaces as the generic
-  // toast "Failed to save user" instead of the actual server-side
-  // reason (e.g. "Username already exists" on 409).
-  //
-  // The test is correctly designed and was the surface that exposed
-  // the bug. When the frontend reads `data.error` (with a fallback to
-  // `data.message` for legacy routes), remove the test.fixme below.
-  //
-  // The same `data.message` vs `data.error` pattern appears in 27
-  // other places across 12 frontend views and should be fixed in a
-  // single dedicated PR; see e2e/COVERAGE.md → "Known product bugs".
-  test.fixme('duplicate username on create returns the existing-username message', async ({
+  test('duplicate username on create returns the existing-username message', async ({
     page,
     apiAs,
   }) => {

@@ -871,6 +871,7 @@ import HelpTip from '@/components/shared/HelpTip.vue'
 import SearchSelect from '@/components/shared/SearchSelect.vue'
 import MentionTextarea from '@/components/shared/MentionTextarea.vue'
 import { formatDate } from '@/utils/dateFormat'
+import { apiErrorMessage } from '@/utils/errorMessage'
 
 interface Participant {
   id: string
@@ -1664,8 +1665,7 @@ const handleCreateEvidence = async () => {
     await fetchEvidence()
     await fetchAvailableEvidence()
   } catch (err: unknown) {
-    const error = err as { response?: { data?: { message?: string } } }
-    ElMessage.error(error.response?.data?.message || 'Failed to create evidence')
+    ElMessage.error(apiErrorMessage(err, 'Failed to create evidence'))
   } finally {
     isCreatingEvidence.value = false
   }
@@ -1835,8 +1835,7 @@ const handleCreateClaim = async () => {
     createClaimForm.value = { name: '', targetEntityId: '', predicate: '', reasoning: '', isCounterClaim: false }
     await fetchClaims()
   } catch (err: unknown) {
-    const error = err as { response?: { data?: { message?: string } } }
-    ElMessage.error(error.response?.data?.message || 'Failed to create claim')
+    ElMessage.error(apiErrorMessage(err, 'Failed to create claim'))
   } finally {
     isCreatingClaim.value = false
   }

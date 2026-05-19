@@ -241,6 +241,7 @@ import PageHeader from '@/components/shared/PageHeader.vue'
 import EventTypeSelector from '@/components/shared/EventTypeSelector.vue'
 import IconButton from '@/components/shared/IconButton.vue'
 import { Loading, Edit as EditIcon, Delete, Promotion } from '@element-plus/icons-vue'
+import { apiErrorMessage } from '@/utils/errorMessage'
 
 const props = withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 
@@ -445,9 +446,7 @@ async function saveIntegration() {
       await fetchIntegrations()
     }
   } catch (err: unknown) {
-    const e = err as { response?: { data?: { message?: string; error?: string } }; message?: string }
-    const msg = e?.response?.data?.message || e?.response?.data?.error || e?.message || 'Save failed'
-    ElMessage.error(msg)
+    ElMessage.error(apiErrorMessage(err, 'Save failed'))
   } finally {
     saving.value = false
   }
@@ -459,10 +458,9 @@ async function testIntegration(row: Record<string, unknown>) {
     testResult.value = data
     testResultVisible.value = true
   } catch (err: unknown) {
-    const e = err as { response?: { data?: { message?: string } }; message?: string }
     testResult.value = {
       success: false,
-      message: e?.response?.data?.message || e?.message || 'Test failed',
+      message: apiErrorMessage(err, 'Test failed'),
     }
     testResultVisible.value = true
   }

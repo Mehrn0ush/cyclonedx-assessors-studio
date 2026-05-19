@@ -79,12 +79,38 @@ export const test = baseTest.extend<AuthFixtures>({
               username: demoUserForRole(role).username,
               password: DEMO_PASSWORD,
             };
-      const r = await ctx.post('/api/v1/auth/login', { data: creds });
-      if (!r.ok()) {
-        throw new Error(`apiAs(${role}) login failed: ${r.status()} ${await r.text()}`);
+
+      // Retry the login on transient connection errors. PGlite is
+      // single-threaded; under heavy parallelism the backend can
+      // momentarily drop a connection (ECONNRESET) before accepting
+      // the next one. We do not retry on 4xx/5xx HTTP responses —
+      // those are real auth failures and need to surface.
+      let lastErr: unknown = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const r = await ctx.post('/api/v1/auth/login', { data: creds });
+          if (!r.ok()) {
+            throw new Error(`apiAs(${role}) login failed: ${r.status()} ${await r.text()}`);
+          }
+          contexts.push(ctx);
+          return ctx;
+        } catch (err) {
+          const message = String((err as { message?: string })?.message ?? err);
+          // Only retry on transport-level resets / EOF / refused. Any
+          // other error is forwarded immediately so we don't loop on
+          // real bugs.
+          if (
+            attempt < 2 &&
+            /ECONNRESET|ECONNREFUSED|socket hang up|EPIPE|read ECONNRESET/i.test(message)
+          ) {
+            lastErr = err;
+            await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+            continue;
+          }
+          throw err;
+        }
       }
-      contexts.push(ctx);
-      return ctx;
+      throw new Error(`apiAs(${role}) login failed after 3 attempts: ${String(lastErr)}`);
     });
     for (const c of contexts) {
       await c.dispose();

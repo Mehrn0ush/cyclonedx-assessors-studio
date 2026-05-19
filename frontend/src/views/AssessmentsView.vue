@@ -184,6 +184,7 @@ import PageHeader from '@/components/shared/PageHeader.vue'
 import StateBadge from '@/components/shared/StateBadge.vue'
 import RowActions from '@/components/shared/RowActions.vue'
 import { formatDate } from '@/utils/dateFormat'
+import { apiErrorMessage } from '@/utils/errorMessage'
 import type { Assessment } from '@/types'
 
 const { t } = useI18n()
@@ -320,8 +321,7 @@ const fetchAssessments = async () => {
     const response = await axios.get('/api/v1/assessments', { params })
     assessments.value = response.data.data || []
   } catch (err: unknown) {
-    const e = err as { response?: { data?: { message?: string } } }
-    error.value = e.response?.data?.message || t('common.error')
+    error.value = apiErrorMessage(err, t('common.error'))
     console.error('Failed to fetch assessments:', err)
   } finally {
     loading.value = false
@@ -394,8 +394,7 @@ const handleCreate = async () => {
     resetCreateForm()
     await fetchAssessments()
   } catch (err: unknown) {
-    const e = err as { response?: { data?: { message?: string } } }
-    ElMessage.error(e.response?.data?.message || t('common.errorOccurred'))
+    ElMessage.error(apiErrorMessage(err, t('common.errorOccurred')))
   } finally {
     saving.value = false
   }

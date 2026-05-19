@@ -307,6 +307,7 @@ import StateBadge from '@/components/shared/StateBadge.vue'
 import IconButton from '@/components/shared/IconButton.vue'
 import { useAuthStore } from '@/stores/auth'
 import { formatDate } from '@/utils/dateFormat'
+import { apiErrorMessage } from '@/utils/errorMessage'
 import type { Evidence } from '@/types'
 
 const { t } = useI18n()
@@ -520,8 +521,7 @@ const fetchEvidenceData = async () => {
     notes.value = notesData || []
     attachments.value = attachmentsData || []
   } catch (err: unknown) {
-    const e = err as { response?: { data?: { message?: string } } }
-    error.value = e.response?.data?.message || t('evidence.loadError')
+    error.value = apiErrorMessage(err, t('evidence.loadError'))
     console.error('Error fetching evidence:', err)
   } finally {
     loading.value = false
@@ -553,9 +553,7 @@ const addNote = async () => {
 
     await fetchEvidenceData()
   } catch (err: unknown) {
-    const e = err as { response?: { data?: { message?: string } } }
-    const errorMessage = e.response?.data?.message || t('evidence.noteAddError')
-    ElMessage.error(errorMessage)
+    ElMessage.error(apiErrorMessage(err, t('evidence.noteAddError')))
     console.error('Error adding note:', err)
   } finally {
     addingNote.value = false
@@ -569,9 +567,7 @@ const handleApprove = async () => {
     ElMessage.success('Evidence approved successfully')
     await fetchEvidenceData()
   } catch (err: unknown) {
-    const e = err as { response?: { data?: { message?: string } } }
-    const errorMessage = e.response?.data?.message || 'Failed to approve evidence'
-    ElMessage.error(errorMessage)
+    ElMessage.error(apiErrorMessage(err, 'Failed to approve evidence'))
     console.error('Error approving evidence:', err)
   }
 }
@@ -593,9 +589,7 @@ const handleSubmitForReview = async () => {
     selectedReviewer.value = ''
     await fetchEvidenceData()
   } catch (err: unknown) {
-    const e = err as { response?: { data?: { message?: string } } }
-    const errorMessage = e.response?.data?.message || 'Failed to submit evidence for review'
-    ElMessage.error(errorMessage)
+    ElMessage.error(apiErrorMessage(err, 'Failed to submit evidence for review'))
     console.error('Error submitting evidence:', err)
   } finally {
     submittingForReview.value = false
@@ -619,9 +613,7 @@ const handleReject = async () => {
     rejectionNote.value = ''
     await fetchEvidenceData()
   } catch (err: unknown) {
-    const e = err as { response?: { data?: { message?: string } } }
-    const errorMessage = e.response?.data?.message || 'Failed to reject evidence'
-    ElMessage.error(errorMessage)
+    ElMessage.error(apiErrorMessage(err, 'Failed to reject evidence'))
     console.error('Error rejecting evidence:', err)
   } finally {
     rejecting.value = false

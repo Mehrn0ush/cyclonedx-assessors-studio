@@ -119,6 +119,7 @@ import { Loading, Stamp } from '@element-plus/icons-vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import HelpTip from '@/components/shared/HelpTip.vue'
 import { formatDate } from '@/utils/dateFormat'
+import { apiErrorMessage } from '@/utils/errorMessage'
 import { useAuthStore } from '@/stores/auth'
 import type { Assessment } from '@/types'
 
@@ -162,8 +163,7 @@ const fetchAttestations = async () => {
     const response = await axios.get('/api/v1/attestations')
     attestations.value = response.data.data || []
   } catch (err: unknown) {
-    const e = err as { response?: { data?: { message?: string } }; message?: string }
-    error.value = e.response?.data?.message || e.message || 'Failed to fetch attestations'
+    error.value = apiErrorMessage(err, 'Failed to fetch attestations')
   } finally {
     loading.value = false
   }
@@ -204,8 +204,7 @@ const handleSave = async () => {
     showDialog.value = false
     fetchAttestations()
   } catch (err: unknown) {
-    const e = err as { response?: { data?: { message?: string; error?: string } }; message?: string }
-    ElMessage.error(e.response?.data?.message || e.response?.data?.error || 'Failed to create attestation')
+    ElMessage.error(apiErrorMessage(err, 'Failed to create attestation'))
   } finally {
     saving.value = false
   }
@@ -227,8 +226,7 @@ const handleExport = async (row: Record<string, unknown>) => {
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
   } catch (err: unknown) {
-    const e = err as { response?: { data?: { message?: string; error?: string } }; message?: string }
-    ElMessage.error(e.response?.data?.error || e.response?.data?.message || 'Failed to export attestation')
+    ElMessage.error(apiErrorMessage(err, 'Failed to export attestation'))
   }
 }
 

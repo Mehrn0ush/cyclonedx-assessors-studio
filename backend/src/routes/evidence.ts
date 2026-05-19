@@ -392,7 +392,14 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
   }
 
   const total = await countWithFilters.executeTakeFirstOrThrow().then(r => r.count);
-  const evidence = await query.limit(limit).offset(offset).execute();
+  // Order newest first so freshly created evidence appears at the
+  // top of the list and stays reachable on page 1.
+  const evidence = await query
+    .orderBy('evidence.created_at', 'desc')
+    .orderBy('evidence.id', 'desc')
+    .limit(limit)
+    .offset(offset)
+    .execute();
 
   const evidenceIds = evidence.map((e: Record<string, unknown>) => e.id as string);
   const tagsByEvidence = await fetchTagsForEntities(db, 'evidence_tag', 'evidence_id', evidenceIds);

@@ -45,9 +45,16 @@ router.get('/', requireAuth, requirePermission('admin.users'), asyncHandler(asyn
     .executeTakeFirstOrThrow()
     .then(r => r.count);
 
+  // Order newest first so admins see freshly created users at the
+  // top of the list. Without an explicit order, Kysely returns rows
+  // in insertion order, which means new users appear after every
+  // existing row and silently fall onto later pages once the table
+  // grows past the limit.
   const users = await db
     .selectFrom('app_user')
     .select(USER_PROFILE_COLUMNS)
+    .orderBy('created_at', 'desc')
+    .orderBy('id', 'desc')
     .limit(limit)
     .offset(offset)
     .execute();

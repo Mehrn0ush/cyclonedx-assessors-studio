@@ -282,6 +282,7 @@ import {
   Lock,
   Loading,
 } from '@element-plus/icons-vue'
+import { apiErrorMessage } from '@/utils/errorMessage'
 
 const { t } = useI18n()
 
@@ -360,10 +361,10 @@ async function testSmtp() {
     const { data } = await axios.post('/api/v1/admin/integrations/test/smtp')
     smtpTestResult.value = { success: true, message: data.message }
   } catch (err: unknown) {
-    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
-    const e = err as { response?: { data?: { message?: string } }; message?: string }
-    const msg = e?.response?.data?.message || e?.message || 'SMTP test failed'
-    smtpTestResult.value = { success: false, message: msg }
+    smtpTestResult.value = {
+      success: false,
+      message: apiErrorMessage(err, 'SMTP test failed'),
+    }
   } finally {
     testingSmtp.value = false
   }

@@ -53,7 +53,14 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
     .executeTakeFirstOrThrow()
     .then(r => r.count);
 
-  const projects = await query.limit(limit).offset(offset).execute();
+  // Order newest first so freshly created projects appear at the top
+  // of the admin list and stay reachable through default pagination.
+  const projects = await query
+    .orderBy('created_at', 'desc')
+    .orderBy('id', 'desc')
+    .limit(limit)
+    .offset(offset)
+    .execute();
 
   const projectIds = projects.map((p) => p.id);
   const tagsByProject = await fetchTagsForEntities(db, 'project_tag', 'project_id', projectIds);

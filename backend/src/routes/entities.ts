@@ -85,7 +85,16 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
     }
     const total = await countQuery.executeTakeFirstOrThrow().then(r => r.count);
 
-    const entities = await query.limit(limit).offset(offset).execute();
+    // Order newest first so admins see freshly created entities at
+    // the top. Secondary sort on id guarantees stable ordering for
+    // rows that share a created_at timestamp (created in the same
+    // millisecond by a batch import).
+    const entities = await query
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc')
+      .limit(limit)
+      .offset(offset)
+      .execute();
 
     const entityIds = entities.map((e) => e.id);
     const tagsByEntity = await fetchTagsForEntities(db, 'entity_tag', 'entity_id', entityIds);

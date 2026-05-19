@@ -106,6 +106,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import RowActions from '@/components/shared/RowActions.vue'
+import { apiErrorMessage } from '@/utils/errorMessage'
 
 interface Role {
   id: string
@@ -178,8 +179,7 @@ const fetchRoles = async () => {
     roles.value = response.data.data || []
     currentPage.value = 1
   } catch (err: unknown) {
-    const error_obj = err as { response?: { data?: { message?: string } }; message?: string }
-    error.value = error_obj.response?.data?.message || error_obj.message || 'Failed to fetch roles'
+    error.value = apiErrorMessage(err, 'Failed to fetch roles')
   } finally {
     loading.value = false
   }
@@ -190,9 +190,7 @@ const fetchPermissions = async () => {
     const response = await axios.get('/api/v1/roles/permissions')
     permissions.value = response.data.data || []
   } catch (err: unknown) {
-    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
-    const e = err as { response?: { data?: { message?: string } }; message?: string }
-    ElMessage.error(e.response?.data?.message || 'Failed to fetch permissions')
+    ElMessage.error(apiErrorMessage(err, 'Failed to fetch permissions'))
   }
 }
 
@@ -231,8 +229,7 @@ const handleEdit = async (row: Role) => {
     dialogTitle.value = t('admin.editRole')
     await fetchPermissions()
   } catch (err: unknown) {
-    const error = err as { response?: { data?: { message?: string } } }
-    ElMessage.error(error.response?.data?.message || 'Failed to fetch role details')
+    ElMessage.error(apiErrorMessage(err, 'Failed to fetch role details'))
   } finally {
     loading.value = false
   }
@@ -254,9 +251,7 @@ const handleDelete = async (row: Role) => {
       ElMessage.success(t('admin.roleDeleted'))
       fetchRoles()
     } catch (err: unknown) {
-      // biome-ignore lint/suspicious/noExplicitAny: axios error handling
-      const e = err as { response?: { data?: { message?: string } }; message?: string }
-      ElMessage.error(e.response?.data?.message || 'Failed to delete role')
+      ElMessage.error(apiErrorMessage(err, 'Failed to delete role'))
     } finally {
       saving.value = false
     }
@@ -296,9 +291,7 @@ const handleSave = async () => {
     showDialog.value = false
     fetchRoles()
   } catch (err: unknown) {
-    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
-    const e = err as { response?: { data?: { message?: string } }; message?: string }
-    ElMessage.error(e.response?.data?.message || 'Failed to save role')
+    ElMessage.error(apiErrorMessage(err, 'Failed to save role'))
   } finally {
     saving.value = false
   }

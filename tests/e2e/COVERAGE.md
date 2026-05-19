@@ -93,36 +93,6 @@ Status legend:
 | SameSite cookie behavior | PLANNED |
 | Multi-tab auth state sync | PLANNED |
 
-## Known product bugs (surfaced by E2E, deferred)
-
-### Frontend error envelope mismatch (admin user create + ~26 other sites)
-
-The backend's standard error envelope is `{ error: string, details?: any[] }`.
-Most frontend views read `err.response?.data?.message` when handling
-caught Axios errors. The key is wrong — `message` is never sent — so
-every 4xx surfaces as the generic toast text ("Failed to save user",
-"Failed to deactivate user", etc.) instead of the actual server-side
-reason (e.g. "Username already exists" on 409).
-
-Files affected (27 read sites, 12 views):
-
-- `views/AdminUsersView.vue:204, 265, 297, 346, 392, 420`
-- `views/AdminRolesView.vue:182, 195, 235, 259, 301`
-- `views/AssessmentsView.vue:324, 398`
-- `views/AssessmentDetailView.vue:1668, 1839`
-- `views/AttestationsView.vue:166, 208`
-- `views/EvidenceView.vue:167, 217`
-- `views/EvidenceDetailView.vue:524, 557, 573, 597, 623`
-- `views/AdminChatIntegrationsView.vue:449` (already prefers `error`; OK)
-- `views/AdminIntegrationsView.vue:365`
-
-Fix: read `data.error` first, fall back to `data.message` for any
-future endpoint that returns the legacy shape. One-line change per site.
-
-Affected E2E tests: `specs/users/create-user.spec.ts` "duplicate
-username on create" is `test.fixme()`-marked until this lands. Remove
-the `.fixme` once the fix ships.
-
 ## Out of scope (N/A)
 
 - Pixel-diff visual regression. Add a separate dedicated workflow if

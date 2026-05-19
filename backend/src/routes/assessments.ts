@@ -332,7 +332,15 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
       .executeTakeFirstOrThrow()
       .then(r => r.count);
 
-    const assessments = await query.limit(limit).offset(offset).execute();
+    // Order newest first. The assessment list view paginates by 20
+    // and tests that create a new assessment must be able to find
+    // it on page 1 without scanning the entire table.
+    const assessments = await query
+      .orderBy('assessment.created_at', 'desc')
+      .orderBy('assessment.id', 'desc')
+      .limit(limit)
+      .offset(offset)
+      .execute();
 
     const assessmentIds = assessments.map((a) => (a as Record<string, unknown>).id as string);
     const tagsByAssessment = await fetchTagsForEntities(db, 'assessment_tag', 'assessment_id', assessmentIds);

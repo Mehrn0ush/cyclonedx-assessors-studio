@@ -148,6 +148,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, Edit as EditIcon, Delete, VideoPlay } from '@element-plus/icons-vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import IconButton from '@/components/shared/IconButton.vue'
+import { apiErrorMessage } from '@/utils/errorMessage'
 
 const { t } = useI18n()
 
@@ -199,9 +200,7 @@ const fetchUsers = async () => {
     const response = await axios.get('/api/v1/users')
     users.value = response.data.data || []
   } catch (err: unknown) {
-    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
-    const e = err as { response?: { data?: { message?: string } }; message?: string }
-    error.value = e.response?.data?.message || e.message || 'Failed to fetch users'
+    error.value = apiErrorMessage(err, 'Failed to fetch users')
   } finally {
     loading.value = false
   }
@@ -260,9 +259,7 @@ const handleDelete = async (row: Record<string, unknown>) => {
     ElMessage.success(t('common.success'))
     fetchUsers()
   } catch (err: unknown) {
-    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
-    const e = err as { response?: { data?: { message?: string } }; message?: string }
-    ElMessage.error(e.response?.data?.message || 'Failed to deactivate user')
+    ElMessage.error(apiErrorMessage(err, 'Failed to deactivate user'))
   } finally {
     saving.value = false
   }
@@ -293,8 +290,7 @@ const handleReactivate = async (row: Record<string, unknown>) => {
     ElMessage.success(t('admin.userActivated'))
     fetchUsers()
   } catch (err: unknown) {
-    const e = err as { response?: { data?: { message?: string; error?: string } }; message?: string }
-    ElMessage.error(e.response?.data?.message || e.response?.data?.error || 'Failed to activate user')
+    ElMessage.error(apiErrorMessage(err, 'Failed to activate user'))
   } finally {
     saving.value = false
   }
@@ -341,9 +337,7 @@ const handleSave = async () => {
     showDialog.value = false
     fetchUsers()
   } catch (err: unknown) {
-    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
-    const e = err as { response?: { data?: { message?: string } }; message?: string }
-    ElMessage.error(e.response?.data?.message || 'Failed to save user')
+    ElMessage.error(apiErrorMessage(err, 'Failed to save user'))
   } finally {
     saving.value = false
   }
@@ -377,9 +371,7 @@ const handleBulkDeactivate = async () => {
     selectedUsers.value = []
     fetchUsers()
   } catch (err: unknown) {
-    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
-    const e = err as { response?: { data?: { message?: string } }; message?: string }
-    ElMessage.error(e.response?.data?.message || 'Failed to deactivate users')
+    ElMessage.error(apiErrorMessage(err, 'Failed to deactivate users'))
   } finally {
     saving.value = false
   }
@@ -405,9 +397,7 @@ const handleBulkRoleChange = async () => {
     selectedUsers.value = []
     fetchUsers()
   } catch (err: unknown) {
-    // biome-ignore lint/suspicious/noExplicitAny: axios error handling
-    const e = err as { response?: { data?: { message?: string } }; message?: string }
-    ElMessage.error(e.response?.data?.message || 'Failed to change roles')
+    ElMessage.error(apiErrorMessage(err, 'Failed to change roles'))
   } finally {
     saving.value = false
   }
