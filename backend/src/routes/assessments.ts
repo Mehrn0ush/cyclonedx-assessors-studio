@@ -22,6 +22,18 @@ const createAssessmentSchema = z.object({
   projectId: z.string().uuid('Invalid project ID').nullable().optional(),
   entityId: z.string().uuid('Invalid entity ID').nullable().optional(),
   standardId: z.string().uuid('Invalid standard ID').nullable().optional(),
+  // Compatibility alias: the create form sends `standardIds` as an
+  // array in some legacy code paths. The `assessment` table stores at
+  // most one standard_id (see migrate.ts), so we accept an array of
+  // length one and collapse it onto standardId in the handler. We
+  // intentionally reject arrays > 1 with a clear 400 rather than
+  // silently dropping the extra entries, which was the original bug
+  // surface in issue #19. When a true many-to-many assessment_standard
+  // junction lands, lift the .max(1) constraint and switch storage.
+  standardIds: z
+    .array(z.string().uuid('Invalid standard ID'))
+    .max(1, 'Only one standard per assessment is supported')
+    .optional(),
   dueDate: z.string().nullable().optional(),
   assessorIds: z.array(z.string().uuid()).optional(),
   assesseeIds: z.array(z.string().uuid()).optional(),
@@ -448,6 +460,12 @@ router.post(
       const db = getDatabase();
       const assessmentId = uuidv4();
 
+      // Collapse the standardIds compatibility alias onto the singular
+      // standard_id column. Explicit singular wins when both are sent.
+      // See createAssessmentSchema for the rationale and the migration
+      // path when a many-to-many junction is added.
+      const effectiveStandardId = data.standardId ?? data.standardIds?.[0] ?? null;
+
       if (data.projectId) {
         const project = await db
           .selectFrom('project')
@@ -470,7 +488,7 @@ router.post(
             description: data.description,
             projectId: data.projectId || undefined,
             entityId: data.entityId || undefined,
-            standardId: data.standardId || undefined,
+            standardId: effectiveStandardId ?? undefined,
             dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
             state: 'new',
           })
@@ -608,7 +626,13 @@ router.post(
   requirePermission('assessments.manage'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const bodyData = startAssessmentSchema.parse(req.body);
+      // The /start endpoint accepts an optional body carrying standardIds
+      // for ad hoc assessments. The common path (entity- or project-linked
+      // assessments) sends no body, in which case Express leaves
+      // req.body as undefined because no Content-Type was set. Coerce to
+      // an empty object so the schema's optional fields apply cleanly
+      // rather than the parser rejecting the missing root with a 400.
+      const bodyData = startAssessmentSchema.parse(req.body ?? {});
       const db = getDatabase();
 
       const assessment = await db

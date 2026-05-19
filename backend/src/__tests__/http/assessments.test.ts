@@ -337,6 +337,90 @@ describe('Assessments HTTP Routes', () => {
       // Assessee typically doesn't have create permission
       expect(res.status).toBe(403);
     });
+
+    /**
+     * Regression tests for issue #19's underlying cause:
+     * https://github.com/CycloneDX/cyclonedx-assessors-studio/issues/19
+     *
+     * The create form sent `standardIds` (plural) for ad hoc and
+     * standalone assessments. The original schema only accepted
+     * `standardId` (singular) and Zod silently dropped the unknown key,
+     * persisting null and producing the cascade of nulls the reporter
+     * described. The schema now accepts the plural alias capped at one
+     * entry and collapses it onto standard_id; arrays of length > 1 are
+     * explicitly rejected.
+     */
+    it('should persist standardId from singular form (regression baseline)', async () => {
+      const agent = await loginAs('admin');
+      const { standardId } = await createTestData(agent);
+
+      const res = await agent
+        .post('/api/v1/assessments')
+        .send({
+          title: `singular ${Date.now()}`,
+          standardId,
+        });
+
+      expect(res.status).toBe(201);
+
+      const getRes = await agent.get(`/api/v1/assessments/${res.body.id}`);
+      expect(getRes.body.assessment.standardId).toBe(standardId);
+    });
+
+    it('should persist standardId from standardIds alias of length 1 (issue #19)', async () => {
+      const agent = await loginAs('admin');
+      const { standardId } = await createTestData(agent);
+
+      const res = await agent
+        .post('/api/v1/assessments')
+        .send({
+          title: `alias ${Date.now()}`,
+          standardIds: [standardId],
+        });
+
+      expect(res.status).toBe(201);
+
+      const getRes = await agent.get(`/api/v1/assessments/${res.body.id}`);
+      expect(getRes.body.assessment.standardId).toBe(standardId);
+    });
+
+    it('should reject standardIds with more than one entry with 400 (issue #19)', async () => {
+      const agent = await loginAs('admin');
+      const a = await createTestData(agent);
+      const b = await createTestData(agent);
+
+      const res = await agent
+        .post('/api/v1/assessments')
+        .send({
+          title: `too many ${Date.now()}`,
+          standardIds: [a.standardId, b.standardId],
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Invalid input');
+      expect(res.body.details.some((d: { path: (string | number)[] }) =>
+        d.path.includes('standardIds')
+      )).toBe(true);
+    });
+
+    it('should prefer singular standardId when both fields are sent (issue #19)', async () => {
+      const agent = await loginAs('admin');
+      const a = await createTestData(agent);
+      const b = await createTestData(agent);
+
+      const res = await agent
+        .post('/api/v1/assessments')
+        .send({
+          title: `both ${Date.now()}`,
+          standardId: a.standardId,
+          standardIds: [b.standardId],
+        });
+
+      expect(res.status).toBe(201);
+
+      const getRes = await agent.get(`/api/v1/assessments/${res.body.id}`);
+      expect(getRes.body.assessment.standardId).toBe(a.standardId);
+    });
   });
 
   describe('GET /api/v1/assessments', () => {
@@ -814,6 +898,43 @@ describe('Assessments HTTP Routes', () => {
         .send({});
 
       expect(res.status).toBe(401);
+    });
+
+    /**
+     * Regression tests for issue #19:
+     * https://github.com/CycloneDX/cyclonedx-assessors-studio/issues/19
+     *
+     * The frontend calls `axios.post('/assessments/:id/start')` with no
+     * body. Express's express.json() middleware leaves req.body as
+     * undefined when no Content-Type is set, and the original
+     * `startAssessmentSchema.parse(req.body)` then threw with
+     * `expected object, received undefined`. Fix coerces to `{}` before
+     * parsing.
+     */
+    it('should start an assessment when called with no request body (issue #19)', async () => {
+      const agent = await loginAs('admin');
+      const { assessmentId } = await createFullAssessment(agent);
+
+      // .post() without .send() sends no body and no Content-Type — the
+      // exact shape of the frontend call that produced the 400.
+      const res = await agent.post(`/api/v1/assessments/${assessmentId}/start`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toContain('Assessment started');
+    });
+
+    it('should start an assessment when called with an empty JSON object (issue #19)', async () => {
+      const agent = await loginAs('admin');
+      const { assessmentId } = await createFullAssessment(agent);
+
+      // Belt-and-suspenders: explicit empty-object body should remain
+      // accepted alongside the no-body case.
+      const res = await agent
+        .post(`/api/v1/assessments/${assessmentId}/start`)
+        .set('Content-Type', 'application/json')
+        .send({});
+
+      expect(res.status).toBe(200);
     });
   });
 

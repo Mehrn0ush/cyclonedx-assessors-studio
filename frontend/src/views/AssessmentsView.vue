@@ -117,16 +117,17 @@
           </el-select>
           <div class="form-hint">{{ t('assessments.projectHint') }}</div>
         </el-form-item>
-        <el-form-item v-if="createForm.projectId && selectedProjectStandards.length > 0" :label="t('assessments.linkedStandards') || 'Linked Standards'">
-          <div class="linked-standards-list">
-            <el-tag v-for="std in selectedProjectStandards" :key="std.id" type="info" effect="plain" class="standards-tag">
-              {{ std.name }}{{ std.version ? ' v' + std.version : '' }}
-            </el-tag>
+        <el-form-item v-if="createForm.projectId && !createForm.entityId" label="Standard" required>
+          <el-select v-model="createForm.standardId" :placeholder="t('assessments.selectStandards')" class="w-full" :disabled="selectedProjectStandards.length === 0">
+            <el-option v-for="std in selectedProjectStandards" :key="(std.id as string)" :label="`${std.name} ${std.version ? 'v' + std.version : ''}`" :value="std.id"></el-option>
+          </el-select>
+          <div class="form-hint">
+            <template v-if="selectedProjectStandards.length === 0">This project has no linked standards. Add a standard to the project first, or remove the project scope.</template>
+            <template v-else>Select which of the project's linked standards this assessment exercises.</template>
           </div>
-          <div class="form-hint">Requirements will be populated from these standards when you start the assessment.</div>
         </el-form-item>
-        <el-form-item v-if="!createForm.entityId && !createForm.projectId" :label="t('assessments.standardsForAdHoc')">
-          <el-select v-model="createForm.standardIds" multiple :placeholder="t('assessments.selectStandards')" class="w-full">
+        <el-form-item v-if="!createForm.entityId && !createForm.projectId" label="Standard" required>
+          <el-select v-model="createForm.standardId" :placeholder="t('assessments.selectStandards')" class="w-full">
             <el-option v-for="std in standards" :key="std.id" :label="`${std.name} ${std.version ? 'v' + std.version : ''}`" :value="std.id"></el-option>
           </el-select>
           <div class="form-hint">{{ t('assessments.standardsHint') }}</div>
@@ -213,8 +214,13 @@ const createForm = ref({
   description: '',
   entityId: null as string | null,
   projectId: '',
+  // Single standard id. The backend stores one standard_id per
+  // assessment (see migrate.ts). Earlier revisions of this form kept a
+  // separate `standardIds` array for the "ad hoc" path; that array was
+  // silently dropped server side because the backend schema only
+  // recognized `standardId`. Use one field for all scopes (entity,
+  // project, none) and let the handler send `payload.standardId`.
   standardId: null as string | null,
-  standardIds: [] as string[],
   dueDate: null as unknown,
   assessorIds: [] as string[],
   assesseeIds: [] as string[],
@@ -236,14 +242,17 @@ watch([filterState, filterProject, myAssessmentsOnly], () => {
 watch(() => createForm.value.entityId, (newEntityId) => {
   if (newEntityId) {
     fetchEntityStandards(newEntityId)
-    // Clear standardId when entity changes
-    createForm.value.standardId = null
-    // Clear ad-hoc standards since entity+standard takes precedence
-    createForm.value.standardIds = []
   } else {
     entityStandards.value = []
-    createForm.value.standardId = null
   }
+  // Clear the picked standard whenever the scope changes so a stale
+  // choice from a different scope cannot be submitted by accident.
+  createForm.value.standardId = null
+})
+
+watch(() => createForm.value.projectId, () => {
+  // Same rule applies when the project scope changes.
+  createForm.value.standardId = null
 })
 
 const fetchProjects = async () => {
@@ -352,13 +361,13 @@ const handleCreate = async () => {
     return
   }
 
-  // Validate that either entity+standard or project+standards (or entity+standard) is provided
-  if (createForm.value.entityId && !createForm.value.standardId) {
-    ElMessage.error('Standard is required when an entity is selected')
-    return
-  }
-
-  if (!createForm.value.entityId && !createForm.value.projectId && createForm.value.standardIds.length === 0) {
+  // A standard must be picked in every scope. The backend stores one
+  // standard_id per assessment and the /start endpoint needs a standard
+  // (or one derivable from entity/project joins) to load requirements.
+  // Without this guard, the user could create an assessment with no
+  // standard and then hit a 400 only when clicking Start — the symptom
+  // chain in issue #19.
+  if (!createForm.value.standardId) {
     ElMessage.error(t('assessments.selectStandards'))
     return
   }
@@ -369,18 +378,14 @@ const handleCreate = async () => {
       title: createForm.value.title,
       description: createForm.value.description,
       projectId: createForm.value.projectId || null,
+      entityId: createForm.value.entityId || undefined,
+      // Single source of truth: every create path sends the picked
+      // standard as `standardId`. The backend's compatibility alias
+      // `standardIds` is no longer used by this form.
+      standardId: createForm.value.standardId,
       dueDate: createForm.value.dueDate ? (createForm.value.dueDate as { toISOString: () => string }).toISOString().split('T')[0] : null,
       assessorIds: createForm.value.assessorIds.length > 0 ? createForm.value.assessorIds : undefined,
       assesseeIds: createForm.value.assesseeIds.length > 0 ? createForm.value.assesseeIds : undefined,
-    }
-
-    // Add entity/standard scoping if entity is selected
-    if (createForm.value.entityId) {
-      payload.entityId = createForm.value.entityId
-      payload.standardId = createForm.value.standardId
-    } else if (!createForm.value.projectId && createForm.value.standardIds.length > 0) {
-      // Legacy ad-hoc assessment with multiple standards
-      payload.standardIds = createForm.value.standardIds
     }
 
     await axios.post('/api/v1/assessments', payload)
@@ -403,7 +408,6 @@ const resetCreateForm = () => {
     entityId: null,
     projectId: '',
     standardId: null,
-    standardIds: [],
     dueDate: null,
     assessorIds: [],
     assesseeIds: []
@@ -508,8 +512,4 @@ const navigateToAssessment = (row: Record<string, unknown>) => {
   text-transform: capitalize;
 }
 
-.standards-tag {
-  margin-right: 6px;
-  margin-bottom: 4px;
-}
 </style>
