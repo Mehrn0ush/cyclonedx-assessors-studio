@@ -79,6 +79,29 @@ describe('Evidence HTTP Routes', () => {
     return { projectId, standardId, assessmentId, assessmentRequirementId, requirementId };
   }
 
+  async function createStartedAssessmentRequirement(agent: any) {
+    const { assessmentId } = await createTestData(agent);
+
+    const startRes = await agent
+      .post(`/api/v1/assessments/${assessmentId}/start`)
+      .send({});
+    expect(startRes.status).toBe(200);
+
+    const { getDatabase } = await import('../../db/connection.js');
+    const db = getDatabase();
+
+    const assessmentRequirement = await db
+      .selectFrom('assessment_requirement')
+      .where('assessment_id', '=', assessmentId)
+      .select('id')
+      .executeTakeFirstOrThrow();
+
+    return {
+      assessmentId,
+      assessmentRequirementId: assessmentRequirement.id,
+    };
+  }
+
   describe('POST /api/v1/evidence', () => {
     it('should create evidence with valid data', async () => {
       const agent = await loginAs('admin');
@@ -769,9 +792,9 @@ describe('Evidence HTTP Routes', () => {
   });
 
   describe('POST /api/v1/evidence/:id/link', () => {
-    it.skip('should link evidence to assessment requirement', async () => {
+    it('should link evidence to assessment requirement', async () => {
       const agent = await loginAs('admin');
-      const { assessmentRequirementId } = await createTestData(agent);
+      const { assessmentRequirementId } = await createStartedAssessmentRequirement(agent);
 
       const createRes = await agent.post('/api/v1/evidence').send({ name: 'Link Test' });
       const evidenceId = createRes.body.id;
@@ -784,9 +807,9 @@ describe('Evidence HTTP Routes', () => {
       expect(res.body).toHaveProperty('message');
     });
 
-    it.skip('should prevent duplicate links', async () => {
+    it('should prevent duplicate links', async () => {
       const agent = await loginAs('admin');
-      const { assessmentRequirementId } = await createTestData(agent);
+      const { assessmentRequirementId } = await createStartedAssessmentRequirement(agent);
 
       const createRes = await agent.post('/api/v1/evidence').send({ name: 'Duplicate Link Test' });
       const evidenceId = createRes.body.id;
@@ -805,9 +828,9 @@ describe('Evidence HTTP Routes', () => {
       expect(res2.body.error).toContain('already linked');
     });
 
-    it.skip('should return 404 for non-existent evidence', async () => {
+    it('should return 404 for non-existent evidence', async () => {
       const agent = await loginAs('admin');
-      const { assessmentRequirementId } = await createTestData(agent);
+      const { assessmentRequirementId } = await createStartedAssessmentRequirement(agent);
 
       const res = await agent
         .post('/api/v1/evidence/00000000-0000-0000-0000-000000000000/link')
@@ -817,7 +840,7 @@ describe('Evidence HTTP Routes', () => {
       expect(res.body.error).toBe('Evidence not found');
     });
 
-    it.skip('should return 404 for non-existent assessment requirement', async () => {
+    it('should return 404 for non-existent assessment requirement', async () => {
       const agent = await loginAs('admin');
 
       const createRes = await agent.post('/api/v1/evidence').send({ name: 'Bad Req Link' });
@@ -831,10 +854,10 @@ describe('Evidence HTTP Routes', () => {
       expect(res.body.error).toBe('Assessment requirement not found');
     });
 
-    it.skip('should require user to be assessment participant', async () => {
+    it('should require user to be assessment participant', async () => {
       const adminAgent = await loginAs('admin');
       const assessorAgent = await loginAs('assessor');
-      const { assessmentRequirementId } = await createTestData(adminAgent);
+      const { assessmentRequirementId } = await createStartedAssessmentRequirement(adminAgent);
 
       const createRes = await assessorAgent.post('/api/v1/evidence').send({ name: 'Non Participant Link' });
       const evidenceId = createRes.body.id;
@@ -860,7 +883,7 @@ describe('Evidence HTTP Routes', () => {
     it('should require evidence.edit permission', async () => {
       const adminAgent = await loginAs('admin');
       const assesseeAgent = await loginAs('assessee');
-      const { assessmentRequirementId } = await createTestData(adminAgent);
+      const { assessmentRequirementId } = await createStartedAssessmentRequirement(adminAgent);
 
       const createRes = await adminAgent.post('/api/v1/evidence').send({ name: 'Link Perm Test' });
       const evidenceId = createRes.body.id;
@@ -874,9 +897,11 @@ describe('Evidence HTTP Routes', () => {
   });
 
   describe('DELETE /api/v1/evidence/:id/unlink', () => {
+    // Left skipped for now: current route behavior returns 404 on the happy path
+    // even after a successful link, so the positive unlink case needs follow-up.
     it.skip('should unlink evidence from assessment requirement', async () => {
       const agent = await loginAs('admin');
-      const { assessmentRequirementId } = await createTestData(agent);
+      const { assessmentRequirementId } = await createStartedAssessmentRequirement(agent);
 
       const createRes = await agent.post('/api/v1/evidence').send({ name: 'Unlink Test' });
       const evidenceId = createRes.body.id;
@@ -895,9 +920,9 @@ describe('Evidence HTTP Routes', () => {
       expect(res.body).toHaveProperty('message');
     });
 
-    it.skip('should return 404 for non-existent link', async () => {
+    it('should return 404 for non-existent link', async () => {
       const agent = await loginAs('admin');
-      const { assessmentRequirementId } = await createTestData(agent);
+      const { assessmentRequirementId } = await createStartedAssessmentRequirement(agent);
 
       const createRes = await agent.post('/api/v1/evidence').send({ name: 'Non Existent Link Unlink' });
       const evidenceId = createRes.body.id;
@@ -912,13 +937,14 @@ describe('Evidence HTTP Routes', () => {
 
     it('should return 404 for non-existent evidence', async () => {
       const agent = await loginAs('admin');
-      const { assessmentRequirementId } = await createTestData(agent);
+      const { assessmentRequirementId } = await createStartedAssessmentRequirement(agent);
 
       const res = await agent
         .delete('/api/v1/evidence/00000000-0000-0000-0000-000000000000/unlink')
         .send({ assessmentRequirementId });
 
-      expect([400, 404]).toContain(res.status);
+      expect(res.status).toBe(404);
+      expect(res.body.error).toBe('Evidence not found');
     });
 
     it('should return 404 for non-existent assessment requirement', async () => {
@@ -948,7 +974,7 @@ describe('Evidence HTTP Routes', () => {
     it('should require evidence.edit permission', async () => {
       const adminAgent = await loginAs('admin');
       const assesseeAgent = await loginAs('assessee');
-      const { assessmentRequirementId } = await createTestData(adminAgent);
+      const { assessmentRequirementId } = await createStartedAssessmentRequirement(adminAgent);
 
       const createRes = await adminAgent.post('/api/v1/evidence').send({ name: 'Unlink Perm Test' });
       const evidenceId = createRes.body.id;
