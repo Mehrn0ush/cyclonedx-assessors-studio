@@ -59,9 +59,11 @@ Status legend:
 | Evidence: state machine guards (resubmit, premature approve) | DONE | same spec |
 | Evidence: author guard (cannot approve/reject own) | DONE | same spec |
 | Evidence: RBAC matrix | DONE | same spec |
-| Attestations: create attestation, add requirement claim | PLANNED |
-| Attestations: sign with platform key | PLANNED |
-| Attestations: drift detection on re-canonicalization | PLANNED |
+| Attestations: create on completed assessment, add requirement claim, update, export 1.6/1.7 | DONE | `specs/attestations/lifecycle.spec.ts` |
+| Attestations: 409 on non-complete assessment, 400 on out-of-range score | DONE | same spec |
+| Attestations: RBAC matrix (create, edit, export, view) | DONE | same spec |
+| Attestations: sign via affirmation flow | PLANNED | belongs in affirmations spec (PR3 moved signing to affirmation layer) |
+| Attestations: drift detection on re-canonicalization | PLANNED | needs platform-key signing prerequisite |
 | Affirmations: create, add slot, sign slot, rescind | PLANNED |
 | Claims: CRUD + link to evidence and assessment requirement | PLANNED |
 | Tags admin: CRUD + color picker | PLANNED |
