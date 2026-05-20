@@ -743,7 +743,13 @@ router.post(
           .select(['id'])
           .executeTakeFirst();
         if (!user) {
-          res.status(400).json({ error: 'requiredUserId references a user that does not exist' });
+          // 404 (not 400) matches the rest of this file's referential
+          // checks — POST /affirmations returns 404 when assessmentId
+          // references a missing assessment (see line 585). A missing
+          // foreign-key target is uniformly "not found" rather than
+          // "bad request", so a single category of failure has one
+          // status code across the resource.
+          res.status(404).json({ error: 'requiredUserId references a user that does not exist' });
           return;
         }
       }

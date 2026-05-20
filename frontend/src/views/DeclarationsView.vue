@@ -111,7 +111,7 @@
               :data="affirmation.signatories"
               stripe
               border
-              role="grid"
+             
               :aria-label="t('declarations.slotsTableLabel')"
             >
               <el-table-column :label="t('declarations.requiredTitle')" min-width="220">

@@ -65,7 +65,7 @@
       </div>
 
       <!-- Table -->
-      <el-table v-else :data="filteredProjects" stripe border @row-click="navigateToProject" role="grid" aria-label="Projects table">
+      <el-table v-else :data="filteredProjects" stripe border @row-click="navigateToProject" aria-label="Projects table">
         <el-table-column prop="name" :label="t('projects.name')" min-width="200" sortable></el-table-column>
         <el-table-column :label="t('projects.standards')" min-width="140">
           <template #default="{ row }">

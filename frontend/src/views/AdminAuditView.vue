@@ -121,7 +121,7 @@
           <p>{{ t('audit.empty') }}</p>
         </div>
 
-        <el-table v-else :data="entries" stripe border role="grid" aria-label="Audit log">
+        <el-table v-else :data="entries" stripe border aria-label="Audit log">
           <el-table-column prop="createdAt" :label="t('audit.timestamp')" min-width="180">
             <template #default="{ row }">
               {{ formatTimestamp(row.createdAt) }}

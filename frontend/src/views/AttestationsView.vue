@@ -25,7 +25,7 @@
       </div>
 
       <div v-else class="content">
-        <el-table :data="pagedAttestations" stripe border role="grid" aria-label="Attestations table">
+        <el-table :data="pagedAttestations" stripe border aria-label="Attestations table">
           <el-table-column min-width="280">
             <template #header>
               <span>{{ t('attestations.summary') }} <HelpTip content="Attestations are formal records that link assessment results to signed declarations of conformance." /></span>

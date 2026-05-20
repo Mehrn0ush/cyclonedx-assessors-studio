@@ -382,19 +382,33 @@ router.post(
       const payloadJson = JSON.stringify(data.payload);
       const payloadEncrypted = encryptionService.encrypt(payloadJson);
 
-      await db
-        .insertInto('user_signature')
-        .values({
-          id,
-          user_id: userId,
-          label: data.label,
-          signature_type: data.signatureType,
-          signature_format: signatureFormat,
-          backend_type: data.backendType,
-          payload_encrypted: payloadEncrypted,
-          key_fingerprint: fingerprint,
-        })
-        .execute();
+      try {
+        await db
+          .insertInto('user_signature')
+          .values({
+            id,
+            user_id: userId,
+            label: data.label,
+            signature_type: data.signatureType,
+            signature_format: signatureFormat,
+            backend_type: data.backendType,
+            payload_encrypted: payloadEncrypted,
+            key_fingerprint: fingerprint,
+          })
+          .execute();
+      } catch (insertError: unknown) {
+        // user_signature carries UNIQUE(user_id, label). Mapping the
+        // constraint violation to 409 lets the caller distinguish "this
+        // label is already taken" from a real server error and matches
+        // what /tags does for the same class of failure.
+        const err = insertError as Record<string, unknown> | null;
+        const msg = (err?.message as string | undefined)?.toLowerCase();
+        if (msg?.includes('duplicate') || msg?.includes('unique')) {
+          res.status(409).json({ error: 'A signature with this label already exists' });
+          return;
+        }
+        throw insertError;
+      }
 
       const created = (await db
         .selectFrom('user_signature')

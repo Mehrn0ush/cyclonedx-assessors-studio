@@ -52,7 +52,7 @@ export async function fetchAttestationRequirements(db: Kysely<Database>, attesta
   // `.selectAll()` the joined columns collide by unqualified name and
   // Kysely returns the first match, which drops the imported bom-ref
   // silently and forces the writer back onto the UUID fallback.
-  return db
+  const rows = await db
     .selectFrom('attestation_requirement')
     .innerJoin('requirement', 'requirement.id', 'attestation_requirement.requirement_id')
     .where('attestation_requirement.attestation_id', '=', attestationId)
@@ -67,6 +67,18 @@ export async function fetchAttestationRequirements(db: Kysely<Database>, attesta
       'requirement.imported_bom_ref as requirement_imported_bom_ref',
     ])
     .execute();
+
+  // PGlite and node-postgres surface DECIMAL columns as strings ("1.00")
+  // so the API would otherwise leak typed numerics as strings. Coerce
+  // back to numbers (or null) so downstream consumers — the API
+  // response, the CDXA exporter, dashboard rollups — see a uniform
+  // numeric type. The same coercion happens for project + entity
+  // rollups (see projects.ts:518 / entities.ts:571).
+  return rows.map((row) => ({
+    ...row,
+    conformance_score: row.conformance_score == null ? null : Number(row.conformance_score),
+    confidence_score: row.confidence_score == null ? null : Number(row.confidence_score),
+  }));
 }
 
 /**

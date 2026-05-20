@@ -29,8 +29,11 @@ test.describe('Concurrent edits @regression', () => {
     expect(a.ok()).toBeTruthy();
     expect(b.ok()).toBeTruthy();
 
+    // GET /entities/:id returns { entity, parents, children, standards,
+    // tags, policies }. The row carrying description lives under
+    // `entity`, not the response root.
     const after = await api.get(`/api/v1/entities/${created.id}`).then((r) => r.json());
-    expect(['edit A', 'edit B']).toContain(after.description);
+    expect(['edit A', 'edit B']).toContain(after.entity.description);
   });
 
   test('overlapping assessment updates do not corrupt the row', async ({ apiAs }) => {

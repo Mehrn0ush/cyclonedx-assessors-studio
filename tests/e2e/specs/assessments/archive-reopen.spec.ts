@@ -23,8 +23,11 @@ test.describe('Assessment archive and reopen @regression', () => {
     const archive = await api.post(`/api/v1/assessments/${assessmentId}/archive`);
     expect(archive.ok(), `archive failed: ${await archive.text()}`).toBeTruthy();
 
+    // GET /assessments/:id returns { assessment, requirements, assessors,
+    // assessees }. The row carrying state lives under `assessment`,
+    // not at the top level.
     const after = await api.get(`/api/v1/assessments/${assessmentId}`).then((r) => r.json());
-    expect(after.state).toBe('archived');
+    expect(after.assessment.state).toBe('archived');
   });
 
   test('cannot archive an assessment that is not complete', async ({ apiAs }) => {
@@ -52,7 +55,7 @@ test.describe('Assessment archive and reopen @regression', () => {
     expect(reopen.ok()).toBeTruthy();
 
     const after = await api.get(`/api/v1/assessments/${assessmentId}`).then((r) => r.json());
-    expect(after.state).toBe('in_progress');
+    expect(after.assessment.state).toBe('in_progress');
   });
 
   test('cannot reopen an archived assessment', async ({ apiAs }) => {

@@ -23,7 +23,7 @@
 
       <template v-else>
         <div class="standards-filters">
-          <el-select v-model="filterState" :placeholder="t('standards.filterByState')" clearable class="state-filter">
+          <el-select v-model="filterState" :placeholder="t('standards.filterByState')" :aria-label="t('standards.filterByState')" clearable class="state-filter">
             <el-option :label="t('standards.all')" value=""></el-option>
             <el-option :label="t('standards.draft')" value="draft"></el-option>
             <el-option :label="t('standards.inReview')" value="in_review"></el-option>
@@ -31,7 +31,7 @@
             <el-option :label="t('standards.retired')" value="retired"></el-option>
           </el-select>
         </div>
-        <el-table :data="paginatedData" stripe border @row-click="navigateToStandard" role="grid" aria-label="Standards table">
+        <el-table :data="paginatedData" stripe border @row-click="navigateToStandard" aria-label="Standards table">
           <el-table-column prop="name" :label="t('standards.name')" min-width="250" sortable></el-table-column>
           <el-table-column prop="version" :label="t('standards.version')" min-width="100" sortable></el-table-column>
           <el-table-column prop="owner" :label="t('standards.owner')" min-width="200" sortable></el-table-column>

@@ -434,7 +434,11 @@ describe('Affirmations HTTP Routes', () => {
         requiredTitle: 'CISO',
         requiredUserId: '00000000-0000-0000-0000-000000000000',
       });
-      expect(res.status).toBe(400);
+      // 404 (not 400) matches the rest of this resource's foreign-key
+      // checks — POST /affirmations returns 404 when assessmentId
+      // references a missing assessment, so a missing requiredUserId
+      // follows the same shape.
+      expect(res.status).toBe(404);
     });
 
     it('updates a slot title and pinning on an unsigned slot', async () => {

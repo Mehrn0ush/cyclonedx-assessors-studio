@@ -9,6 +9,7 @@ import '@/assets/styles/index.scss'
 import App from './App.vue'
 import router from './router'
 import i18n from './i18n'
+import AccessibilityPatches from './plugins/accessibility-patches'
 
 const app = createApp(App)
 
@@ -21,5 +22,10 @@ app.use(createPinia())
 app.use(router)
 app.use(i18n)
 app.use(ElementPlus)
+// Repairs Element Plus a11y drift (phantom aria-activedescendant,
+// unlabeled pagination size selector) via a single MutationObserver.
+// Installed after ElementPlus so the plugin sees Element Plus markup
+// once the first component mounts.
+app.use(AccessibilityPatches)
 
 app.mount('#app')

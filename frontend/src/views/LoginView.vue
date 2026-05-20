@@ -69,7 +69,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useLogo } from '@/composables/useLogo'
@@ -78,8 +78,23 @@ import { User as UserIcon, Lock as LockIcon } from '@element-plus/icons-vue'
 const { logoSrc } = useLogo()
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const { t } = useI18n()
+
+// Pull the post-login destination off the URL. Router guards stamp
+// `redirect=<path>` on the /login URL when an unauthenticated user
+// hits a protected route, so the user lands back where they came from
+// after signing in. Reject any value that does not start with a single
+// "/" so an attacker cannot stage a redirect to an external origin via
+// "//evil.com" or similar.
+function resolveRedirectTarget(): string {
+  const raw = route.query.redirect
+  const value = Array.isArray(raw) ? raw[0] : raw
+  if (typeof value !== 'string') return '/dashboard'
+  if (!value.startsWith('/') || value.startsWith('//')) return '/dashboard'
+  return value
+}
 
 const form = ref({
   username: '',
@@ -109,7 +124,7 @@ const handleLogin = async () => {
 
   try {
     await authStore.login(form.value.username, form.value.password)
-    await router.push('/dashboard')
+    await router.push(resolveRedirectTarget())
   } catch {
     // Surface a single, localized failure string for every credential
     // error. Echoing the server error text risks leaking account-state

@@ -29,7 +29,7 @@
         <el-button @click="fetchUsers" class="retry-button">{{ t('common.retry') }}</el-button>
       </div>
 
-      <el-table v-else :data="paginatedUsers" stripe border role="grid" aria-label="Users table" @selection-change="handleSelectionChange">
+      <el-table v-else :data="paginatedUsers" stripe border aria-label="Users table" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="50"></el-table-column>
         <el-table-column prop="username" :label="t('admin.username')" min-width="150" sortable></el-table-column>
         <el-table-column prop="email" :label="t('admin.email')" min-width="200" sortable></el-table-column>

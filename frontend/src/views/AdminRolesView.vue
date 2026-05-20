@@ -21,7 +21,7 @@
         <el-button @click="fetchRoles" class="retry-button">{{ t('common.retry') }}</el-button>
       </div>
 
-      <el-table v-else :data="paginatedRoles" stripe border role="grid" aria-label="Roles table">
+      <el-table v-else :data="paginatedRoles" stripe border aria-label="Roles table">
         <el-table-column prop="name" :label="t('common.name')" min-width="150" sortable></el-table-column>
         <el-table-column prop="key" :label="t('admin.roleKey')" min-width="120" sortable></el-table-column>
         <el-table-column prop="description" :label="t('common.description')" min-width="250" sortable></el-table-column>

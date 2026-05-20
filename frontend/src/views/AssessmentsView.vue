@@ -34,7 +34,7 @@
       </div>
       <el-alert v-else-if="error" type="error" show-icon :closable="false">{{ error }}</el-alert>
       <div v-else class="content">
-        <el-table :data="filteredAssessments" stripe border @row-click="navigateToAssessment" role="grid" aria-label="Assessments table">
+        <el-table :data="filteredAssessments" stripe border @row-click="navigateToAssessment" aria-label="Assessments table">
           <el-table-column prop="title" :label="t('assessments.titleField')" min-width="160" sortable></el-table-column>
           <el-table-column :label="t('assessments.entity') || 'Entity'" min-width="120">
             <template #default="{ row }">

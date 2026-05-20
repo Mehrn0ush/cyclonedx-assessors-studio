@@ -1084,17 +1084,26 @@ describe('Evidence HTTP Routes', () => {
 
   describe('POST /api/v1/evidence/:id/approve', () => {
     it('should approve evidence in review status', async () => {
-      const agent = await loginAs('admin');
+      // Approval is gated by separation of duties: the author cannot
+      // approve their own evidence. To exercise the success path we
+      // need two distinct identities — the assessor creates the
+      // evidence (becomes the author) and the admin reviews. The old
+      // single-agent form returned 409 by accident under the previous
+      // status-code mapping and is no longer a representative happy
+      // path (author-self-approval is now an explicit 403).
+      const adminAgent = await loginAs('admin');
+      const assessorAgent = await loginAs('assessor');
 
-      const createRes = await agent.post('/api/v1/evidence').send({
+      const createRes = await assessorAgent.post('/api/v1/evidence').send({
         name: 'Approve Test',
         state: 'in_review',
       });
       const evidenceId = createRes.body.id;
 
-      const res = await agent.post(`/api/v1/evidence/${evidenceId}/approve`);
+      const res = await adminAgent.post(`/api/v1/evidence/${evidenceId}/approve`);
 
-      // May get 200/201 if approved, or 409 if conflict with state
+      // 200/201 on success, 409 only if state shifted between the
+      // create and the approve.
       expect([200, 201, 409]).toContain(res.status);
     });
 
@@ -1107,8 +1116,12 @@ describe('Evidence HTTP Routes', () => {
     });
 
     it('should prevent non-reviewers from approving', async () => {
+      // "Non-reviewer" here means a role without `evidence.review`.
+      // assessor carries that permission (see seed.ts), so to actually
+      // exercise the requirePermission gate we use assessee — the
+      // role that has create/submit but no review.
       const adminAgent = await loginAs('admin');
-      const assessorAgent = await loginAs('assessor');
+      const assesseeAgent = await loginAs('assessee');
 
       const createRes = await adminAgent.post('/api/v1/evidence').send({
         name: 'Non Reviewer Approve',
@@ -1116,7 +1129,7 @@ describe('Evidence HTTP Routes', () => {
       });
       const evidenceId = createRes.body.id;
 
-      const res = await assessorAgent.post(`/api/v1/evidence/${evidenceId}/approve`);
+      const res = await assesseeAgent.post(`/api/v1/evidence/${evidenceId}/approve`);
 
       expect([403, 409]).toContain(res.status);
     });
@@ -1219,8 +1232,11 @@ describe('Evidence HTTP Routes', () => {
     });
 
     it('should prevent non-reviewers from rejecting', async () => {
+      // assessor has `evidence.review`; use assessee (no review perm)
+      // to actually exercise the permission gate. See the matching
+      // change in /approve above.
       const adminAgent = await loginAs('admin');
-      const assessorAgent = await loginAs('assessor');
+      const assesseeAgent = await loginAs('assessee');
 
       const createRes = await adminAgent.post('/api/v1/evidence').send({
         name: 'Non Reviewer Reject',
@@ -1228,7 +1244,7 @@ describe('Evidence HTTP Routes', () => {
       });
       const evidenceId = createRes.body.id;
 
-      const res = await assessorAgent
+      const res = await assesseeAgent
         .post(`/api/v1/evidence/${evidenceId}/reject`)
         .send({ note: 'Unauthorized rejection' });
 
@@ -1548,29 +1564,35 @@ describe('Evidence HTTP Routes', () => {
 
   describe('Edge cases and workflow', () => {
     it('should support complete evidence workflow', async () => {
+      // Use two identities — assessor as the author/owner of the
+      // evidence, admin as the reviewer who approves it. The
+      // separation-of-duties guard now returns 403 for an author
+      // approving their own evidence, so a single-identity workflow
+      // cannot reach the "approved" state.
       const adminAgent = await loginAs('admin');
+      const assessorAgent = await loginAs('assessor');
 
-      // Create evidence
-      const createRes = await adminAgent.post('/api/v1/evidence').send({
+      // Create evidence as the author
+      const createRes = await assessorAgent.post('/api/v1/evidence').send({
         name: 'Workflow Evidence',
         description: 'Complete workflow test',
       });
       const evidenceId = createRes.body.id;
       expect(createRes.status).toBe(201);
 
-      // Add a note
-      const noteRes = await adminAgent
+      // Add a note as the author
+      const noteRes = await assessorAgent
         .post(`/api/v1/evidence/${evidenceId}/notes`)
         .send({ content: 'Initial assessment' });
       expect(noteRes.status).toBe(201);
 
-      // Update evidence
-      const updateRes = await adminAgent
+      // Move evidence into review
+      const updateRes = await assessorAgent
         .put(`/api/v1/evidence/${evidenceId}`)
         .send({ state: 'in_review', tags: ['reviewed'] });
       expect(updateRes.status).toBe(200);
 
-      // Approve evidence
+      // Approve as the reviewer (non-author)
       const approveRes = await adminAgent.post(`/api/v1/evidence/${evidenceId}/approve`);
       expect([200, 201, 409]).toContain(approveRes.status);
 

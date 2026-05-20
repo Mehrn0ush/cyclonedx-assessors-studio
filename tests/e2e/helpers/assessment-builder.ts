@@ -71,6 +71,10 @@ export async function buildCompletedAssessment(
 
   const detailRes = await api.get(`/api/v1/assessments/${assessment.id}`);
   const detailBody = await detailRes.json();
+  // The response now (post product-fix to assessments.ts) returns the
+  // junction PK under `id` and the catalog id under `requirementId`.
+  // Earlier responses had `id` collide with the catalog id; that bug
+  // is fixed and this helper assumes the corrected shape.
   const requirements: Array<{
     id: string;
     requirementId?: string;
@@ -78,9 +82,15 @@ export async function buildCompletedAssessment(
   }> = detailBody.requirements ?? [];
   expect(requirements.length, 'assessment has no requirements after start').toBeGreaterThan(0);
 
+  // For scoring (PUT /assessments/:id/requirements/:reqId): the catalog
+  // requirement_id is the route param.
   const requirementIds = requirements.map(
     (r) => r.requirementId ?? r.requirement_id ?? r.id,
   );
+  // For evidence linking (POST /evidence/:id/link): the junction row id
+  // is the body param. Same row order as requirementIds so [0] aligns
+  // with the first scored requirement.
+  const junctionIds = requirements.map((r) => r.id);
 
   for (const reqId of requirementIds) {
     const upd = await api.put(
@@ -102,10 +112,12 @@ export async function buildCompletedAssessment(
       .then((r) => r.json());
     expect(evidence.id, 'evidence.id missing on create').toBeTruthy();
 
-    const linkRes = await api.post(
-      `/api/v1/assessments/${assessment.id}/requirements/${requirementIds[0]}/evidence`,
-      { data: { evidenceId: evidence.id } },
-    );
+    // The link endpoint hangs off the evidence row, not the assessment.
+    // Body carries the junction id (assessment_requirement.id), not the
+    // catalog requirement id.
+    const linkRes = await api.post(`/api/v1/evidence/${evidence.id}/link`, {
+      data: { assessmentRequirementId: junctionIds[0] },
+    });
     expect(
       linkRes.ok(),
       `evidence link failed: ${linkRes.status()} ${await linkRes.text()}`,

@@ -318,7 +318,12 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
 
   // Normal auth guards
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next('/login')
+    // Carry the originally-requested path on the login redirect so the
+    // user lands back where they were after re-authenticating. Skip the
+    // redirect param when the user is bouncing through /login already
+    // (no useful return path) or coming from /dashboard (the default
+    // post-login target).
+    redirectToLogin(to, next)
   } else if (to.meta.requiresPermission && !authStore.hasPermission(to.meta.requiresPermission as string)) {
     next('/dashboard')
   } else if (
@@ -334,8 +339,20 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
   } else if (to.meta.public || authStore.isAuthenticated) {
     next()
   } else {
-    next('/login')
+    redirectToLogin(to, next)
   }
 })
+
+function redirectToLogin(
+  to: RouteLocationNormalized,
+  next: NavigationGuardNext,
+): void {
+  const path = to.fullPath
+  if (path === '/login' || path === '/' || path === '/dashboard') {
+    next('/login')
+    return
+  }
+  next({ path: '/login', query: { redirect: path } })
+}
 
 export default router

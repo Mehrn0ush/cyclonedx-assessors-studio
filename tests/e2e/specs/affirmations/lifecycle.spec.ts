@@ -67,10 +67,15 @@ interface SlotDto {
 }
 
 async function createElectronicSignature(api: APIRequestContext, opts: { label: string; name: string; signedName: string; role?: string; organization: string }) {
+  // user_signature carries a UNIQUE(user_id, label) constraint, so a
+  // hard-coded label collides across parallel-running tests that all
+  // call this helper as admin. Suffix every label with a per-call
+  // token so the inserts never race on the unique index.
+  const uniqueLabel = `${opts.label} ${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const r = await api.post('/api/v1/me/signatures', {
     data: {
       signatureType: 'electronic',
-      label: opts.label,
+      label: uniqueLabel,
       payload: {
         name: opts.name,
         role: opts.role,
@@ -105,10 +110,11 @@ async function addSlot(api: APIRequestContext, affirmationId: string, opts: { ti
   });
   expect(r.status(), `add slot: ${await r.text()}`).toBe(201);
   const body = await r.json();
-  // The route returns the full affirmation; find the new slot by title.
-  const slots = (body.data as AffirmationDto).slots ?? [];
-  const slot = slots.find((s) => s.requiredTitle === opts.title);
-  if (!slot) throw new Error(`slot with title ${opts.title} not found in response`);
+  // The route returns the newly-created slot directly under `data` (see
+  // POST /:id/signatories — `{ data: toSlotResponse(slot) }`). It does
+  // NOT return the parent affirmation with a slots[] array.
+  const slot = body.data as SlotDto;
+  if (!slot?.id) throw new Error(`slot creation response missing id: ${JSON.stringify(body)}`);
   return slot;
 }
 

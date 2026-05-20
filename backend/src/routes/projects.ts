@@ -40,6 +40,7 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
   const db = getDatabase();
   const { limit, offset } = validatePagination(req.query);
   const state = req.query.state as string | undefined;
+  const search = req.query.search as string | undefined;
 
   let query = db.selectFrom('project').selectAll();
 
@@ -47,9 +48,31 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
     query = query.where('state', '=', state as 'new' | 'in_progress' | 'on_hold' | 'complete' | 'operational' | 'retired');
   }
 
-  const total = await db
-    .selectFrom('project')
-    .select(db.fn.count<number>('id').as('count'))
+  // Case-insensitive substring match on name or description. Matches
+  // the same shape /api/v1/entities supports so consumers (and the
+  // empty-state list view) get a uniform filter contract.
+  if (search) {
+    query = query.where((eb) =>
+      eb.or([
+        eb('name', 'ilike', `%${search}%`),
+        eb('description', 'ilike', `%${search}%`),
+      ]),
+    );
+  }
+
+  let countQuery = db.selectFrom('project').select(db.fn.count<number>('id').as('count'));
+  if (state) {
+    countQuery = countQuery.where('state', '=', state as 'new' | 'in_progress' | 'on_hold' | 'complete' | 'operational' | 'retired');
+  }
+  if (search) {
+    countQuery = countQuery.where((eb) =>
+      eb.or([
+        eb('name', 'ilike', `%${search}%`),
+        eb('description', 'ilike', `%${search}%`),
+      ]),
+    );
+  }
+  const total = await countQuery
     .executeTakeFirstOrThrow()
     .then(r => r.count);
 

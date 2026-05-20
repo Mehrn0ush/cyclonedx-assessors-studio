@@ -20,8 +20,17 @@ client.interceptors.response.use(
   (error) => {
     const status = error.response?.status
     if (status === 401) {
-      // Session expired or invalid; redirect to login
-      router.push('/login')
+      // Session expired or invalid; bounce to login and preserve the
+      // currently-visible path so the user lands back where they were
+      // after signing in again. Skip the redirect param if the user is
+      // already on /login or the root, where it carries no useful
+      // information.
+      const current = router.currentRoute.value.fullPath
+      if (current === '/login' || current === '/' || current === '/dashboard') {
+        router.push('/login')
+      } else {
+        router.push({ path: '/login', query: { redirect: current } })
+      }
     } else if (status === 503 && error.response?.data?.setupUrl) {
       // Setup not complete; redirect to setup wizard
       router.push('/setup')

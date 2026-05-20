@@ -1346,11 +1346,18 @@ describe('Assessments HTTP Routes', () => {
 
       await agent.post(`/api/v1/assessments/${assessmentId}/start`).send({});
 
-      // Get the assessment to retrieve assessment_requirement IDs
+      // The :requirementId path parameter is the *catalog* requirement
+      // id (assessment_requirement.requirement_id), not the junction
+      // row's own id. The previous selectAll() collision used to
+      // alias them to the same value so the test passed by accident
+      // — now that the GET response distinguishes the two columns,
+      // we have to pick the right one explicitly.
       const getRes = await agent.get(`/api/v1/assessments/${assessmentId}`);
       expect(getRes.status).toBe(200);
       const assessmentRequirements = getRes.body.requirements || [];
-      const firstReqId = assessmentRequirements.length > 0 ? assessmentRequirements[0].id : '00000000-0000-0000-0000-000000000000';
+      const firstReqId = assessmentRequirements.length > 0
+        ? (assessmentRequirements[0].requirement_id ?? assessmentRequirements[0].requirementId)
+        : '00000000-0000-0000-0000-000000000000';
 
       const res = await agent.get(
         `/api/v1/assessments/${assessmentId}/requirements/${firstReqId}/evidence`

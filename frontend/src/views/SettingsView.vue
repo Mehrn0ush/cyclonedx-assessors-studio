@@ -119,7 +119,10 @@
           </el-form-item>
 
           <el-form-item :label="t('settings.chatIdentities.emailNotifications')">
-            <el-switch v-model="chatIdentities.emailNotificationsEnabled" />
+            <el-switch
+              v-model="chatIdentities.emailNotificationsEnabled"
+              :aria-label="t('settings.chatIdentities.emailNotifications')"
+            />
           </el-form-item>
 
           <el-form-item>
@@ -195,6 +198,7 @@
               <template #default="{ row }">
                 <el-switch
                   v-model="row.enabled"
+                  :aria-label="t('common.status')"
                   @change="handleToggleUserRuleEnabled(row)"
                 />
               </template>
@@ -323,7 +327,10 @@
 
         <!-- Enabled -->
         <el-form-item :label="t('notificationRules.enabled')">
-          <el-switch v-model="userRuleForm.enabled" />
+          <el-switch
+            v-model="userRuleForm.enabled"
+            :aria-label="t('notificationRules.enabled')"
+          />
         </el-form-item>
       </el-form>
 

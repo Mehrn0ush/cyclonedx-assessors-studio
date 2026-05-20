@@ -280,24 +280,31 @@ async function validateEvidenceSubmission(
 }
 
 /**
- * Validate evidence approval
+ * Validate evidence approval. Returns `status` so the caller can map
+ * each failure to the right HTTP semantic:
+ *   - 404 when the row does not exist
+ *   - 409 when the row exists but is in the wrong state (a conflict
+ *     between request and current resource state)
+ *   - 403 for authorization gates (not the assigned reviewer; or the
+ *     author approving their own work, which is a separation-of-duties
+ *     guard rather than a state conflict)
  */
 function validateEvidenceApproval(
   evidence: Record<string, unknown> | undefined,
   userId: string,
   hasReviewAccess: boolean,
-): { valid: boolean; error?: string } {
+): { valid: boolean; error?: string; status?: 404 | 409 | 403 } {
   if (!evidence) {
-    return { valid: false, error: 'Evidence not found' };
+    return { valid: false, error: 'Evidence not found', status: 404 };
   }
   if (evidence.state !== 'in_review') {
-    return { valid: false, error: 'Evidence must be in review status to approve' };
+    return { valid: false, error: 'Evidence must be in review status to approve', status: 409 };
   }
   if (!hasReviewAccess && evidence.reviewer_id !== userId) {
-    return { valid: false, error: 'Only the assigned reviewer or an admin can approve evidence' };
+    return { valid: false, error: 'Only the assigned reviewer or an admin can approve evidence', status: 403 };
   }
   if (evidence.author_id === userId) {
-    return { valid: false, error: 'Evidence authors cannot approve their own evidence' };
+    return { valid: false, error: 'Evidence authors cannot approve their own evidence', status: 403 };
   }
   return { valid: true };
 }
@@ -323,6 +330,7 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
   const state = req.query.state as string | undefined;
   const assessmentId = req.query.assessmentId as string | undefined;
   const requirementId = req.query.requirementId as string | undefined;
+  const search = req.query.search as string | undefined;
 
   let query = db.selectFrom('evidence')
     .leftJoin('app_user as author', (join) => join.onRef('author.id', '=', 'evidence.author_id'))
@@ -353,6 +361,18 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
     query = query.where('evidence.state', '=', state as 'in_review' | 'in_progress' | 'claimed' | 'expired');
   }
 
+  // Case-insensitive substring match on name or description. Mirrors
+  // /api/v1/entities so callers get a uniform filter contract across
+  // list endpoints; the empty-states spec also leans on this.
+  if (search) {
+    query = query.where((eb) =>
+      eb.or([
+        eb('evidence.name', 'ilike', `%${search}%`),
+        eb('evidence.description', 'ilike', `%${search}%`),
+      ]),
+    );
+  }
+
   if (assessmentId) {
     query = query
       .innerJoin('assessment_requirement_evidence', (join) =>
@@ -374,6 +394,15 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
   let countWithFilters = countQuery;
   if (state) {
     countWithFilters = countWithFilters.where('state', '=', state as 'in_review' | 'in_progress' | 'claimed' | 'expired');
+  }
+
+  if (search) {
+    countWithFilters = countWithFilters.where((eb) =>
+      eb.or([
+        eb('name', 'ilike', `%${search}%`),
+        eb('description', 'ilike', `%${search}%`),
+      ]),
+    );
   }
 
   if (assessmentId) {
@@ -466,6 +495,10 @@ router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Respo
     return;
   }
 
+  // Explicit columns. selectAll() on this join would overwrite
+  // evidence_note.id with app_user.id (both tables expose `id`) and
+  // any caller that wanted to address a specific note for edit or
+  // delete would silently target the author user record instead.
   const notes = (await db
     .selectFrom('evidence_note')
     .innerJoin(
@@ -478,7 +511,16 @@ router.get('/:id', requireAuth, asyncHandler(async (req: AuthRequest, res: Respo
         )
     )
     .where('evidence_note.evidence_id', '=', req.params.id)
-    .selectAll()
+    .select([
+      'evidence_note.id',
+      'evidence_note.evidence_id',
+      'evidence_note.user_id',
+      'evidence_note.content',
+      'evidence_note.created_at',
+      'evidence_note.updated_at',
+      'app_user.display_name as author_display_name',
+      'app_user.username as author_username',
+    ])
     .orderBy('evidence_note.created_at', 'desc')
     .execute()) as unknown[];
 
@@ -752,6 +794,58 @@ router.put('/:id', requireAuth, requirePermission('evidence.edit'), asyncHandler
   }
 }));
 
+// Hard-delete an evidence row that is still in a mutable state. Used
+// for cleanup of mistaken or aborted captures before they are cited.
+// The retention rules (claimed, cited in a claim, linked to a terminal
+// assessment) trump the delete permission — admins included — and the
+// 409 carries a `reason` so the UI can distinguish retention from a
+// missing record or a permission gap.
+//
+// FK cascades on evidence_note, evidence_attachment, evidence_tag, and
+// assessment_requirement_evidence handle the dependent rows; the
+// evidence row delete is the only statement needed here.
+router.delete(
+  '/:id',
+  requireAuth,
+  requirePermission('evidence.delete'),
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
+
+    const evidence = await db
+      .selectFrom('evidence')
+      .where('id', '=', req.params.id as string)
+      .select(['id'])
+      .executeTakeFirst();
+
+    if (!evidence) {
+      res.status(404).json({ error: 'Evidence not found' });
+      return;
+    }
+
+    if (await rejectIfImmutable(db, req.params.id as string, res)) return;
+
+    await db
+      .deleteFrom('evidence')
+      .where('id', '=', req.params.id as string)
+      .execute();
+
+    await logAudit(db, {
+      entityType: 'evidence',
+      entityId: req.params.id as string,
+      action: 'delete',
+      userId: req.user?.id ?? '',
+    });
+
+    logger.info('Evidence deleted', {
+      evidenceId: req.params.id,
+      userId: req.user?.id,
+      requestId: req.requestId,
+    });
+
+    res.status(204).send();
+  }),
+);
+
 router.post(
   '/:id/notes',
   requireAuth,
@@ -966,7 +1060,15 @@ const submitForReviewSchema = z.object({
 router.post(
   '/:id/submit-for-review',
   requireAuth,
-  requirePermission('evidence.submit'),
+  // Permission is checked inside the handler so the documented
+  // "author can submit even without evidence.submit" carve-out
+  // actually fires. With requirePermission at the route level, the
+  // middleware 403'd every caller who lacked evidence.submit and the
+  // author check below was dead code. The assessor role intentionally
+  // does not carry evidence.submit (assessee owns submission), but an
+  // assessor who created a piece of evidence still needs to send it
+  // for review themselves — otherwise the create→submit→approve flow
+  // is unreachable for them.
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data = submitForReviewSchema.parse(req.body);
@@ -978,16 +1080,17 @@ router.post(
       }
 
       const evidence = await fetchEvidence(db, req.params.id as string);
-      const userPermissions = await getPermissionsForRole(req.user.role);
-      const hasSubmitAccess = userPermissions.includes('evidence.submit');
-
-      if (!hasSubmitAccess && evidence?.author_id !== req.user.id) {
-        res.status(403).json({ error: 'Only the evidence author or an admin can submit evidence for review' });
-        return;
-      }
 
       if (!evidence) {
         res.status(404).json({ error: 'Evidence not found' });
+        return;
+      }
+
+      const userPermissions = await getPermissionsForRole(req.user.role);
+      const hasSubmitAccess = userPermissions.includes('evidence.submit');
+
+      if (!hasSubmitAccess && evidence.author_id !== req.user.id) {
+        res.status(403).json({ error: 'Only the evidence author or an admin can submit evidence for review' });
         return;
       }
 
@@ -1090,10 +1193,9 @@ router.post(
     const userPermissions = await getPermissionsForRole(req.user.role);
     const hasReviewAccess = userPermissions.includes('evidence.review');
 
-    const validation = await validateEvidenceApproval(evidence, req.user.id, hasReviewAccess);
+    const validation = validateEvidenceApproval(evidence, req.user.id, hasReviewAccess);
     if (!validation.valid) {
-      const statusCode = validation.error?.includes('not found') ? 404 : 409;
-      res.status(statusCode).json({ error: validation.error });
+      res.status(validation.status ?? 409).json({ error: validation.error });
       return;
     }
 
@@ -1104,14 +1206,18 @@ router.post(
     // through this path.
     if (await rejectIfImmutable(db, req.params.id as string, res)) return;
 
-    const result = await db
+    // RETURNING is portable across PGlite (which does not populate
+    // numUpdatedRows reliably) and PostgreSQL. The optimistic-locking
+    // check below relies on the returned row, not the driver's count.
+    const updated = await db
       .updateTable('evidence')
       .set({ state: 'claimed' })
       .where('id', '=', req.params.id as string)
       .where('state', '=', 'in_review')
+      .returning('id')
       .execute();
 
-    if (Number(result[0].numUpdatedRows) === 0) {
+    if (updated.length === 0) {
       res.status(409).json({ error: 'Evidence state has changed. Please refresh and try again.' });
       return;
     }
@@ -1196,14 +1302,18 @@ router.post(
       // blocked once the evidence is retention-locked.
       if (await rejectIfImmutable(db, req.params.id as string, res)) return;
 
-      const result = await db
+      // RETURNING is portable across PGlite (which does not populate
+      // numUpdatedRows reliably) and PostgreSQL; see the matching
+      // change in the approve handler above.
+      const updated = await db
         .updateTable('evidence')
         .set(toSnakeCase({ state: 'in_progress' }))
         .where('id', '=', req.params.id as string)
         .where('state', '=', 'in_review')
+        .returning('id')
         .execute();
 
-      if (Number(result[0].numUpdatedRows) === 0) {
+      if (updated.length === 0) {
         res.status(409).json({ error: 'Evidence state has changed. Please refresh and try again.' });
         return;
       }

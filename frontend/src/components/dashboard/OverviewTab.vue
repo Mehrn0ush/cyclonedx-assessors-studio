@@ -214,7 +214,7 @@
         <el-icon class="is-loading"><Loading /></el-icon>
       </div>
 
-      <el-table v-else :data="recentAssessments" stripe role="grid" aria-label="Recent assessments table">
+      <el-table v-else :data="recentAssessments" stripe aria-label="Recent assessments table">
         <el-table-column prop="title" :label="t('assessments.titleField')" min-width="180" sortable></el-table-column>
         <el-table-column :label="t('assessments.project')" min-width="140">
           <template #default="{ row }">

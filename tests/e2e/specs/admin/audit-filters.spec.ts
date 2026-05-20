@@ -55,9 +55,12 @@ test.describe('Audit log filters @smoke', () => {
     }
   });
 
-  test('audit/entity-types returns the catalog', async ({ apiAs }) => {
+  test('audit/options returns the entityType + action catalog', async ({ apiAs }) => {
     const api = await apiAs('admin');
-    const r = await api.get('/api/v1/audit/entity-types');
+    // The catalog endpoint is /options, not /entity-types. The
+    // response carries the distinct entity types observed in the log
+    // and the closed union of audit actions.
+    const r = await api.get('/api/v1/audit/options');
     expect(r.ok()).toBeTruthy();
     const body = await r.json();
     expect(Array.isArray(body.entityTypes)).toBeTruthy();

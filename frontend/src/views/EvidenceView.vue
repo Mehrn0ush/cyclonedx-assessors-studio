@@ -31,7 +31,7 @@
         <el-button type="primary" @click="showCreateDialog = true">{{ t('evidence.newEvidence') }}</el-button>
       </div>
       <div v-else class="content">
-        <el-table :data="filteredEvidence" stripe border @row-click="navigateToEvidence" role="grid" aria-label="Evidence table">
+        <el-table :data="filteredEvidence" stripe border @row-click="navigateToEvidence" aria-label="Evidence table">
           <el-table-column prop="name" :label="t('evidence.name')" min-width="250" sortable></el-table-column>
           <el-table-column :label="t('evidence.state')" min-width="120">
             <template #default="{ row }">

@@ -349,6 +349,23 @@ function configureErrorHandling(app: Express): void {
       method: req.method,
       path: req.path,
     });
+
+    // Honor `status` / `statusCode` set by upstream middleware. The
+    // built-in body parsers (express.json, express.urlencoded) throw
+    // a `PayloadTooLargeError` with `status: 413` when the body
+    // exceeds the configured limit. Without surfacing that field the
+    // client would see a generic 500 for a perfectly well-defined
+    // 413 case and could not distinguish "server bug" from "request
+    // too large".
+    const e = error as Error & { status?: number; statusCode?: number; type?: string };
+    const explicit = typeof e.status === 'number' ? e.status : e.statusCode;
+    if (typeof explicit === 'number' && explicit >= 400 && explicit < 600) {
+      res.status(explicit).json({
+        error: explicit === 413 ? 'Payload too large' : error.message || 'Request error',
+      });
+      return;
+    }
+
     res.status(500).json({ error: 'Internal server error' });
   });
 }

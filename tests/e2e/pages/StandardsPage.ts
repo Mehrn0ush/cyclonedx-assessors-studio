@@ -48,7 +48,11 @@ export class StandardsPage {
     if (opts.description) {
       await dialog.getByLabel(/description/i).fill(opts.description);
     }
-    await dialog.getByRole('button', { name: /^create$|^save$/i }).last().click();
+    // The submit button currently reads "Create Draft" (see
+    // standards.createDraft in the en-US bundle). Accept the older
+    // "Create"/"Save" labels too so the POM stays compatible if the
+    // copy changes.
+    await dialog.getByRole('button', { name: /^create( draft)?$|^save$/i }).last().click();
     await expectMessage(this.page, /created|success/i);
   }
 }

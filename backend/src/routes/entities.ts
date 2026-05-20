@@ -23,6 +23,10 @@ const updateEntitySchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
   state: z.enum(['active', 'inactive', 'archived']).optional(),
+  // Tags follow set semantics — the array passed in replaces the
+  // current tag set on the entity. An empty array clears all tags.
+  // Mirrors the same shape `createEntitySchema` accepts on POST.
+  tags: z.array(z.string()).optional(),
 });
 
 const createRelationshipSchema = z.object({
@@ -385,6 +389,14 @@ router.put(
           .set(updateData)
           .where('id', '=', req.params.id)
           .execute();
+      }
+
+      // Sync tags whenever the request body carries the field (even
+      // when empty — an empty array intentionally clears the set).
+      // syncEntityTags handles the delete + insert as one transaction
+      // and is the same helper POST /entities calls on create.
+      if (data.tags !== undefined) {
+        await syncEntityTags(db, 'entity_tag', 'entity_id', req.params.id as string, data.tags);
       }
 
       logger.info('Entity updated', {

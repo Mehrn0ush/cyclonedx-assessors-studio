@@ -32,6 +32,14 @@ export async function resolveTagIds(db: Kysely<Database>, tagNames: string[]): P
 
 /**
  * Sync tags for a given entity. Deletes old associations and inserts new ones.
+ *
+ * De-duplicates the resolved tag id set before insert. Every *_tag
+ * junction has a composite PK on (entity_id, tag_id); if the caller
+ * passes the same tag twice (or two surface forms that normalize to
+ * the same name, like "Urgent" and "urgent"), resolveTagIds returns
+ * the same tag id twice and the unique constraint would surface as a
+ * 500. The fix dedups by tag id and keeps the caller-facing semantics
+ * as "set of tags".
  */
 export async function syncEntityTags(
   db: Kysely<Database>,
@@ -45,11 +53,12 @@ export async function syncEntityTags(
 
   if (tagNames.length > 0) {
     const tagIds = await resolveTagIds(db, tagNames);
-    if (tagIds.length > 0) {
+    const uniqueTagIds = Array.from(new Set(tagIds));
+    if (uniqueTagIds.length > 0) {
       // biome-ignore lint/suspicious/noExplicitAny: Kysely dynamic junction table requires type cast
       await (db.insertInto(junctionTable as any) as any)
         .values(
-          tagIds.map(tagId => ({
+          uniqueTagIds.map(tagId => ({
             [entityColumn]: entityId,
             tag_id: tagId,
             created_at: new Date(),

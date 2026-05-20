@@ -99,6 +99,12 @@ function buildAssessmentUpdateData(data: Record<string, unknown>): Record<string
 
 /**
  * Sync assessor assignments for an assessment.
+ *
+ * De-duplicates the incoming assessorIds before insert. The
+ * assessment_assessor table has a composite PK on (assessment_id,
+ * user_id); a caller that sends the same user twice would otherwise
+ * trigger a unique constraint violation surfaced as a 500. Treating
+ * the input as a set matches the documented "assignment" semantics.
  */
 async function syncAssessors(
   db: Kysely<Database>,
@@ -112,11 +118,12 @@ async function syncAssessors(
     .where('assessment_id', '=', assessmentId)
     .execute();
 
-  if (assessorIds.length > 0) {
+  const uniqueIds = Array.from(new Set(assessorIds));
+  if (uniqueIds.length > 0) {
     await db
       .insertInto('assessment_assessor')
       .values(
-        assessorIds.map(userId => ({
+        uniqueIds.map(userId => ({
           assessment_id: assessmentId,
           user_id: userId,
           created_at: new Date(),
@@ -128,6 +135,10 @@ async function syncAssessors(
 
 /**
  * Sync assessee assignments for an assessment.
+ *
+ * De-duplicates the incoming assesseeIds before insert to avoid a
+ * composite PK violation on (assessment_id, user_id). Same rationale
+ * as syncAssessors.
  */
 async function syncAssessees(
   db: Kysely<Database>,
@@ -141,11 +152,12 @@ async function syncAssessees(
     .where('assessment_id', '=', assessmentId)
     .execute();
 
-  if (assesseeIds.length > 0) {
+  const uniqueIds = Array.from(new Set(assesseeIds));
+  if (uniqueIds.length > 0) {
     await db
       .insertInto('assessment_assessee')
       .values(
-        assesseeIds.map(userId => ({
+        uniqueIds.map(userId => ({
           assessment_id: assessmentId,
           user_id: userId,
           created_at: new Date(),
@@ -401,6 +413,17 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
       return;
     }
 
+    // Explicit column list. selectAll() on a join produces a column
+    // collision on `id` (assessment_requirement.id vs requirement.id),
+    // and the second one silently overwrites the first. Callers then
+    // lose the junction PK with no warning, which breaks evidence
+    // linking (POST /evidence/:id/link wants assessment_requirement.id)
+    // and any other code that needs to address a junction row. Naming
+    // each column explicitly prevents the collision class entirely.
+    //
+    // `id` stays as the junction PK. The catalog requirement id is
+    // already available via `requirement_id` (the junction FK), so the
+    // requirement.id column is intentionally omitted.
     const assessmentRequirements = (await db
       .selectFrom('assessment_requirement')
       .innerJoin(
@@ -413,7 +436,22 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
           )
       )
       .where('assessment_requirement.assessment_id', '=', req.params.id)
-      .selectAll()
+      .select([
+        'assessment_requirement.id',
+        'assessment_requirement.assessment_id',
+        'assessment_requirement.requirement_id',
+        'assessment_requirement.result',
+        'assessment_requirement.rationale',
+        'assessment_requirement.created_at',
+        'assessment_requirement.updated_at',
+        'requirement.identifier',
+        'requirement.name',
+        'requirement.description',
+        'requirement.parent_id',
+        'requirement.standard_id',
+        'requirement.open_cre',
+        'requirement.imported_bom_ref',
+      ])
       .execute()) as Record<string, unknown>[];
 
     const assessors = (await db
@@ -503,11 +541,15 @@ router.post(
         )
         .execute();
 
+      // Dedup before insert. The junction tables have composite PKs
+      // on (assessment_id, user_id); duplicate ids in the request body
+      // would otherwise crash with a constraint violation.
       if (data.assessorIds && data.assessorIds.length > 0) {
+        const uniqueAssessorIds = Array.from(new Set(data.assessorIds));
         await db
           .insertInto('assessment_assessor')
           .values(
-            data.assessorIds.map(userId => ({
+            uniqueAssessorIds.map(userId => ({
               assessment_id: assessmentId,
               user_id: userId,
               created_at: new Date(),
@@ -517,10 +559,11 @@ router.post(
       }
 
       if (data.assesseeIds && data.assesseeIds.length > 0) {
+        const uniqueAssesseeIds = Array.from(new Set(data.assesseeIds));
         await db
           .insertInto('assessment_assessee')
           .values(
-            data.assesseeIds.map(userId => ({
+            uniqueAssesseeIds.map(userId => ({
               assessment_id: assessmentId,
               user_id: userId,
               created_at: new Date(),
@@ -1051,6 +1094,11 @@ router.get(
         return;
       }
 
+      // Explicit columns. selectAll() on this join would overwrite
+      // evidence.id with app_user.id (both tables expose `id`) and the
+      // caller would see the author user id where it expected the
+      // evidence id. The collision was a real bug; the explicit list
+      // below prevents the entire class.
       const evidence = (await db
         .selectFrom('assessment_requirement_evidence')
         .innerJoin(
@@ -1072,8 +1120,19 @@ router.get(
             )
         )
         .where('assessment_requirement_evidence.assessment_requirement_id', '=', assessmentReq.id)
-        .selectAll()
-        // biome-ignore lint/suspicious/noExplicitAny: Dynamic query result requires type assertion
+        .select([
+          'evidence.id',
+          'evidence.name',
+          'evidence.description',
+          'evidence.state',
+          'evidence.author_id',
+          'evidence.reviewer_id',
+          'evidence.is_counter_evidence',
+          'evidence.classification',
+          'evidence.created_at',
+          'evidence.expires_on',
+          'app_user.display_name as author_name',
+        ])
         .execute()) as Record<string, unknown>[];
 
       const evidenceIds = evidence.map((e: Record<string, unknown>) => e.id as string);

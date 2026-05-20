@@ -78,8 +78,12 @@ authedTest.describe('API error envelope mapping @regression', () => {
   authedTest('409 conflict returns { error: ... } envelope', async ({ apiAs }) => {
     const api = await apiAs('admin');
     const name = `e2e-dup-${Date.now().toString(36)}`;
-    await api.post('/api/v1/tags', { data: { name, color: '#abc' } });
-    const dup = await api.post('/api/v1/tags', { data: { name, color: '#def' } });
+    // Colors must be full 6-char hex (createTagSchema: /^#[0-9a-fA-F]{6}$/).
+    // The shorthand #abc form would 400 here, before we ever reach the
+    // duplicate-name path we want to assert against.
+    const first = await api.post('/api/v1/tags', { data: { name, color: '#aabbcc' } });
+    expect(first.status(), `first create failed: ${await first.text()}`).toBe(201);
+    const dup = await api.post('/api/v1/tags', { data: { name, color: '#ddeeff' } });
     expect(dup.status()).toBe(409);
     const body = await dup.json();
     expect(typeof body.error).toBe('string');

@@ -129,6 +129,12 @@ function buildClaimUpdateData(data: Record<string, unknown>): Record<string, unk
 
 /**
  * Sync evidence associations for a claim.
+ *
+ * De-duplicates the incoming evidenceIds before insert because
+ * claim_evidence has a composite PK on (claim_id, evidence_id) and a
+ * caller that sends `['a', 'a']` would otherwise produce a unique
+ * constraint violation surfaced as a 500. Dedup mirrors the
+ * "set semantics" the API documents.
  */
 async function syncClaimEvidence(
   db: ReturnType<typeof getDatabase>,
@@ -139,11 +145,12 @@ async function syncClaimEvidence(
 
   await db.deleteFrom('claim_evidence').where('claim_id', '=', claimId).execute();
 
-  if (evidenceIds.length > 0) {
+  const uniqueIds = Array.from(new Set(evidenceIds));
+  if (uniqueIds.length > 0) {
     await db
       .insertInto('claim_evidence')
       .values(
-        evidenceIds.map(evidenceId => toSnakeCase({
+        uniqueIds.map(evidenceId => toSnakeCase({
           claimId,
           evidenceId,
           createdAt: new Date(),
@@ -156,6 +163,10 @@ async function syncClaimEvidence(
 
 /**
  * Sync counter-evidence associations for a claim.
+ *
+ * De-duplicates the incoming counterEvidenceIds before insert so a
+ * caller passing the same id twice does not crash the route with a
+ * constraint violation on the composite PK.
  */
 async function syncClaimCounterEvidence(
   db: ReturnType<typeof getDatabase>,
@@ -166,11 +177,12 @@ async function syncClaimCounterEvidence(
 
   await db.deleteFrom('claim_counter_evidence').where('claim_id', '=', claimId).execute();
 
-  if (counterEvidenceIds.length > 0) {
+  const uniqueIds = Array.from(new Set(counterEvidenceIds));
+  if (uniqueIds.length > 0) {
     await db
       .insertInto('claim_counter_evidence')
       .values(
-        counterEvidenceIds.map(evidenceId => toSnakeCase({
+        uniqueIds.map(evidenceId => toSnakeCase({
           claimId,
           evidenceId,
           createdAt: new Date(),
@@ -322,11 +334,17 @@ router.post(
         }))
         .execute();
 
+      // Dedup before insert. The junction tables carry composite PKs
+      // on (claim_id, evidence_id); a caller that submits duplicate
+      // ids would otherwise trigger a unique constraint violation that
+      // the asyncHandler turns into a 500. Treating the input as a set
+      // matches the API's documented "linked evidence" semantics.
       if (data.evidenceIds && data.evidenceIds.length > 0) {
+        const uniqueEvidenceIds = Array.from(new Set(data.evidenceIds));
         await db
           .insertInto('claim_evidence')
           .values(
-            data.evidenceIds.map(evidenceId => toSnakeCase({
+            uniqueEvidenceIds.map(evidenceId => toSnakeCase({
               claimId,
               evidenceId,
               createdAt: new Date(),
@@ -337,10 +355,11 @@ router.post(
       }
 
       if (data.counterEvidenceIds && data.counterEvidenceIds.length > 0) {
+        const uniqueCounterIds = Array.from(new Set(data.counterEvidenceIds));
         await db
           .insertInto('claim_counter_evidence')
           .values(
-            data.counterEvidenceIds.map(evidenceId => toSnakeCase({
+            uniqueCounterIds.map(evidenceId => toSnakeCase({
               claimId,
               evidenceId,
               createdAt: new Date(),

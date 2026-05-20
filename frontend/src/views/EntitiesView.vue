@@ -86,12 +86,14 @@
           />
 
           <div class="view-mode-toggle">
-            <el-radio-group v-model="viewMode" size="small">
+            <el-radio-group v-model="viewMode" size="small" aria-label="View mode">
               <el-radio-button value="table">
                 <el-icon><Grid /></el-icon>
+                <span class="sr-only">Table view</span>
               </el-radio-button>
               <el-radio-button value="graph">
                 <el-icon><Share /></el-icon>
+                <span class="sr-only">Graph view</span>
               </el-radio-button>
             </el-radio-group>
           </div>
@@ -121,7 +123,7 @@
           stripe
           border
           @row-click="navigateToEntity"
-          role="grid"
+         
           aria-label="Entities table"
         >
           <el-table-column prop="name" label="Name" min-width="200" sortable></el-table-column>

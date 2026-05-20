@@ -115,8 +115,15 @@ const DEFAULT_ROLES = [
     name: 'Standards Manager',
     description: 'Can author, edit, and submit draft standards for approval',
     is_system: true,
+    // requirements.edit is required to add/edit/delete requirement rows
+    // on a draft standard. Without it the manager cannot finish authoring
+    // a draft before submitting it — the standard would arrive at the
+    // approver with no requirements. Scoped narrowly: the route handlers
+    // for /:id/requirements still gate on state === 'draft', so the
+    // permission only matters while the standard is mutable.
     permissions: [
       'standards.view', 'standards.create', 'standards.edit', 'standards.submit', 'standards.duplicate',
+      'requirements.edit',
     ],
   },
   {
