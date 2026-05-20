@@ -1,6 +1,6 @@
 {
   "name": "@cyclonedx/assessors-studio",
-  "version": "0.6.0-alpha",
+  "version": "0.6.1",
   "description": "CycloneDX Assessors Studio - Assessment and Attestation Management",
   "type": "module",
   "engines": {

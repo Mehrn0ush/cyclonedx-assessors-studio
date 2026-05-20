@@ -1,6 +1,6 @@
 {
   "name": "@cyclonedx/assessors-studio-e2e",
-  "version": "0.6.0-alpha",
+  "version": "0.6.1",
   "private": true,
   "description": "Playwright end-to-end tests for CycloneDX Assessors Studio",
   "type": "module",

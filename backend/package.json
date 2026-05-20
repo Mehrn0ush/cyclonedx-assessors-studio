@@ -1,6 +1,6 @@
 {
   "name": "cyclonedx-assessors-studio-backend",
-  "version": "0.6.0-alpha",
+  "version": "0.6.1",
   "description": "CycloneDX Assessors Studio Backend",
   "main": "dist/index.js",
   "type": "module",
