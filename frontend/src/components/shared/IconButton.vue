@@ -5,7 +5,7 @@
     :title="tooltip"
     :aria-label="tooltip"
     :disabled="disabled"
-    @click.stop="$emit('click')"
+    @click.stop="$emit('click', $event)"
   >
     <component :is="icon" class="icon-btn__icon" />
   </button>
@@ -25,8 +25,13 @@ withDefaults(defineProps<{
   disabled: false,
 })
 
+// Forward the native MouseEvent so consumers using `@click.stop` /
+// `@click.prevent` modifiers don't crash with
+// `Cannot read properties of undefined (reading 'stopPropagation')`.
+// Vue 3 compiles those modifiers into wrappers that unconditionally
+// call .stopPropagation() / .preventDefault() on the first arg.
 defineEmits<{
-  click: []
+  click: [event: MouseEvent]
 }>()
 </script>
 

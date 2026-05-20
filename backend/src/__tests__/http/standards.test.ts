@@ -570,7 +570,7 @@ describe('Standards HTTP Routes', () => {
       expect(res.body.error).toContain('draft');
     });
 
-    it('should require requirements.edit permission', async () => {
+    it('should require standards.edit permission', async () => {
       const adminAgent = await loginAs('admin');
       const standardRes = await createTestStandard(adminAgent);
       const standardId = standardRes.body.id;
@@ -697,7 +697,7 @@ describe('Standards HTTP Routes', () => {
       expect(res.status).toBe(403);
     });
 
-    it('should require requirements.edit permission', async () => {
+    it('should require standards.edit permission', async () => {
       const adminAgent = await loginAs('admin');
       const { standardId, requirementIds } = await createStandardWithRequirements(adminAgent, 1);
 
@@ -753,7 +753,7 @@ describe('Standards HTTP Routes', () => {
       expect(res.status).toBe(403);
     });
 
-    it('should require requirements.edit permission', async () => {
+    it('should require standards.edit permission', async () => {
       const adminAgent = await loginAs('admin');
       const { standardId, requirementIds } = await createStandardWithRequirements(adminAgent, 1);
 
@@ -1672,7 +1672,7 @@ describe('Standards HTTP Routes', () => {
       expect(res.status).toBe(403);
     });
 
-    it('should require requirements.edit permission', async () => {
+    it('should require standards.edit permission', async () => {
       const adminAgent = await loginAs('admin');
       const { standardId, requirementIds } = await createStandardWithRequirements(adminAgent, 1);
 
@@ -1863,6 +1863,118 @@ describe('Standards HTTP Routes', () => {
         });
 
       expect(res.status).toBe(401);
+    });
+  });
+
+  /**
+   * Regression for issue #25.
+   *
+   * A user holding only the standards-side permissions (no separate
+   * requirements.edit) must be able to do everything needed to author
+   * a draft standard: create the standard, add/edit/delete requirements,
+   * add/delete levels, and assign requirements to levels. The
+   * `standards_manager` seed role is exactly that profile after the
+   * permission collapse, so we use it as the test subject.
+   *
+   * Before the fix, requirement CRUD was gated on a separate
+   * `requirements.edit` permission that standards_manager would lose
+   * the moment an admin tweaked custom roles, leaving the editing UI
+   * lit up but every Add/Edit/Delete Requirement click 403'ing.
+   */
+  describe('issue #25: standards_manager can author drafts without requirements.edit', () => {
+    async function loginAsStandardsManager() {
+      const adminAgent = await loginAs('admin');
+      const username = `std_manager_${Date.now()}_${++counter}`;
+      const password = 'TestPassword123!';
+
+      const createRes = await adminAgent
+        .post('/api/v1/users')
+        .send({
+          username,
+          email: `${username}@test.local`,
+          displayName: 'Standards Manager',
+          password,
+          role: 'standards_manager',
+        });
+
+      if (createRes.status !== 201) {
+        throw new Error(
+          `Failed to create standards_manager: ${createRes.status} - ${JSON.stringify(createRes.body)}`
+        );
+      }
+
+      const supertestAgent = (await import('supertest')).default;
+      const { getBaseUrl } = await import('../helpers/http.js');
+      const agent = supertestAgent.agent(getBaseUrl());
+
+      const loginRes = await agent
+        .post('/api/v1/auth/login')
+        .send({ username, password });
+
+      if (loginRes.status !== 200 && loginRes.status !== 201) {
+        throw new Error(
+          `Failed to login as standards_manager: ${loginRes.status} - ${JSON.stringify(loginRes.body)}`
+        );
+      }
+
+      return agent;
+    }
+
+    it('can create a draft, add/edit/delete requirements, add/delete levels, and assign requirements to levels', async () => {
+      const agent = await loginAsStandardsManager();
+
+      // Create draft standard
+      const stdRes = await agent
+        .post('/api/v1/standards')
+        .send({
+          identifier: getUnique('STD'),
+          name: 'Issue 25 Regression',
+          version: '1.0',
+        });
+      expect(stdRes.status).toBe(201);
+      const standardId = stdRes.body.id;
+
+      // Add a requirement (was 403 before fix)
+      const addReqRes = await agent
+        .post(`/api/v1/standards/${standardId}/requirements`)
+        .send({
+          identifier: getUnique('REQ'),
+          name: 'First requirement',
+        });
+      expect(addReqRes.status).toBe(201);
+      const reqId = addReqRes.body.id;
+
+      // Edit the requirement (was 403 before fix)
+      const editReqRes = await agent
+        .put(`/api/v1/standards/${standardId}/requirements/${reqId}`)
+        .send({ name: 'Renamed requirement' });
+      expect(editReqRes.status).toBe(200);
+
+      // Add a level (already worked — kept as control)
+      const addLevelRes = await agent
+        .post(`/api/v1/standards/${standardId}/levels`)
+        .send({ identifier: getUnique('LVL'), title: 'Level A' });
+      expect(addLevelRes.status).toBe(201);
+      const levelId = addLevelRes.body.id;
+
+      // Assign the requirement to the level
+      const assignRes = await agent
+        .put(`/api/v1/standards/${standardId}/levels/${levelId}/requirements`)
+        .send({ requirementIds: [reqId] });
+      expect(assignRes.status).toBe(200);
+      expect(assignRes.body.count).toBe(1);
+
+      // Delete the level (already worked — kept as control)
+      const delLevelRes = await agent.delete(
+        `/api/v1/standards/${standardId}/levels/${levelId}`
+      );
+      expect(delLevelRes.status).toBe(204);
+
+      // Delete the requirement (was 403 before fix)
+      const delReqRes = await agent.delete(
+        `/api/v1/standards/${standardId}/requirements/${reqId}`
+      );
+      expect(delReqRes.status).toBe(204);
     });
   });
 });

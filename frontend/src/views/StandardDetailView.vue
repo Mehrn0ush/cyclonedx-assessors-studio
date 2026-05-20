@@ -281,7 +281,7 @@
           <el-input
             v-model="editForm.description"
             type="textarea"
-            rows="4"
+            :rows="4"
             placeholder="Standard description"
           />
         </el-form-item>
@@ -310,7 +310,7 @@
           <el-input
             v-model="requirementForm.description"
             type="textarea"
-            rows="4"
+            :rows="4"
             placeholder="Requirement description"
           />
         </el-form-item>
@@ -351,7 +351,7 @@
           <el-input v-model="levelForm.title" placeholder="e.g. Level 1: Opportunistic" />
         </el-form-item>
         <el-form-item label="Description">
-          <el-input v-model="levelForm.description" type="textarea" rows="3" placeholder="Level description" />
+          <el-input v-model="levelForm.description" type="textarea" :rows="3" placeholder="Level description" />
         </el-form-item>
       </el-form>
       <template #footer>

@@ -132,6 +132,21 @@ describe('IconButton.vue', () => {
       // Event should be emitted (stopPropagation is a Vue directive, not something we can test directly)
       expect(wrapper.emitted('click')).toBeTruthy()
     })
+
+    // Regression for issue #25: consumers that wire `@click.stop` /
+    // `@click.prevent` on this component crashed with
+    // "Cannot read properties of undefined (reading 'stopPropagation')"
+    // because emit was called without the MouseEvent payload. Vue 3
+    // compiles those modifiers into wrappers that unconditionally invoke
+    // the corresponding method on arg[0].
+    it('should forward the native MouseEvent so .stop / .prevent modifiers do not crash', async () => {
+      const wrapper = mountIconButton()
+      await wrapper.find('button').trigger('click')
+
+      const events = wrapper.emitted('click') as unknown[][] | undefined
+      expect(events).toBeTruthy()
+      expect(events![0][0]).toBeInstanceOf(MouseEvent)
+    })
   })
 
   describe('icon rendering', () => {

@@ -18,8 +18,6 @@ const DEFAULT_PERMISSIONS = [
   { key: 'standards.submit', name: 'Submit Standards', description: 'Submit standards for approval', category: 'standards' },
   { key: 'standards.approve', name: 'Approve Standards', description: 'Approve or reject submitted standards', category: 'standards' },
   { key: 'standards.duplicate', name: 'Duplicate Standards', description: 'Duplicate an existing standard to create a new version', category: 'standards' },
-  // Requirements
-  { key: 'requirements.edit', name: 'Edit Requirements', description: 'Edit standard requirement definitions', category: 'requirements' },
   // Assessments
   { key: 'assessments.view', name: 'View Assessments', description: 'View assessment list and details', category: 'assessments' },
   { key: 'assessments.view_all', name: 'View All Assessments', description: 'View all assessments regardless of participation', category: 'assessments' },
@@ -115,15 +113,8 @@ const DEFAULT_ROLES = [
     name: 'Standards Manager',
     description: 'Can author, edit, and submit draft standards for approval',
     is_system: true,
-    // requirements.edit is required to add/edit/delete requirement rows
-    // on a draft standard. Without it the manager cannot finish authoring
-    // a draft before submitting it — the standard would arrive at the
-    // approver with no requirements. Scoped narrowly: the route handlers
-    // for /:id/requirements still gate on state === 'draft', so the
-    // permission only matters while the standard is mutable.
     permissions: [
       'standards.view', 'standards.create', 'standards.edit', 'standards.submit', 'standards.duplicate',
-      'requirements.edit',
     ],
   },
   {

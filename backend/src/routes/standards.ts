@@ -784,7 +784,7 @@ router.post(
 router.post(
   '/:id/requirements',
   requireAuth,
-  requirePermission('requirements.edit'),
+  requirePermission('standards.edit'),
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const db = getDatabase();
     const standard = await db
@@ -862,7 +862,7 @@ router.post(
 router.put(
   '/:standardId/requirements/:reqId',
   requireAuth,
-  requirePermission('requirements.edit'),
+  requirePermission('standards.edit'),
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const db = getDatabase();
     const standard = await db
@@ -956,7 +956,7 @@ router.put(
 router.delete(
   '/:standardId/requirements/:reqId',
   requireAuth,
-  requirePermission('requirements.edit'),
+  requirePermission('standards.edit'),
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const db = getDatabase();
     const standard = await db
@@ -1298,7 +1298,7 @@ router.delete(
 router.put(
   '/:standardId/requirements/:reqId/reparent',
   requireAuth,
-  requirePermission('requirements.edit'),
+  requirePermission('standards.edit'),
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const db = getDatabase();
     const standard = await db

@@ -72,7 +72,7 @@
             v-model="form.description"
             :placeholder="t('common.description')"
             type="textarea"
-            rows="3"
+            :rows="3"
           />
         </el-form-item>
 

@@ -916,6 +916,15 @@ CREATE TABLE IF NOT EXISTS compliance_policy (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(entity_id, standard_id)
 );
+
+-- Retire the requirements.edit permission. Draft requirement CRUD is now
+-- gated on standards.edit, matching the level routes and the state==='draft'
+-- invariant. The separate permission was vestigial: every functional role
+-- that held it also held standards.edit, and any custom role that held only
+-- standards.edit silently lost requirement editing in the UI (issue #25).
+-- DELETE is naturally idempotent on repeat runs.
+DELETE FROM role_permission WHERE permission_id IN (SELECT id FROM permission WHERE key = 'requirements.edit');
+DELETE FROM permission WHERE key = 'requirements.edit';
 `;
 
 export async function runMigrations(): Promise<void> {

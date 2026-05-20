@@ -14,7 +14,7 @@ import { uniqueStandardIdentifier } from '../../helpers/data.js';
  *   any state   → duplicate → new draft
  *
  * Permission matrix (see backend/src/db/seed.ts):
- *   standards_manager   : view, create, edit, submit, duplicate, requirements.edit
+ *   standards_manager   : view, create, edit, submit, duplicate
  *   standards_approver  : view, approve  (gate for approve / reject / retire)
  *   admin               : all
  *   assessor / assessee : view only
