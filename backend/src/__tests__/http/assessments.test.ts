@@ -1872,4 +1872,166 @@ describe('Assessments HTTP Routes', () => {
       expect(res.status).toBe(403);
     });
   });
+
+  /**
+   * Coverage for the assessments.view / assessments.view_all gates
+   * added when the original audit found those permissions seeded but
+   * never enforced. The behaviour we lock down here:
+   *
+   *   - No assessments.view at all     -> 403 on every GET
+   *   - assessments.view, no view_all  -> list returns only assessments
+   *                                       the caller participates in;
+   *                                       direct GET of a non-participating
+   *                                       assessment returns 403 reason
+   *                                       'not_a_participant'
+   *   - assessments.view + view_all    -> sees everything
+   */
+  describe('assessments.view / assessments.view_all enforcement', () => {
+    async function loginAsCustomRole(roleKey: string): Promise<ReturnType<typeof import('supertest').default.agent>> {
+      const adminAgent = await loginAs('admin');
+      const username = `view_probe_${roleKey}_${Date.now()}`;
+      const password = 'TestPassword123!';
+      const createRes = await adminAgent
+        .post('/api/v1/users')
+        .send({
+          username,
+          email: `${username}@test.local`,
+          displayName: `Probe ${roleKey}`,
+          password,
+          role: roleKey,
+        });
+      if (createRes.status !== 201) {
+        throw new Error(`Failed to create ${roleKey} user: ${createRes.status} ${JSON.stringify(createRes.body)}`);
+      }
+      const supertestAgent = (await import('supertest')).default;
+      const { getBaseUrl } = await import('../helpers/http.js');
+      const agent = supertestAgent.agent(getBaseUrl());
+      const loginRes = await agent.post('/api/v1/auth/login').send({ username, password });
+      if (loginRes.status !== 200 && loginRes.status !== 201) {
+        throw new Error(`Login failed for ${roleKey}: ${loginRes.status} ${JSON.stringify(loginRes.body)}`);
+      }
+      return agent;
+    }
+
+    it('GET / returns 403 when caller lacks assessments.view', async () => {
+      // standards_approver holds only standards.view + standards.approve.
+      // The list-route middleware (requirePermission) writes a generic
+      // "Insufficient permissions" body; we assert the status only.
+      const approver = await loginAsCustomRole('standards_approver');
+      const res = await approver.get('/api/v1/assessments');
+      expect(res.status).toBe(403);
+    });
+
+    it('GET /:id returns 403 when caller lacks assessments.view', async () => {
+      const adminAgent = await loginAs('admin');
+      const { assessmentId } = await createFullAssessment(adminAgent);
+
+      // authorizeAssessmentRead writes a more specific body, so we can
+      // pin the permission name in the per-row case.
+      const approver = await loginAsCustomRole('standards_approver');
+      const res = await approver.get(`/api/v1/assessments/${assessmentId}`);
+      expect(res.status).toBe(403);
+      expect(res.body.error).toMatch(/assessments\.view/);
+    });
+
+    it('view_all caller sees an assessment they are NOT a participant on', async () => {
+      const adminAgent = await loginAs('admin');
+      const { assessmentId } = await createFullAssessment(adminAgent);
+      // admin holds assessments.view_all; access regardless of participation.
+      const res = await adminAgent.get(`/api/v1/assessments/${assessmentId}`);
+      expect(res.status).toBe(200);
+    });
+
+    it('view-only caller is 403\'d on detail for an assessment they are not a participant on', async () => {
+      const adminAgent = await loginAs('admin');
+      const { assessmentId } = await createFullAssessment(adminAgent);
+      // assessor holds assessments.view but NOT assessments.view_all and
+      // is not assigned to this assessment, so the per-row authorizer
+      // refuses with reason 'not_a_participant'.
+      const assessorAgent = await loginAs('assessor');
+      const res = await assessorAgent.get(`/api/v1/assessments/${assessmentId}`);
+      expect(res.status).toBe(403);
+      expect(res.body.reason).toBe('not_a_participant');
+    });
+
+    it('view-only caller can read detail when they ARE a participant', async () => {
+      const adminAgent = await loginAs('admin');
+      const { getDatabase } = await import('../../db/connection.js');
+      const db = getDatabase();
+      const assessorUser = await db
+        .selectFrom('app_user')
+        .where('role', '=', 'assessor')
+        .select('id')
+        .executeTakeFirstOrThrow();
+
+      const stdRes = await adminAgent.post('/api/v1/standards').send({
+        identifier: `STD-view-${Date.now()}`,
+        name: 'View test',
+        version: '1.0',
+      });
+      const standardId = stdRes.body.id;
+      const createRes = await adminAgent.post('/api/v1/assessments').send({
+        title: `View Test ${Date.now()}`,
+        standardId,
+        assessorIds: [assessorUser.id],
+      });
+      const assessmentId = createRes.body.id;
+
+      const assessorAgent = await loginAs('assessor');
+      const res = await assessorAgent.get(`/api/v1/assessments/${assessmentId}`);
+      expect(res.status).toBe(200);
+    });
+
+    it('view-only list is row-scoped to assessments the caller participates in', async () => {
+      const adminAgent = await loginAs('admin');
+      const { getDatabase } = await import('../../db/connection.js');
+      const db = getDatabase();
+      const assessorUser = await db
+        .selectFrom('app_user')
+        .where('role', '=', 'assessor')
+        .select('id')
+        .executeTakeFirstOrThrow();
+
+      // Two assessments: one the assessor is assigned to, one they are not.
+      const stdRes = await adminAgent.post('/api/v1/standards').send({
+        identifier: `STD-view-list-${Date.now()}`,
+        name: 'View list test',
+        version: '1.0',
+      });
+      const standardId = stdRes.body.id;
+      const ownTag = `OWN-${Date.now()}`;
+      const otherTag = `OTHER-${Date.now()}`;
+
+      const own = await adminAgent.post('/api/v1/assessments').send({
+        title: ownTag,
+        standardId,
+        assessorIds: [assessorUser.id],
+      });
+      const other = await adminAgent.post('/api/v1/assessments').send({
+        title: otherTag,
+        standardId,
+      });
+      expect(own.status).toBe(201);
+      expect(other.status).toBe(201);
+
+      const assessorAgent = await loginAs('assessor');
+      const res = await assessorAgent.get('/api/v1/assessments?limit=100');
+      expect(res.status).toBe(200);
+      const titles = res.body.data.map((a: { title: string }) => a.title);
+      expect(titles).toContain(ownTag);
+      expect(titles).not.toContain(otherTag);
+    });
+
+    it('per-row gate applies to /:id/evidence, /:id/claims, /:id/notes, /:id/participants', async () => {
+      const adminAgent = await loginAs('admin');
+      const { assessmentId } = await createFullAssessment(adminAgent);
+      const assessorAgent = await loginAs('assessor');
+
+      for (const path of ['evidence', 'claims', 'notes', 'participants']) {
+        const res = await assessorAgent.get(`/api/v1/assessments/${assessmentId}/${path}`);
+        expect(res.status, `GET /${path} should 403 for non-participant`).toBe(403);
+        expect(res.body.reason).toBe('not_a_participant');
+      }
+    });
+  });
 });
