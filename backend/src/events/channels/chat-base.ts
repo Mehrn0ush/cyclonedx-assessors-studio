@@ -17,6 +17,17 @@ import type { NotificationChannel } from '../channel.js';
 import type { EventEnvelope } from '../types.js';
 import { CHANNEL_CHAT_DISABLED, CHANNEL_TEST } from '../catalog.js';
 import { resolveAndAssertPublic } from '../../utils/url-safety.js';
+import { encryptionService, isEncryptedEnvelope } from '../../utils/encryption.js';
+
+/**
+ * Read a chat_integration.webhook_url that may be either an encrypted
+ * envelope (new + migrated rows) or legacy plaintext (pre-encryption
+ * rows that haven't been re-saved yet). Lazy migration upgrades the
+ * row implicitly on the next admin PUT.
+ */
+function readWebhookUrl(stored: string): string {
+  return isEncryptedEnvelope(stored) ? encryptionService.decrypt(stored) : stored;
+}
 
 /** Retry delay schedule in milliseconds (attempt index 0-based). */
 const RETRY_DELAYS_MS = [
@@ -187,11 +198,15 @@ export abstract class BaseChatChannel implements NotificationChannel {
     const messageBody = this.formatMessage(testEnvelope, appUrl);
     const timeout = config.CHAT_TIMEOUT;
 
+    // Decrypt the stored URL once. The DB column holds an encryption
+    // envelope; the actual network call needs the plaintext.
+    const webhookUrlPlain = readWebhookUrl(integration.webhook_url);
+
     // Delivery-time SSRF guard. See the same check in dispatchDelivery
     // below for the rationale. sendTestMessage is a hand-triggered admin
     // action but it still reaches out to the configured webhook URL, so
     // the same DNS-resolution screening applies.
-    const safetyCheck = await resolveAndAssertPublic(integration.webhook_url);
+    const safetyCheck = await resolveAndAssertPublic(webhookUrlPlain);
     if (!safetyCheck.safe) {
       logger.warn(`Chat test message blocked by delivery-time URL check (${this.platform})`, {
         integrationId,
@@ -207,7 +222,7 @@ export abstract class BaseChatChannel implements NotificationChannel {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-      const response = await fetch(integration.webhook_url, {
+      const response = await fetch(webhookUrlPlain, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -286,13 +301,14 @@ export abstract class BaseChatChannel implements NotificationChannel {
     const timeout = config.CHAT_TIMEOUT;
 
     const messageBody = this.formatMessage(envelope, appUrl);
+    const webhookUrlPlain = readWebhookUrl(integration.webhook_url);
 
     // Delivery-time SSRF guard. The URL passed config-time validation
     // when the integration was saved, but DNS can drift and the URL
     // could be rewritten in the database out of band. Re-resolve right
     // before the fetch and refuse targets that resolve into private or
     // reserved ranges.
-    const safetyCheck = await resolveAndAssertPublic(integration.webhook_url);
+    const safetyCheck = await resolveAndAssertPublic(webhookUrlPlain);
     if (!safetyCheck.safe) {
       logger.warn(`Chat delivery blocked by delivery-time URL check (${this.platform})`, {
         integrationId: integration.id,
@@ -313,7 +329,7 @@ export abstract class BaseChatChannel implements NotificationChannel {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-      const response = await fetch(integration.webhook_url, {
+      const response = await fetch(webhookUrlPlain, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -751,19 +751,34 @@ const handleReparent = async (requirementId: string, newParentId: string | null)
   }
 }
 
+// Count descendants recursively. Used to decide whether to warn the user
+// that delete will cascade — backend `ON DELETE CASCADE` drops the whole
+// subtree, which is the intended behaviour but easy to do by accident.
+const countDescendants = (node: RequirementNode): number => {
+  const children = node.children || []
+  return children.reduce((sum, c) => sum + 1 + countDescendants(c), 0)
+}
+
 const handleDeleteRequirement = async (requirement: RequirementNode) => {
   try {
     if (!standard.value?.id) {
       ElMessage.error('Standard ID is missing')
       return
     }
+    const descendantCount = countDescendants(requirement)
+    const hasChildren = descendantCount > 0
+    const message = hasChildren
+      ? `<p><strong>${requirement.identifier}</strong> has ${descendantCount} child requirement${descendantCount === 1 ? '' : 's'}. Deleting will also remove all descendants. This cannot be undone.</p><p>Continue?</p>`
+      : 'This will delete the requirement. Continue?'
     await ElMessageBox.confirm(
-      'This will delete the requirement. Continue?',
-      'Warning',
+      message,
+      hasChildren ? 'Delete requirement and its descendants?' : 'Warning',
       {
-        confirmButtonText: 'OK',
+        confirmButtonText: hasChildren ? `Delete ${descendantCount + 1} requirements` : 'OK',
         cancelButtonText: 'Cancel',
         type: 'warning',
+        dangerouslyUseHTMLString: hasChildren,
+        confirmButtonClass: hasChildren ? 'el-button--danger' : undefined,
       }
     )
     await axios.delete(

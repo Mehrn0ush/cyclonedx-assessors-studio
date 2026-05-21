@@ -4,6 +4,7 @@ import {
   loginAs,
   getAgent,
   testUsers,
+  forceAssessmentStateForTests,
 } from '../helpers/http.js';
 
 describe('Export HTTP Routes', () => {
@@ -74,12 +75,10 @@ describe('Export HTTP Routes', () => {
     const assessmentId = assessmentRes.body.id;
 
     // Attestations may only be authored on completed assessments —
-    // transition here so the POST below succeeds under the PR3.6
-    // create-on-complete rule.
-    const completeRes = await agent
-      .put(`/api/v1/assessments/${assessmentId}`)
-      .send({ state: 'complete' });
-    expect(completeRes.status).toBe(200);
+    // force the fixture into a 'complete' state for the rest of the
+    // test. The legitimate transition matrix requires scoring and
+    // evidence linkage we don't care about exercising here.
+    await forceAssessmentStateForTests(assessmentId, 'complete');
 
     // Create attestation
     const attestationRes = await agent
@@ -586,14 +585,8 @@ describe('Export HTTP Routes', () => {
 
       // Both assessments must be complete before attestations can be
       // authored against them.
-      const complete1 = await agent
-        .put(`/api/v1/assessments/${assessmentId1}`)
-        .send({ state: 'complete' });
-      expect(complete1.status).toBe(200);
-      const complete2 = await agent
-        .put(`/api/v1/assessments/${assessmentId2}`)
-        .send({ state: 'complete' });
-      expect(complete2.status).toBe(200);
+      await forceAssessmentStateForTests(assessmentId1, 'complete');
+      await forceAssessmentStateForTests(assessmentId2, 'complete');
 
       // Create attestations
       const att1Res = await agent

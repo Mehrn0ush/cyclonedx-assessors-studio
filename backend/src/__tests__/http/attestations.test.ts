@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import {
   setupHttpTests,
   loginAs,
+  forceAssessmentStateForTests,
 } from '../helpers/http.js';
 
 // Signature labels are unique per (user, label). Generate a short
@@ -82,10 +83,11 @@ describe('Attestations HTTP Routes', () => {
     const assessmentId = assessmentRes.body.id;
 
     if (state !== 'new') {
-      const transitionRes = await agent
-        .put(`/api/v1/assessments/${assessmentId}`)
-        .send({ state });
-      expect(transitionRes.status).toBe(200);
+      // The legitimate state machine requires hydrated requirements,
+      // scored requirements, and at least one linked evidence to reach
+      // 'complete'. None of those matter for attestation tests; use the
+      // test-only DB hatch to jump straight to the target state.
+      await forceAssessmentStateForTests(assessmentId, state);
     }
 
     return { projectId, standardId, assessmentId, requirementIds };
@@ -171,10 +173,7 @@ describe('Attestations HTTP Routes', () => {
       const agent = await loginAs('admin');
       // Assessment must be completed first before it can be archived.
       const { assessmentId } = await createTestData(agent, { state: 'complete' });
-      const archiveRes = await agent
-        .put(`/api/v1/assessments/${assessmentId}`)
-        .send({ state: 'archived' });
-      expect(archiveRes.status).toBe(200);
+      await forceAssessmentStateForTests(assessmentId, 'archived');
 
       const res = await agent
         .post('/api/v1/attestations')
@@ -369,10 +368,7 @@ describe('Attestations HTTP Routes', () => {
 
       const attestationId = createRes.body.id;
 
-      const archiveRes = await agent
-        .put(`/api/v1/assessments/${assessmentId}`)
-        .send({ state: 'archived' });
-      expect(archiveRes.status).toBe(200);
+      await forceAssessmentStateForTests(assessmentId, 'archived');
 
       const updateRes = await agent
         .put(`/api/v1/attestations/${attestationId}`)
@@ -542,10 +538,7 @@ describe('Attestations HTTP Routes', () => {
 
       const attestationId = attestationRes.body.id;
 
-      const archiveRes = await agent
-        .put(`/api/v1/assessments/${assessmentId}`)
-        .send({ state: 'archived' });
-      expect(archiveRes.status).toBe(200);
+      await forceAssessmentStateForTests(assessmentId, 'archived');
 
       const res = await agent
         .post(`/api/v1/attestations/${attestationId}/requirements`)
@@ -656,10 +649,7 @@ describe('Attestations HTTP Routes', () => {
           conformanceRationale: 'Initial',
         });
 
-      const archiveRes = await agent
-        .put(`/api/v1/assessments/${assessmentId}`)
-        .send({ state: 'archived' });
-      expect(archiveRes.status).toBe(200);
+      await forceAssessmentStateForTests(assessmentId, 'archived');
 
       const updateRes = await agent
         .put(`/api/v1/attestations/${attestationId}/requirements/${requirementIds[0]}`)

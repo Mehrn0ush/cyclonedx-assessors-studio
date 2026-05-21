@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   setupHttpTests,
   loginAs,
+  forceAssessmentStateForTests,
 } from '../helpers/http.js';
 
 describe('Claims HTTP Routes', () => {
@@ -50,11 +51,10 @@ describe('Claims HTTP Routes', () => {
     const assessmentId = assessmentRes.body.id;
 
     // Mark assessment complete — attestations may only be created on
-    // completed assessments (see POST /api/v1/attestations).
-    const transitionRes = await agent
-      .put(`/api/v1/assessments/${assessmentId}`)
-      .send({ state: 'complete' });
-    expect(transitionRes.status).toBe(200);
+    // completed assessments (see POST /api/v1/attestations). The
+    // legitimate completion flow requires scoring and evidence linkage
+    // we don't need to exercise from claims tests; force the state.
+    await forceAssessmentStateForTests(assessmentId, 'complete');
 
     // Create attestation
     const attestationRes = await agent
@@ -161,10 +161,7 @@ describe('Claims HTTP Routes', () => {
       // `complete` is the working state under PR3.6 — the claim-
       // writable gate moved to `archived` and `cancelled`.
       const { assessmentId, attestationId } = await createTestData(agent);
-      const archiveRes = await agent
-        .put(`/api/v1/assessments/${assessmentId}`)
-        .send({ state: 'archived' });
-      expect(archiveRes.status).toBe(200);
+      await forceAssessmentStateForTests(assessmentId, 'archived');
 
       const res = await agent
         .post('/api/v1/claims')
@@ -325,10 +322,7 @@ describe('Claims HTTP Routes', () => {
       // (it is the working state for attestation authoring under
       // PR3.6). Transitioning to `archived` is what triggers the
       // assessment_terminal lock.
-      const archiveRes = await agent
-        .put(`/api/v1/assessments/${assessmentId}`)
-        .send({ state: 'archived' });
-      expect(archiveRes.status).toBe(200);
+      await forceAssessmentStateForTests(assessmentId, 'archived');
 
       const updateRes = await agent
         .put(`/api/v1/claims/${claimId}`)
@@ -399,10 +393,7 @@ describe('Claims HTTP Routes', () => {
 
       // `complete` is the working state under PR3.6; `archived` is
       // the retention terminal.
-      const archiveRes = await agent
-        .put(`/api/v1/assessments/${assessmentId}`)
-        .send({ state: 'archived' });
-      expect(archiveRes.status).toBe(200);
+      await forceAssessmentStateForTests(assessmentId, 'archived');
 
       const deleteRes = await agent.delete(`/api/v1/claims/${claimId}`);
 

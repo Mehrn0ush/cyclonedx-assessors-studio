@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db/connection.js';
 import type { Database } from '../db/types.js';
 import { logger } from '../utils/logger.js';
-import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission, getPermissionsForRole } from '../middleware/auth.js';
 import { syncEntityTags, fetchTagsForEntities } from '../utils/tags.js';
 import { ASSESSMENT_STATE_CHANGED } from '../events/catalog.js';
 import { createNotification } from '../utils/notifications.js';
@@ -40,6 +40,13 @@ const createAssessmentSchema = z.object({
   tags: z.array(z.string()).optional(),
 });
 
+// PUT /assessments/:id accepts `state` ONLY as a thin alias for
+// POST /assessments/:id/transition. The handler enforces the same
+// transition matrix and the same `assessments.manage` permission as
+// the unified route — the old back door (any caller with
+// `assessments.edit` could jump the state machine, bypassing both
+// from-state guards and the affirmation-seal check) is closed by
+// routing every state write through the matrix.
 const updateAssessmentSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
@@ -55,6 +62,9 @@ const updateAssessmentSchema = z.object({
 /**
  * Check if an assessment is in a read-only state (complete or archived).
  * Returns an error message string if read-only, or null if mutable.
+ * Used by requireMutableAssessment for child-resource writes (work
+ * notes, requirement scoring). State transitions out of read-only
+ * states use the /transition route, not the data-mutation routes.
  */
 function getReadOnlyError(state: string): string | null {
   if (state === 'archived') return 'Archived assessments cannot be modified';
@@ -63,21 +73,74 @@ function getReadOnlyError(state: string): string | null {
 }
 
 /**
- * Check if a state change is valid for a complete assessment.
+ * Authorize a read against a specific assessment.
+ *
+ * `assessments.view_all` always passes. Without it, the caller must be
+ * a participant on this assessment — assessor, assessee, or the author/
+ * reviewer of any evidence linked to one of its requirements. If the
+ * caller is neither, return 403 (not 404) so the user gets a clear
+ * "you don't have access" message rather than an ambiguous "not found"
+ * that leaks resource existence.
+ *
+ * Returns true if access is granted; otherwise writes the response and
+ * returns false so the caller can early-return.
  */
-function isValidCompleteAssessmentStateChange(
-  data: Record<string, unknown>,
-  res: Response
-): boolean {
-  const isStateChangeOnly = data.state !== undefined &&
-    Object.keys(data).filter(k => data[k] !== undefined).length === 1;
-  if (!isStateChangeOnly) {
-    res.status(403).json({ error: 'Completed assessments are read-only. Reopen the assessment to make changes.' });
+async function authorizeAssessmentRead(
+  req: AuthRequest,
+  res: Response,
+  assessmentId: string,
+): Promise<boolean> {
+  if (!req.user?.id) {
+    res.status(401).json({ error: 'Authentication required' });
     return false;
   }
-  // Only allow transitioning to in_progress (reopen) or archived
-  if (data.state !== 'in_progress' && data.state !== 'archived') {
-    res.status(403).json({ error: 'Completed assessments can only be reopened or archived' });
+  const userPerms = await getPermissionsForRole(req.user.role);
+  if (!userPerms.includes('assessments.view')) {
+    res.status(403).json({ error: 'Missing required permission: assessments.view' });
+    return false;
+  }
+  if (userPerms.includes('assessments.view_all')) return true;
+
+  const db = getDatabase();
+  const userId = req.user.id;
+
+  const participant = await db
+    .selectFrom('assessment')
+    .where('assessment.id', '=', assessmentId)
+    .where((eb) =>
+      eb.or([
+        eb('assessment.id', 'in',
+          eb.selectFrom('assessment_assessor')
+            .select('assessment_id')
+            .where('user_id', '=', userId)
+        ),
+        eb('assessment.id', 'in',
+          eb.selectFrom('assessment_assessee')
+            .select('assessment_id')
+            .where('user_id', '=', userId)
+        ),
+        eb('assessment.id', 'in',
+          eb.selectFrom('assessment_requirement_evidence as are')
+            .innerJoin('assessment_requirement as ar', 'ar.id', 'are.assessment_requirement_id')
+            .innerJoin('evidence as e', 'e.id', 'are.evidence_id')
+            .select('ar.assessment_id')
+            .where((inner) =>
+              inner.or([
+                inner('e.author_id', '=', userId),
+                inner('e.reviewer_id', '=', userId),
+              ])
+            )
+        ),
+      ])
+    )
+    .select('id')
+    .executeTakeFirst();
+
+  if (!participant) {
+    res.status(403).json({
+      error: 'You do not have access to this assessment',
+      reason: 'not_a_participant',
+    });
     return false;
   }
   return true;
@@ -93,7 +156,6 @@ function buildAssessmentUpdateData(data: Record<string, unknown>): Record<string
   if (data.dueDate !== undefined && data.dueDate !== null) {
     updateData.due_date = new Date(data.dueDate as string | number | Date);
   }
-  if (data.state !== undefined) updateData.state = data.state;
   return updateData;
 }
 
@@ -280,13 +342,24 @@ async function requireMutableAssessment(
   return assessment;
 }
 
-router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/', requireAuth, requirePermission('assessments.view'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
     const { limit, offset } = validatePagination(req.query);
     const state = req.query.state as string | undefined;
     const projectId = req.query.projectId as string | undefined;
     const myOnly = req.query.myOnly === 'true';
+
+    // assessments.view alone restricts the caller to assessments they
+    // participate in (assessor, assessee, evidence author, or evidence
+    // reviewer). assessments.view_all unlocks the global list. The
+    // myOnly query param is kept as an opt-in narrowing filter for
+    // callers that *have* view_all but want only their own work.
+    const userPerms = req.user?.id
+      ? await getPermissionsForRole(req.user.role)
+      : [];
+    const hasViewAll = userPerms.includes('assessments.view_all');
+    const userId = req.user?.id ?? '';
 
     let query = db
       .selectFrom('assessment')
@@ -320,8 +393,8 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
       query = query.where('assessment.project_id', '=', projectId);
     }
 
-    if (myOnly && req.user?.id) {
-      const userId = req.user.id;
+    const restrictToParticipating = !hasViewAll || myOnly;
+    if (restrictToParticipating && userId) {
       query = query.where((eb) =>
         eb.or([
           eb('assessment.id', 'in',
@@ -338,11 +411,34 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
       );
     }
 
-    const total = await db
+    // Total must mirror the row-scope filter so paginators don't
+    // promise more rows than the user can actually fetch.
+    let totalQuery = db
       .selectFrom('assessment')
-      .select(db.fn.count<number>('id').as('count'))
-      .executeTakeFirstOrThrow()
-      .then(r => r.count);
+      .select(db.fn.count<number>('id').as('count'));
+    if (state) {
+      totalQuery = totalQuery.where('state', '=', state as 'new' | 'pending' | 'in_progress' | 'on_hold' | 'cancelled' | 'complete' | 'archived');
+    }
+    if (projectId) {
+      totalQuery = totalQuery.where('project_id', '=', projectId);
+    }
+    if (restrictToParticipating && userId) {
+      totalQuery = totalQuery.where((eb) =>
+        eb.or([
+          eb('id', 'in',
+            eb.selectFrom('assessment_assessor')
+              .select('assessment_id')
+              .where('user_id', '=', userId)
+          ),
+          eb('id', 'in',
+            eb.selectFrom('assessment_assessee')
+              .select('assessment_id')
+              .where('user_id', '=', userId)
+          ),
+        ])
+      );
+    }
+    const total = await totalQuery.executeTakeFirstOrThrow().then(r => r.count);
 
     // Order newest first. The assessment list view paginates by 20
     // and tests that create a new assessment must be able to find
@@ -378,6 +474,7 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
 
 router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    if (!(await authorizeAssessmentRead(req, res, req.params.id as string))) return;
     const db = getDatabase();
 
     const assessment = await db
@@ -615,15 +712,47 @@ router.put('/:id', requireAuth, requirePermission('assessments.edit'), asyncHand
       return;
     }
 
-    // Archived assessments are fully immutable
-    if (assessment.state === 'archived') {
-      res.status(403).json({ error: 'Archived assessments cannot be modified' });
-      return;
+    // A state change via PUT is routed through the same transition
+    // matrix the unified /transition endpoint uses. We also require
+    // `assessments.manage` for any state change — the data-edit perm
+    // (`assessments.edit`) is no longer sufficient. This closes the
+    // back-door behaviour without breaking clients that use PUT to
+    // drive state.
+    if (data.state !== undefined && data.state !== assessment.state) {
+      const callerPerms = req.user?.id ? await getPermissionsForRole(req.user.role) : [];
+      if (!callerPerms.includes('assessments.manage')) {
+        res.status(403).json({ error: 'State transitions require assessments.manage permission' });
+        return;
+      }
+      const transitionResult = await applyAssessmentTransition(
+        db,
+        req,
+        assessment as Record<string, unknown> & { id: string; state: string; title: string },
+        data.state as AssessmentState,
+      );
+      if (!transitionResult.ok) {
+        res.status(transitionResult.status).json(transitionResult.body);
+        return;
+      }
     }
 
-    // Complete assessments only allow state transitions (reopen or archive)
-    if (assessment.state === 'complete') {
-      if (!isValidCompleteAssessmentStateChange(data, res)) {
+    // Non-state mutations cannot land on archived or completed rows.
+    const nonStateFieldsPresent = ['title', 'description', 'dueDate', 'tags', 'assessorIds', 'assesseeIds']
+      .some((k) => (data as Record<string, unknown>)[k] !== undefined);
+    if (nonStateFieldsPresent) {
+      // Re-fetch state after a possible transition above so we evaluate
+      // against the post-transition row, not the original.
+      const refreshed = await db
+        .selectFrom('assessment')
+        .where('id', '=', req.params.id as string)
+        .select(['state'])
+        .executeTakeFirstOrThrow();
+      if (refreshed.state === 'archived') {
+        res.status(403).json({ error: 'Archived assessments cannot be modified' });
+        return;
+      }
+      if (refreshed.state === 'complete') {
+        res.status(403).json({ error: 'Completed assessments are read-only. Reopen to make changes.' });
         return;
       }
     }
@@ -961,6 +1090,29 @@ router.post(
         return;
       }
 
+      // A sealed (and not-yet-rescinded) affirmation cryptographically
+      // attests to the completed state. Reopening would mutate the
+      // assessment underneath that seal, leaving the on-disk JSF
+      // signature pointing at a snapshot that no longer exists.
+      // Operator must explicitly rescind first.
+      const liveAffirmation = await db
+        .selectFrom('affirmation')
+        .where('assessment_id', '=', req.params.id as string)
+        .where('sealed_at', 'is not', null)
+        .where('rescinded_at', 'is', null)
+        .select(['id', 'sealed_at'])
+        .executeTakeFirst();
+
+      if (liveAffirmation) {
+        res.status(409).json({
+          error: 'Cannot reopen: a sealed affirmation attests to this assessment\'s completed state. Rescind the affirmation first.',
+          reason: 'affirmation_sealed',
+          affirmationId: liveAffirmation.id,
+          sealedAt: liveAffirmation.sealed_at,
+        });
+        return;
+      }
+
       await db
         .updateTable('assessment')
         .set({
@@ -996,6 +1148,252 @@ const addWorkNoteSchema = z.object({
 const startAssessmentSchema = z.object({
   standardIds: z.array(z.string().uuid()).optional(),
 });
+
+// =====================================================================
+// Unified state-transition route.
+//
+// POST /api/v1/assessments/:id/transition  { to: <state>, reason?: string }
+//
+// This is the canonical entry point for every state change. The legacy
+// dedicated routes (/start, /complete, /archive, /reopen) remain for
+// backward compatibility and call the same internal helpers via the
+// same router; new clients should use /transition exclusively.
+//
+// The transition matrix below encodes every allowed (from -> to). Any
+// (from, to) pair not in the matrix is rejected with 409 — there is no
+// silent acceptance. Permission is `assessments.manage`, matching the
+// dedicated routes; the data-edit permission `assessments.edit` is
+// deliberately not enough.
+//
+// Transitions with rich preconditions (complete, reopen) delegate to
+// the same validators the dedicated routes use, so the unified route
+// cannot bypass them.
+// =====================================================================
+
+type AssessmentState =
+  | 'new'
+  | 'pending'
+  | 'in_progress'
+  | 'on_hold'
+  | 'cancelled'
+  | 'complete'
+  | 'archived';
+
+const ALLOWED_TRANSITIONS: Record<AssessmentState, AssessmentState[]> = {
+  new: ['in_progress', 'pending', 'cancelled'],
+  pending: ['in_progress', 'on_hold', 'cancelled'],
+  in_progress: ['on_hold', 'complete', 'cancelled'],
+  on_hold: ['in_progress', 'cancelled'],
+  complete: ['in_progress', 'archived'],
+  archived: [], // terminal
+  cancelled: [], // terminal
+};
+
+const transitionSchema = z.object({
+  to: z.enum(['new', 'pending', 'in_progress', 'on_hold', 'cancelled', 'complete', 'archived']),
+  reason: z.string().max(1000).optional(),
+});
+
+/**
+ * Apply a state transition for the given assessment.
+ *
+ * Shared by POST /:id/transition (the canonical entry point) and the
+ * legacy PUT /:id when the request body carries a `state` field. Both
+ * paths run through this function so the matrix, the completion
+ * preconditions, and the affirmation-seal check cannot be bypassed.
+ *
+ * Returns `{ ok: true, from, to }` on success or `{ ok: false, status, body }`
+ * describing the error to surface. Caller is responsible for writing
+ * the response.
+ */
+async function applyAssessmentTransition(
+  db: ReturnType<typeof getDatabase>,
+  req: AuthRequest,
+  assessment: Record<string, unknown> & { id: string; state: string; title: string },
+  to: AssessmentState,
+): Promise<
+  | { ok: true; from: AssessmentState; to: AssessmentState }
+  | { ok: false; status: number; body: Record<string, unknown> }
+> {
+  const from = assessment.state as AssessmentState;
+
+  if (from === to) {
+    return {
+      ok: false,
+      status: 409,
+      body: { error: `Assessment is already in state '${to}'`, reason: 'no_op_transition' },
+    };
+  }
+
+  const allowed = ALLOWED_TRANSITIONS[from] ?? [];
+  if (!allowed.includes(to)) {
+    return {
+      ok: false,
+      status: 409,
+      body: {
+        error: `Transition not allowed: '${from}' -> '${to}'`,
+        reason: 'invalid_transition',
+        from,
+        to,
+        allowedFromHere: allowed,
+      },
+    };
+  }
+
+  const updateData: Record<string, unknown> = { state: to };
+
+  if (to === 'in_progress' && from === 'new') {
+    const existingReqs = await db
+      .selectFrom('assessment_requirement')
+      .where('assessment_id', '=', assessment.id)
+      .select('id')
+      .limit(1)
+      .executeTakeFirst();
+    if (!existingReqs) {
+      return {
+        ok: false,
+        status: 409,
+        body: {
+          error:
+            'Use POST /:id/start to start an assessment for the first time (requirements must be hydrated from the assigned standard).',
+          reason: 'requirements_not_hydrated',
+        },
+      };
+    }
+    updateData.start_date = new Date();
+  }
+
+  if (to === 'complete' && from === 'in_progress') {
+    const requirements = await db
+      .selectFrom('assessment_requirement')
+      .where('assessment_id', '=', assessment.id)
+      .selectAll()
+      .execute();
+    // validateCompletionPrerequisites needs a Response to write 400s
+    // into. We have to lift it: synthesise a minimal collector that
+    // captures the prerequisite failure body so we can return it.
+    // The local is typed `Record<string, unknown> | null` from the
+    // outset (not narrowed to `null`) so the inner closures can both
+    // assign and read it.
+    const captured: { status: number; body: Record<string, unknown> } = { status: 400, body: {} };
+    const capture: Pick<Response, 'status' | 'json'> = {
+      status(code: number) {
+        captured.status = code;
+        return capture as Response;
+      },
+      json(body: unknown) {
+        captured.body = { ...captured.body, ...(body as Record<string, unknown>) };
+        return capture as Response;
+      },
+    } as unknown as Response;
+    const ok = await validateCompletionPrerequisites(db, assessment.id, requirements, capture as Response);
+    if (!ok) {
+      return { ok: false, status: captured.status, body: captured.body };
+    }
+    updateData.end_date = new Date();
+    updateData.conformance_score = calculateConformanceScore(requirements);
+  }
+
+  if (to === 'in_progress' && from === 'complete') {
+    const liveAffirmation = await db
+      .selectFrom('affirmation')
+      .where('assessment_id', '=', assessment.id)
+      .where('sealed_at', 'is not', null)
+      .where('rescinded_at', 'is', null)
+      .select(['id', 'sealed_at'])
+      .executeTakeFirst();
+    if (liveAffirmation) {
+      return {
+        ok: false,
+        status: 409,
+        body: {
+          error: "Cannot reopen: a sealed affirmation attests to this assessment's completed state. Rescind the affirmation first.",
+          reason: 'affirmation_sealed',
+          affirmationId: liveAffirmation.id,
+          sealedAt: liveAffirmation.sealed_at,
+        },
+      };
+    }
+    updateData.end_date = null;
+  }
+
+  if (to === 'cancelled') {
+    updateData.end_date = new Date();
+  }
+
+  await db
+    .updateTable('assessment')
+    .set(updateData)
+    .where('id', '=', assessment.id)
+    .execute();
+
+  req.eventBus?.emit(
+    ASSESSMENT_STATE_CHANGED,
+    {
+      assessmentId: assessment.id,
+      assessmentTitle: assessment.title,
+      previousState: from,
+      newState: to,
+    },
+    { userId: req.user!.id, displayName: req.user!.displayName },
+  );
+
+  logger.info('Assessment state transitioned', {
+    assessmentId: assessment.id,
+    from,
+    to,
+    requestId: req.requestId,
+  });
+
+  return { ok: true, from, to };
+}
+
+router.post(
+  '/:id/transition',
+  requireAuth,
+  requirePermission('assessments.manage'),
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    let data: z.infer<typeof transitionSchema>;
+    try {
+      data = transitionSchema.parse(req.body);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: 'Invalid input', details: error.issues });
+        return;
+      }
+      throw error;
+    }
+
+    const db = getDatabase();
+    const assessment = await db
+      .selectFrom('assessment')
+      .where('id', '=', req.params.id as string)
+      .selectAll()
+      .executeTakeFirst();
+
+    if (!assessment) {
+      res.status(404).json({ error: 'Assessment not found' });
+      return;
+    }
+
+    const result = await applyAssessmentTransition(
+      db,
+      req,
+      assessment as Record<string, unknown> & { id: string; state: string; title: string },
+      data.to,
+    );
+    if (!result.ok) {
+      res.status(result.status).json(result.body);
+      return;
+    }
+
+    res.json({
+      message: `Assessment transitioned from '${result.from}' to '${result.to}'`,
+      from: result.from,
+      to: result.to,
+    });
+  }),
+);
 
 // Update assessment requirement result and rationale on the assessment_requirement junction table.
 // Note: This endpoint updates the ASSESSMENT-SPECIFIC result and rationale, NOT the standard requirement definition.
@@ -1069,6 +1467,7 @@ router.get(
   requireAuth,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      if (!(await authorizeAssessmentRead(req, res, req.params.id as string))) return;
       const db = getDatabase();
 
       const assessment = await db
@@ -1157,6 +1556,7 @@ router.get(
   requireAuth,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      if (!(await authorizeAssessmentRead(req, res, req.params.id as string))) return;
       const db = getDatabase();
 
       const assessment = await db
@@ -1236,6 +1636,7 @@ router.get(
   requireAuth,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      if (!(await authorizeAssessmentRead(req, res, req.params.id as string))) return;
       const db = getDatabase();
 
       const assessment = await db
@@ -1389,6 +1790,7 @@ router.get(
   requireAuth,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      if (!(await authorizeAssessmentRead(req, res, req.params.id as string))) return;
       const db = getDatabase();
 
       const assessment = await db
@@ -1457,6 +1859,7 @@ router.get(
   requireAuth,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      if (!(await authorizeAssessmentRead(req, res, req.params.id as string))) return;
       const db = getDatabase();
 
       const assessment = await db

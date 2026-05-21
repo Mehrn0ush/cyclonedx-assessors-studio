@@ -521,6 +521,16 @@ export interface UserInvite {
   created_at: Generated<Date>;
 }
 
+export interface PasswordResetToken {
+  id: Generated<string>;
+  user_id: string;
+  token_hash: string;
+  expires_at: Date;
+  consumed_at?: Date | null;
+  requested_ip?: string | null;
+  created_at: Generated<Date>;
+}
+
 export interface Entity {
   id: Generated<string>;
   name: string;
@@ -828,6 +838,10 @@ export interface Database {
   session: Selectable<Session>;
   session_insert: Insertable<Session>;
   session_update: Updateable<Session>;
+
+  password_reset_token: Selectable<PasswordResetToken>;
+  password_reset_token_insert: Insertable<PasswordResetToken>;
+  password_reset_token_update: Updateable<PasswordResetToken>;
 
   user_invite: Selectable<UserInvite>;
   user_invite_insert: Insertable<UserInvite>;

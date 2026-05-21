@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import { getConfig } from '../config/index.js';
 import type { Database } from './types.js';
 import { logger } from '../utils/logger.js';
+import { AuditLogAppendOnlyPlugin } from './audit-log-plugin.js';
 
 let db: Kysely<Database> | null = null;
 
@@ -35,6 +36,7 @@ export async function initializeDatabase(): Promise<Kysely<Database>> {
 
       db = new Kysely<Database>({
         dialect: pgliteWrapper.dialect,
+        plugins: [new AuditLogAppendOnlyPlugin()],
       });
     } else {
       logger.info('Initializing PostgreSQL database', {
@@ -69,6 +71,7 @@ export async function initializeDatabase(): Promise<Kysely<Database>> {
         dialect: new PostgresDialect({
           pool,
         }),
+        plugins: [new AuditLogAppendOnlyPlugin()],
       });
     }
 

@@ -219,6 +219,23 @@ CREATE TABLE IF NOT EXISTS user_invite (
 CREATE INDEX IF NOT EXISTS idx_user_invite_token_hash ON user_invite(token_hash);
 CREATE INDEX IF NOT EXISTS idx_user_invite_email ON user_invite(email);
 
+-- Password reset tokens. Issued by POST /auth/forgot-password and
+-- consumed by POST /auth/reset-password. The token plaintext is
+-- delivered out of band (email) and never persisted in this table.
+-- Only sha256 of the token is stored so a DB read cannot replay it.
+CREATE TABLE IF NOT EXISTS password_reset_token (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+  token_hash VARCHAR(255) NOT NULL UNIQUE,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  consumed_at TIMESTAMP WITH TIME ZONE,
+  requested_ip VARCHAR(45),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_reset_token_hash ON password_reset_token(token_hash);
+CREATE INDEX IF NOT EXISTS idx_password_reset_user_active ON password_reset_token(user_id) WHERE consumed_at IS NULL;
+
 CREATE TABLE IF NOT EXISTS api_key (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(255) NOT NULL,
@@ -962,7 +979,44 @@ export async function runMigrations(): Promise<void> {
     }
   }
 
+  // Audit-log append-only enforcement. Lives outside the SQL template
+  // because the PL/pgSQL function body contains semicolons that the
+  // naive splitter above would shred. UPDATE/DELETE on audit_log raise
+  // a SQLSTATE 'AU001' error, which is distinct enough that test
+  // helpers can recognise it.
+  await installAuditLogImmutabilityTrigger(db);
+
   logger.info('Database migrations completed');
+}
+
+async function installAuditLogImmutabilityTrigger(db: ReturnType<typeof getDatabase>): Promise<void> {
+  const statements = [
+    `CREATE OR REPLACE FUNCTION audit_log_immutable() RETURNS trigger AS $audit_log_immutable$
+       BEGIN
+         RAISE EXCEPTION 'audit_log is append-only (operation %)', TG_OP USING ERRCODE = 'AU001';
+       END;
+     $audit_log_immutable$ LANGUAGE plpgsql;`,
+    `DROP TRIGGER IF EXISTS audit_log_no_update ON audit_log;`,
+    `CREATE TRIGGER audit_log_no_update BEFORE UPDATE ON audit_log
+       FOR EACH ROW EXECUTE FUNCTION audit_log_immutable();`,
+    `DROP TRIGGER IF EXISTS audit_log_no_delete ON audit_log;`,
+    `CREATE TRIGGER audit_log_no_delete BEFORE DELETE ON audit_log
+       FOR EACH ROW EXECUTE FUNCTION audit_log_immutable();`,
+  ];
+  for (const sqlStmt of statements) {
+    try {
+      await db.executeQuery({
+        sql: sqlStmt,
+        parameters: [],
+        // biome-ignore lint/suspicious/noExplicitAny: Kysely executeQuery requires CompiledQuery
+      } as any);
+    } catch (error: unknown) {
+      const msg = (error as { message?: string } | null)?.message ?? '';
+      // PGlite ships plpgsql; if a runtime ever lacks it the migration
+      // surfaces a clear error rather than silently dropping the guard.
+      throw new Error(`Failed to install audit_log immutability trigger: ${msg}`);
+    }
+  }
 }
 
 // Allow running as standalone script: npx tsx src/db/migrate.ts

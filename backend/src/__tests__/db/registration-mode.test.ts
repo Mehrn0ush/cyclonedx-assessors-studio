@@ -31,14 +31,15 @@ async function readStored(): Promise<string | null> {
   return row?.value ?? null;
 }
 
-async function readDriftAuditRows(): Promise<
-  Array<{ user_id: string | null; changes: Record<string, unknown> | null }>
-> {
+async function readDriftAuditRows(
+  since: Date,
+): Promise<Array<{ user_id: string | null; changes: Record<string, unknown> | null }>> {
   const db = getTestDatabase();
   const rows = await db
     .selectFrom('audit_log')
     .where('entity_type', '=', 'config')
     .where('action', '=', 'config_change')
+    .where('created_at', '>=', since)
     .orderBy('created_at', 'asc')
     .select(['user_id', 'changes'])
     .execute();
@@ -57,17 +58,15 @@ describe('bootstrapRegistrationModeTracking (F15)', () => {
     await teardownTestDb();
   });
 
+  // Each case captures a high-water mark BEFORE running the code under
+  // test so it can read only the rows produced by that case. We can't
+  // wipe `audit_log` between cases anymore — the append-only trigger
+  // installed by migrate.ts refuses any DELETE.
+  let auditBaseline: Date;
   beforeEach(async () => {
-    // Wipe both the stored row and any drift audit rows from prior tests
-    // so each case starts from a clean slate. Other tests in the suite
-    // write their own audit rows, but none of them use entity_type=config.
     const db = getTestDatabase();
     await db.deleteFrom('app_config').where('key', '=', CONFIG_KEY).execute();
-    await db
-      .deleteFrom('audit_log')
-      .where('entity_type', '=', 'config')
-      .where('action', '=', 'config_change')
-      .execute();
+    auditBaseline = new Date();
     resetConfig();
   });
 
@@ -78,7 +77,7 @@ describe('bootstrapRegistrationModeTracking (F15)', () => {
     await bootstrapRegistrationModeTracking();
 
     expect(await readStored()).toBe('invite_only');
-    expect(await readDriftAuditRows()).toEqual([]);
+    expect(await readDriftAuditRows(auditBaseline)).toEqual([]);
   });
 
   it('is a no-op when the runtime mode matches the stored value', async () => {
@@ -89,7 +88,7 @@ describe('bootstrapRegistrationModeTracking (F15)', () => {
     await bootstrapRegistrationModeTracking();
 
     expect(await readStored()).toBe('invite_only');
-    expect(await readDriftAuditRows()).toEqual([]);
+    expect(await readDriftAuditRows(auditBaseline)).toEqual([]);
   });
 
   it('emits a config_change audit row on drift and updates the stored value', async () => {
@@ -104,7 +103,7 @@ describe('bootstrapRegistrationModeTracking (F15)', () => {
     await bootstrapRegistrationModeTracking();
 
     expect(await readStored()).toBe('open');
-    const rows = await readDriftAuditRows();
+    const rows = await readDriftAuditRows(auditBaseline);
     expect(rows).toHaveLength(1);
     expect(rows[0]!.user_id).toBeNull();
     expect(rows[0]!.changes).toMatchObject({
@@ -129,7 +128,7 @@ describe('bootstrapRegistrationModeTracking (F15)', () => {
     await bootstrapRegistrationModeTracking();
 
     expect(await readStored()).toBe('open');
-    const rows = await readDriftAuditRows();
+    const rows = await readDriftAuditRows(auditBaseline);
     expect(rows).toHaveLength(2);
     expect(rows[0]!.changes).toMatchObject({ from: 'disabled', to: 'invite_only' });
     expect(rows[1]!.changes).toMatchObject({ from: 'invite_only', to: 'open' });

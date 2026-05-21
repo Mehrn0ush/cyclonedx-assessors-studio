@@ -20,8 +20,38 @@ import { MattermostChannel } from '../events/channels/chat-mattermost.js';
 import { BaseChatChannel } from '../events/channels/chat-base.js';
 import { validatePagination } from '../utils/pagination.js';
 import { checkResourceExists } from '../utils/resource-checks.js';
+import { encryptionService, isEncryptedEnvelope } from '../utils/encryption.js';
 
 const router = Router();
+
+/**
+ * Mask a webhook URL for API responses. Returns the origin plus a
+ * placeholder so the admin UI can confirm the platform / target
+ * without ever leaking the credential portion.
+ *
+ *   https://hooks.slack.com/services/T01/B02/abcdEF...
+ *   -> https://hooks.slack.com/...REDACTED
+ */
+function maskWebhookUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.origin}/…REDACTED`;
+  } catch {
+    return '…REDACTED';
+  }
+}
+
+/**
+ * Read a chat_integration.webhook_url that may be either an encrypted
+ * envelope (new rows + migrated rows) or legacy plaintext. Lazy migration
+ * upgrades old rows on first read so we never need a destructive backfill.
+ */
+function decryptWebhookUrlIfNeeded(stored: string): string {
+  if (isEncryptedEnvelope(stored)) {
+    return encryptionService.decrypt(stored);
+  }
+  return stored;
+}
 
 // ---- URL validation per platform ----
 
@@ -81,7 +111,12 @@ interface ChatIntegrationUpdateInput {
 function buildChatIntegrationUpdates(data: ChatIntegrationUpdateInput): Record<string, unknown> {
   const updates: Record<string, unknown> = { updated_at: new Date() };
   if (data.name !== undefined) updates.name = data.name;
-  if (data.webhookUrl !== undefined) updates.webhook_url = data.webhookUrl;
+  if (data.webhookUrl !== undefined) {
+    // Encrypt before write. The URL itself IS the credential for
+    // Slack/Teams/Mattermost incoming webhooks — anyone holding it
+    // can post to the channel.
+    updates.webhook_url = encryptionService.encrypt(data.webhookUrl);
+  }
   if (data.eventCategories !== undefined) updates.event_categories = JSON.stringify(data.eventCategories);
   if (data.channelName !== undefined) updates.channel_name = data.channelName;
   if (data.isActive !== undefined) {
@@ -108,11 +143,16 @@ function buildChatIntegrationResponse(
   integration: ChatIntegrationRow,
   data: ChatIntegrationUpdateInput
 ): Record<string, unknown> {
+  // Always return a masked URL — the credential portion of the webhook
+  // is never re-emitted in API responses (write-only). If the caller
+  // needs to verify or change the URL they must POST a new one.
+  const display = data.webhookUrl
+    ?? (integration.webhook_url ? decryptWebhookUrlIfNeeded(integration.webhook_url) : '');
   return {
     id: integration.id,
     name: data.name ?? integration.name,
     platform: integration.platform,
-    webhookUrl: data.webhookUrl ?? integration.webhook_url,
+    webhookUrl: display ? maskWebhookUrl(display) : '',
     eventCategories: data.eventCategories ?? JSON.parse(integration.event_categories),
     channelName: data.channelName !== undefined ? data.channelName : integration.channel_name,
     isActive: data.isActive ?? integration.is_active,
@@ -161,7 +201,18 @@ router.get(
     }
 
     const integrations = await query.execute();
-    res.json({ data: integrations });
+    // Mask webhook_url before returning. List view never leaks the
+    // credential portion — the admin UI shows masked text and a
+    // "rotate" affordance to overwrite via PUT.
+    const masked = integrations.map((row) => {
+      const r = row as Record<string, unknown>;
+      const stored = (r.webhook_url as string | undefined) ?? '';
+      return {
+        ...r,
+        webhook_url: stored ? maskWebhookUrl(decryptWebhookUrlIfNeeded(stored)) : '',
+      };
+    });
+    res.json({ data: masked });
   }),
 );
 
@@ -201,7 +252,9 @@ router.post(
           id,
           name: data.name,
           platform: data.platform,
-          webhook_url: data.webhookUrl,
+          // Encrypt at write. The URL is a credential — anyone with
+          // it can post to the channel.
+          webhook_url: encryptionService.encrypt(data.webhookUrl),
           event_categories: JSON.stringify(data.eventCategories),
           channel_name: data.channelName || null,
           is_active: true,
@@ -216,7 +269,9 @@ router.post(
         id,
         name: data.name,
         platform: data.platform,
-        webhookUrl: data.webhookUrl,
+        // Response carries masked URL only — never echo the credential
+        // back in the create response either.
+        webhookUrl: maskWebhookUrl(data.webhookUrl),
         eventCategories: data.eventCategories,
         channelName: data.channelName || null,
         isActive: true,
@@ -265,8 +320,10 @@ router.get(
       .select('delivered_at')
       .executeTakeFirst();
 
+    const stored = (integration as Record<string, unknown>).webhook_url as string | undefined;
     res.json({
       ...integration,
+      webhook_url: stored ? maskWebhookUrl(decryptWebhookUrlIfNeeded(stored)) : '',
       deliveryStats: {
         totalDeliveries: Number(totalResult?.count ?? 0),
         successfulDeliveries: Number(successResult?.count ?? 0),

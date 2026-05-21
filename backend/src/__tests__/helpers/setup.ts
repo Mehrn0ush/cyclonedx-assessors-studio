@@ -8,6 +8,7 @@ import fs from 'fs';
 import { Database } from '../../db/types.js';
 import { SQL as MIGRATION_SQL } from '../../db/migrate.js';
 import { seedDefaultRolesAndPermissions } from '../../db/seed.js';
+import { AuditLogAppendOnlyPlugin } from '../../db/audit-log-plugin.js';
 import { logger } from '../../utils/logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -21,7 +22,17 @@ export async function setupTestDb() {
   // Test JWT secret for test environment only
   process.env.JWT_SECRET = 'test-secret-key-for-testing-32-chars-min';
 
-  testDbDir = path.join(__dirname, '../../../..', `data/pglite-test-${uuidv4().slice(0, 8)}`);
+  // Ensure the parent `data/` directory exists explicitly first.
+  // PGlite's worker thread occasionally races the directory check —
+  // mkdirSync with recursive:true *should* create missing parents,
+  // but on macOS we've seen ENOENT come back for a known-good path
+  // when the parent was removed between resolve and write by another
+  // test's teardown. Pre-creating the parent in its own mkdir call
+  // is cheap and serialises against the writer.
+  const dataParent = path.join(__dirname, '../../../..', 'data');
+  fs.mkdirSync(dataParent, { recursive: true });
+
+  testDbDir = path.join(dataParent, `pglite-test-${uuidv4().slice(0, 8)}`);
   process.env.PGLITE_DATA_DIR = testDbDir;
 
   if (!fs.existsSync(testDbDir)) {
@@ -37,6 +48,7 @@ export async function setupTestDb() {
 
   testDb = new Kysely<Database>({
     dialect: pgliteWrapper.dialect,
+    plugins: [new AuditLogAppendOnlyPlugin()],
   });
 
   await runMigrationsWithDb(testDb);

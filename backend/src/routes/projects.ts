@@ -46,6 +46,10 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
 
   if (state) {
     query = query.where('state', '=', state as 'new' | 'in_progress' | 'on_hold' | 'complete' | 'operational' | 'retired');
+  } else {
+    // Match /api/v1/entities: hide soft-deleted (retired) rows by
+    // default. Callers that want to see them must opt in via ?state=retired.
+    query = query.where('state', '!=', 'retired');
   }
 
   // Case-insensitive substring match on name or description. Matches
@@ -63,6 +67,8 @@ router.get('/', requireAuth, asyncHandler(async (req: AuthRequest, res: Response
   let countQuery = db.selectFrom('project').select(db.fn.count<number>('id').as('count'));
   if (state) {
     countQuery = countQuery.where('state', '=', state as 'new' | 'in_progress' | 'on_hold' | 'complete' | 'operational' | 'retired');
+  } else {
+    countQuery = countQuery.where('state', '!=', 'retired');
   }
   if (search) {
     countQuery = countQuery.where((eb) =>

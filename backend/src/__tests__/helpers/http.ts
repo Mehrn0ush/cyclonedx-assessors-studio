@@ -52,7 +52,14 @@ export function setupHttpTests() {
     // Set environment BEFORE any app/config module is loaded.
     // Use a unique suffix to avoid conflicts with stale directories
     // that the sandbox may not allow us to delete.
-    const dbDirBase = path.join(__dirname, '../../../..', 'data/pglite-http-test');
+    // Pre-create the parent `data/` directory explicitly. mkdir
+    // with recursive:true *should* create missing parents, but on
+    // macOS the worker thread occasionally races a sibling teardown
+    // and returns ENOENT for a known-good target. The extra mkdir
+    // is cheap and serialises us against the rare race.
+    const dataParent = path.join(__dirname, '../../../..', 'data');
+    fs.mkdirSync(dataParent, { recursive: true });
+    const dbDirBase = path.join(dataParent, 'pglite-http-test');
     const dbDir = `${dbDirBase}-${Date.now()}`;
     try {
       if (fs.existsSync(dbDirBase)) {
@@ -175,6 +182,36 @@ export function getBaseUrl(): string {
 /** Returns an unauthenticated supertest request builder. */
 export function getAgent(): supertest.SuperTest<supertest.Test> {
   return supertest(baseUrl) as any;
+}
+
+/**
+ * Test-only helper that pokes an assessment directly into a target
+ * state via the DB, skipping the transition matrix and completion
+ * preconditions. Tests use this when they need a "complete" or
+ * "archived" assessment as a fixture for unrelated logic (export,
+ * claims, attestations, retention) and don't care about exercising
+ * the legitimate state-machine path.
+ *
+ * The production API enforces the matrix; this helper is the explicit
+ * "I know this is a back door, I'm using it for fixture setup" hatch.
+ * Never use it outside __tests__.
+ */
+export async function forceAssessmentStateForTests(
+  assessmentId: string,
+  state: 'new' | 'pending' | 'in_progress' | 'on_hold' | 'cancelled' | 'complete' | 'archived',
+): Promise<void> {
+  const { getDatabase } = await import('../../db/connection.js');
+  const db = getDatabase();
+  await db
+    .updateTable('assessment')
+    .set({
+      state,
+      // Stamp end_date on terminal/complete states so any downstream
+      // logic that reads it sees a consistent fixture.
+      ...((['complete', 'archived', 'cancelled'].includes(state)) ? { end_date: new Date() } : {}),
+    })
+    .where('id', '=', assessmentId)
+    .execute();
 }
 
 /**

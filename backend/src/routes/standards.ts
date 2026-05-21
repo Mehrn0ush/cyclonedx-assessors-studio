@@ -756,6 +756,36 @@ router.post(
       return;
     }
 
+    // Refuse retirement while live entities still police themselves
+    // against this standard. Caller can override with ?force=true to
+    // proceed anyway (e.g. when the standard is being superseded by
+    // a duplicate-and-edit lineage and the policies will be migrated
+    // in a follow-up). Without the override this is a 409 listing the
+    // first few referencing entities so the operator can clean up.
+    const force = req.query.force === 'true';
+    if (!force) {
+      const activePolicies = (await db
+        .selectFrom('compliance_policy')
+        .innerJoin('entity', 'entity.id', 'compliance_policy.entity_id')
+        .where('compliance_policy.standard_id', '=', req.params.id as string)
+        .where('entity.state', '!=', 'archived')
+        .select([
+          'entity.id as entity_id',
+          'entity.name as entity_name',
+        ])
+        .limit(10)
+        .execute()) as Array<{ entity_id: string; entity_name: string }>;
+
+      if (activePolicies.length > 0) {
+        res.status(409).json({
+          error: 'Standard has active compliance policies on live entities. Remove them, or retry with ?force=true to retire anyway.',
+          reason: 'active_compliance_policies',
+          entities: activePolicies,
+        });
+        return;
+      }
+    }
+
     await db
       .updateTable('standard')
       .set({

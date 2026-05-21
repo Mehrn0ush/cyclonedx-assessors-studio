@@ -197,17 +197,30 @@ export class EmailChannel implements NotificationChannel {
         return;
       }
 
-      // Queue an email for each recipient
+      // Queue an email for each recipient. The per-user opt-out lives
+      // on app_user.email_notifications; the column defaults to TRUE so
+      // existing rows keep the prior behaviour. Users toggle it off via
+      // PUT /api/v1/me { emailNotifications: false }.
       for (const userId of recipientIds) {
-        // Look up user email
         const user = await db
           .selectFrom('app_user')
           .where('id', '=', userId)
-          .select(['email'])
+          .select(['email', 'email_notifications'])
           .executeTakeFirst();
 
         if (!user?.email) {
           logger.debug('User has no email address', { eventId: envelope.id, userId });
+          continue;
+        }
+
+        // Respect the user's opt-out. The default in the DB is TRUE,
+        // so omitted/null values resolve to "opted in" — only an
+        // explicit FALSE suppresses delivery.
+        if (user.email_notifications === false) {
+          logger.debug('Skipping email: user has email notifications disabled', {
+            eventId: envelope.id,
+            userId,
+          });
           continue;
         }
 

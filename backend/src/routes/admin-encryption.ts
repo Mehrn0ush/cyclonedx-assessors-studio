@@ -107,11 +107,16 @@ router.post(
     // Create new key version
     const newVersion = await rotateKeyVersion(db);
 
-    // Re-wrap all webhook secrets under the new key version
-    let rekeyed = 0;
+    // Re-wrap every encrypted-at-rest column under the new key version.
+    // The chat_integration.webhook_url was added to this iteration set
+    // when the column moved from plaintext to envelope encryption; rows
+    // written before that change pass through `isEncryptedEnvelope`
+    // inside `encryptionService.rekey` as a no-op so the upgrade is
+    // safe to run repeatedly.
     let processed = 0;
+    let rekeyed = 0;
 
-    const result = await encryptionService.rekey(
+    const webhookResult = await encryptionService.rekey(
       async function* () {
         const webhooks = await db
           .selectFrom('webhook')
@@ -129,15 +134,39 @@ router.post(
           .execute();
       },
     );
+    processed += webhookResult.processed;
+    rekeyed += webhookResult.rekeyed;
 
-    processed = result.processed;
-    rekeyed = result.rekeyed;
+    const chatResult = await encryptionService.rekey(
+      async function* () {
+        const rows = await db
+          .selectFrom('chat_integration')
+          .select(['id', 'webhook_url'])
+          .execute();
+        for (const row of rows) {
+          yield { id: row.id, value: row.webhook_url };
+        }
+      },
+      async (id, value) => {
+        await db
+          .updateTable('chat_integration')
+          .set({ webhook_url: value, updated_at: new Date() })
+          .where('id', '=', id)
+          .execute();
+      },
+    );
+    processed += chatResult.processed;
+    rekeyed += chatResult.rekeyed;
 
     logger.info('Encryption key rotated', {
       oldVersion,
       newVersion,
       processed,
       rekeyed,
+      breakdown: {
+        webhooks: webhookResult,
+        chatIntegrations: chatResult,
+      },
       userId: req.user!.id,
     });
 
@@ -147,6 +176,10 @@ router.post(
       newVersion,
       processed,
       rekeyed,
+      breakdown: {
+        webhooks: webhookResult,
+        chatIntegrations: chatResult,
+      },
     });
   })
 );

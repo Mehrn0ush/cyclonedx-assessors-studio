@@ -136,11 +136,16 @@ router.get('/relationship-graph', requireAuth, async (req: AuthRequest, res: Res
       .select(['id', 'name', 'entity_type'])
       .execute();
 
-    // Fetch all relationships
+    // Fetch all relationships. Both endpoints must be non-archived;
+    // archived entities are hidden from the graph above, so showing
+    // edges that point into the void would just produce dangling
+    // nodes in the visualisation.
     let relQuery = db
       .selectFrom('entity_relationship')
       .innerJoin('entity as source', 'source.id', 'entity_relationship.source_entity_id')
       .innerJoin('entity as target', 'target.id', 'entity_relationship.target_entity_id')
+      .where('source.state', '!=', 'archived')
+      .where('target.state', '!=', 'archived')
       .select([
         'entity_relationship.id as id',
         'entity_relationship.source_entity_id as source_entity_id',
@@ -232,11 +237,14 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
       return;
     }
 
-    // Get entity relationships (parent entities)
+    // Get entity relationships (parent entities). Archived parents are
+    // suppressed so a soft-deleted entity does not appear to participate
+    // in the hierarchy of live entities.
     const parentRelationships = (await db
       .selectFrom('entity_relationship')
       .innerJoin('entity', 'entity.id', 'entity_relationship.source_entity_id')
       .where('entity_relationship.target_entity_id', '=', req.params.id)
+      .where('entity.state', '!=', 'archived')
       .select([
         'entity_relationship.id as id',
         'entity_relationship.source_entity_id as source_entity_id',
@@ -246,11 +254,12 @@ router.get('/:id', requireAuth, async (req: AuthRequest, res: Response): Promise
       ])
       .execute()) as Record<string, unknown>[];
 
-    // Get child entities
+    // Get child entities. Same archived filter applies to children.
     const childRelationships = (await db
       .selectFrom('entity_relationship')
       .innerJoin('entity', 'entity.id', 'entity_relationship.target_entity_id')
       .where('entity_relationship.source_entity_id', '=', req.params.id as string)
+      .where('entity.state', '!=', 'archived')
       .select([
         'entity_relationship.id as id',
         'entity_relationship.source_entity_id as source_entity_id',
@@ -841,7 +850,55 @@ router.delete(
   }
 );
 
-// GET /:id/policies - Get compliance policies (direct + inherited from parent entities)
+// Relationship types that confer policy inheritance from source -> target.
+// Typed against the schema enum so Kysely's `.where('... in', ...)`
+// accepts it without an unknown-string cast.
+type InheritanceRelationship = 'owns' | 'contains' | 'governs';
+const INHERITANCE_RELATIONSHIPS: ReadonlyArray<InheritanceRelationship> = [
+  'owns',
+  'contains',
+  'governs',
+];
+
+// BFS through hierarchical parents to collect every ancestor of `entityId`.
+// Cycle-safe via the `seen` set. Skips ancestors whose entity row is
+// archived — soft-deleted parents must not contribute policies.
+async function collectAncestorEntityIds(
+  db: ReturnType<typeof getDatabase>,
+  entityId: string,
+): Promise<string[]> {
+  const seen = new Set<string>([entityId]);
+  const ancestors = new Set<string>();
+  let frontier: string[] = [entityId];
+
+  while (frontier.length > 0) {
+    const rows = (await db
+      .selectFrom('entity_relationship as er')
+      .innerJoin('entity as parent', 'parent.id', 'er.source_entity_id')
+      .where('er.target_entity_id', 'in', frontier)
+      .where('er.relationship_type', 'in', INHERITANCE_RELATIONSHIPS as unknown as InheritanceRelationship[])
+      .where('parent.state', '!=', 'archived')
+      .select(['er.source_entity_id as parent_id'])
+      .execute()) as Array<{ parent_id: string }>;
+
+    const next: string[] = [];
+    for (const row of rows) {
+      if (seen.has(row.parent_id)) continue;
+      seen.add(row.parent_id);
+      ancestors.add(row.parent_id);
+      next.push(row.parent_id);
+    }
+    frontier = next;
+  }
+
+  return [...ancestors];
+}
+
+// GET /:id/policies - Get compliance policies (direct + inherited from all ancestors).
+// Inheritance walks the full hierarchy (parents, grandparents, ...) via
+// the INHERITANCE_RELATIONSHIPS edges, with cycle protection and an
+// archived-entity filter. `is_inherited` in the response reflects how
+// the policy was reached on this request, not the stored column.
 router.get('/:id/policies', requireAuth, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const db = getDatabase();
@@ -857,7 +914,10 @@ router.get('/:id/policies', requireAuth, asyncHandler(async (req: AuthRequest, r
       return;
     }
 
-    // Get direct policies
+    // Column list is duplicated rather than lifted to a variable so
+    // Kysely can infer the join'd column types — a tuple bound to
+    // `as const` widens to `readonly string[]` and `.select()`'s
+    // overloads then reject it.
     const directPolicies = (await db
       .selectFrom('compliance_policy')
       .innerJoin('standard', 'standard.id', 'compliance_policy.standard_id')
@@ -865,39 +925,27 @@ router.get('/:id/policies', requireAuth, asyncHandler(async (req: AuthRequest, r
       .select([
         'compliance_policy.id as id',
         'compliance_policy.standard_id as standard_id',
+        'compliance_policy.entity_id as entity_id',
         'compliance_policy.description as description',
-        'compliance_policy.is_inherited as is_inherited',
         'standard.name as standard_name',
         'standard.version as standard_version',
         'standard.description as standard_description',
       ])
       .execute()) as Record<string, unknown>[];
 
-    // Get parent entities via entity_relationship
-    const parentEntities = (await db
-      .selectFrom('entity_relationship')
-      .where((eb) =>
-        eb.and([
-          eb('target_entity_id', '=', req.params.id),
-          eb('relationship_type', 'in', ['owns', 'contains', 'governs']),
-        ])
-      )
-      .select('source_entity_id')
-      .execute()) as Record<string, unknown>[];
+    const ancestorIds = await collectAncestorEntityIds(db, req.params.id as string);
 
-    // Get inherited policies from parents
     let inheritedPolicies: Record<string, unknown>[] = [];
-    if (parentEntities.length > 0) {
-      const parentIds = parentEntities.map((p) => (p as Record<string, unknown>).source_entity_id as string);
+    if (ancestorIds.length > 0) {
       inheritedPolicies = (await db
         .selectFrom('compliance_policy')
         .innerJoin('standard', 'standard.id', 'compliance_policy.standard_id')
-        .where('compliance_policy.entity_id', 'in', parentIds)
+        .where('compliance_policy.entity_id', 'in', ancestorIds)
         .select([
           'compliance_policy.id as id',
           'compliance_policy.standard_id as standard_id',
+          'compliance_policy.entity_id as entity_id',
           'compliance_policy.description as description',
-          'compliance_policy.is_inherited as is_inherited',
           'standard.name as standard_name',
           'standard.version as standard_version',
           'standard.description as standard_description',
@@ -905,10 +953,16 @@ router.get('/:id/policies', requireAuth, asyncHandler(async (req: AuthRequest, r
         .execute()) as Record<string, unknown>[];
     }
 
-    // Mark inherited policies
+    // Deduplicate when the same standard is policed both directly and by
+    // an ancestor: direct wins.
+    const directStandards = new Set(directPolicies.map(p => p.standard_id as string));
+    const filteredInherited = inheritedPolicies.filter(
+      p => !directStandards.has(p.standard_id as string),
+    );
+
     const allPolicies = [
       ...directPolicies.map(p => ({ ...p, is_inherited: false })),
-      ...inheritedPolicies.map(p => ({ ...p, is_inherited: true })),
+      ...filteredInherited.map(p => ({ ...p, is_inherited: true })),
     ];
 
     res.json({ data: allPolicies });
@@ -947,6 +1001,24 @@ router.post(
 
       if (!standard) {
         res.status(404).json({ error: 'Standard not found' });
+        return;
+      }
+
+      // App-side uniqueness check. UNIQUE(entity_id, standard_id) at
+      // migrate.ts:917 covers us in the DB, but raising it from here
+      // turns the failure into a clean 409 rather than a 500 leaked
+      // from the driver.
+      const existing = await db
+        .selectFrom('compliance_policy')
+        .where('entity_id', '=', req.params.id as string)
+        .where('standard_id', '=', data.standardId)
+        .select('id')
+        .executeTakeFirst();
+
+      if (existing) {
+        res.status(409).json({
+          error: 'A compliance policy for this standard already exists on this entity',
+        });
         return;
       }
 

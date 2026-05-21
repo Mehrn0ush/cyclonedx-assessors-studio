@@ -32,8 +32,36 @@ import {
   parseJsonbColumn as parseJsonbColumnLocal,
   toJsfSigner,
 } from '../utils/export-affirmation.js';
+import { validateBom } from '../cdxspec/validator/validate.js';
 
 const router = Router();
+
+// Refuse to ship a malformed BOM rather than letting a writer drift
+// silently. Validation is fast in-process (cached AJV); failures are
+// always logged with the first few errors so they're triagable.
+function assertBomValid(
+  bom: Bom,
+  specVersion: CdxSpecVersion,
+  context: Record<string, unknown>,
+): { ok: true } | { ok: false; status: number; body: Record<string, unknown> } {
+  const result = validateBom(bom, specVersion);
+  if (result.valid) return { ok: true };
+  logger.error('CycloneDX export failed schema validation', {
+    ...context,
+    specVersion,
+    errorCount: result.errors.length,
+    firstErrors: result.errors.slice(0, 5),
+  });
+  return {
+    ok: false,
+    status: 500,
+    body: {
+      error: 'Internal error: generated BOM failed schema validation',
+      specVersion,
+      validationErrors: result.errors.slice(0, 5),
+    },
+  };
+}
 
 // Supported CycloneDX schema versions. 1.7 (ECMA-424 2nd Edition) is
 // the default for new work per the cyclonedx-spec guidance; 1.6
@@ -836,6 +864,12 @@ router.get('/assessment/:assessmentId', requireAuth, requirePermission('export.c
   // Build BOM
   const bom = await buildAssessmentBOM(assessmentId, specVersion);
 
+  const check = assertBomValid(bom, specVersion, { assessmentId, requestId: req.requestId });
+  if (!check.ok) {
+    res.status(check.status).json(check.body);
+    return;
+  }
+
   // Set response headers
   res.setHeader('Content-Type', 'application/vnd.cyclonedx+json');
   res.setHeader('Content-Disposition', `attachment; filename="assessment-${assessmentId}-cdx-${specVersion}.json"`);
@@ -988,6 +1022,12 @@ router.get('/project/:projectId', requireAuth, requirePermission('export.cyclone
         : undefined,
     documentSeal: mergedDocumentSeal,
   });
+
+  const check = assertBomValid(projectBOM, specVersion, { projectId, requestId: req.requestId });
+  if (!check.ok) {
+    res.status(check.status).json(check.body);
+    return;
+  }
 
   // Set response headers
   res.setHeader('Content-Type', 'application/vnd.cyclonedx+json');

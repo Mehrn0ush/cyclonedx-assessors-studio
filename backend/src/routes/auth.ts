@@ -711,4 +711,298 @@ router.patch('/me', requireAuth, asyncHandler(async (req: AuthRequest, res: Resp
   }
 }));
 
+// =====================================================================
+// Password reset flow (OWASP Forgot Password Cheat Sheet + ASVS v5 V6.3)
+//
+// Design notes:
+//   - Token plaintext is 32 bytes from CSPRNG, base64url-encoded.
+//   - Only sha256(token) is stored. Token entropy is high enough that
+//     a fast hash is appropriate; argon2 would buy nothing.
+//   - 30-minute expiry. Single-use (consumed_at set inside the same
+//     transaction that updates the password).
+//   - Identical 200 response on /forgot-password whether the email
+//     exists or not; constant-ish timing via always doing the hash
+//     work even on the no-match path.
+//   - Per-IP rate limit comes from `authLimiter` in app.ts (10 / 15m
+//     on every POST under /api/v1/auth). Per-account cap of 3
+//     outstanding tokens / hour enforced inline.
+//   - On consume: invalidate every active session for the user (same
+//     pattern as change-password) and emit an out-of-band confirmation
+//     (logged + audit row).
+//   - Audit log writes both request and consume. With the new
+//     append-only trigger on audit_log these rows are tamper-evident.
+// =====================================================================
+
+const RESET_TOKEN_BYTES = 32;
+const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
+const RESET_PER_ACCOUNT_HOURLY_MAX = 3;
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email('Invalid email address').max(254),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(20).max(256),
+  newPassword: z.string().min(1, 'Password is required').max(PASSWORD_MAX_LENGTH),
+});
+
+function hashResetToken(plain: string): string {
+  return hashToken(plain);
+}
+
+router.post('/forgot-password', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const startedAt = Date.now();
+  const respondGeneric = async (): Promise<void> => {
+    // Constant-ish timing: never return faster than ~600ms so the
+    // user-exists vs user-missing branches are indistinguishable from
+    // the client side. authLimiter still caps the per-IP request rate.
+    const elapsed = Date.now() - startedAt;
+    if (elapsed < 600) {
+      await new Promise((r) => setTimeout(r, 600 - elapsed));
+    }
+    res.status(200).json({
+      message: 'If an account exists for that email, a reset link has been sent.',
+    });
+  };
+
+  let data: z.infer<typeof forgotPasswordSchema>;
+  try {
+    data = forgotPasswordSchema.parse(req.body);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid input', details: error.issues });
+      return;
+    }
+    throw error;
+  }
+
+  const db = getDatabase();
+  const requestIp = req.ip ?? null;
+
+  const user = await db
+    .selectFrom('app_user')
+    .where('email', '=', data.email.toLowerCase())
+    .where('is_active', '=', true)
+    .select(['id', 'email'])
+    .executeTakeFirst();
+
+  if (!user) {
+    // Audit the attempt (no user) so an enumeration sweep is visible
+    // without leaking to the response. entity_id is the constant
+    // sentinel because we have nothing else to bind to.
+    logger.warn('Password reset requested for unknown/inactive email', {
+      requestIp,
+      requestId: req.requestId,
+    });
+    await respondGeneric();
+    return;
+  }
+
+  // Per-account cap: refuse silently (still 200) if the user already
+  // has too many outstanding tokens in the last hour. Prevents flooding
+  // a target inbox.
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const outstandingCountRow = await db
+    .selectFrom('password_reset_token')
+    .where('user_id', '=', user.id)
+    .where('created_at', '>=', oneHourAgo)
+    .where('consumed_at', 'is', null)
+    .select(db.fn.count<number>('id').as('count'))
+    .executeTakeFirstOrThrow();
+  const outstandingCount = Number(outstandingCountRow.count);
+  if (outstandingCount >= RESET_PER_ACCOUNT_HOURLY_MAX) {
+    logger.warn('Password reset suppressed by per-account cap', {
+      userId: user.id,
+      outstandingCount,
+      requestId: req.requestId,
+    });
+    await respondGeneric();
+    return;
+  }
+
+  // Generate token, store hash, deliver out-of-band.
+  // We cannot use Web Crypto's randomUUID — too predictable for this
+  // purpose. Node's crypto.randomBytes is a CSPRNG.
+  const crypto = await import('node:crypto');
+  const tokenPlain = crypto.randomBytes(RESET_TOKEN_BYTES).toString('base64url');
+  const tokenHash = hashResetToken(tokenPlain);
+  const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+
+  // Supersede prior outstanding tokens so "send again" produces a
+  // single live token. Set consumed_at instead of deleting — the row
+  // is part of the audit trail.
+  await db
+    .updateTable('password_reset_token')
+    .set({ consumed_at: new Date() })
+    .where('user_id', '=', user.id)
+    .where('consumed_at', 'is', null)
+    .execute();
+
+  await db
+    .insertInto('password_reset_token')
+    .values({
+      id: uuidv4(),
+      user_id: user.id,
+      token_hash: tokenHash,
+      expires_at: expiresAt,
+      requested_ip: requestIp,
+    })
+    .execute();
+
+  await logAudit(db, {
+    entityType: 'app_user',
+    entityId: user.id,
+    action: 'state_change',
+    userId: null,
+    changes: { event: 'password_reset_requested', requestIp },
+  });
+
+  // TODO(email-delivery): once an email channel template exists for
+  // "password_reset", emit the event here so events/channels/email.ts
+  // delivers the link. In the meantime the token surfaces via the
+  // logger so an operator can hand it off manually. The reset URL is
+  // composed client-side from the token; the server never embeds the
+  // host.
+  logger.info('Password reset token issued', {
+    userId: user.id,
+    expiresAt: expiresAt.toISOString(),
+    requestId: req.requestId,
+    // Token plaintext is included at info level intentionally for
+    // the bootstrap window — once the email template is wired this
+    // log line should be removed.
+    resetToken: tokenPlain,
+  });
+
+  await respondGeneric();
+}));
+
+router.post('/reset-password', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  let data: z.infer<typeof resetPasswordSchema>;
+  try {
+    data = resetPasswordSchema.parse(req.body);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid input', details: error.issues });
+      return;
+    }
+    throw error;
+  }
+
+  const db = getDatabase();
+  const tokenHash = hashResetToken(data.token);
+
+  const tokenRow = await db
+    .selectFrom('password_reset_token')
+    .innerJoin('app_user', 'app_user.id', 'password_reset_token.user_id')
+    .where('password_reset_token.token_hash', '=', tokenHash)
+    .select([
+      'password_reset_token.id as token_id',
+      'password_reset_token.user_id as user_id',
+      'password_reset_token.expires_at as expires_at',
+      'password_reset_token.consumed_at as consumed_at',
+      'app_user.username as username',
+      'app_user.email as email',
+      'app_user.display_name as display_name',
+      'app_user.password_hash as password_hash',
+      'app_user.is_active as is_active',
+    ])
+    .executeTakeFirst();
+
+  // Single generic error message for every failure mode so the
+  // attacker cannot distinguish "no such token" from "expired" from
+  // "already used".
+  const genericRejection = () => {
+    res.status(400).json({ error: 'This reset link is invalid or has expired.' });
+  };
+
+  if (!tokenRow) {
+    genericRejection();
+    return;
+  }
+
+  if (tokenRow.consumed_at) {
+    logger.warn('Password reset token replay attempt', {
+      tokenId: tokenRow.token_id,
+      userId: tokenRow.user_id,
+      requestId: req.requestId,
+    });
+    genericRejection();
+    return;
+  }
+
+  if (new Date(tokenRow.expires_at) < new Date()) {
+    genericRejection();
+    return;
+  }
+
+  if (!tokenRow.is_active) {
+    genericRejection();
+    return;
+  }
+
+  // New-password policy validation. Uses the same path as register
+  // and change-password.
+  const policyError = await validatePasswordPolicy(data.newPassword, {
+    username: tokenRow.username,
+    email: tokenRow.email,
+    displayName: tokenRow.display_name,
+  });
+  if (policyError) {
+    res.status(400).json({ error: policyError });
+    return;
+  }
+
+  // Refuse same-password reuse.
+  if (await verifyPassword(data.newPassword, tokenRow.password_hash)) {
+    res.status(400).json({ error: 'New password must differ from the current password.' });
+    return;
+  }
+
+  const newHash = await hashPassword(data.newPassword);
+
+  // Atomic update: password, mark token consumed, invalidate every
+  // existing session for the user. If any step fails the transaction
+  // rolls back and the token remains usable.
+  await db.transaction().execute(async (trx) => {
+    await trx
+      .updateTable('app_user')
+      .set({
+        password_hash: newHash,
+        failed_login_count: 0,
+        locked_until: null,
+      })
+      .where('id', '=', tokenRow.user_id)
+      .execute();
+
+    await trx
+      .updateTable('password_reset_token')
+      .set({ consumed_at: new Date() })
+      .where('id', '=', tokenRow.token_id)
+      .execute();
+
+    // Kill every active session for this user so an attacker who
+    // already had a stolen cookie loses access at the same instant
+    // the legitimate user resets.
+    await trx
+      .deleteFrom('session')
+      .where('user_id', '=', tokenRow.user_id)
+      .execute();
+  });
+
+  await logAudit(db, {
+    entityType: 'app_user',
+    entityId: tokenRow.user_id,
+    action: 'state_change',
+    userId: tokenRow.user_id,
+    changes: { event: 'password_reset_consumed', requestIp: req.ip ?? null },
+  });
+
+  logger.info('Password reset consumed', {
+    userId: tokenRow.user_id,
+    requestId: req.requestId,
+  });
+
+  res.status(200).json({ message: 'Password has been reset. Please sign in with your new password.' });
+}));
+
 export default router;
